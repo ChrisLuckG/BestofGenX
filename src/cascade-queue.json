@@ -1,0 +1,24 @@
+{
+  "status": "completed",
+  "currentStep": 3,
+  "totalSteps": 3,
+  "stepDescription": "Done! Language auto-detection added.",
+  "tasks": [
+    {
+      "id": "6a270ae8e4b3febe622d3133",
+      "title": "Feature: Auto-Data Recognition for Video Upload",
+      "description": "Implement auto-detection of video data during upload.",
+      "category": "Admin",
+      "priority": "High",
+      "complexity": "Medium",
+      "aiSuggestions": "Consider using metadata extraction libraries to automate detection."
+    }
+  ],
+  "lastUpdated": "2026-06-08T20:07:30.000Z",
+  "response": null,
+  "cascadeResponse": {
+    "ticketId": "6a27230ee4b3febe622d3159",
+    "message": "Ich hab deine Nachricht bekommen: \"User wants to start the Dev.\". Was genau brauchst du?",
+    "respondedAt": "2026-06-08T20:17:57.144Z"
+  }
+}

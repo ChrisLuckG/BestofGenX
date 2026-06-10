@@ -1,0 +1,48 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/daily-snapshot",
+      "schedule": "0 20 * * *"
+    },
+    {
+      "path": "/api/cron/game-ending",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/check-daily-cards",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/resolve-predictions",
+      "schedule": "5 7 * * *"
+    },
+    {
+      "path": "/api/cron/generate-predictions",
+      "schedule": "15 7 * * *"
+    },
+    {
+      "path": "/api/cron/bot-activity",
+      "schedule": "20 7 * * *"
+    },
+    {
+      "path": "/api/cron/bot-battles",
+      "schedule": "25 7 * * *"
+    },
+    {
+      "path": "/api/cron/game-start",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/game-reminder",
+      "schedule": "5 8 * * *"
+    },
+    {
+      "path": "/api/cron/auto-publish-products",
+      "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/daily-facts-article",
+      "schedule": "0 7 * * *"
+    }
+  ]
+}

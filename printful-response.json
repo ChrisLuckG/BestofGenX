@@ -1,0 +1,458 @@
+﻿{
+    "success":  true,
+    "products":  [
+                     {
+                         "id":  436854933,
+                         "name":  "Best of GenX - GinaLisa",
+                         "description":  "",
+                         "price":  "â¬39.02",
+                         "image":  "https://files.cdn.printful.com/files/c5d/c5dbb2aa6cf3b19f32c6b029be64c688_preview.png",
+                         "images":  [
+                                        "https://files.cdn.printful.com/files/c5d/c5dbb2aa6cf3b19f32c6b029be64c688_preview.png",
+                                        "https://files.cdn.printful.com/files/35b/35bb1fae6836168bd31c2530546008ff_preview.png",
+                                        "https://files.cdn.printful.com/products/659/17117_1686124106.jpg",
+                                        "https://files.cdn.printful.com/products/659/17118_1686124127.jpg",
+                                        "https://files.cdn.printful.com/products/659/17119_1686124137.jpg",
+                                        "https://files.cdn.printful.com/products/659/16400_1686124126.jpg",
+                                        "https://files.cdn.printful.com/products/659/17120_1686124116.jpg",
+                                        "https://files.cdn.printful.com/products/659/17121_1686124127.jpg",
+                                        "https://files.cdn.printful.com/products/659/17122_1686124106.jpg",
+                                        "https://files.cdn.printful.com/products/659/17123_1686124106.jpg",
+                                        "https://files.cdn.printful.com/products/659/17124_1686124116.jpg",
+                                        "https://files.cdn.printful.com/products/659/17125_1686124116.jpg",
+                                        "https://files.cdn.printful.com/products/659/17126_1686124116.jpg"
+                                    ],
+                         "variants":  [
+                                          {
+                                              "id":  5342089869,
+                                              "title":  "Best of GenX - GinaLisa / 2XS",
+                                              "price":  "39.02",
+                                              "available":  true,
+                                              "sku":  "6A24291D49EF8_2XS",
+                                              "variantId":  17117
+                                          },
+                                          {
+                                              "id":  5342089870,
+                                              "title":  "Best of GenX - GinaLisa / XS",
+                                              "price":  "39.02",
+                                              "available":  true,
+                                              "sku":  "6A24291D49EF8_XS",
+                                              "variantId":  17118
+                                          },
+                                          {
+                                              "id":  5342089871,
+                                              "title":  "Best of GenX - GinaLisa / S",
+                                              "price":  "39.02",
+                                              "available":  true,
+                                              "sku":  "6A24291D49EF8_S",
+                                              "variantId":  17119
+                                          },
+                                          {
+                                              "id":  5342089872,
+                                              "title":  "Best of GenX - GinaLisa / M",
+                                              "price":  "39.02",
+                                              "available":  true,
+                                              "sku":  "6A24291D49EF8_M",
+                                              "variantId":  16400
+                                          },
+                                          {
+                                              "id":  5342089873,
+                                              "title":  "Best of GenX - GinaLisa / L",
+                                              "price":  "39.02",
+                                              "available":  true,
+                                              "sku":  "6A24291D49EF8_L",
+                                              "variantId":  17120
+                                          },
+                                          {
+                                              "id":  5342089874,
+                                              "title":  "Best of GenX - GinaLisa / XL",
+                                              "price":  "39.02",
+                                              "available":  true,
+                                              "sku":  "6A24291D49EF8_XL",
+                                              "variantId":  17121
+                                          },
+                                          {
+                                              "id":  5342089875,
+                                              "title":  "Best of GenX - GinaLisa / 2XL",
+                                              "price":  "40.32",
+                                              "available":  true,
+                                              "sku":  "6A24291D49EF8_2XL",
+                                              "variantId":  17122
+                                          },
+                                          {
+                                              "id":  5342089876,
+                                              "title":  "Best of GenX - GinaLisa / 3XL",
+                                              "price":  "41.62",
+                                              "available":  true,
+                                              "sku":  "6A24291D49EF8_3XL",
+                                              "variantId":  17123
+                                          },
+                                          {
+                                              "id":  5342089877,
+                                              "title":  "Best of GenX - GinaLisa / 4XL",
+                                              "price":  "42.92",
+                                              "available":  true,
+                                              "sku":  "6A24291D49EF8_4XL",
+                                              "variantId":  17124
+                                          },
+                                          {
+                                              "id":  5342089878,
+                                              "title":  "Best of GenX - GinaLisa / 5XL",
+                                              "price":  "44.22",
+                                              "available":  true,
+                                              "sku":  "6A24291D49EF8_5XL",
+                                              "variantId":  17125
+                                          },
+                                          {
+                                              "id":  5342089879,
+                                              "title":  "Best of GenX - GinaLisa / 6XL",
+                                              "price":  "45.52",
+                                              "available":  true,
+                                              "sku":  "6A24291D49EF8_6XL",
+                                              "variantId":  17126
+                                          }
+                                      ],
+                         "category":  "apparel"
+                     },
+                     {
+                         "id":  436854324,
+                         "name":  "Best of GenX - GinaLisa",
+                         "description":  "",
+                         "price":  "â¬50.50",
+                         "image":  "https://files.cdn.printful.com/files/45c/45c134ad1c6e36561d0ddebb66c12845_preview.png",
+                         "images":  [
+                                        "https://files.cdn.printful.com/files/45c/45c134ad1c6e36561d0ddebb66c12845_preview.png",
+                                        "https://files.cdn.printful.com/files/35b/35bb1fae6836168bd31c2530546008ff_preview.png",
+                                        "https://files.cdn.printful.com/products/317/9633_1538486718.jpg"
+                                    ],
+                         "variants":  [
+                                          {
+                                              "id":  5342084015,
+                                              "title":  "Best of GenX - GinaLisa / S",
+                                              "price":  "50.50",
+                                              "available":  true,
+                                              "sku":  "6A2427242AB23_S",
+                                              "variantId":  9633
+                                          },
+                                          {
+                                              "id":  5342084016,
+                                              "title":  "Best of GenX - GinaLisa / M",
+                                              "price":  "50.50",
+                                              "available":  true,
+                                              "sku":  "6A2427242AB23_M",
+                                              "variantId":  9634
+                                          },
+                                          {
+                                              "id":  5342084017,
+                                              "title":  "Best of GenX - GinaLisa / L",
+                                              "price":  "50.50",
+                                              "available":  true,
+                                              "sku":  "6A2427242AB23_L",
+                                              "variantId":  9635
+                                          },
+                                          {
+                                              "id":  5342084018,
+                                              "title":  "Best of GenX - GinaLisa / XL",
+                                              "price":  "50.50",
+                                              "available":  true,
+                                              "sku":  "6A2427242AB23_XL",
+                                              "variantId":  9636
+                                          },
+                                          {
+                                              "id":  5342084019,
+                                              "title":  "Best of GenX - GinaLisa / 2XL",
+                                              "price":  "46.00",
+                                              "available":  true,
+                                              "sku":  "6A2427242AB23_2XL",
+                                              "variantId":  9637
+                                          }
+                                      ],
+                         "category":  "apparel"
+                     },
+                     {
+                         "id":  436808663,
+                         "name":  "Best of GenX - Premium pique polo shirt",
+                         "description":  "",
+                         "price":  "â¬23.50",
+                         "image":  "https://files.cdn.printful.com/files/fea/fea1ab5ab9afc39852bb80f2b041bd3f_preview.png",
+                         "images":  [
+                                        "https://files.cdn.printful.com/files/fea/fea1ab5ab9afc39852bb80f2b041bd3f_preview.png",
+                                        "https://files.cdn.printful.com/files/520/520ff5637168b3538ad8a7159fe583f1_preview.png",
+                                        "https://files.cdn.printful.com/products/810/20624_1730806405.jpg",
+                                        "https://files.cdn.printful.com/products/810/20610_1730806405.jpg",
+                                        "https://files.cdn.printful.com/products/810/20617_1730806394.jpg",
+                                        "https://files.cdn.printful.com/products/810/20631_1730806406.jpg",
+                                        "https://files.cdn.printful.com/products/810/20638_1730806393.jpg",
+                                        "https://files.cdn.printful.com/products/810/20645_1730806393.jpg",
+                                        "https://files.cdn.printful.com/products/810/20652_1730806394.jpg",
+                                        "https://files.cdn.printful.com/products/810/20659_1730806394.jpg"
+                                    ],
+                         "variants":  [
+                                          {
+                                              "id":  5341652056,
+                                              "title":  "Best of GenX - Premium pique polo shirt / S",
+                                              "price":  "23.50",
+                                              "available":  true,
+                                              "sku":  "6A2373576F2C9_S",
+                                              "variantId":  20624
+                                          },
+                                          {
+                                              "id":  5341652057,
+                                              "title":  "Best of GenX - Premium pique polo shirt / M",
+                                              "price":  "23.50",
+                                              "available":  true,
+                                              "sku":  "6A2373576F2C9_M",
+                                              "variantId":  20610
+                                          },
+                                          {
+                                              "id":  5341652058,
+                                              "title":  "Best of GenX - Premium pique polo shirt / L",
+                                              "price":  "23.50",
+                                              "available":  true,
+                                              "sku":  "6A2373576F2C9_L",
+                                              "variantId":  20617
+                                          },
+                                          {
+                                              "id":  5341652059,
+                                              "title":  "Best of GenX - Premium pique polo shirt / XL",
+                                              "price":  "23.50",
+                                              "available":  true,
+                                              "sku":  "6A2373576F2C9_XL",
+                                              "variantId":  20631
+                                          },
+                                          {
+                                              "id":  5341652060,
+                                              "title":  "Best of GenX - Premium pique polo shirt / 2XL",
+                                              "price":  "25.50",
+                                              "available":  true,
+                                              "sku":  "6A2373576F2C9_2XL",
+                                              "variantId":  20638
+                                          },
+                                          {
+                                              "id":  5341652061,
+                                              "title":  "Best of GenX - Premium pique polo shirt / 3XL",
+                                              "price":  "27.00",
+                                              "available":  true,
+                                              "sku":  "6A2373576F2C9_3XL",
+                                              "variantId":  20645
+                                          },
+                                          {
+                                              "id":  5341652062,
+                                              "title":  "Best of GenX - Premium pique polo shirt / 4XL",
+                                              "price":  "28.50",
+                                              "available":  true,
+                                              "sku":  "6A2373576F2C9_4XL",
+                                              "variantId":  20652
+                                          },
+                                          {
+                                              "id":  5341652063,
+                                              "title":  "Best of GenX - Premium pique polo shirt / 5XL",
+                                              "price":  "30.50",
+                                              "available":  true,
+                                              "sku":  "6A2373576F2C9_5XL",
+                                              "variantId":  20659
+                                          }
+                                      ],
+                         "category":  "apparel"
+                     },
+                     {
+                         "id":  436733468,
+                         "name":  "BestofGenX - Premium Pillow Case",
+                         "description":  "",
+                         "price":  "â¬20.00",
+                         "image":  "https://files.cdn.printful.com/files/e47/e475ee2d73ec45a403fd2fc82c92469f_preview.png",
+                         "images":  [
+                                        "https://files.cdn.printful.com/files/e47/e475ee2d73ec45a403fd2fc82c92469f_preview.png",
+                                        "https://files.cdn.printful.com/files/12a/12a8c18dca7bafa2ac0c7f6ccc9b9d5b_preview.png",
+                                        "https://files.cdn.printful.com/products/215/9516_1581582743.jpg",
+                                        "https://files.cdn.printful.com/files/210/210862a29f4e799163bef2e57b5a964f_preview.png",
+                                        "https://files.cdn.printful.com/products/215/7908_1581582767.jpg",
+                                        "https://files.cdn.printful.com/files/784/784d57498d2215a54f49438c550930a3_preview.png",
+                                        "https://files.cdn.printful.com/products/215/11078_1581582791.jpg"
+                                    ],
+                         "variants":  [
+                                          {
+                                              "id":  5340378309,
+                                              "title":  "BestofGenX - Premium Pillow Case / 18â³Ã18â³",
+                                              "price":  "20.00",
+                                              "available":  true,
+                                              "sku":  "6A22CA7F65772_18â³x18â³",
+                                              "variantId":  9516
+                                          },
+                                          {
+                                              "id":  5340378310,
+                                              "title":  "BestofGenX - Premium Pillow Case / 20â³Ã12â³",
+                                              "price":  "18.50",
+                                              "available":  true,
+                                              "sku":  "6A22CA7F65772_20â³x12â³",
+                                              "variantId":  7908
+                                          },
+                                          {
+                                              "id":  5340378311,
+                                              "title":  "BestofGenX - Premium Pillow Case / 22â³Ã22â³",
+                                              "price":  "21.00",
+                                              "available":  true,
+                                              "sku":  "6A22CA7F65772_22â³x22â³",
+                                              "variantId":  11078
+                                          }
+                                      ],
+                         "category":  "apparel"
+                     },
+                     {
+                         "id":  436732752,
+                         "name":  "BestofGenX - Travel mug with a handle",
+                         "description":  "",
+                         "price":  "â¬23.50",
+                         "image":  "https://files.cdn.printful.com/files/a66/a66066cc8b036148472e3b761af8d954_preview.png",
+                         "images":  [
+                                        "https://files.cdn.printful.com/files/a66/a66066cc8b036148472e3b761af8d954_preview.png",
+                                        "https://files.cdn.printful.com/files/12a/12a8c18dca7bafa2ac0c7f6ccc9b9d5b_preview.png",
+                                        "https://files.cdn.printful.com/products/663/16440_1678345370.jpg",
+                                        "https://files.cdn.printful.com/files/3da/3da5ad8d6c8e0b3cb03a22e49e2fe105_preview.png",
+                                        "https://files.cdn.printful.com/products/663/19514_1717737722.jpg"
+                                    ],
+                         "variants":  [
+                                          {
+                                              "id":  5340373499,
+                                              "title":  "BestofGenX - Travel mug with a handle / 25 oz",
+                                              "price":  "23.50",
+                                              "available":  true,
+                                              "sku":  "6A22C88C911C1_25-oz",
+                                              "variantId":  16440
+                                          },
+                                          {
+                                              "id":  5340373500,
+                                              "title":  "BestofGenX - Travel mug with a handle / 40 oz",
+                                              "price":  "25.00",
+                                              "available":  true,
+                                              "sku":  "6A22C88C911C1_40-oz",
+                                              "variantId":  19514
+                                          }
+                                      ],
+                         "category":  "drinkware"
+                     },
+                     {
+                         "id":  436731953,
+                         "name":  "BestofGenX - Menâs slim fit polo",
+                         "description":  "",
+                         "price":  "â¬34.50",
+                         "image":  "https://files.cdn.printful.com/files/571/571170affb6cf728955beac750599ce1_preview.png",
+                         "images":  [
+                                        "https://files.cdn.printful.com/files/571/571170affb6cf728955beac750599ce1_preview.png",
+                                        "https://files.cdn.printful.com/files/875/87523b4a8b4f64bc745e1a6423eacef7_preview.png",
+                                        "https://files.cdn.printful.com/files/906/906179aa20a54e03b5d36cc63ef40c78_preview.png",
+                                        "https://files.cdn.printful.com/products/791/20194_1721732666.jpg",
+                                        "https://files.cdn.printful.com/products/791/20196_1721732666.jpg",
+                                        "https://files.cdn.printful.com/products/791/20198_1721732657.jpg",
+                                        "https://files.cdn.printful.com/products/791/20200_1721732656.jpg",
+                                        "https://files.cdn.printful.com/products/791/20202_1721732666.jpg",
+                                        "https://files.cdn.printful.com/products/791/20204_1721732645.jpg",
+                                        "https://files.cdn.printful.com/products/791/20206_1721732645.jpg"
+                                    ],
+                         "variants":  [
+                                          {
+                                              "id":  5340368079,
+                                              "title":  "BestofGenX - Menâs slim fit polo / XS",
+                                              "price":  "34.50",
+                                              "available":  true,
+                                              "sku":  "6A22C62382E9E_XS",
+                                              "variantId":  20194
+                                          },
+                                          {
+                                              "id":  5340368080,
+                                              "title":  "BestofGenX - Menâs slim fit polo / S",
+                                              "price":  "34.50",
+                                              "available":  true,
+                                              "sku":  "6A22C62382E9E_S",
+                                              "variantId":  20196
+                                          },
+                                          {
+                                              "id":  5340368081,
+                                              "title":  "BestofGenX - Menâs slim fit polo / M",
+                                              "price":  "34.50",
+                                              "available":  true,
+                                              "sku":  "6A22C62382E9E_M",
+                                              "variantId":  20198
+                                          },
+                                          {
+                                              "id":  5340368082,
+                                              "title":  "BestofGenX - Menâs slim fit polo / L",
+                                              "price":  "34.50",
+                                              "available":  true,
+                                              "sku":  "6A22C62382E9E_L",
+                                              "variantId":  20200
+                                          },
+                                          {
+                                              "id":  5340368083,
+                                              "title":  "BestofGenX - Menâs slim fit polo / XL",
+                                              "price":  "34.50",
+                                              "available":  true,
+                                              "sku":  "6A22C62382E9E_XL",
+                                              "variantId":  20202
+                                          },
+                                          {
+                                              "id":  5340368084,
+                                              "title":  "BestofGenX - Menâs slim fit polo / 2XL",
+                                              "price":  "36.25",
+                                              "available":  true,
+                                              "sku":  "6A22C62382E9E_2XL",
+                                              "variantId":  20204
+                                          },
+                                          {
+                                              "id":  5340368085,
+                                              "title":  "BestofGenX - Menâs slim fit polo / 3XL",
+                                              "price":  "37.75",
+                                              "available":  true,
+                                              "sku":  "6A22C62382E9E_3XL",
+                                              "variantId":  20206
+                                          }
+                                      ],
+                         "category":  "apparel"
+                     },
+                     {
+                         "id":  436527761,
+                         "name":  "White glossy mug",
+                         "description":  "",
+                         "price":  "â¬14.28",
+                         "image":  "https://files.cdn.printful.com/files/3aa/3aa9a14d25c0e2f2020cff750ab5f3c2_preview.png",
+                         "images":  [
+                                        "https://files.cdn.printful.com/files/3aa/3aa9a14d25c0e2f2020cff750ab5f3c2_preview.png",
+                                        "https://files.cdn.printful.com/files/12a/12a8c18dca7bafa2ac0c7f6ccc9b9d5b_preview.png",
+                                        "https://files.cdn.printful.com/files/bde/bde86de04216c62e9ca42cdaf7d3e1d3_preview.png",
+                                        "https://files.cdn.printful.com/products/19/1320_1663762583.jpg",
+                                        "https://files.cdn.printful.com/files/dbc/dbcfdf8abac87d6cca5f9b18120c0a73_preview.png",
+                                        "https://files.cdn.printful.com/products/19/4830_1519394046.jpg",
+                                        "https://files.cdn.printful.com/files/1be/1be40771fff8b04465d84ac043be5e98_preview.png",
+                                        "https://files.cdn.printful.com/products/19/16586_1680616351.jpg"
+                                    ],
+                         "variants":  [
+                                          {
+                                              "id":  5337836370,
+                                              "title":  "White glossy mug / 11 oz",
+                                              "price":  "14.28",
+                                              "available":  true,
+                                              "sku":  "6A20760BF2DB6_11-oz",
+                                              "variantId":  1320
+                                          },
+                                          {
+                                              "id":  5337836371,
+                                              "title":  "White glossy mug / 15 oz",
+                                              "price":  "16.68",
+                                              "available":  true,
+                                              "sku":  "6A20760BF2DB6_15-oz",
+                                              "variantId":  4830
+                                          },
+                                          {
+                                              "id":  5337836372,
+                                              "title":  "White glossy mug / 20 oz",
+                                              "price":  "20.58",
+                                              "available":  true,
+                                              "sku":  "6A20760BF2DB6_20-oz",
+                                              "variantId":  16586
+                                          }
+                                      ],
+                         "category":  "drinkware"
+                     }
+                 ],
+    "storeId":  18277979
+}

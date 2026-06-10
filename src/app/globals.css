@@ -1,0 +1,587 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* iOS Safe Area Support */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  html {
+    --safe-area-inset-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Prevent app zoom but allow pinch-zoom on specific elements */
+html {
+  touch-action: pan-x pan-y;
+}
+
+.touch-pinch-zoom {
+  touch-action: pinch-zoom pan-x pan-y;
+}
+
+/* Quill Editor Styles */
+@import 'react-quill-new/dist/quill.snow.css';
+
+/* Google Fonts for Quill editor */
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;700&family=Lato:wght@400;700&family=Lobster&family=Montserrat:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Playfair+Display:wght@400;700&family=Poppins:wght@400;700&family=Press+Start+2P&family=Roboto:wght@400;700&display=swap');
+
+/* ===== QUILL FONT FAMILIES ===== */
+.ql-font-sans-serif { font-family: sans-serif; }
+.ql-font-serif { font-family: serif; }
+.ql-font-monospace { font-family: monospace; }
+.ql-font-arial { font-family: Arial, sans-serif; }
+.ql-font-georgia { font-family: Georgia, serif; }
+.ql-font-times-new-roman { font-family: 'Times New Roman', Times, serif; }
+.ql-font-courier { font-family: 'Courier New', Courier, monospace; }
+.ql-font-verdana { font-family: Verdana, Geneva, sans-serif; }
+.ql-font-tahoma { font-family: Tahoma, Geneva, sans-serif; }
+.ql-font-trebuchet { font-family: 'Trebuchet MS', sans-serif; }
+.ql-font-comic-sans { font-family: 'Comic Sans MS', cursive; }
+.ql-font-impact { font-family: Impact, Charcoal, sans-serif; }
+.ql-font-inter { font-family: 'Inter', sans-serif; }
+.ql-font-roboto { font-family: 'Roboto', sans-serif; }
+.ql-font-open-sans { font-family: 'Open Sans', sans-serif; }
+.ql-font-lato { font-family: 'Lato', sans-serif; }
+.ql-font-montserrat { font-family: 'Montserrat', sans-serif; }
+.ql-font-poppins { font-family: 'Poppins', sans-serif; }
+.ql-font-playfair { font-family: 'Playfair Display', serif; }
+.ql-font-bebas-neue { font-family: 'Bebas Neue', sans-serif; }
+.ql-font-oswald { font-family: 'Oswald', sans-serif; }
+.ql-font-lobster { font-family: 'Lobster', cursive; }
+.ql-font-pacifico { font-family: 'Pacifico', cursive; }
+.ql-font-press-start { font-family: 'Press Start 2P', cursive; }
+
+/* Font dropdown labels (Quill picker) */
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="sans-serif"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="sans-serif"]::before { content: 'Sans Serif'; font-family: sans-serif; }
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="serif"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="serif"]::before { content: 'Serif'; font-family: serif; }
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="monospace"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="monospace"]::before { content: 'Monospace'; font-family: monospace; }
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="arial"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="arial"]::before { content: 'Arial'; font-family: Arial; }
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="georgia"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="georgia"]::before { content: 'Georgia'; font-family: Georgia; }
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="times-new-roman"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="times-new-roman"]::before { content: 'Times New Roman'; font-family: 'Times New Roman'; }
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="courier"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="courier"]::before { content: 'Courier'; font-family: 'Courier New'; }
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="verdana"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="verdana"]::before { content: 'Verdana'; font-family: Verdana; }
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="tahoma"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="tahoma"]::before { content: 'Tahoma'; font-family: Tahoma; }
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="trebuchet"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="trebuchet"]::before { content: 'Trebuchet MS'; font-family: 'Trebuchet MS'; }
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="comic-sans"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="comic-sans"]::before { content: 'Comic Sans'; font-family: 'Comic Sans MS'; }
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="impact"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="impact"]::before { content: 'Impact'; font-family: Impact; }
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="inter"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="inter"]::before { content: 'Inter'; font-family: 'Inter'; }
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="roboto"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="roboto"]::before { content: 'Roboto'; font-family: 'Roboto'; }
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="open-sans"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="open-sans"]::before { content: 'Open Sans'; font-family: 'Open Sans'; }
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="lato"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="lato"]::before { content: 'Lato'; font-family: 'Lato'; }
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="montserrat"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="montserrat"]::before { content: 'Montserrat'; font-family: 'Montserrat'; }
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="poppins"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="poppins"]::before { content: 'Poppins'; font-family: 'Poppins'; }
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="playfair"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="playfair"]::before { content: 'Playfair'; font-family: 'Playfair Display'; }
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="bebas-neue"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="bebas-neue"]::before { content: 'Bebas Neue'; font-family: 'Bebas Neue'; }
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="oswald"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="oswald"]::before { content: 'Oswald'; font-family: 'Oswald'; }
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="lobster"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="lobster"]::before { content: 'Lobster'; font-family: 'Lobster'; }
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="pacifico"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="pacifico"]::before { content: 'Pacifico'; font-family: 'Pacifico'; }
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="press-start"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="press-start"]::before { content: 'Press Start (8-bit)'; font-family: 'Press Start 2P'; }
+
+/* Font picker dropdown - widen to fit longer names */
+.ql-snow .ql-picker.ql-font {
+  width: 140px;
+}
+.ql-snow .ql-picker.ql-font .ql-picker-options {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+/* Video Embed Wrapper - responsive 16:9 */
+.video-embed {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  margin: 24px 0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: #000;
+}
+
+.video-embed iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100% !important;
+  height: 100% !important;
+  border: 0 !important;
+}
+
+/* Legacy iframes without wrapper - in editor and published view */
+.ql-editor iframe.ql-video,
+.ql-editor iframe:not(.video-embed iframe),
+.article-content iframe.ql-video,
+.article-content iframe:not(.video-embed iframe) {
+  width: 100% !important;
+  aspect-ratio: 16 / 9 !important;
+  height: auto !important;
+  margin: 24px 0 !important;
+  border-radius: 12px !important;
+  display: block !important;
+  background: #000;
+  border: 0 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* ========================================
+   LOVABLE DESIGN SYSTEM - CSS Variables
+   ======================================== */
+:root {
+  /* BOGX Primary Colors */
+  --bogx-gold: #D4873A;        /* Stadium Gold - Primary accent */
+  --bogx-cream: #F5F0E8;       /* Warm Cream - Light surfaces */
+  --bogx-ink: #1A1A1A;         /* Dark Ink - Backgrounds, nav, body text */
+  
+  /* Lovable Colors (legacy) */
+  --lv-bg: #0F0F0F;
+  --lv-surface: #161616;
+  --lv-surface-2: #1C1C1C;
+  --lv-fg: #FFFFFF;
+  --lv-muted: #888888;
+  --lv-border: rgba(255,255,255,0.07);
+  --lv-border-strong: rgba(255,255,255,0.14);
+  --lv-accent: #D4873A;        /* Updated to Stadium Gold */
+  --lv-red: #C41E00;
+  --lv-green: #00C44E;
+}
+
+/* BOGX Utility Classes */
+.bg-cream {
+  background-color: var(--bogx-cream);
+}
+
+.bg-gold {
+  background-color: var(--bogx-gold);
+}
+
+.text-gold {
+  color: var(--bogx-gold);
+}
+
+/* Skeleton Loading Colors */
+.bg-skeleton {
+  background-color: #E8DFD4;  /* Warm skeleton base */
+}
+
+.bg-skeleton-light {
+  background-color: #EDE6DC;  /* Lighter skeleton */
+}
+
+/* Border Colors - warm tones */
+.border-warm {
+  border-color: #E0D5C8;  /* Warm border - between cream and gold */
+}
+
+.border-warm-light {
+  border-color: #EAE2D8;  /* Lighter warm border */
+}
+
+/* Link Colors - warm tones instead of default blue/purple */
+a:visited {
+  color: inherit;  /* Keep same color as unvisited */
+}
+
+a:active {
+  color: #D4873A;  /* Primary color on click */
+}
+
+/* Lovable Font Classes - using CSS variables from next/font */
+.font-display {
+  font-family: var(--font-display), 'Bebas Neue', sans-serif;
+  letter-spacing: 0.01em;
+}
+
+.font-serif-i {
+  font-family: var(--font-serif-i), 'DM Serif Display', serif;
+  font-style: italic;
+}
+
+.font-sans-lv {
+  font-family: var(--font-sans-lv), 'DM Sans', system-ui, sans-serif;
+}
+
+/* Skeleton shimmer sweep */
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+
+/* Lovable Animations */
+@keyframes lv-float-up {
+  0% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(-60px); opacity: 0; }
+}
+.animate-lv-float-up {
+  animation: lv-float-up 1.2s ease-out forwards;
+}
+
+@keyframes lv-countdown-pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  30% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+.animate-lv-countdown {
+  animation: lv-countdown-pop 1s ease-out forwards;
+}
+
+@keyframes lv-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-lv-fade-up {
+  animation: lv-fade-up 0.3s ease-out both;
+}
+
+/* ========================================
+   END LOVABLE DESIGN SYSTEM
+   ======================================== */
+
+/* Font utilities */
+.font-heading {
+  font-family: var(--font-heading), -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.font-body {
+  font-family: var(--font-body), -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Fix browser autofill background override */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px rgba(0, 0, 0, 0.4) inset !important;
+  -webkit-text-fill-color: white !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Prevent iOS auto-zoom on input focus (requires font-size >= 16px) - only for mobile frontend */
+@media (max-width: 768px) {
+  .mobile-view input, .mobile-view textarea, .mobile-view select {
+    font-size: 16px !important;
+  }
+}
+
+html {
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  height: -webkit-fill-available;
+}
+
+body {
+  width: 100%;
+  height: 100%;
+  height: -webkit-fill-available;
+  overflow: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: none;
+  background: #F5F0E8;
+  color: #1A1A1A;
+  font-family: var(--font-body), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+/* iOS Safari viewport fix */
+@supports (-webkit-touch-callout: none) {
+  .h-screen {
+    height: -webkit-fill-available;
+  }
+}
+
+/* Custom scrollbar for the phone */
+.phone-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.phone-scroll {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Hide scrollbar globally for all scrollable elements */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Hide scrollbar for desktop main content */
+[style*="scrollbarWidth"]::-webkit-scrollbar {
+  display: none;
+}
+
+/* Snap scrolling for TikTok effect */
+.snap-container {
+  scroll-snap-type: y mandatory;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  height: 100%;
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
+  touch-action: pan-y;
+}
+
+.snap-item {
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  overflow: hidden;
+  max-width: 100vw;
+}
+
+/* Gradient backgrounds */
+.gradient-sport {
+  background: linear-gradient(135deg, #FF4500 0%, #FF6B35 50%, #FFD700 100%);
+}
+
+.gradient-dark {
+  background: linear-gradient(180deg, #1A1A2E 0%, #0A0A0F 100%);
+}
+
+/* Glow effects */
+.glow-orange {
+  box-shadow: 0 0 20px rgba(255, 69, 0, 0.5);
+}
+
+.glow-green {
+  box-shadow: 0 0 20px rgba(57, 255, 20, 0.5);
+}
+
+.glow-gold {
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+}
+
+/* Phone frame styles */
+.phone-frame {
+  background: linear-gradient(145deg, #2a2a2a 0%, #1a1a1a 100%);
+  border-radius: 50px;
+  padding: 12px;
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.phone-screen {
+  background: #000000;
+  border-radius: 40px;
+  overflow: hidden;
+  position: relative;
+}
+
+.phone-notch {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 28px;
+  background: #000;
+  border-radius: 0 0 20px 20px;
+  z-index: 50;
+}
+
+.phone-home-indicator {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 134px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+  z-index: 50;
+}
+
+/* Coin fly to header animation */
+@keyframes coin-to-header {
+  0% {
+    opacity: 1;
+    transform: translateY(0) translateX(-50%) scale(1);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-400px) translateX(-50%) scale(0.8);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-450px) translateX(-50%) scale(0.3);
+  }
+}
+
+.animate-coin-to-header {
+  animation: coin-to-header 0.8s ease-in forwards;
+}
+
+/* Bounce in animation */
+@keyframes bounce-in {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.3);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.1);
+  }
+  70% {
+    transform: translateX(-50%) scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+}
+
+.animate-bounce-in {
+  animation: bounce-in 0.5s ease-out forwards;
+}
+
+/* Countdown pop animation */
+@keyframes countdownPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Swipe slide up animation - entrance */
+@keyframes swipeSlideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(30px) scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Slide in from right animation - for overlays like PlayerCard */
+@keyframes slideInRight {
+  0% {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.animate-slide-in-right {
+  animation: slideInRight 0.3s ease-out forwards;
+}
+
+/* Slide in from bottom animation - for popups */
+@keyframes slideInBottom {
+  0% {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-slide-in-bottom {
+  animation: slideInBottom 0.3s ease-out forwards;
+}
+
+/* Fade out animation */
+@keyframes fadeOut {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.animate-fade-out {
+  animation: fadeOut 0.3s ease-out forwards;
+}
+
+/* Fade in up animation - for staggered reveals */
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-in-up {
+  opacity: 0;
+  animation: fadeInUp 0.4s ease-out forwards;
+}
+
+/* Progress bar fill animation - segments grow from left */
+@keyframes progressFill {
+  0% {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+/* Fade in animation */
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+.animate-fade-in {
+  opacity: 0;
+  animation: fadeIn 0.4s ease-out forwards;
+}
