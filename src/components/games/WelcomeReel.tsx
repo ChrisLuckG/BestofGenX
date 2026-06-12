@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { Clock, Play, Share2, MoreHorizontal, MessageCircle, Check, Bookmark, Flag } from "lucide-react";
+import { useEffect, useState, useRef, memo } from "react";
+import { Clock, Play, Share2, MoreHorizontal, MessageCircle, Check, Bookmark, Flag, ChevronLeft, ChevronRight } from "lucide-react";
 import PollCard from "@/components/PollCard";
 import QuizPollCard from "@/components/QuizPoll";
 import CardMoodReactions from "@/components/CardMoodReactions";
+import CategoryBadge from "@/components/CategoryBadge";
+import LazyImage from "@/components/LazyImage";
 import { useAuth } from "@/context/AuthContext";
 
 interface Article {
@@ -20,7 +22,7 @@ interface Article {
   category: string;      // Sub category (music, culture, etc.)
   authorName?: string;
   authorAvatar?: string;
-  readTime: number;
+  readTime?: number;
   trending?: boolean;
   layout?: 'featured' | 'trending' | 'standard';
   likes?: number;
@@ -85,11 +87,13 @@ interface LandingPageProps {
   onShowLogin?: () => void;
 }
 
-export default function LandingPage({ onOpenArticle, readArticles = new Set(), isDesktop = false, onShowLogin }: LandingPageProps) {
+const EMPTY_SET = new Set<string>();
+
+function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop = false, onShowLogin }: LandingPageProps) {
   const { user, isLoggedIn } = useAuth();
   const [articles, setArticles] = useState<Article[]>([]);
   const [polls, setPolls] = useState<any[]>([]);
-  const [templateItems, setTemplateItems] = useState<{size: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10, articleId: string | null, articleId2?: string | null, sliderArticles?: string[], verticalArticles?: string[], adData?: {image: string, link: string, title: string}}[]>([]);
+  const [templateItems, setTemplateItems] = useState<{size: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10, articleId: string | null, articleId2?: string | null, sliderArticles?: string[], sliderTitle?: string, verticalArticles?: string[], verticalTitle?: string, adData?: {image: string, link: string, title: string}}[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [toast, setToast] = useState<{ message: string; icon: 'check' | 'bookmark' | 'flag' } | null>(null);
 
@@ -345,17 +349,17 @@ export default function LandingPage({ onOpenArticle, readArticles = new Set(), i
       
       {/* Category badge */}
       <div className="absolute top-3 left-3 z-20">
-        <span className="px-3 py-1.5 bg-[#D4873A] text-white text-[10px] font-bold uppercase tracking-wider rounded">
-          {getCategoryLabel(article.mainCategory)}
-        </span>
+        <CategoryBadge category={article.mainCategory} size="md" />
       </div>
       
-      {/* Coin reward badge - gray when unread, green when read */}
-      <div className="absolute top-3 right-3 z-20">
-        <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded flex items-center gap-0.5 ${readArticles.has(article._id) ? 'bg-green-500 text-white' : 'bg-gray-800/70 text-white'}`}>
-          0.05{readArticles.has(article._id) && <Check className="w-2.5 h-2.5" />}
-        </span>
-      </div>
+      {/* Read badge - only show green check when read */}
+      {readArticles.has(article._id) && (
+        <div className="absolute top-3 right-3 z-20">
+          <span className="w-4 h-4 border border-emerald-600 bg-emerald-600/30 rounded flex items-center justify-center">
+            <Check className="w-2.5 h-2.5 text-white" />
+          </span>
+        </div>
+      )}
       
       {/* Content - fixed at bottom */}
       <div className="absolute bottom-0 left-0 right-0 z-10 p-4">
@@ -372,8 +376,7 @@ export default function LandingPage({ onOpenArticle, readArticles = new Set(), i
               )}
             </div>
             <span className="truncate">{article.authorName}</span>
-            {isDesktop && <span className="flex items-center gap-1 flex-shrink-0"><Clock className="w-3 h-3" />{article.readTime} min</span>}
-          </div>
+                      </div>
           {/* Mood Reactions & Comments inline */}
           <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
             <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="sm" />
@@ -453,14 +456,7 @@ export default function LandingPage({ onOpenArticle, readArticles = new Set(), i
         {isDesktop && <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />}
         {/* Category badge - top left on mobile, bottom left on desktop */}
         <div className={`absolute ${isDesktop ? 'bottom-14 md:bottom-16' : 'top-3'} left-3 z-20 flex items-center gap-2`}>
-          <span className="px-2 py-1 bg-[#D4873A] text-white text-[10px] font-bold uppercase tracking-wider rounded">
-            {getCategoryLabel(article.mainCategory)}
-          </span>
-          {isDesktop && (
-            <span className="px-2 py-1 bg-black/60 text-white text-[10px] font-medium rounded flex items-center gap-1">
-              <Clock className="w-3 h-3" />{article.readTime} min
-            </span>
-          )}
+          <CategoryBadge category={article.mainCategory} size="md" />
         </div>
         {/* Title ON the image - only on desktop */}
         {isDesktop && (
@@ -468,12 +464,14 @@ export default function LandingPage({ onOpenArticle, readArticles = new Set(), i
             {article.title}
           </h2>
         )}
-        {/* Coin reward badge - gray when unread, green when read */}
-        <div className="absolute top-3 right-3 z-20">
-          <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded flex items-center gap-0.5 ${readArticles.has(article._id) ? 'bg-green-500 text-white' : 'bg-gray-800/70 text-white'}`}>
-            0.05{readArticles.has(article._id) && <Check className="w-2.5 h-2.5" />}
-          </span>
-        </div>
+        {/* Read badge - only show green check when read */}
+        {readArticles.has(article._id) && (
+          <div className="absolute top-3 right-3 z-20">
+            <span className="w-4 h-4 border border-emerald-600 bg-emerald-600/30 rounded flex items-center justify-center">
+              <Check className="w-2.5 h-2.5 text-white" />
+            </span>
+          </div>
+        )}
       </div>
       
       {/* Content - title below image on mobile, subtitle on desktop */}
@@ -499,7 +497,7 @@ export default function LandingPage({ onOpenArticle, readArticles = new Set(), i
         isVideo(article.coverImage) ? (
           <video src={article.coverImage} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: getImagePosition(article), transform: `scale(${(article.imageScale || 100) / 100})` }} muted autoPlay loop playsInline />
         ) : (
-          <img src={article.coverImage} alt={article.title} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: getImagePosition(article), transform: `scale(${(article.imageScale || 100) / 100})` }} />
+          <LazyImage src={article.coverImage} alt={article.title} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: getImagePosition(article), transform: `scale(${(article.imageScale || 100) / 100})` }} />
         )
       )}
       {/* Gradient overlay */}
@@ -507,25 +505,22 @@ export default function LandingPage({ onOpenArticle, readArticles = new Set(), i
       
       {/* Category badge - top left */}
       <div className="absolute top-2 left-2 z-20">
-        <span className="px-2 py-0.5 bg-[#D4873A] text-white text-[8px] font-bold uppercase rounded">
-          {getCategoryLabel(article.mainCategory)}
-        </span>
+        <CategoryBadge category={article.mainCategory} size="sm" />
       </div>
       
-      {/* Coin reward badge - gray when unread, green when read */}
-      <div className="absolute top-2 right-2 z-20">
-        <span className={`px-1.5 py-0.5 text-[8px] font-bold rounded flex items-center gap-0.5 ${readArticles.has(article._id) ? 'bg-green-500 text-white' : 'bg-gray-800/70 text-white'}`}>
-          0.05{readArticles.has(article._id) && <Check className="w-2 h-2" />}
-        </span>
-      </div>
+      {/* Read badge - only show green check when read */}
+      {readArticles.has(article._id) && (
+        <div className="absolute top-2 right-2 z-20">
+          <span className="w-3.5 h-3.5 border border-emerald-600 bg-emerald-600/30 rounded-sm flex items-center justify-center">
+            <Check className="w-2 h-2 text-white" />
+          </span>
+        </div>
+      )}
       
       {/* Content - bottom */}
       <div className="absolute bottom-2 left-2 right-2 z-10">
         <h3 className="font-display text-[18px] lg:text-xl tracking-wide text-white leading-tight mb-1 line-clamp-2">{article.title}</h3>
-        <div className="flex items-center justify-between gap-1 text-[10px] text-white/70">
-          {isDesktop && <span className="flex items-center gap-1">
-            <Clock className="w-3 h-3" />{article.readTime} min
-          </span>}
+        <div className="flex items-center justify-end gap-1 text-[10px] text-white/70">
           {/* Moods & Comments inline */}
           <div className="flex items-center gap-2">
             <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" />
@@ -551,7 +546,7 @@ export default function LandingPage({ onOpenArticle, readArticles = new Set(), i
         isVideo(article.coverImage) ? (
           <video src={article.coverImage} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: getImagePosition(article), transform: `scale(${(article.imageScale || 100) / 100})` }} muted autoPlay loop playsInline />
         ) : (
-          <img src={article.coverImage} alt={article.title} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: getImagePosition(article), transform: `scale(${(article.imageScale || 100) / 100})` }} />
+          <LazyImage src={article.coverImage} alt={article.title} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: getImagePosition(article), transform: `scale(${(article.imageScale || 100) / 100})` }} />
         )
       )}
       {/* Gradient overlay */}
@@ -559,17 +554,17 @@ export default function LandingPage({ onOpenArticle, readArticles = new Set(), i
       
       {/* Category badge - top left */}
       <div className="absolute top-2 left-2 z-20">
-        <span className="px-2 py-1 bg-[#D4873A] text-white text-[8px] font-bold uppercase rounded">
-          {getCategoryLabel(article.mainCategory)}
-        </span>
+        <CategoryBadge category={article.mainCategory} size="sm" />
       </div>
       
-      {/* Coin reward badge - gray when unread, green when read */}
-      <div className="absolute top-2 right-2 z-20">
-        <span className={`px-1.5 py-0.5 text-[8px] font-bold rounded flex items-center gap-0.5 ${readArticles.has(article._id) ? 'bg-green-500 text-white' : 'bg-gray-800/70 text-white'}`}>
-          0.05{readArticles.has(article._id) && <Check className="w-2 h-2" />}
-        </span>
-      </div>
+      {/* Read badge - only show green check when read */}
+      {readArticles.has(article._id) && (
+        <div className="absolute top-2 right-2 z-20">
+          <span className="w-3.5 h-3.5 border border-emerald-600 bg-emerald-600/30 rounded-sm flex items-center justify-center">
+            <Check className="w-2 h-2 text-white" />
+          </span>
+        </div>
+      )}
       
       {/* Content - fixed at bottom */}
       <div className="absolute bottom-0 left-0 right-0 z-10 p-3">
@@ -577,8 +572,7 @@ export default function LandingPage({ onOpenArticle, readArticles = new Set(), i
         <div className="flex items-center justify-between gap-2 text-[10px] text-white/70">
           <div className="flex items-center gap-2 min-w-0">
             <span className="truncate">{article.authorName}</span>
-            {isDesktop && <span className="flex items-center gap-1 flex-shrink-0"><Clock className="w-3 h-3" />{article.readTime} min</span>}
-          </div>
+                      </div>
           {/* Likes & Comments inline */}
           <div className="flex items-center gap-2 flex-shrink-0">
             <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" />
@@ -594,31 +588,33 @@ export default function LandingPage({ onOpenArticle, readArticles = new Set(), i
     </button>
   );
 
-  // Slider Card - Small card for horizontal slider
+  // Slider Card - Vertical card with square image (same size as other cards)
   const SliderCard = ({ article }: { article: Article }) => (
     <button
       onClick={() => onOpenArticle?.(article._id)}
-      className="flex-shrink-0 w-32 rounded-xl overflow-hidden bg-cream border border-warm text-left shadow-md hover:shadow-lg hover:border-[#D4873A]/30 transition-all duration-200 relative group"
+      className="flex-shrink-0 w-40 rounded-xl overflow-hidden bg-cream border border-warm text-left shadow-md hover:shadow-lg hover:border-[#D4873A]/30 transition-all duration-200 relative group"
     >
-      {/* Coin reward badge - gray when unread, green when read */}
-      <div className="absolute top-1 right-1 z-20">
-        <span className={`px-1 py-0.5 text-[7px] font-bold rounded flex items-center gap-0.5 ${readArticles.has(article._id) ? 'bg-green-500 text-white' : 'bg-gray-800/70 text-white'}`}>
-          0.05{readArticles.has(article._id) && <Check className="w-2 h-2" />}
-        </span>
-      </div>
-      {/* Image/Video */}
+      {/* Read badge - only show green check when read */}
+      {readArticles.has(article._id) && (
+        <div className="absolute top-1 right-1 z-20">
+          <span className="w-3.5 h-3.5 border border-emerald-600 bg-emerald-600/30 rounded-sm flex items-center justify-center">
+            <Check className="w-2 h-2 text-white" />
+          </span>
+        </div>
+      )}
+      {/* Image/Video - shorter aspect ratio */}
       {article.coverImage && (
-        <div className="w-full h-20 overflow-hidden">
+        <div className="w-full aspect-[4/3] overflow-hidden">
           {isVideo(article.coverImage) ? (
             <video src={article.coverImage} className="w-full h-full object-cover" style={{ objectPosition: getImagePosition(article), transform: `scale(${(article.imageScale || 100) / 100})` }} muted autoPlay loop playsInline />
           ) : (
-            <img src={article.coverImage} alt={article.title} className="w-full h-full object-cover" style={{ objectPosition: getImagePosition(article), transform: `scale(${(article.imageScale || 100) / 100})` }} />
+            <LazyImage src={article.coverImage} alt={article.title} className="w-full h-full object-cover" style={{ objectPosition: getImagePosition(article), transform: `scale(${(article.imageScale || 100) / 100})` }} />
           )}
         </div>
       )}
-      {/* Content */}
+      {/* Content - below image */}
       <div className="p-1.5">
-        <h3 className="font-display text-[16px] tracking-wide text-gray-900 group-hover:text-[#D4873A] leading-tight line-clamp-2 transition-colors">{article.title}</h3>
+        <h3 className="font-display text-[20px] tracking-wide text-gray-900 group-hover:text-[#D4873A] leading-tight line-clamp-2 transition-colors">{article.title}</h3>
         {/* Likes & Comments */}
         <div className="flex items-center gap-2 mt-1 text-[8px] text-gray-500">
           <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" />
@@ -633,24 +629,38 @@ export default function LandingPage({ onOpenArticle, readArticles = new Set(), i
     </button>
   );
 
-  // Horizontal Slider Container
-  const SliderContainer = ({ articleIds }: { articleIds: string[] }) => {
+  // Horizontal Slider Container with navigation arrows
+  const SliderContainer = ({ articleIds, title }: { articleIds: string[], title?: string }) => {
     const sliderArticles = articleIds.map(id => getArticleById(id)).filter(Boolean) as Article[];
     if (sliderArticles.length === 0) return null;
     
     const scrollRef = useRef<HTMLDivElement>(null);
+    const [canScrollLeft, setCanScrollLeft] = useState(false);
+    const [canScrollRight, setCanScrollRight] = useState(true);
     const [activePage, setActivePage] = useState(0);
-    const visibleCards = 2.5; // ~2.5 cards visible at once
+    const visibleCards = 2.5;
     const totalPages = Math.ceil(sliderArticles.length / visibleCards);
     
-    const handleScroll = () => {
+    const checkScroll = () => {
       if (scrollRef.current) {
         const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+        setCanScrollLeft(scrollLeft > 0);
+        setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
         const maxScroll = scrollWidth - clientWidth;
         if (maxScroll > 0) {
           const page = Math.round((scrollLeft / maxScroll) * (totalPages - 1));
           setActivePage(page);
         }
+      }
+    };
+    
+    const scroll = (direction: 'left' | 'right') => {
+      if (scrollRef.current) {
+        const scrollAmount = 280;
+        scrollRef.current.scrollBy({
+          left: direction === 'left' ? -scrollAmount : scrollAmount,
+          behavior: 'smooth'
+        });
       }
     };
     
@@ -669,16 +679,39 @@ export default function LandingPage({ onOpenArticle, readArticles = new Set(), i
           </div>
         </div>
         
-        {/* Slider */}
-        <div 
-          ref={scrollRef}
-          onScroll={handleScroll}
-          className="flex gap-2 overflow-x-auto scrollbar-hide" 
-          style={{ scrollbarWidth: 'none' }}
-        >
-          {sliderArticles.map((article, idx) => (
-            <SliderCard key={idx} article={article} />
-          ))}
+        {/* Slider with Arrows */}
+        <div className="relative group/slider">
+          {/* Left Arrow */}
+          {canScrollLeft && (
+            <button
+              onClick={() => scroll('left')}
+              className="absolute -left-1 top-1/2 -translate-y-1/2 z-10 w-8 h-12 rounded-lg bg-black/60 hover:bg-black/80 text-white shadow-lg flex items-center justify-center transition-all backdrop-blur-sm border border-white/10"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+          )}
+          
+          {/* Right Arrow */}
+          {canScrollRight && (
+            <button
+              onClick={() => scroll('right')}
+              className="absolute -right-1 top-1/2 -translate-y-1/2 z-10 w-8 h-12 rounded-lg bg-black/60 hover:bg-black/80 text-white shadow-lg flex items-center justify-center transition-all backdrop-blur-sm border border-white/10"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          )}
+          
+          {/* Scrollable Content */}
+          <div 
+            ref={scrollRef}
+            onScroll={checkScroll}
+            className="flex gap-2 overflow-x-auto scrollbar-hide" 
+            style={{ scrollbarWidth: 'none' }}
+          >
+            {sliderArticles.map((article, idx) => (
+              <SliderCard key={idx} article={article} />
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -743,12 +776,14 @@ export default function LandingPage({ onOpenArticle, readArticles = new Set(), i
               {article.title}
             </h3>
           )}
-          {/* Coin reward badge - gray when unread, green when read */}
-          <div className="absolute top-2 right-2 z-20">
-            <span className={`px-1.5 py-0.5 text-[8px] font-bold rounded flex items-center gap-0.5 ${readArticles.has(article._id) ? 'bg-green-500 text-white' : 'bg-gray-800/70 text-white'}`}>
-              0.05{readArticles.has(article._id) && <Check className="w-2 h-2" />}
-            </span>
-          </div>
+          {/* Read badge - only show green check when read */}
+          {readArticles.has(article._id) && (
+            <div className="absolute top-2 right-2 z-20">
+              <span className="w-3.5 h-3.5 border border-emerald-600 bg-emerald-600/30 rounded-sm flex items-center justify-center">
+                <Check className="w-2 h-2 text-white" />
+              </span>
+            </div>
+          )}
         </div>
       )}
       
@@ -771,19 +806,21 @@ export default function LandingPage({ onOpenArticle, readArticles = new Set(), i
       onClick={() => onOpenArticle?.(article._id)}
       className="w-full flex items-center gap-3 p-2 bg-cream border border-warm rounded-lg text-left shadow-md hover:shadow-lg hover:border-[#D4873A]/30 transition-all duration-200 relative group"
     >
-      {/* Coin reward badge - gray when unread, green when read */}
-      <div className="absolute top-1.5 right-1.5 z-20">
-        <span className={`px-1.5 py-0.5 text-[8px] font-bold rounded flex items-center gap-0.5 ${readArticles.has(article._id) ? 'bg-green-500 text-white' : 'bg-gray-800/70 text-white'}`}>
-          0.05{readArticles.has(article._id) && <Check className="w-2 h-2" />}
-        </span>
-      </div>
+      {/* Read badge - only show green check when read */}
+      {readArticles.has(article._id) && (
+        <div className="absolute top-1.5 right-1.5 z-20">
+          <span className="w-3.5 h-3.5 border border-emerald-600 bg-emerald-600/30 rounded-sm flex items-center justify-center">
+            <Check className="w-2 h-2 text-white" />
+          </span>
+        </div>
+      )}
       {/* Thumbnail - bigger */}
       {article.coverImage && (
         <div className="w-20 h-20 rounded-md overflow-hidden flex-shrink-0 border border-warm">
           {isVideo(article.coverImage) ? (
             <video src={article.coverImage} className="w-full h-full object-cover" style={{ objectPosition: getImagePosition(article), transform: `scale(${(article.imageScale || 100) / 100})` }} muted autoPlay loop playsInline />
           ) : (
-            <img src={article.coverImage} alt={article.title} className="w-full h-full object-cover" style={{ objectPosition: getImagePosition(article), transform: `scale(${(article.imageScale || 100) / 100})` }} />
+            <LazyImage src={article.coverImage} alt={article.title} className="w-full h-full object-cover" style={{ objectPosition: getImagePosition(article), transform: `scale(${(article.imageScale || 100) / 100})` }} />
           )}
         </div>
       )}
@@ -815,35 +852,10 @@ export default function LandingPage({ onOpenArticle, readArticles = new Set(), i
     return articles.find(a => a._id === id);
   };
 
-  // Smart article getter for FeaturedCard - if assigned article is read, show next unread
+  // Simple article getter - just return the assigned article
   const getFeaturedArticle = (id: string | null): Article | undefined => {
     if (!id) return undefined;
-    const assignedArticle = articles.find(a => a._id === id);
-    
-    // If assigned article exists and is NOT read, show it
-    if (assignedArticle && !readArticles.has(assignedArticle._id)) {
-      return assignedArticle;
-    }
-    
-    // If assigned article is read, find next unread article from the list
-    // Prioritize articles not already in the template
-    const templateArticleIds = new Set(
-      templateItems
-        .filter(item => item.articleId)
-        .map(item => item.articleId)
-    );
-    
-    // Find first unread article that's not already prominently displayed
-    const nextUnread = articles.find(a => 
-      a.status === 'published' && 
-      !readArticles.has(a._id) && 
-      !templateArticleIds.has(a._id)
-    );
-    
-    if (nextUnread) return nextUnread;
-    
-    // If all articles are read or in template, just show the assigned one
-    return assignedArticle;
+    return articles.find(a => a._id === id);
   };
 
   // Placeholder for unpublished/draft articles
@@ -876,9 +888,12 @@ export default function LandingPage({ onOpenArticle, readArticles = new Set(), i
       <div className="w-full h-full flex flex-col overflow-hidden bg-cream">
         {/* Header - exactly like Rankings */}
         <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Play className="w-5 h-5 text-[#D4873A]" />
-            <span className="font-display text-lg tracking-wider text-gray-900">Feed</span>
+            <div>
+              <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Feed</span>
+              <span className="text-[10px] text-gray-500 -mt-0.5 block">Latest updates & content</span>
+            </div>
           </div>
         </div>
         
@@ -949,9 +964,12 @@ export default function LandingPage({ onOpenArticle, readArticles = new Set(), i
     <div className="w-full h-full flex flex-col overflow-hidden bg-cream">
       {/* Header - exactly like Rankings */}
       <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Play className="w-5 h-5 text-[#D4873A]" />
-          <span className="font-display text-lg tracking-wider text-gray-900">Feed</span>
+          <div>
+            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Feed</span>
+            <span className="text-[10px] text-gray-500 -mt-0.5 block">Latest updates & content</span>
+          </div>
         </div>
       </div>
       
@@ -985,48 +1003,16 @@ export default function LandingPage({ onOpenArticle, readArticles = new Set(), i
                   );
                 }
                 
-                // Size 9 = Vertical (stacked articles container)
+                // Size 9 = Vertical (stacked articles container) - uses FullWidthBanner component
                 if (item.size === 9) {
                   const vertArticles = (item.verticalArticles || []).map(id => getArticleById(id)).filter(Boolean) as Article[];
                   if (vertArticles.length === 0) return null;
                   return (
                     <div key={index} className="col-span-6 space-y-2">
+                      {/* Title */}
+                      <span className="text-xs font-bold text-[#D4873A] uppercase tracking-wider">More Articles</span>
                       {vertArticles.map((art, i) => (
-                        <button
-                          key={i}
-                          onClick={() => onOpenArticle?.(art._id)}
-                          className="w-full flex items-center gap-3 p-2.5 bg-cream border border-warm rounded-xl hover:border-[#D4873A]/30 hover:shadow-md transition-all text-left relative group"
-                        >
-                          {/* Coin reward badge - gray when unread, green when read */}
-                          <div className="absolute top-2 right-2 z-20">
-                            <span className={`px-1.5 py-0.5 text-[8px] font-bold rounded flex items-center gap-0.5 ${readArticles.has(art._id) ? 'bg-green-500 text-white' : 'bg-gray-800/70 text-white'}`}>
-                              0.05{readArticles.has(art._id) && <Check className="w-2 h-2" />}
-                            </span>
-                          </div>
-                          {/* Thumbnail */}
-                          {art.coverImage && (
-                            <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 border border-warm">
-                              <img src={art.coverImage} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" style={{ objectPosition: getImagePosition(art), transform: `scale(${(art.imageScale || 100) / 100})` }} />
-                            </div>
-                          )}
-                          {/* Content */}
-                          <div className="flex-1 min-w-0 pr-8">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-[#D4873A] text-[10px] font-bold uppercase">{getCategoryLabel(art.mainCategory)}</span>
-                              <span className="text-gray-500 text-[10px]">• {art.createdAt ? new Date(art.createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}</span>
-                            </div>
-                            <h3 className="font-display text-[16px] tracking-wide text-gray-900 group-hover:text-[#D4873A] leading-tight line-clamp-2 mb-0.5 transition-colors">{art.title}</h3>
-                            <div className="flex items-center gap-3 text-[10px] text-gray-500 mt-1">
-                              <CardMoodReactions articleId={art._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" />
-                              <span className="flex items-center gap-0.5">
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                </svg>
-                                {art.commentsCount || 0}
-                              </span>
-                            </div>
-                          </div>
-                        </button>
+                        <FullWidthBanner key={i} article={art} />
                       ))}
                     </div>
                   );
@@ -1049,7 +1035,7 @@ export default function LandingPage({ onOpenArticle, readArticles = new Set(), i
                 
                 // Size 6 = Slider (horizontal scroll container)
                 if (item.size === 6) {
-                  return <div key={index} className="col-span-6"><SliderContainer articleIds={item.sliderArticles || []} /></div>;
+                  return <div key={index} className="col-span-6"><SliderContainer articleIds={item.sliderArticles || []} title={item.sliderTitle} /></div>;
                 }
                 
                 // Size 3 = FeaturedCard (MainBox) - use smart getter that shows unread articles
@@ -1075,58 +1061,13 @@ export default function LandingPage({ onOpenArticle, readArticles = new Set(), i
               })}
           </div>
         
-        {/* Footer - visible at bottom of feed */}
-        <footer className="mt-8 pb-8 px-4">
-          {/* Logo - clickable to About page */}
-          <div className="flex justify-center mb-6">
-            <a href="/about" className="hover:opacity-60 transition-opacity">
-              <img src="/images/genxlogo1.png" alt="Best of GenX" className="h-8 opacity-40" />
-            </a>
-          </div>
-          
-          {/* Links */}
-          <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-gray-600 mb-6">
-            <a href="/impressum" className="hover:text-gray-600 transition-colors">Impressum</a>
-            <a href="/datenschutz" className="hover:text-gray-600 transition-colors">Datenschutz</a>
-            <a href="/agb" className="hover:text-gray-600 transition-colors">AGB</a>
-            <a href="/karriere" className="hover:text-gray-600 transition-colors">Karriere</a>
-            <a href="/kontakt" className="hover:text-gray-600 transition-colors">Kontakt</a>
-            <a href="/presse" className="hover:text-gray-600 transition-colors">Presse</a>
-          </div>
-          
-          {/* Social Links */}
-          <div className="flex justify-center gap-4 mb-6">
-            <a href="https://instagram.com/bestofgenx" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-[#D4873A]/10 flex items-center justify-center text-[#D4873A] hover:bg-[#D4873A]/20 transition-colors">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
-            </a>
-            <a href="https://linkedin.com/company/bestofgenx" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-[#D4873A]/10 flex items-center justify-center text-[#D4873A] hover:bg-[#D4873A]/20 transition-colors">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
-            </a>
-            <a href="https://facebook.com/bestofgenx" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-[#D4873A]/10 flex items-center justify-center text-[#D4873A] hover:bg-[#D4873A]/20 transition-colors">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-            </a>
-            <a href="mailto:contact@bestofgenx.com" className="w-10 h-10 rounded-full bg-[#D4873A]/10 flex items-center justify-center text-[#D4873A] hover:bg-[#D4873A]/20 transition-colors">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-            </a>
-          </div>
-          
-          {/* Copyright */}
-          <p className="text-center text-xs text-gray-300">
-            © {new Date().getFullYear()} Best of GenX. All rights reserved.
-          </p>
-          
-          {/* Made with love */}
-          <p className="text-center text-[10px] text-gray-300 mt-2">
-            Made with ❤️ for Generation X
-          </p>
-        </footer>
-      </div>
+              </div>
 
       {/* Toast Notification */}
       {toast && (
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[100] animate-fade-in">
           <div className="flex items-center gap-2 px-4 py-3 bg-gray-900 text-white rounded-full shadow-xl">
-            {toast.icon === 'check' && <Check className="w-4 h-4 text-green-400" />}
+            {toast.icon === 'check' && <Check className="w-4 h-4 text-emerald-600" />}
             {toast.icon === 'bookmark' && <Bookmark className="w-4 h-4 text-[#D4873A]" />}
             {toast.icon === 'flag' && <Flag className="w-4 h-4 text-yellow-400" />}
             <span className="text-sm font-medium">{toast.message}</span>
@@ -1136,3 +1077,7 @@ export default function LandingPage({ onOpenArticle, readArticles = new Set(), i
     </div>
   );
 }
+
+// Memoize to prevent re-renders from parent countdown updates
+const LandingPage = memo(LandingPageInner);
+export default LandingPage;

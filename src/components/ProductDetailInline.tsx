@@ -304,7 +304,7 @@ export default function ProductDetailInline({ product, onClose }: ProductDetailI
                     €{total.toFixed(2)}
                   </span>
                   <p className="text-gray-500 text-sm font-medium">
-                    or {(total * 500).toLocaleString()} pts
+                    or {(total * 500).toLocaleString()} BOGX
                   </p>
                 </>
               );

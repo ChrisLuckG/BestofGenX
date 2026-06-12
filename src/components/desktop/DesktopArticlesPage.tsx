@@ -5,6 +5,7 @@ import { FileText, Search, ChevronRight, Check, Heart, MessageCircle, Eye, Clock
 import { FeedSkeleton } from "./DesktopSkeletons";
 import InlineMoods from "@/components/InlineMoods";
 import { useAuth } from "@/context/AuthContext";
+import { isVideoUrl } from "@/utils/media";
 
 interface Article {
   _id: string;
@@ -14,7 +15,7 @@ interface Article {
   category: string;
   authorName?: string;
   authorAvatar?: string;
-  readTime: number;
+  readTime?: number;
   trending?: boolean;
   views?: number;
   likes?: number;
@@ -132,14 +133,14 @@ export default function DesktopArticlesPage({ onOpenArticle }: DesktopArticlesPa
   ];
 
   return (
-    <div className="h-full flex flex-col bg-[#FDFBF7] overflow-hidden">
+    <div className="h-full flex flex-col bg-[#F5F0E8] overflow-hidden">
       {/* Header with Search */}
       <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
         <div className="flex items-center gap-3">
           <FileText className="w-5 h-5 text-[#D4873A]" />
           <div>
-            <span className="font-display text-lg tracking-wider text-gray-900 block leading-tight">Articles</span>
-            <span className="text-[10px] text-gray-500">News & stories from the GenX world</span>
+            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Articles</span>
+            <span className="text-[10px] text-gray-500 -mt-0.5 block">News & stories from the GenX world</span>
           </div>
         </div>
         {/* Search in Header */}
@@ -166,59 +167,6 @@ export default function DesktopArticlesPage({ onOpenArticle }: DesktopArticlesPa
           </div>
         ) : (
           <>
-            {/* Hero Article - always show first article */}
-            {articles[0] && (
-              <button
-                onClick={() => handleArticleClick(articles[0]._id)}
-                className="w-full relative rounded-2xl overflow-hidden aspect-[2.5/1] group text-left"
-              >
-                {articles[0].coverImage ? (
-                  articles[0].coverImage.includes('.mp4') || articles[0].coverImage.includes('.webm') ? (
-                    <video src={articles[0].coverImage} className="absolute inset-0 w-full h-full object-cover" muted autoPlay loop playsInline />
-                  ) : (
-                    <img src={articles[0].coverImage} alt="" className="absolute inset-0 w-full h-full object-cover" />
-                  )
-                ) : (
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#D4873A]/30 to-[#D4873A]/10" />
-                )}
-                {/* Gradient overlay - stronger at bottom */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10" />
-                
-                {/* Coin reward badge - consistent with list items */}
-                <div className="absolute top-3 right-3 z-10">
-                  <span className={`px-2 py-1 text-xs font-bold rounded-lg flex items-center gap-1 ${readArticles?.has(articles[0]._id) ? 'bg-green-500 text-white' : 'bg-gray-800/70 text-white'}`}>
-                    {readArticles?.has(articles[0]._id) && <Check className="w-3 h-3" />}
-                    0.05
-                  </span>
-                </div>
-                
-                {/* Content - positioned like article detail */}
-                <div className="absolute inset-0 flex flex-col justify-end p-4">
-                  {/* Category Badge */}
-                  <span className="self-start px-2.5 py-1 bg-[#D4873A] text-white text-[10px] font-bold uppercase tracking-wider rounded mb-3">
-                    {CATEGORY_LABELS[articles[0].category] || articles[0].category}
-                  </span>
-                  
-                  {/* Title */}
-                  <h2 className="font-display text-2xl md:text-3xl text-white leading-tight mb-2 uppercase">
-                    {articles[0].title}
-                  </h2>
-                  
-                  {/* Subtitle */}
-                  {articles[0].subtitle && (
-                    <p className="text-sm text-white/80 mb-3 line-clamp-1">{articles[0].subtitle}</p>
-                  )}
-                  
-                  {/* Author + Meta */}
-                  <div className="flex items-center gap-3 text-white/70 text-xs">
-                    <span>{articles[0].authorName || 'BOGX Team'}</span>
-                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatDate(articles[0].createdAt)}</span>
-                    {articles[0].views && <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{articles[0].views} views</span>}
-                  </div>
-                </div>
-              </button>
-            )}
-
             {/* Filter Chips - always visible */}
             <div className="flex items-center gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
               {filters.map((f) => {
@@ -227,14 +175,14 @@ export default function DesktopArticlesPage({ onOpenArticle }: DesktopArticlesPa
                   <button
                     key={f.key}
                     onClick={() => setFilter(f.key)}
-                    className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors ${
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-all border ${
                       filter === f.key
-                        ? 'bg-[#D4873A] text-white'
-                        : 'bg-cream border border-warm text-gray-600 hover:bg-[#D4873A]/10'
+                        ? 'bg-[#D4873A] text-white border-[#D4873A]'
+                        : 'bg-cream text-gray-700 hover:bg-[#D4873A]/10 border-warm'
                     }`}
                   >
                     {Icon && <Icon className="w-4 h-4" />}
-                    {f.label}
+                    <span className="text-xs font-semibold">{f.label}</span>
                   </button>
                 );
               })}
@@ -251,9 +199,9 @@ export default function DesktopArticlesPage({ onOpenArticle }: DesktopArticlesPa
               </div>
             )}
 
-            {/* Article List - show articles after hero (skip first) */}
+            {/* Article List */}
             <div className="space-y-3">
-              {(filter === 'all' ? articles.slice(1) : sortedArticles).map((article) => {
+              {(filter === 'all' ? articles : sortedArticles).map((article) => {
                 const isRead = readArticles.has(article._id);
                 return (
                   <button
@@ -265,7 +213,7 @@ export default function DesktopArticlesPage({ onOpenArticle }: DesktopArticlesPa
                       {/* Thumbnail */}
                       <div className="w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-skeleton">
                         {article.coverImage ? (
-                          article.coverImage.includes('.mp4') || article.coverImage.includes('.webm') ? (
+                          isVideoUrl(article.coverImage) ? (
                             <video src={article.coverImage} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" muted autoPlay loop playsInline />
                           ) : (
                             <img src={article.coverImage} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />

@@ -253,6 +253,8 @@ export default function MobilePage() {
     }
     
     if (checkout === 'success') {
+      // Prevent re-triggering if already showing
+      if (showCheckoutSuccess) return;
       const sessionId = searchParams.get('session_id');
       setCheckoutSessionId(sessionId);
       setShowCheckoutSuccess(true);
@@ -271,7 +273,7 @@ export default function MobilePage() {
       setActiveTab('arcade');
       window.history.replaceState({}, '', '/mobile');
     }
-  }, [searchParams]);
+  }, [searchParams, showCheckoutSuccess]);
   
   // Guest limit: after 5 games, show login card
   const GUEST_LIMIT = 5;
@@ -613,7 +615,7 @@ export default function MobilePage() {
         const data = await res.json();
         if (data.success && typeof data.points === 'number') {
           // Convert legacy points to BOGX (divide by 100)
-          const bogx = data.points >= 1 ? data.points / 100 : data.points;
+          const bogx = data.points; // Already in BOGX
           setCoins(bogx);
         }
       } catch (e) {
@@ -975,6 +977,11 @@ export default function MobilePage() {
     if (!mounted || !isLoggedIn || !user?.id || pushEnabled) return;
     if (activeTab === 'notifications') return; // Don't show on notification page
     
+    // Only show if app is installed (standalone mode) - otherwise InstallBanner handles it
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                        (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+    if (!isStandalone) return; // Let InstallBanner handle non-installed users
+    
     // Check how many times user has dismissed the reminder
     const dismissCount = parseInt(localStorage.getItem(`push_reminder_dismissed_${user.id}`) || '0');
     if (dismissCount >= 7) return; // Stop showing after 7 dismissals
@@ -1014,6 +1021,10 @@ export default function MobilePage() {
   // Show welcome back message after login
   useEffect(() => {
     if (!mounted || !isLoggedIn || !user?.id) return;
+    
+    // Don't show welcome if returning from checkout
+    const checkout = searchParams.get('checkout');
+    if (checkout === 'success' || checkout === 'cancelled') return;
     
     // Check if we already showed welcome this session
     const sessionKey = `welcome_shown_${user.id}_${new Date().toDateString()}`;
@@ -1119,7 +1130,7 @@ export default function MobilePage() {
     // Small delay to let page load
     const timer = setTimeout(fetchWelcomeMessage, 500);
     return () => clearTimeout(timer);
-  }, [mounted, isLoggedIn, user?.id, user?.username]);
+  }, [mounted, isLoggedIn, user?.id, user?.username, searchParams]);
 
   const handleBetPlaced = (bet: BetData) => {
     setActiveBets(prev => [...prev, bet as unknown as ActiveBet]);
@@ -1280,13 +1291,13 @@ export default function MobilePage() {
         
         if (data.success && !data.alreadyReceived) {
           // First time - show welcome bonus animation
-          const WELCOME_BONUS = (data.bonusAmount || 500) / 100; // Convert to BOGX
-          const bogx = data.points >= 1 ? data.points / 100 : data.points;
+          const WELCOME_BONUS = data.bonusAmount || 5; // Already in BOGX
+          const bogx = data.points; // Already in BOGX
           setCoins(bogx);
           setCoinAnimation({ show: true, amount: WELCOME_BONUS });
         } else if (data.success) {
           // Already received - just sync points (convert to BOGX)
-          const bogx = data.points >= 1 ? data.points / 100 : data.points;
+          const bogx = data.points; // Already in BOGX
           setCoins(bogx);
         }
       } catch (error) {
@@ -1741,6 +1752,8 @@ export default function MobilePage() {
               }}
               onShowLogin={() => openOverlay('login', { loginView: 'login' })}
               onOpenAuthor={(authorName) => setOpenAuthorName(authorName)}
+              onOpenArticle={(id) => setOpenArticleId(id)}
+              readArticles={rewardedArticles}
               onCoinAnimation={(amount) => {
                 // Points are already saved in the API, just update local state and show animation
                 setCoins(prev => prev + amount);
@@ -1807,6 +1820,8 @@ export default function MobilePage() {
                 pendingBattleId={pendingBattleId} 
                 onPendingBattleHandled={() => setPendingBattleId(null)}
                 onBack={() => setArcadeGame(null)}
+                onGoToTrivia={() => setArcadeGame('trivia')}
+                onGoToArticles={() => setActiveTab('articles')}
               />
             ) : arcadeGame === 'genxmen' ? (
               <GenXManGame 
@@ -1866,7 +1881,7 @@ export default function MobilePage() {
         
         {/* Battles Tab (accessed from Arcade -> QuizzBattle) */}
         <div className={`absolute inset-0 transition-opacity duration-150 ${activeTab === "battles" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"}`}>
-          {activeTab === "battles" && <BattlesPage coins={coins} setCoins={setCoins} onCoinAnimation={(amount, variant) => setCoinAnimation({ show: true, amount, variant })} onShowLogin={() => setShowLoginPage(true)} onBattleActiveChange={setIsBattleActive} pendingBattleId={pendingBattleId} onPendingBattleHandled={() => setPendingBattleId(null)} />}
+          {activeTab === "battles" && <BattlesPage coins={coins} setCoins={setCoins} onCoinAnimation={(amount, variant) => setCoinAnimation({ show: true, amount, variant })} onShowLogin={() => setShowLoginPage(true)} onBattleActiveChange={setIsBattleActive} pendingBattleId={pendingBattleId} onPendingBattleHandled={() => setPendingBattleId(null)} onGoToTrivia={() => { setActiveTab('arcade'); setArcadeGame('trivia'); }} onGoToArticles={() => setActiveTab('articles')} />}
         </div>
         
         {/* Notifications Tab */}
@@ -1891,7 +1906,7 @@ export default function MobilePage() {
                     .then(res => res.json())
                     .then(data => { 
                       if (data.success) {
-                        const bogx = data.points >= 1 ? data.points / 100 : data.points;
+                        const bogx = data.points; // Already in BOGX
                         setCoins(bogx);
                       }
                     })
@@ -2324,6 +2339,16 @@ export default function MobilePage() {
           // Open Rewards page
           setShowRewards(true);
         }}
+        onPlayTrivia={() => {
+          setShowNoFunds(false);
+          // Navigate to Solo Trivia
+          setActiveTab('arcade');
+        }}
+        onReadArticles={() => {
+          setShowNoFunds(false);
+          // Navigate to News/Articles
+          setActiveTab('articles');
+        }}
         onWatchAd={() => {
           // Add 100 points for watching ad
           const adReward = 100;
@@ -2347,23 +2372,25 @@ export default function MobilePage() {
         sessionId={checkoutSessionId || undefined}
       />
 
-      {/* Global Push Reminder - Same style as InstallBanner */}
+      {/* Global Push Reminder - Matches InstallBanner style exactly */}
       {showPushReminder && (
         <div 
-          className="fixed left-0 right-0 z-[40] transition-transform duration-300 ease-out translate-y-0"
-          style={{ bottom: '64px', animation: 'fadeSlideUp 0.3s ease-out' }}
+          className={`fixed left-0 right-0 z-[40] transition-all duration-300 ease-out ${
+            showPushReminder ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'
+          }`}
+          style={{ bottom: '64px' }}
         >
-          <div className="bg-gradient-to-r from-[#D4873A] to-[#c06a2a] shadow-lg">
-            <div className="flex items-center gap-3 px-3 py-2.5">
+          <div className="bg-gradient-to-r from-[#D4873A] via-[#E5994A] to-[#D4873A] shadow-xl border-t border-white/20">
+            <div className="flex items-center gap-4 px-4 py-3.5">
               {/* Icon */}
-              <div className="w-9 h-9 bg-black/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Bell className="w-4 h-4 text-black" />
+              <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center flex-shrink-0 shadow-inner">
+                <Bell className="w-6 h-6 text-white" />
               </div>
               
               {/* Text */}
               <div className="flex-1 min-w-0">
-                <p className="text-black font-bold text-sm">Never miss a reward</p>
-                <p className="text-black/70 text-[10px] font-medium">
+                <p className="text-white font-bold text-base drop-shadow-sm">Never miss a reward</p>
+                <p className="text-white/80 text-xs font-medium">
                   Enable notifications & earn <span className="font-bold">+0.10 BOGX</span>
                 </p>
               </div>
@@ -2371,16 +2398,16 @@ export default function MobilePage() {
               {/* Action Button */}
               <button
                 onClick={handleEnablePushFromReminder}
-                className="px-2.5 py-1.5 bg-black text-[#D4873A] text-xs font-bold rounded-lg flex items-center gap-1 hover:bg-black/80 transition-colors flex-shrink-0"
+                className="px-4 py-2.5 bg-white text-[#D4873A] text-sm font-bold rounded-xl flex items-center gap-1.5 hover:bg-white/90 transition-colors flex-shrink-0 shadow-lg"
               >
-                <Bell className="w-3 h-3" />
+                <Bell className="w-4 h-4" />
                 Enable
               </button>
               
               {/* Close Button */}
               <button
                 onClick={handleDismissPushReminder}
-                className="w-7 h-7 flex items-center justify-center text-black/50 hover:text-black hover:bg-black/10 rounded-lg transition-colors flex-shrink-0"
+                className="w-8 h-8 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition-colors flex-shrink-0"
               >
                 <X className="w-4 h-4" />
               </button>

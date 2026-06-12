@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import Battle from '@/models/Battle';
 import User from '@/models/User';
+import Notification from '@/models/Notification';
 import { sendPushNotification } from '@/lib/webpush';
 
 interface RoundResult {
@@ -86,7 +87,25 @@ export async function POST(
         $inc: { points: wager, gamesPlayed: 1 } 
       });
       
-      // Send tie notifications to both
+      // Create In-App notifications for BOTH (always, regardless of push settings)
+      await Notification.create({
+        userId: battle.creator,
+        type: 'battle_result',
+        title: '🤝 Battle Tie!',
+        message: `You and ${opponent?.username || 'opponent'} tied! Wager returned.`,
+        avatar: opponent?.avatar,
+        data: { battleId: battle._id.toString(), url: '/battles' }
+      });
+      await Notification.create({
+        userId: battle.opponent,
+        type: 'battle_result',
+        title: '🤝 Battle Tie!',
+        message: `You and ${creator?.username || 'opponent'} tied! Wager returned.`,
+        avatar: creator?.avatar,
+        data: { battleId: battle._id.toString(), url: '/battles' }
+      });
+      
+      // Send push notifications (only if enabled)
       if (creator?.pushSubscription && creator?.notifyBattleResult !== false) {
         sendPushNotification(creator.pushSubscription, {
           title: '🤝 Battle Tie!',
@@ -114,11 +133,29 @@ export async function POST(
         $inc: { gamesPlayed: 1 } // Loser already lost wager, no more deduction
       });
       
-      // Send win/lose notifications
+      // Create In-App notifications for BOTH (always, regardless of push settings)
+      await Notification.create({
+        userId: battle.opponent,
+        type: 'battle_result',
+        title: '🏆 You Won!',
+        message: `You beat ${creator?.username || 'opponent'}! +${(wager * 2).toFixed(2)} BOGX`,
+        avatar: creator?.avatar,
+        data: { battleId: battle._id.toString(), url: '/battles' }
+      });
+      await Notification.create({
+        userId: battle.creator,
+        type: 'battle_result',
+        title: '😔 Battle Lost',
+        message: `${opponent?.username || 'Opponent'} won this round. Try again!`,
+        avatar: opponent?.avatar,
+        data: { battleId: battle._id.toString(), url: '/battles' }
+      });
+      
+      // Send push notifications (only if enabled)
       if (opponent?.pushSubscription && opponent?.notifyBattleResult !== false) {
         sendPushNotification(opponent.pushSubscription, {
           title: '🏆 You Won!',
-          body: `You beat ${creator?.username || 'opponent'}! +${(wager * 2 / 100).toFixed(2)} BOGX`,
+          body: `You beat ${creator?.username || 'opponent'}! +${(wager * 2).toFixed(2)} BOGX`,
           tag: `battle-result-${battle._id}`,
           url: '/battles',
           type: 'challenge'
@@ -142,11 +179,29 @@ export async function POST(
         $inc: { gamesPlayed: 1 } // Loser already lost wager, no more deduction
       });
       
-      // Send win/lose notifications
+      // Create In-App notifications for BOTH (always, regardless of push settings)
+      await Notification.create({
+        userId: battle.creator,
+        type: 'battle_result',
+        title: '🏆 You Won!',
+        message: `You beat ${opponent?.username || 'opponent'}! +${(wager * 2).toFixed(2)} BOGX`,
+        avatar: opponent?.avatar,
+        data: { battleId: battle._id.toString(), url: '/battles' }
+      });
+      await Notification.create({
+        userId: battle.opponent,
+        type: 'battle_result',
+        title: '😔 Battle Lost',
+        message: `${creator?.username || 'Opponent'} won this round. Try again!`,
+        avatar: creator?.avatar,
+        data: { battleId: battle._id.toString(), url: '/battles' }
+      });
+      
+      // Send push notifications (only if enabled)
       if (creator?.pushSubscription && creator?.notifyBattleResult !== false) {
         sendPushNotification(creator.pushSubscription, {
           title: '🏆 You Won!',
-          body: `You beat ${opponent?.username || 'opponent'}! +${(wager * 2 / 100).toFixed(2)} BOGX`,
+          body: `You beat ${opponent?.username || 'opponent'}! +${(wager * 2).toFixed(2)} BOGX`,
           tag: `battle-result-${battle._id}`,
           url: '/battles',
           type: 'challenge'

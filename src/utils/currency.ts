@@ -71,15 +71,14 @@ export const formatEuro = formatCurrency;
 export const formatEuroWithSymbol = formatCurrencyWithSymbol;
 export const formatEuroChange = formatCurrencyChange;
 
-// Utility to check if value is in old points format (> 10 likely means old format)
+// Utility to check if value is in old points format
+// DEPRECATED: Database has been migrated, no auto-conversion needed
 export function isLegacyPoints(value: number): boolean {
-  return value > 10 && Number.isInteger(value);
+  return false; // All data is now in BOGX format
 }
 
-// Auto-convert: if value looks like old points, convert to BOGX
+// Auto-convert: DISABLED after migration
+// All values are now stored correctly as BOGX
 export function autoConvertToBOGX(value: number): number {
-  if (isLegacyPoints(value)) {
-    return pointsToBOGX(value);
-  }
-  return value;
+  return value; // No conversion needed - data is already BOGX
 }

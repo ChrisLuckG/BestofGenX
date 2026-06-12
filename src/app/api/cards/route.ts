@@ -15,15 +15,10 @@ export async function GET(request: NextRequest) {
     await dbConnect();
     
     const { searchParams } = new URL(request.url);
-    const date = searchParams.get('date'); // YYYY-MM-DD or 'all'
     const userId = searchParams.get('userId'); // Optional: for smart question selection
     
-    let query = {};
-    if (date && date !== 'all') {
-      query = { gameDate: date };
-    }
-    
-    const cards = await Card.find(query).sort({ createdAt: -1 }).lean();
+    // Get all active cards (no date filtering - questions are tracked per user)
+    const cards = await Card.find({ active: true }).sort({ createdAt: -1 }).lean();
     
     // If userId provided, select questions user hasn't seen recently
     if (userId) {

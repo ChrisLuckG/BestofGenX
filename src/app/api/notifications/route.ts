@@ -89,52 +89,58 @@ export async function GET(request: NextRequest) {
     
     // Add completed battle results
     for (const battle of completedBattles) {
-      const isCreator = battle.creator._id.toString() === userId;
-      const opponent = isCreator ? battle.opponent : battle.creator;
-      const won = battle.winner?._id.toString() === userId;
+      const creator = battle.creator as any;
+      const opponentUser = battle.opponent as any;
+      const winnerUser = battle.winner as any;
+      const isCreator = creator?._id?.toString() === userId;
+      const opponent = isCreator ? opponentUser : creator;
+      const won = winnerUser?._id?.toString() === userId;
       const isTie = !battle.winner;
       
+      const opponentName = opponent?.username || 'Opponent';
       const notifId = `battle-result-${battle._id}`;
       notifications.push({
         id: notifId,
         type: 'battle_result',
         title: isTie ? '🤝 It\'s a Tie!' : (won ? '🏆 You Won!' : '😢 You Lost'),
         message: isTie 
-          ? `You and ${opponent?.username} tied! No coins exchanged.`
+          ? `You and ${opponentName} tied! No coins exchanged.`
           : (won 
-            ? `You beat ${opponent?.username}! +${(battle.wager / 100).toFixed(2)} BOGX earned.`
-            : `${opponent?.username} beat you. -${(battle.wager / 100).toFixed(2)} BOGX lost.`),
+            ? `You beat ${opponentName}! +${battle.wager.toFixed(2)} BOGX earned.`
+            : `${opponentName} beat you. -${battle.wager.toFixed(2)} BOGX lost.`),
         avatar: opponent?.avatar,
         battleId: battle._id,
-        createdAt: battle.completedAt || battle.updatedAt || battle.createdAt || new Date(),
+        createdAt: battle.completedAt || (battle as any).updatedAt || battle.createdAt || new Date(),
         read: readIds.has(notifId)
       });
     }
     
     // Add active battles (opponent is playing)
     for (const battle of activeBattles) {
+      const opponentUser = battle.opponent as any;
       const notifId = `battle-active-${battle._id}`;
       notifications.push({
         id: notifId,
         type: 'battle_accepted',
         title: '⚔️ Battle Accepted!',
-        message: `${battle.opponent?.username} is playing your challenge right now!`,
-        avatar: battle.opponent?.avatar,
+        message: `${opponentUser?.username || 'Opponent'} is playing your challenge right now!`,
+        avatar: opponentUser?.avatar,
         battleId: battle._id,
-        createdAt: battle.acceptedAt || battle.updatedAt || battle.createdAt || new Date(),
+        createdAt: battle.acceptedAt || (battle as any).updatedAt || battle.createdAt || new Date(),
         read: readIds.has(notifId)
       });
     }
     
     // Add pending challenges (someone challenged you!)
     for (const battle of pendingChallenges) {
+      const creatorUser = battle.creator as any;
       const notifId = `battle-challenge-${battle._id}`;
       notifications.push({
         id: notifId,
         type: 'battle_challenge',
         title: '⚔️ You\'ve Been Challenged!',
-        message: `${battle.creator?.username} challenges you to a ${battle.topic.toUpperCase()} battle for ${battle.wager} coins!`,
-        avatar: battle.creator?.avatar,
+        message: `${creatorUser?.username || 'Someone'} challenges you to a ${battle.topic.toUpperCase()} battle for ${battle.wager.toFixed(2)} BOGX!`,
+        avatar: creatorUser?.avatar,
         battleId: battle._id,
         wager: battle.wager,
         topic: battle.topic,

@@ -112,9 +112,9 @@ export async function POST(request: Request) {
       const metadata = session.metadata || {};
       let orderItems: any[] = [];
 
-      if (metadata.cart_items) {
+      if (metadata.cartItems || metadata.cart_items) {
         // Multiple items from cart - need to fetch variant details
-        const cartItems = JSON.parse(metadata.cart_items);
+        const cartItems = JSON.parse(metadata.cartItems || metadata.cart_items);
         for (const item of cartItems) {
           const productRes = await fetch(`${PRINTFUL_API_URL}/store/products/${item.productId}`, {
             headers: { 'Authorization': `Bearer ${PRINTFUL_API_TOKEN}` },
@@ -144,8 +144,10 @@ export async function POST(request: Request) {
       }
 
       // Create order in Printful
+      // Use shorter external_id - Printful has limits on ID format
+      const externalId = `BOGX-${Date.now()}-${session.id.slice(-8)}`;
       const orderData = {
-        external_id: session.id,
+        external_id: externalId,
         recipient: {
           name: customerName,
           email: customerEmail || '',

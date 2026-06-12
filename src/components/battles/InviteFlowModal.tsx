@@ -15,12 +15,13 @@ interface User {
 
 type PlayerFilter = 'online' | 'country' | 'level';
 
+// BOGX wager amounts
 const WAGERS = [
-  { amount: 10, rounds: 3 },
-  { amount: 25, rounds: 3 },
-  { amount: 50, rounds: 3 },
-  { amount: 100, rounds: 5 },
-  { amount: 150, rounds: 5 },
+  { amount: 0.10, rounds: 3 },
+  { amount: 0.25, rounds: 3 },
+  { amount: 0.50, rounds: 3 },
+  { amount: 1.00, rounds: 5 },
+  { amount: 1.50, rounds: 5 },
 ];
 
 const TOPICS = [
@@ -64,7 +65,7 @@ export default function InviteFlowModal({
 }: InviteFlowModalProps) {
   const [step, setStep] = useState<Step>('search');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [wager, setWager] = useState(25);
+  const [wager, setWager] = useState(0.25);
   const [topic, setTopic] = useState('sport');
   
   // Search state
@@ -130,7 +131,7 @@ export default function InviteFlowModal({
       setSelectedUser(null);
       setSearchQuery('');
       setSearchResults([]);
-      setWager(25);
+      setWager(0.25);
       setTopic('sport');
       setPlayerFilter('online');
     }
@@ -152,7 +153,7 @@ export default function InviteFlowModal({
 
   if (!isOpen) return null;
 
-  const rounds = wager >= 100 ? 5 : 3;
+  const rounds = wager >= 1 ? 5 : 3;
   const selectedTopic = TOPICS.find(t => t.id === topic) || TOPICS[0];
 
   const handleBack = () => {
@@ -434,7 +435,7 @@ export default function InviteFlowModal({
                 </div>
                 <div className="flex justify-between mb-2">
                   <span className="text-gray-500">Wager:</span>
-                  <span className="text-gray-900 font-bold">{wager} coins</span>
+                  <span className="text-gray-900 font-bold">{wager.toFixed(2)} BOGX</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Rounds:</span>

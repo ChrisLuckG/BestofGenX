@@ -189,7 +189,7 @@ export default function RankingPollCard({ poll, onPointsAwarded, onShowLogin, on
         show={showLoginModal}
         type="login"
         title="LOGIN REQUIRED"
-        message="Log in or create a free account to vote and earn points."
+        message="Log in or create a free account to vote and earn BOGX."
         onClose={() => setShowLoginModal(false)}
         buttonText="LOGIN"
         onButtonClick={() => {

@@ -12,7 +12,7 @@ interface AuthorArticle {
   coverImage?: string;
   category: string;
   publishedAt?: string;
-  readTime: number;
+  readTime?: number;
   views: number;
   likes: number;
   authorAvatar?: string;

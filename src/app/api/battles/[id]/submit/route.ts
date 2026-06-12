@@ -117,8 +117,8 @@ export async function POST(
           sendPushNotification(creator.pushSubscription, {
             title: creatorWon ? '🏆 You Won the Battle!' : '😢 You Lost the Battle',
             body: creatorWon 
-              ? `You beat ${opponent?.username}! +${(wager / 100).toFixed(2)} BOGX earned.`
-              : `${opponent?.username} beat you. -${(wager / 100).toFixed(2)} BOGX lost.`,
+              ? `You beat ${opponent?.username}! +${wager.toFixed(2)} BOGX earned.`
+              : `${opponent?.username} beat you. -${wager.toFixed(2)} BOGX lost.`,
             tag: `battle-result-${battle._id}`,
             url: '/notifications',
             type: 'challenge'

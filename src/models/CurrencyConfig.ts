@@ -14,7 +14,7 @@ export interface ICurrencyConfig {
 
 const CurrencyConfigSchema = new mongoose.Schema<ICurrencyConfig>({
   loginDaily: { type: Number, default: 0.05 },
-  readArticle: { type: Number, default: 0.20 },
+  readArticle: { type: Number, default: 0.05 },
   battleBet10: { type: Number, default: 0.10 },
   battleBet25: { type: Number, default: 0.25 },
   battleBet50: { type: Number, default: 0.50 },
@@ -48,7 +48,7 @@ export function formatBOGX(coins: number): string {
 // Default config values
 export const DEFAULT_CURRENCY_CONFIG: ICurrencyConfig = {
   loginDaily: 0.05,
-  readArticle: 0.20,
+  readArticle: 0.05,
   battleBet10: 0.10,
   battleBet25: 0.25,
   battleBet50: 0.50,

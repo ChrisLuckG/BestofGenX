@@ -210,11 +210,11 @@ export default function SummaryCard({
     return () => clearInterval(interval);
   }, [totalPoints, accuracy, correctAnswers]);
 
-  // Color theme based on performance
+  // Color theme based on performance (BOGX values)
   const getThemeColor = () => {
-    if (totalPoints >= 100) return { primary: '#22c55e', bg: 'green', video: totalPoints >= 200 ? '/videos/CRUSHED.mp4' : '/videos/niceprof.mp4' };
+    if (totalPoints >= 1.00) return { primary: '#22c55e', bg: 'green', video: totalPoints >= 2.00 ? '/videos/CRUSHED.mp4' : '/videos/niceprof.mp4' };
     if (totalPoints >= 0) return { primary: '#eab308', bg: 'yellow', video: '/videos/doubledow.mp4' };
-    return { primary: '#ef4444', bg: 'red', video: totalPoints >= -100 ? '/videos/next.mp4' : '/videos/Last.mp4' };
+    return { primary: '#ef4444', bg: 'red', video: totalPoints >= -1.00 ? '/videos/next.mp4' : '/videos/Last.mp4' };
   };
   const theme = getThemeColor();
 
@@ -254,7 +254,7 @@ export default function SummaryCard({
               className="text-[10px] font-bold tracking-widest mb-2"
               style={{ color: theme.primary }}
             >
-              {totalPoints >= 200 ? 'YOU CRUSHED IT' : totalPoints >= 100 ? 'NICE PROFIT' : totalPoints >= 0 ? 'TIME TO DOUBLE DOWN' : totalPoints >= -100 ? 'TIME TO WIN IT BACK' : 'REVENGE TIME'}
+              {totalPoints >= 2.00 ? 'YOU CRUSHED IT' : totalPoints >= 1.00 ? 'NICE PROFIT' : totalPoints >= 0 ? 'TIME TO DOUBLE DOWN' : totalPoints >= -1.00 ? 'TIME TO WIN IT BACK' : 'REVENGE TIME'}
             </p>
             
             {/* Points Number */}
@@ -269,13 +269,13 @@ export default function SummaryCard({
             
             {/* Motivational subtext */}
             <p className="text-white/90 text-[11px] font-medium" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>
-              {totalPoints >= 200 
+              {totalPoints >= 2.00 
                 ? "At this rate, you'll be #1 in 2 weeks" 
-                : totalPoints >= 100 
+                : totalPoints >= 1.00 
                   ? "Keep this up and watch your rank climb" 
                   : totalPoints >= 0 
                     ? "One good day away from the leaderboard"
-                    : totalPoints >= -100 
+                    : totalPoints >= -1.00 
                       ? "Tomorrow is your comeback story"
                       : "Champions are made from setbacks"}
             </p>

@@ -16,7 +16,7 @@ interface DesktopBattlesPageProps {
 export default function DesktopBattlesPage(props: DesktopBattlesPageProps) {
   // Go directly to battles page - no intro screen
   return (
-    <div className="relative min-h-full flex flex-col bg-[#FDFBF7] desktop-battles-wrapper">
+    <div className="relative min-h-full flex flex-col bg-[#F5F0E8] desktop-battles-wrapper">
       <style jsx global>{`
         .desktop-battles-wrapper > div > .bg-cream:not(.z-20) {
           background-color: transparent !important;

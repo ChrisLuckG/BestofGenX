@@ -493,7 +493,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
             className="w-full flex items-center justify-center gap-2 p-3.5 bg-white border border-warm rounded-2xl shadow-sm hover:bg-[#D4873A]/5 transition-colors"
           >
             <Share2 className="w-4 h-4 text-[#D4873A]" />
-            <span className="text-[#D4873A] text-sm font-bold">Invite friends &middot; +500 pts each</span>
+            <span className="text-[#D4873A] text-sm font-bold">Invite friends &middot; +5.00 BOGX each</span>
           </button>
         </div>
 

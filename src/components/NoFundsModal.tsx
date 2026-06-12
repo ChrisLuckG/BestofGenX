@@ -95,10 +95,10 @@ export default function NoFundsModal({
               </div>
               <div className="flex-1 text-left">
                 <p className="font-bold text-gray-900 text-sm">Read articles</p>
-                <p className="text-[10px] text-gray-500">Read 10 articles</p>
+                <p className="text-[10px] text-gray-500">Earn per article</p>
               </div>
               <div className="flex items-center gap-1 text-[#D4873A] font-bold text-sm">
-                +0,50 <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
+                +0,05 <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
                 <ChevronRight className="w-4 h-4 text-gray-400" />
               </div>
             </button>
@@ -121,7 +121,7 @@ export default function NoFundsModal({
               </div>
             </button>
 
-            {/* Win a trivia */}
+            {/* Play trivia */}
             <button
               onClick={onPlayTrivia || onTopUp}
               className="w-full p-3 bg-[#D4873A]/5 rounded-xl flex items-center gap-3 hover:bg-[#D4873A]/10 transition-all"
@@ -130,11 +130,11 @@ export default function NoFundsModal({
                 <img src="/images/Icon/trivia2.png" alt="" className="w-5 h-5" />
               </div>
               <div className="flex-1 text-left">
-                <p className="font-bold text-gray-900 text-sm">Win a trivia</p>
-                <p className="text-[10px] text-gray-500">Play a solo trivia</p>
+                <p className="font-bold text-gray-900 text-sm">Play trivia</p>
+                <p className="text-[10px] text-gray-500">Earn up to 0.15 per question</p>
               </div>
               <div className="flex items-center gap-1 text-[#D4873A] font-bold text-sm">
-                +0,30 <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
+                +0,05-0,15 <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
                 <ChevronRight className="w-4 h-4 text-gray-400" />
               </div>
             </button>

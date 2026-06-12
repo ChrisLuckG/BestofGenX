@@ -89,9 +89,12 @@ export default function ShopPage({ coins = 0, onCoinsUsed }: ShopPageProps) {
     <div className="w-full h-full min-h-full flex flex-col overflow-hidden bg-cream">
       {/* Header - exactly like Rankings */}
       <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <ShoppingBag className="w-5 h-5 text-[#D4873A]" />
-          <span className="font-display text-lg tracking-wider text-gray-900">Shop</span>
+          <div>
+            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Shop</span>
+            <span className="text-[10px] text-gray-500 -mt-0.5 block">GenX merch & collectibles</span>
+          </div>
         </div>
         <button 
           onClick={() => setShowCart(true)}
@@ -263,13 +266,13 @@ export default function ShopPage({ coins = 0, onCoinsUsed }: ShopPageProps) {
                             <Star key={i} className="w-2.5 h-2.5 fill-[#D4873A] text-[#D4873A]" />
                           ))}
                         </div>
-                        <span className="text-gray-500 text-[9px]">({Math.floor(Math.random() * 100) + 20})</span>
+                        <span className="text-gray-500 text-[9px]">({(product as any).reviewCount || 0})</span>
                       </div>
                       <div className="flex items-baseline gap-1 mt-1">
                         <span className="text-[#D4873A] font-bold text-sm">{product.price}</span>
                       </div>
                       <span className="text-gray-500 text-[10px]">
-                        or {(parseFloat(product.price.replace('€', '').replace(',', '.')) * 500).toLocaleString()} pts
+                        or {(parseFloat(product.price.replace('€', '').replace(',', '.')) * 500).toLocaleString()} BOGX
                       </span>
                     </div>
                   </div>

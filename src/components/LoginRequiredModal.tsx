@@ -31,7 +31,7 @@ export default function LoginRequiredModal({
   // Desktop: render inline in content area
   if (embedded) {
     return (
-      <div className="absolute inset-0 z-[50] flex items-center justify-center p-5 bg-[#FDFBF7]/80 backdrop-blur-sm">
+      <div className="absolute inset-0 z-[50] flex items-center justify-center p-5 bg-[#F5F0E8]/80 backdrop-blur-sm">
         <div className="relative w-full max-w-sm bg-cream rounded-2xl shadow-xl border border-warm overflow-hidden">
           {/* Header */}
           <div className="px-6 pt-6 pb-4 border-b border-warm">

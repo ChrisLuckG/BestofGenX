@@ -12,7 +12,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User ID required' }, { status: 400 });
     }
     
-    await User.findByIdAndDelete(userId);
+    // Soft delete - mark as deleted instead of removing
+    await User.findByIdAndUpdate(userId, {
+      isDeleted: true,
+      deletedAt: new Date(),
+    });
     
     return NextResponse.json({ success: true });
   } catch (error) {

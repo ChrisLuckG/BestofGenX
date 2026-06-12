@@ -50,7 +50,7 @@ function VerifyEmailContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#F5F0E8] flex items-center justify-center p-4">
         <div className="text-center">
           <GenXLoader size="lg" />
           <p className="text-gray-500 mt-4">Verifying your email...</p>
@@ -61,7 +61,7 @@ function VerifyEmailContent() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#F5F0E8] flex items-center justify-center p-4">
         <div className="text-center">
           <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Check className="w-10 h-10 text-green-600" />
@@ -75,7 +75,7 @@ function VerifyEmailContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#F5F0E8] flex items-center justify-center p-4">
       <div className="text-center max-w-md">
         <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <AlertCircle className="w-10 h-10 text-red-500" />
@@ -95,7 +95,7 @@ function VerifyEmailContent() {
 
 export default function VerifyEmailPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center"><GenXLoader size="lg" /></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-[#F5F0E8] flex items-center justify-center"><GenXLoader size="lg" /></div>}>
       <VerifyEmailContent />
     </Suspense>
   );

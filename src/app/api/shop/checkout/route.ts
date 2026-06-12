@@ -18,12 +18,14 @@ interface CartItem {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { productId, variantId, quantity = 1, cartItems, paymentMethod, userId, pointsToDeduct } = body;
+    const { productId, variantId, quantity = 1, cartItems, paymentMethod, userId, pointsToDeduct, returnPath } = body;
     
-    // Get base URL from request headers (works with any host/IP)
+    // Get base URL - always use bestofgenx.com for production
     const host = request.headers.get('host') || 'localhost:3000';
-    const protocol = host.includes('localhost') || host.includes('192.168') ? 'http' : 'https';
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${protocol}://${host}`;
+    const isLocal = host.includes('localhost') || host.includes('192.168');
+    const baseUrl = isLocal 
+      ? `http://${host}` 
+      : 'https://www.bestofgenx.com';
 
     // Handle Points Payment
     if (paymentMethod === 'points' && userId && pointsToDeduct > 0) {
@@ -169,13 +171,16 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
+    // Determine return path (mobile or desktop)
+    const path = returnPath === '/desktop' ? '/desktop' : '/mobile';
+
     // Create Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: lineItems,
       mode: 'payment',
-      success_url: `${baseUrl}/mobile?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}/mobile?checkout=cancelled`,
+      success_url: `${baseUrl}${path}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}${path}?checkout=cancelled`,
       metadata,
       shipping_address_collection: {
         allowed_countries: ['DE', 'AT', 'CH', 'US', 'GB', 'FR', 'IT', 'ES', 'NL', 'BE'],

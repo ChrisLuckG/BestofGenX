@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [guestWins, setGuestWins] = useState(0);
   const [guestName] = useState(generateGuestName());
 
-  // Load from localStorage on mount
+  // Load from localStorage on mount, then refresh from API
   useEffect(() => {
     const savedUser = localStorage.getItem("sporttock_user");
     const savedGuestGames = localStorage.getItem("sporttock_guest_games");
@@ -64,7 +64,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const today = new Date().toISOString().split('T')[0];
     
     if (savedUser) {
-      setUser(JSON.parse(savedUser));
+      const parsedUser = JSON.parse(savedUser);
+      // Set user but reset coins to 0 until API responds
+      setUser({
+        ...parsedUser,
+        coins: 0,
+        bogxCoins: 0,
+      });
+      
+      // Immediately fetch fresh data from API to update coins/stats
+      if (parsedUser.id) {
+        fetch(`/api/user/points?userId=${parsedUser.id}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) {
+              setUser(prev => prev ? {
+                ...prev,
+                coins: data.points || 0,
+                bogxCoins: data.bogxCoins || 0,
+                wins: data.wins || 0,
+                gamesPlayed: data.gamesPlayed || 0,
+              } : null);
+            }
+          })
+          .catch(() => {});
+      }
     }
     
     // Reset guest games if it's a new day

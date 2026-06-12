@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Check, Package, Mail, X, Truck } from "lucide-react";
+import { Check, Package, Mail, X, Truck, Loader2, AlertCircle } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 
 interface OrderData {
@@ -25,22 +25,46 @@ interface CheckoutSuccessModalProps {
 
 export default function CheckoutSuccessModal({ isOpen, onClose, sessionId }: CheckoutSuccessModalProps) {
   const [order, setOrder] = useState<OrderData | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [paymentVerified, setPaymentVerified] = useState<boolean | null>(null);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
   const { clearCart } = useCart();
 
-  // Fetch order details when modal opens
+  // Verify payment status with Stripe first
   useEffect(() => {
     if (isOpen && sessionId) {
       setLoading(true);
-      fetch(`/api/orders?sessionId=${sessionId}`)
+      setPaymentVerified(null);
+      setVerificationError(null);
+
+      // First verify the session with Stripe
+      fetch(`/api/shop/verify-session?session_id=${sessionId}`)
         .then(res => res.json())
         .then(data => {
-          if (data.success && data.order) {
-            setOrder(data.order);
-            clearCart(); // Clear cart after successful order
+          if (data.success && data.isPaid) {
+            setPaymentVerified(true);
+            clearCart();
+            
+            // Then fetch order details
+            return fetch(`/api/orders?sessionId=${sessionId}`)
+              .then(res => res.json())
+              .then(orderData => {
+                if (orderData.success && orderData.order) {
+                  setOrder(orderData.order);
+                }
+              });
+          } else {
+            setPaymentVerified(false);
+            setVerificationError(data.paymentStatus === 'unpaid' 
+              ? 'Payment was not completed. Please try again.'
+              : 'Could not verify payment status.');
           }
         })
-        .catch(console.error)
+        .catch(err => {
+          console.error('Verification error:', err);
+          setPaymentVerified(false);
+          setVerificationError('Could not verify payment. Please check your email or contact support.');
+        })
         .finally(() => setLoading(false));
     }
   }, [isOpen, sessionId, clearCart]);
@@ -65,7 +89,35 @@ export default function CheckoutSuccessModal({ isOpen, onClose, sessionId }: Che
           <X className="w-5 h-5" />
         </button>
 
-        {/* Success Header */}
+        {/* Loading State */}
+        {loading && (
+          <div className="text-center py-8">
+            <Loader2 className="w-12 h-12 mx-auto mb-4 text-[#D4873A] animate-spin" />
+            <p className="text-gray-600 font-medium">Verifying payment...</p>
+            <p className="text-gray-400 text-sm mt-1">Please wait</p>
+          </div>
+        )}
+
+        {/* Payment Failed State */}
+        {!loading && paymentVerified === false && (
+          <div className="text-center py-6">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
+              <AlertCircle className="w-8 h-8 text-red-500" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Payment Not Completed</h2>
+            <p className="text-gray-500 text-sm mb-6">{verificationError}</p>
+            <button
+              onClick={onClose}
+              className="w-full py-3 rounded-xl font-bold bg-gray-800 text-white text-sm hover:bg-gray-700 transition-all"
+            >
+              Try Again
+            </button>
+          </div>
+        )}
+
+        {/* Success Header - only show when verified */}
+        {!loading && paymentVerified === true && (
+        <>
         <div className="text-center mb-5">
           <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-[#D4873A]/10 flex items-center justify-center">
             <Check className="w-8 h-8 text-[#D4873A]" />
@@ -170,6 +222,8 @@ export default function CheckoutSuccessModal({ isOpen, onClose, sessionId }: Che
         >
           Continue Shopping
         </button>
+        </>
+        )}
       </div>
     </div>
   );

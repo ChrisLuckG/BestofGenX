@@ -174,7 +174,7 @@ export default function Header({ coins, userAvatar, userRank, rankingsOpen, onCo
           {/* Right: Rank on top, Points below */}
           <div className="flex flex-col items-start leading-tight">
             {/* Top row: Crown + Rank */}
-            <span className={`text-[10px] font-bold flex items-center gap-0.5 ${rankingsOpen ? 'text-white/80' : 'text-[#D4873A]'}`}>
+            <span className={`text-xs font-black flex items-center gap-0.5 ${rankingsOpen ? 'text-white/80' : 'text-[#D4873A]'}`}>
               <Crown className="w-3.5 h-3.5" />
               #{userRank 
                 ? userRank >= 10000 

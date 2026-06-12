@@ -55,6 +55,8 @@ export interface IUser extends Document {
   emailVerificationExpires?: Date; // Token expiry
   passwordResetToken?: string; // Token for password reset
   passwordResetExpires?: Date; // Token expiry
+  isDeleted?: boolean; // Soft delete flag
+  deletedAt?: Date; // When user was deleted
   createdAt: Date;
   updatedAt: Date;
 }
@@ -240,6 +242,14 @@ const UserSchema = new Schema<IUser>(
       default: null,
     },
     passwordResetExpires: {
+      type: Date,
+      default: null,
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+    deletedAt: {
       type: Date,
       default: null,
     },

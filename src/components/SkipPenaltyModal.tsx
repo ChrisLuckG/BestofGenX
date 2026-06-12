@@ -36,7 +36,7 @@ export default function SkipPenaltyModal({ isOpen, onPlay, onSkip }: SkipPenalty
             To skip this challenge, you must pay
           </p>
           <p className="text-red-500 font-black text-3xl text-center mt-1">
-            -{penalty} PTS
+            -{penalty} BOGX
           </p>
         </div>
 

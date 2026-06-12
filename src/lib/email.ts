@@ -50,8 +50,7 @@ function createBaseEmailTemplate(params: EmailTemplateParams): string {
     <div style="background: linear-gradient(135deg, #FDF8F0 0%, #F5F0E8 100%); padding: 32px 20px; text-align: center; position: relative;">
       <!-- Retro icons pattern (using emoji as fallback, ideally use hosted image) -->
       <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; opacity: 0.15; font-size: 24px; overflow: hidden; line-height: 1.8;">
-        🎮 📺 🎸 👟 🎧 📼 🕹️ 📻 🎬 🎤
-      </div>
+              </div>
       <!-- Logo -->
       <div style="position: relative; z-index: 1;">
         <img src="https://bestofgenx.com/images/genxlogo1.png" alt="BOGX" style="height: 48px; object-fit: contain;" />
@@ -84,7 +83,7 @@ function createBaseEmailTemplate(params: EmailTemplateParams): string {
       <!-- Decorative divider -->
       <div style="text-align: center; margin: 24px 0;">
         <div style="display: inline-block; width: 60px; height: 1px; background: linear-gradient(90deg, transparent, #E8E4DC, transparent);"></div>
-        <span style="display: inline-block; margin: 0 12px; color: #D4873A; font-size: 14px;">⚡</span>
+        <span style="display: inline-block; margin: 0 12px; color: #D4873A; font-size: 14px;">—</span>
         <div style="display: inline-block; width: 60px; height: 1px; background: linear-gradient(90deg, transparent, #E8E4DC, transparent);"></div>
       </div>
 
@@ -106,7 +105,7 @@ function createBaseEmailTemplate(params: EmailTemplateParams): string {
       <!-- Footer Note with icon -->
       <div style="display: flex; align-items: flex-start; gap: 12px; background-color: #FDF8F0; border-radius: 12px; padding: 16px; margin-top: 24px;">
         <div style="width: 36px; height: 36px; background-color: #D4873A20; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-          <span style="color: #D4873A; font-size: 16px;">✓</span>
+          <span style="color: #D4873A; font-size: 14px; font-weight: bold;">i</span>
         </div>
         <p style="color: #888888; font-size: 13px; line-height: 1.5; margin: 0;">
           ${footerNote}
@@ -118,7 +117,7 @@ function createBaseEmailTemplate(params: EmailTemplateParams): string {
       <!-- Copy Link Section -->
       <div style="display: flex; align-items: flex-start; gap: 12px; background-color: #FDF8F0; border-radius: 12px; padding: 16px; margin-top: 16px;">
         <div style="width: 36px; height: 36px; background-color: #D4873A20; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-          <span style="color: #D4873A; font-size: 16px;">🔗</span>
+          <span style="color: #D4873A; font-size: 12px; font-weight: bold;">LINK</span>
         </div>
         <div>
           <p style="color: #666666; font-size: 12px; font-weight: 600; margin: 0 0 4px 0;">${footerLink.text}</p>
@@ -132,7 +131,7 @@ function createBaseEmailTemplate(params: EmailTemplateParams): string {
     <div style="padding: 24px 20px 40px; text-align: center;">
       <div style="display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 16px;">
         <div style="width: 32px; height: 32px; border: 1px solid #E8E4DC; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-          <span style="font-size: 14px;">🛡️</span>
+          <span style="font-size: 12px; font-weight: bold; color: #666;">PRIVACY</span>
         </div>
         <div style="text-align: left;">
           <p style="color: #666666; font-size: 12px; font-weight: 600; margin: 0;">Your data is safe with us.</p>
@@ -179,8 +178,7 @@ export function createNewMatchEmail(username: string) {
     
     <!-- Main Content -->
     <div style="background: linear-gradient(135deg, rgba(242,5,80,0.2), rgba(128,0,255,0.2)); border: 1px solid rgba(242,5,80,0.3); border-radius: 16px; padding: 30px; text-align: center; margin-bottom: 30px;">
-      <div style="font-size: 48px; margin-bottom: 16px;">🎮</div>
-      <h2 style="color: #ffffff; font-size: 24px; margin: 0 0 8px 0;">Neues Spiel gestartet!</h2>
+            <h2 style="color: #ffffff; font-size: 24px; margin: 0 0 8px 0;">Neues Spiel gestartet!</h2>
       <p style="color: #cccccc; font-size: 16px; margin: 0;">Hey ${username}, die heutige Challenge wartet auf dich!</p>
     </div>
     
@@ -205,7 +203,7 @@ export function createNewMatchEmail(username: string) {
         Du erhältst diese E-Mail, weil du E-Mail-Benachrichtigungen aktiviert hast.
       </p>
       <p style="color: #666666; font-size: 12px; margin: 0;">
-        © 2024 Best of GenX | Made with ❤️ for the 80s, 90s & 2000s Generation
+        © 2024 Best of GenX | The 80s, 90s & 2000s Generation
       </p>
     </div>
     
@@ -234,8 +232,7 @@ export function createReminderEmail(username: string, hoursUntilStart: number) {
     
     <!-- Main Content -->
     <div style="background: linear-gradient(135deg, rgba(59,130,246,0.2), rgba(128,0,255,0.2)); border: 1px solid rgba(59,130,246,0.3); border-radius: 16px; padding: 30px; text-align: center; margin-bottom: 30px;">
-      <div style="font-size: 48px; margin-bottom: 16px;">⏰</div>
-      <h2 style="color: #ffffff; font-size: 24px; margin: 0 0 8px 0;">Noch ${hoursUntilStart} Stunde${hoursUntilStart > 1 ? 'n' : ''}!</h2>
+            <h2 style="color: #ffffff; font-size: 24px; margin: 0 0 8px 0;">Noch ${hoursUntilStart} Stunde${hoursUntilStart > 1 ? 'n' : ''}!</h2>
       <p style="color: #cccccc; font-size: 16px; margin: 0;">Hey ${username}, das nächste Spiel startet bald!</p>
     </div>
     
@@ -249,7 +246,7 @@ export function createReminderEmail(username: string, hoursUntilStart: number) {
     <!-- Footer -->
     <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
       <p style="color: #666666; font-size: 12px; margin: 0;">
-        © 2024 Best of GenX | Made with ❤️ for the 80s, 90s & 2000s Generation
+        © 2024 Best of GenX | The 80s, 90s & 2000s Generation
       </p>
     </div>
     
@@ -278,8 +275,7 @@ export function createResultsEmail(username: string, rank: number, points: numbe
     
     <!-- Main Content -->
     <div style="background: linear-gradient(135deg, rgba(234,179,8,0.2), rgba(242,5,80,0.2)); border: 1px solid rgba(234,179,8,0.3); border-radius: 16px; padding: 30px; text-align: center; margin-bottom: 30px;">
-      <div style="font-size: 48px; margin-bottom: 16px;">🏆</div>
-      <h2 style="color: #ffffff; font-size: 24px; margin: 0 0 8px 0;">Ergebnisse sind da!</h2>
+            <h2 style="color: #ffffff; font-size: 24px; margin: 0 0 8px 0;">Ergebnisse sind da!</h2>
       <p style="color: #cccccc; font-size: 16px; margin: 0;">Hey ${username}, schau dir dein Ranking an!</p>
     </div>
     
@@ -305,7 +301,7 @@ export function createResultsEmail(username: string, rank: number, points: numbe
     <!-- Footer -->
     <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
       <p style="color: #666666; font-size: 12px; margin: 0;">
-        © 2024 Best of GenX | Made with ❤️ for the 80s, 90s & 2000s Generation
+        © 2024 Best of GenX | The 80s, 90s & 2000s Generation
       </p>
     </div>
     
@@ -640,7 +636,7 @@ export function createSongInProgressEmail(params: {
 // Email Verification Template - Using new base template
 export function createVerificationEmail(username: string, verificationUrl: string) {
   return createBaseEmailTemplate({
-    badgeIcon: '✉️',
+    badgeIcon: '',
     badgeText: 'Verify Your Email',
     title: 'Welcome to<br>Best of Gen<span style="color: #D4873A;">X</span>!',
     subtitle: 'thanks for signing up!',
@@ -656,7 +652,7 @@ export function createVerificationEmail(username: string, verificationUrl: strin
 // Password Reset Email Template - Using new base template
 export function createPasswordResetEmail(username: string, resetUrl: string) {
   return createBaseEmailTemplate({
-    badgeIcon: '🔐',
+    badgeIcon: '',
     badgeText: 'Password Reset',
     title: 'Reset Your Password',
     subtitle: 'we received a request to reset your password.',
@@ -700,15 +696,15 @@ export async function sendNotificationEmails(type: 'new_match' | '1h_reminder' |
     
     switch (type) {
       case 'new_match':
-        subject = '🎮 Neues Spiel gestartet! - Best of GenX';
+        subject = 'Neues Spiel gestartet! - Best of GenX';
         html = createNewMatchEmail(user.username);
         break;
       case '1h_reminder':
-        subject = '⏰ Noch 1 Stunde bis zum nächsten Spiel! - Best of GenX';
+        subject = 'Noch 1 Stunde bis zum nächsten Spiel! - Best of GenX';
         html = createReminderEmail(user.username, 1);
         break;
       case 'results':
-        subject = '🏆 Die Ergebnisse sind da! - Best of GenX';
+        subject = 'Die Ergebnisse sind da! - Best of GenX';
         html = createResultsEmail(user.username, user.rank || 0, user.points || 0);
         break;
     }

@@ -25,7 +25,12 @@ export async function POST(request: NextRequest) {
     await dbConnect();
     const body = await request.json();
     
+    // Get next ticket number
+    const lastTask = await MikeTask.findOne().sort({ ticketNumber: -1 }).select('ticketNumber').lean();
+    const nextTicketNumber = (lastTask?.ticketNumber || 0) + 1;
+    
     const task = await MikeTask.create({
+      ticketNumber: nextTicketNumber,
       title: body.title,
       description: body.description || '',
       originalRequest: body.originalRequest || '',

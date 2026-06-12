@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'User ID required' }, { status: 400 });
     }
     
-    const user = await User.findById(userId).select('points');
+    const user = await User.findById(userId).select('points bogxCoins coins wins gamesPlayed');
     
     if (!user) {
       return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
@@ -22,7 +22,11 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json({ 
       success: true, 
-      points: user.points 
+      points: user.points || 0,
+      bogxCoins: user.bogxCoins || 0,
+      coins: user.coins || 0,
+      wins: user.wins || 0,
+      gamesPlayed: user.gamesPlayed || 0,
     });
     
   } catch (error: any) {

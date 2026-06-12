@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { Film, Megaphone, Minus, Type, Trash2, GripVertical, ChevronUp, ChevronDown, Plus, X, Image as ImageIcon, Upload, Loader2, Headphones, Gamepad2, ShoppingBag, FileText, Tv } from "lucide-react";
+import { Film, Megaphone, Minus, Type, Trash2, GripVertical, ChevronUp, ChevronDown, Plus, X, Image as ImageIcon, Upload, Loader2, Headphones, Gamepad2, ShoppingBag, FileText, Tv, Sparkles } from "lucide-react";
 
 // List of available fonts (must match the CSS in globals.css)
 const AVAILABLE_FONTS = [
@@ -267,6 +267,7 @@ export default function BlockEditor({ value, onChange }: BlockEditorProps) {
   const imageFileInputRef = useRef<HTMLInputElement>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [rewritingBlockId, setRewritingBlockId] = useState<string | null>(null);
   const lastEmittedHtml = useRef<string>(blocksToHtml(blocks));
   const initializedRef = useRef(false);
 
@@ -321,6 +322,72 @@ export default function BlockEditor({ value, onChange }: BlockEditorProps) {
       [next[index], next[newIndex]] = [next[newIndex], next[index]];
       return next;
     });
+  };
+
+  const rewriteBlock = async (blockId: string) => {
+    const block = blocks.find(b => b.id === blockId);
+    if (!block || block.type !== 'text') return;
+    
+    // Get context from all blocks
+    const allContent = blocks
+      .filter(b => b.type === 'text')
+      .map(b => b.content.replace(/<[^>]*>/g, '').trim())
+      .join('\n\n');
+    
+    // Detect structure: headlines, paragraphs, etc.
+    const htmlContent = block.content;
+    const hasHeadline = /<h[1-3][^>]*>/.test(htmlContent);
+    
+    // Extract headline and body separately if present
+    let headlineText = '';
+    let bodyText = '';
+    
+    if (hasHeadline) {
+      const headlineMatch = htmlContent.match(/<h[1-3][^>]*>(.*?)<\/h[1-3]>/i);
+      headlineText = headlineMatch ? headlineMatch[1].replace(/<[^>]*>/g, '').trim() : '';
+      // Get everything after the headline
+      const afterHeadline = htmlContent.replace(/<h[1-3][^>]*>.*?<\/h[1-3]>/i, '');
+      bodyText = afterHeadline.replace(/<[^>]*>/g, '').trim();
+    } else {
+      bodyText = htmlContent.replace(/<[^>]*>/g, '').trim();
+    }
+    
+    if (!headlineText && !bodyText) return;
+    
+    setRewritingBlockId(blockId);
+    
+    try {
+      const res = await fetch('/api/admin/rewrite-block', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentText: bodyText,
+          headlineText: headlineText,
+          hasHeadline: hasHeadline,
+          fullContext: allContent,
+        }),
+      });
+      
+      const data = await res.json();
+      if (data.success && data.rewrittenText) {
+        let newContent = '';
+        if (hasHeadline && data.rewrittenHeadline) {
+          // Reconstruct with headline
+          newContent = `<h2>${data.rewrittenHeadline}</h2><p>${data.rewrittenText}</p>`;
+        } else if (hasHeadline) {
+          // Keep original headline, new body
+          newContent = `<h2>${headlineText}</h2><p>${data.rewrittenText}</p>`;
+        } else {
+          // Just paragraph
+          newContent = `<p>${data.rewrittenText}</p>`;
+        }
+        updateBlock(blockId, newContent);
+      }
+    } catch (e) {
+      console.error('Failed to rewrite block:', e);
+    } finally {
+      setRewritingBlockId(null);
+    }
   };
 
   const addBlock = (afterIndex: number, type: BlockType, content = "") => {
@@ -472,43 +539,62 @@ export default function BlockEditor({ value, onChange }: BlockEditorProps) {
                 draggedIndex === index ? "opacity-40" : ""
               } border-gray-200 hover:border-gray-300`}
             >
-              {/* Block Controls (left side) */}
-              <div className="absolute -left-9 top-1/2 -translate-y-1/2 flex flex-col items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                  type="button"
-                  onClick={() => moveBlock(block.id, "up")}
-                  disabled={index === 0}
-                  className="p-1 hover:bg-gray-200 rounded disabled:opacity-30 disabled:cursor-not-allowed text-gray-600"
-                  title="Move up"
-                >
-                  <ChevronUp className="w-3.5 h-3.5" />
-                </button>
-                <div
-                  className="p-1 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-700"
-                  title="Drag to reorder"
-                >
-                  <GripVertical className="w-3.5 h-3.5" />
+              {/* Block Controls - inline toolbar at top */}
+              <div className="flex items-center justify-between px-2 py-1 bg-gray-100 border-b border-gray-200 rounded-t-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => moveBlock(block.id, "up")}
+                    disabled={index === 0}
+                    className="p-1 hover:bg-gray-200 rounded disabled:opacity-30 disabled:cursor-not-allowed text-gray-600"
+                    title="Move up"
+                  >
+                    <ChevronUp className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveBlock(block.id, "down")}
+                    disabled={index === blocks.length - 1}
+                    className="p-1 hover:bg-gray-200 rounded disabled:opacity-30 disabled:cursor-not-allowed text-gray-600"
+                    title="Move down"
+                  >
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </button>
+                  <div
+                    className="p-1 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-700"
+                    title="Drag to reorder"
+                  >
+                    <GripVertical className="w-3.5 h-3.5" />
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => moveBlock(block.id, "down")}
-                  disabled={index === blocks.length - 1}
-                  className="p-1 hover:bg-gray-200 rounded disabled:opacity-30 disabled:cursor-not-allowed text-gray-600"
-                  title="Move down"
-                >
-                  <ChevronDown className="w-3.5 h-3.5" />
-                </button>
+                <div className="flex items-center gap-1">
+                  {/* Re-AI button - only for text blocks */}
+                  {block.type === 'text' && (
+                    <button
+                      type="button"
+                      onClick={() => rewriteBlock(block.id)}
+                      disabled={rewritingBlockId === block.id}
+                      className="p-1.5 bg-purple-100 hover:bg-purple-500 text-purple-600 hover:text-white rounded transition-all disabled:opacity-50"
+                      title="Rewrite with AI"
+                    >
+                      {rewritingBlockId === block.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  )}
+                  {/* Delete button */}
+                  <button
+                    type="button"
+                    onClick={() => deleteBlock(block.id)}
+                    className="p-1.5 bg-red-100 hover:bg-red-500 text-red-600 hover:text-white rounded transition-all"
+                    title="Delete block"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
-
-              {/* Delete button (right side) */}
-              <button
-                type="button"
-                onClick={() => deleteBlock(block.id)}
-                className="absolute -right-9 top-2 p-1.5 bg-red-100 hover:bg-red-500 text-red-600 hover:text-white rounded opacity-0 group-hover:opacity-100 transition-all"
-                title="Delete block"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
 
               {/* Block Content */}
               <BlockContent

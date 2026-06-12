@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { put } from "@vercel/blob";
+import sharp from "sharp";
 
 export async function POST(request: NextRequest) {
   try {
@@ -62,14 +63,23 @@ export async function POST(request: NextRequest) {
       // Already a URL - use directly
       imageUrl = url;
     } else if (b64) {
-      // Convert base64 to Buffer and upload to Vercel Blob
-      const buffer = Buffer.from(b64, 'base64');
-      const filename = `ai-generated-${Date.now()}.png`;
-      const blob = await put(`images/${filename}`, buffer, {
+      // Convert base64 to Buffer, resize and compress to WebP
+      const originalBuffer = Buffer.from(b64, 'base64');
+      
+      // Resize to 512x512 and convert to WebP (much smaller file size)
+      const compressedBuffer = await sharp(originalBuffer)
+        .resize(512, 512, { fit: 'cover' })
+        .webp({ quality: 80 })
+        .toBuffer();
+      
+      const filename = `ai-generated-${Date.now()}.webp`;
+      const blob = await put(`images/${filename}`, compressedBuffer, {
         access: 'public',
-        contentType: 'image/png',
+        contentType: 'image/webp',
       });
       imageUrl = blob.url;
+      
+      console.log(`Image compressed: ${originalBuffer.length} -> ${compressedBuffer.length} bytes (${Math.round(compressedBuffer.length / originalBuffer.length * 100)}%)`);
     } else {
       return NextResponse.json({ success: false, error: "No image data" }, { status: 500 });
     }

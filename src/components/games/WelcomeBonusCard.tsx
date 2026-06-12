@@ -69,7 +69,7 @@ export default function WelcomeBonusCard({ onClaim, nextCardTheme }: WelcomeBonu
               </div>
               <div className="flex items-center gap-3">
                 <Timer className={`w-4 h-4 shrink-0 transition-colors duration-500 ${claimed ? 'text-green-400' : 'text-[#D4873A]'}`} />
-                <p className="text-[13px] text-white/90">Answer fast for more points</p>
+                <p className="text-[13px] text-white/90">Answer fast for more BOGX</p>
               </div>
               <div className="flex items-center gap-3">
                 <Trophy className={`w-4 h-4 shrink-0 transition-colors duration-500 ${claimed ? 'text-green-400' : 'text-[#D4873A]'}`} />

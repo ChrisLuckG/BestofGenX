@@ -113,7 +113,7 @@ export default function PredictionResultModal({ isOpen, onClose, data, onPointsA
           {/* Points + resolved date */}
           <div className="rounded-xl border border-warm bg-cream px-3 py-2.5 mb-3">
             <div className="flex items-center justify-between text-[13px]">
-              <span className="text-gray-500">Points {won ? "earned" : "missed"}</span>
+              <span className="text-gray-500">BOGX {won ? "earned" : "missed"}</span>
               <span className={`font-bold tabular-nums ${won ? "text-green-600" : "text-gray-400"}`}>
                 {won ? `+${data.pointsAwarded || data.pointsReward}` : `0 / +${data.pointsReward}`}
               </span>

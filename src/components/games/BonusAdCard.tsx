@@ -47,7 +47,7 @@ export default function BonusAdCard({
   // Default fallback data
   const defaultData = {
     title: "BONUS AD",
-    description: "Watch & Earn Points!",
+    description: "Watch & Earn BOGX!",
     previewImage: "/images/ad-preview.jpg",
     videoUrl: "/videos/sample-ad.mp4",
     duration: 10,
@@ -414,7 +414,7 @@ export default function BonusAdCard({
                   </div>
                   <div>
                     <p className="text-white font-medium">Tap "Watch Now"</p>
-                    <p className="text-white/50 text-sm">Start the bonus video to begin earning points</p>
+                    <p className="text-white/50 text-sm">Start the bonus video to begin earning BOGX</p>
                   </div>
                 </div>
                 
@@ -424,7 +424,7 @@ export default function BonusAdCard({
                   </div>
                   <div>
                     <p className="text-white font-medium">Watch the video</p>
-                    <p className="text-white/50 text-sm">Points increase as you watch - the longer you watch, the more you earn!</p>
+                    <p className="text-white/50 text-sm">BOGX increase as you watch - the longer you watch, the more you earn!</p>
                   </div>
                 </div>
                 
@@ -434,7 +434,7 @@ export default function BonusAdCard({
                   </div>
                   <div>
                     <p className="text-white font-medium">Collect your reward</p>
-                    <p className="text-white/50 text-sm">Watch until the end for maximum {data.maxReward} points!</p>
+                    <p className="text-white/50 text-sm">Watch until the end for maximum {data.maxReward} BOGX!</p>
                   </div>
                 </div>
               </div>

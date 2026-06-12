@@ -7,6 +7,7 @@ import PlayerCard from "@/components/PlayerCard";
 import CountryFlag from "@/components/CountryFlag";
 import LogoLoader from "@/components/LogoLoader";
 import { formatCurrency, getCurrencySymbol, autoConvertToBOGX } from "@/utils/currency";
+import { getUserLevel, getLevelProgress, getBogxToNextLevel, getNextLevelName, getProgressSegments, LEVELS } from "@/utils/levels";
 
 
 interface Player {
@@ -330,36 +331,53 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                 </div>
               </div>
               
-              {/* Row 2: GenX Hero Level (full width) */}
-              <div className="px-3 pb-3 border-t border-dashed border-[#D4873A]/10 pt-2">
-                <div className="text-[#D4873A] font-bold text-[10px]">GENX HERO</div>
-                <div className="flex items-center gap-2 mt-0.5">
-                  {/* Segmented Progress Bar */}
-                  <div className="flex-1 flex gap-0.5">
-                    {[...Array(10)].map((_, i) => (
-                      <div 
-                        key={i} 
-                        className={`flex-1 h-2 rounded-sm ${i < 6 ? 'bg-[#D4873A]' : 'bg-gray-300'}`} 
-                      />
-                    ))}
-                  </div>
-                  <span className="text-[8px] text-gray-500">62%</span>
-                </div>
-                <div className="text-[9px] text-gray-600 mt-0.5">1270 / 2000 XP · 730 XP to <span className="text-[#D4873A] font-semibold">Nostalgia Master</span></div>
+              {/* Row 2: Level Progress (full width) */}
+              {(() => {
+                const userBogx = currentUserRank.points;
+                const level = getUserLevel(userBogx);
+                const progress = getLevelProgress(userBogx);
+                const segments = getProgressSegments(userBogx);
+                const toNext = getBogxToNextLevel(userBogx);
+                const nextName = getNextLevelName(userBogx);
                 
-                {/* Level Steps */}
-                <div className="flex items-center gap-1 mt-1 text-[7px] text-gray-500">
-                  <span>ROOKIE</span>
-                  <span>•</span>
-                  <span>RETRO FAN</span>
-                  <span>•</span>
-                  <span className="text-[#D4873A] font-bold">GENX HERO</span>
-                  <span>•</span>
-                  <span>NOSTALGIA MASTER</span>
-                  <span>•</span>
-                  <span>TOP GENX</span>
-                </div>
-              </div>
+                return (
+                  <div className="px-3 pb-3 border-t border-dashed border-[#D4873A]/10 pt-2">
+                    <div style={{ color: level.color }} className="font-bold text-[10px]">{level.name.toUpperCase()}</div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {/* Segmented Progress Bar */}
+                      <div className="flex-1 flex gap-0.5">
+                        {[...Array(10)].map((_, i) => (
+                          <div 
+                            key={i} 
+                            className="flex-1 h-2 rounded-sm"
+                            style={{ backgroundColor: i < segments ? level.color : '#D1D5DB' }}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-[8px] text-gray-500">{progress}%</span>
+                    </div>
+                    <div className="text-[9px] text-gray-600 mt-0.5">
+                      {formatCurrency(userBogx)} BOGX · {nextName ? (
+                        <>{formatCurrency(toNext)} to <span style={{ color: level.color }} className="font-semibold">{nextName}</span></>
+                      ) : (
+                        <span style={{ color: level.color }} className="font-semibold">Max Level!</span>
+                      )}
+                    </div>
+                    
+                    {/* Level Steps */}
+                    <div className="flex items-center gap-1 mt-1 text-[7px] text-gray-500">
+                      {LEVELS.map((l, i) => (
+                        <span key={l.name}>
+                          {i > 0 && <span className="mx-0.5">•</span>}
+                          <span style={{ color: l.name === level.name ? level.color : undefined, fontWeight: l.name === level.name ? 'bold' : undefined }}>
+                            {l.name.toUpperCase()}
+                          </span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
               
               {/* Row 3: Stats (full width) - larger, black */}
               <div className="flex items-center justify-around py-3 px-3 border-t border-dashed border-[#D4873A]/20 bg-white/50">
@@ -375,7 +393,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                 </div>
                 <div className="text-center">
                   <Target className="w-4 h-4 text-gray-900 mx-auto" />
-                  <div className="font-bold text-base text-gray-900">78%</div>
+                  <div className="font-bold text-base text-gray-900">{user?.gamesPlayed && user?.wins ? Math.round((user.wins / user.gamesPlayed) * 100) : 0}%</div>
                   <div className="text-[8px] text-gray-700 uppercase font-medium">Accuracy</div>
                 </div>
                 <div className="text-center">
@@ -441,8 +459,8 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
               <div className="flex items-center justify-center gap-1.5 mb-1">
                 {isOnBreak() ? (
                   <>
-                    <span className="text-lg">☕</span>
-                    <span className="text-[9px] font-semibold tracking-widest text-orange-500 uppercase">Break</span>
+                    <img src="/images/coffee-break.svg" alt="" className="w-5 h-5" />
+                    <span className="text-[9px] font-semibold tracking-widest text-[#D4873A] uppercase">Break</span>
                   </>
                 ) : isLive ? (
                   <>

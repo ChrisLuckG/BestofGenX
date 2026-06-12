@@ -689,11 +689,11 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
 
   return (
     <div 
-      className={`flex flex-col min-h-full ${isOpen ? '' : 'hidden'}`}
+      className={`flex flex-col h-full overflow-hidden ${isOpen ? '' : 'hidden'}`}
       style={{ backgroundColor: '#F5F0E8' }}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm">
+      {/* Header - fixed */}
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm flex-shrink-0">
         {showSettings ? (
           <BackButton onClick={() => { 
             sounds.click(); 
@@ -701,15 +701,21 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
             if (onSettingsClosed) onSettingsClosed();
           }} />
         ) : (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Bell className="w-5 h-5 text-[#D4873A]" />
-            <span className="font-display text-lg tracking-wider text-gray-900">GenX News</span>
+            <div>
+              <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">GenX News</span>
+              <span className="text-[10px] text-gray-500 -mt-0.5 block">Updates & notifications</span>
+            </div>
           </div>
         )}
         {showSettings ? (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Settings className="w-5 h-5 text-[#D4873A]" />
-            <span className="font-display text-lg tracking-wider text-gray-900">Settings</span>
+            <div>
+              <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Settings</span>
+              <span className="text-[10px] text-gray-500 -mt-0.5 block">Customize your experience</span>
+            </div>
           </div>
         ) : (
           <button 
@@ -722,11 +728,11 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
       </div>
 
       {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto flex flex-col" style={{ backgroundColor: '#F5F0E8' }}>
+      <div className="flex-1 overflow-y-auto" style={{ backgroundColor: '#F5F0E8' }}>
       
       {/* NOTIFICATION LIST VIEW */}
       {!showSettings && (
-        <div className="px-4 py-3 space-y-2 flex-1">
+        <div className="px-4 py-3 space-y-2">
           {/* Guest - Full page message */}
           {!isLoggedIn && (
             <div className="flex flex-col items-center justify-center py-4 px-4">
@@ -958,7 +964,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
       
       {/* SETTINGS VIEW */}
       {showSettings && (
-      <div className="flex-1 flex flex-col">
+      <div className="pb-4">
       <div className="px-4 py-3 border-b border-warm/50 space-y-3">
         {/* Guest Warning */}
         {!isLoggedIn && (
@@ -979,7 +985,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
             {pushLoading ? (
               <LogoLoader size="sm" />
             ) : pushEnabled && isLoggedIn ? (
-              <Bell className="w-5 h-5 text-green-500" />
+              <Bell className="w-5 h-5 text-[#D4873A] fill-[#D4873A]" />
             ) : (
               <BellOff className="w-5 h-5 text-gray-600" />
             )}
@@ -1152,7 +1158,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
           {/* Result Card - using same component as BattlesPage */}
           {selectedBattle && !loadingBattle && (
             <div 
-              className="relative z-10 w-full max-w-sm"
+              className="relative z-10 w-full max-w-sm mx-4 my-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <BattleResultCard

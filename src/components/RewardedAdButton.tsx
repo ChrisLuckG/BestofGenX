@@ -9,7 +9,7 @@ interface RewardedAdButtonProps {
   disabled?: boolean;
 }
 
-const REWARD_POINTS = 50;
+const REWARD_BOGX = 0.10; // 0.10 BOGX per ad
 const COOLDOWN_SECONDS = 60; // 1 minute between ads
 
 export default function RewardedAdButton({ onReward, disabled }: RewardedAdButtonProps) {
@@ -27,7 +27,7 @@ export default function RewardedAdButton({ onReward, disabled }: RewardedAdButto
     await new Promise(resolve => setTimeout(resolve, 3000));
 
     // Give reward
-    onReward(REWARD_POINTS);
+    onReward(REWARD_BOGX);
     setIsWatching(false);
     setIsRewarded(true);
 
@@ -86,7 +86,7 @@ export default function RewardedAdButton({ onReward, disabled }: RewardedAdButto
       
       <div className="flex items-center gap-1 px-3 py-1.5 bg-yellow-500/20 rounded-lg">
         <Coins className="w-4 h-4 text-yellow-400" />
-        <span className="text-yellow-400 font-bold text-sm">+{REWARD_POINTS}</span>
+        <span className="text-yellow-400 font-bold text-sm">+{REWARD_BOGX}</span>
       </div>
     </button>
   );

@@ -111,6 +111,17 @@ export default function MikeTab() {
   const [editMode, setEditMode] = useState(false);
   const [editedTask, setEditedTask] = useState<Partial<Task>>({});
   const [saving, setSaving] = useState(false);
+  const [showManualCreate, setShowManualCreate] = useState(false);
+  const [showNewMenu, setShowNewMenu] = useState(false);
+  const [manualTicket, setManualTicket] = useState<Partial<Task>>({
+    title: '',
+    description: '',
+    category: 'Future Features',
+    priority: 'Medium',
+    status: 'Draft',
+    complexity: 'Medium',
+    notes: '',
+  });
   
   // Queue for Cascade
   const [queue, setQueue] = useState<string[]>([]); // Task IDs in order
@@ -228,6 +239,33 @@ export default function MikeTab() {
       setTasks(tasks.filter(t => t._id !== taskId));
       setSelectedTask(null);
     } catch (e) { console.error(e); }
+  };
+
+  const createManualTicket = async () => {
+    if (!manualTicket.title?.trim()) return;
+    setSaving(true);
+    try {
+      const res = await fetch('/api/admin/mike/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(manualTicket),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTasks([data.task, ...tasks]);
+        setShowManualCreate(false);
+        setManualTicket({
+          title: '',
+          description: '',
+          category: 'Future Features',
+          priority: 'Medium',
+          status: 'Draft',
+          complexity: 'Medium',
+          notes: '',
+        });
+      }
+    } catch (e) { console.error(e); }
+    finally { setSaving(false); }
   };
 
   const filteredTasks = tasks.filter(task => {
@@ -682,6 +720,35 @@ export default function MikeTab() {
         <button onClick={fetchTasks} className="p-1.5 bg-gray-800 border border-gray-700 rounded-lg hover:bg-gray-700">
           <RefreshCw className="w-4 h-4 text-gray-400" />
         </button>
+        {/* New Ticket Dropdown */}
+        <div className="relative">
+          <button 
+            onClick={() => setShowNewMenu(!showNewMenu)}
+            className="px-3 py-1.5 bg-[#D4873A] text-white text-sm rounded-lg hover:bg-[#C4772A] flex items-center gap-1"
+          >
+            <Ticket className="w-4 h-4" /> New
+          </button>
+          {showNewMenu && (
+            <div className="absolute right-0 top-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl overflow-hidden z-50 min-w-[140px]">
+              <button
+                onClick={() => { setShowManualCreate(true); setShowNewMenu(false); }}
+                className="w-full px-3 py-2 text-left text-sm text-white hover:bg-gray-700 flex items-center gap-2"
+              >
+                <Edit3 className="w-4 h-4" /> Manual
+              </button>
+              <button
+                onClick={() => {
+                  setChatMessages([{ role: 'mike', content: "Bug, Feature oder Idee?" }]);
+                  setPendingTicket(null);
+                  setShowNewMenu(false);
+                }}
+                className="w-full px-3 py-2 text-left text-sm text-white hover:bg-gray-700 flex items-center gap-2"
+              >
+                <Brain className="w-4 h-4 text-[#D4873A]" /> With Mike
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Task List - Accordion Style */}
@@ -859,6 +926,126 @@ export default function MikeTab() {
           ))
         )}
       </div>
+
+      {/* Manual Create Modal */}
+      {showManualCreate && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-xl border border-gray-700 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="p-4 border-b border-gray-700 flex items-center justify-between">
+              <h3 className="text-white font-medium flex items-center gap-2">
+                <Ticket className="w-5 h-5 text-[#D4873A]" /> New Ticket (Manual)
+              </h3>
+              <button onClick={() => setShowManualCreate(false)} className="text-gray-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              {/* Title */}
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Title *</label>
+                <input
+                  type="text"
+                  value={manualTicket.title || ''}
+                  onChange={(e) => setManualTicket({ ...manualTicket, title: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#D4873A] outline-none"
+                  placeholder="Feature: Campaign Manager in Articles"
+                />
+              </div>
+              
+              {/* Description / Spec */}
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Specification</label>
+                <textarea
+                  value={manualTicket.description || ''}
+                  onChange={(e) => setManualTicket({ ...manualTicket, description: e.target.value })}
+                  rows={5}
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#D4873A] outline-none resize-none"
+                  placeholder="Files: ArticlesTab.tsx, ArticleEditor.tsx&#10;UI: Add Campaign Manager section...&#10;Backend: Store campaign assets..."
+                />
+              </div>
+
+              {/* Row: Category + Priority */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Category</label>
+                  <select
+                    value={manualTicket.category || 'Future Features'}
+                    onChange={(e) => setManualTicket({ ...manualTicket, category: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#D4873A] outline-none"
+                  >
+                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Priority</label>
+                  <select
+                    value={manualTicket.priority || 'Medium'}
+                    onChange={(e) => setManualTicket({ ...manualTicket, priority: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#D4873A] outline-none"
+                  >
+                    {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* Row: Status + Complexity */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Status</label>
+                  <select
+                    value={manualTicket.status || 'Draft'}
+                    onChange={(e) => setManualTicket({ ...manualTicket, status: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#D4873A] outline-none"
+                  >
+                    {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Complexity</label>
+                  <select
+                    value={manualTicket.complexity || 'Medium'}
+                    onChange={(e) => setManualTicket({ ...manualTicket, complexity: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#D4873A] outline-none"
+                  >
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                    <option value="Very High">Very High</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Notes</label>
+                <textarea
+                  value={manualTicket.notes || ''}
+                  onChange={(e) => setManualTicket({ ...manualTicket, notes: e.target.value })}
+                  rows={2}
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#D4873A] outline-none resize-none"
+                  placeholder="Additional notes..."
+                />
+              </div>
+            </div>
+            <div className="p-4 border-t border-gray-700 flex justify-end gap-2">
+              <button
+                onClick={() => setShowManualCreate(false)}
+                className="px-4 py-2 text-gray-400 hover:text-white text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={createManualTicket}
+                disabled={!manualTicket.title?.trim() || saving}
+                className="px-4 py-2 bg-[#D4873A] text-white text-sm rounded-lg hover:bg-[#C4772A] disabled:opacity-50 flex items-center gap-2"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                Create Ticket
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

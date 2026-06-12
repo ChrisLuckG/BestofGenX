@@ -39,7 +39,7 @@ export default function ForgotPasswordPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#F5F0E8] flex items-center justify-center p-4">
         <div className="text-center max-w-md">
           <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Check className="w-10 h-10 text-green-600" />
@@ -63,7 +63,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#F5F0E8] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Image src="/images/genxlogo.png" alt="Best of GenX" width={80} height={80} className="mx-auto mb-4" />

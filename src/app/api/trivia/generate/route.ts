@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import Card from '@/models/Card';
+import UserQuestionHistory from '@/models/UserQuestionHistory';
 import OpenAI from 'openai';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import crypto from 'crypto';
+import mongoose from 'mongoose';
+
+// 6 months cooldown for questions
+const QUESTION_COOLDOWN_DAYS = 180;
 
 // Load system prompt - NO FALLBACK
 const systemPromptPath = join(process.cwd(), 'src/prompts/system-prompt.txt');
@@ -131,7 +136,7 @@ export async function POST(request: NextRequest) {
   try {
     await dbConnect();
     
-    const { count = 10, category } = await request.json();
+    const { count = 10, category, userId } = await request.json();
 
     // Build query - get active cards
     const query: any = { active: true };
@@ -139,6 +144,26 @@ export async function POST(request: NextRequest) {
     // Filter by category if specified
     if (category && CATEGORY_MAP[category]) {
       query.theme = { $in: CATEGORY_MAP[category] };
+    }
+
+    // Get cards the user has seen in the last 6 months
+    let excludeCardIds: mongoose.Types.ObjectId[] = [];
+    if (userId) {
+      const cooldownDate = new Date();
+      cooldownDate.setDate(cooldownDate.getDate() - QUESTION_COOLDOWN_DAYS);
+      
+      const seenHistory = await UserQuestionHistory.find({
+        userId: new mongoose.Types.ObjectId(userId),
+        answeredAt: { $gte: cooldownDate }
+      }).select('cardId').lean();
+      
+      excludeCardIds = seenHistory.map(h => h.cardId);
+      console.log(`User ${userId} has seen ${excludeCardIds.length} questions in last 6 months`);
+    }
+
+    // Exclude seen cards
+    if (excludeCardIds.length > 0) {
+      query._id = { $nin: excludeCardIds };
     }
 
     // Get random cards from database

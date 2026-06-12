@@ -165,32 +165,15 @@ export async function POST(request: NextRequest) {
     
     console.log(`User ${creatorId} has seen ${seenCardIds.size} cards in last 30 days`);
     
-    // Get today's date in German timezone
-    const germanTime = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
-    const todayDate = germanTime.toISOString().split('T')[0];
-    
-    // First: Try to get today's cards
-    const todaysCards = await Card.find({ 
+    // Get all active cards for this theme (no date filtering)
+    const allCards = await Card.find({ 
       theme: { $regex: new RegExp(theme, 'i') }, 
       active: true,
-      gameDate: todayDate,
       'questions.2': { $exists: true } // Must have all 3 difficulties
     }).lean();
     
-    // Second: Get archive cards (older cards)
-    const archiveCards = await Card.find({ 
-      theme: { $regex: new RegExp(theme, 'i') }, 
-      active: true,
-      $or: [
-        { gameDate: { $lt: todayDate } },
-        { gameDate: { $exists: false } }
-      ],
-      'questions.2': { $exists: true } // Must have all 3 difficulties
-    }).lean();
-    
-    // Combine: today's first, then shuffled archive
-    const shuffledArchive = archiveCards.sort(() => Math.random() - 0.5);
-    const allCards = [...todaysCards, ...shuffledArchive];
+    // Shuffle cards
+    allCards.sort(() => Math.random() - 0.5);
     
     // Flatten all questions from all cards (all difficulties)
     // Separate into unseen and seen questions
@@ -246,7 +229,7 @@ export async function POST(request: NextRequest) {
       battleQuestions = [...shuffledUnseen, ...shuffledSeen.slice(0, rounds - shuffledUnseen.length)];
     }
     
-    console.log(`Using ${battleQuestions.length} questions for battle (topic: ${topic}, today: ${todaysCards.length} cards, archive: ${archiveCards.length} cards)`);
+    console.log(`Using ${battleQuestions.length} questions for battle (topic: ${topic}, total cards: ${allCards.length})`);
     
     // 2. If not enough cards, generate FULL quiz sets (Easy/Medium/Hard) with ChatGPT
     //    Each card stored properly with all 3 variants so it can be reused later in normal play

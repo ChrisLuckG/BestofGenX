@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { Play, FileText, Gamepad2, Vote, ShoppingBag, Trophy, Tv, Radio, Bell, User, Users, X, ChevronRight, Gift } from "lucide-react";
+import { Play, FileText, Gamepad2, Vote, ShoppingBag, Trophy, Tv, Radio, Bell, User, Users, X, ChevronRight, Gift, Clock } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import GenXLoader from "@/components/GenXLoader";
 import { formatCurrency, getCurrencySymbol } from "@/utils/currency";
@@ -17,7 +17,6 @@ import BattlesPage from "@/components/BattlesPage";
 import ArticlePage from "@/components/ArticlePage";
 import DesktopRankrollPage from "@/components/desktop/DesktopRankrollPage";
 import DesktopArticlesPage from "@/components/desktop/DesktopArticlesPage";
-import DesktopFeedPage from "@/components/desktop/DesktopFeedPage";
 import WelcomeReel from "@/components/games/WelcomeReel";
 import ShopPage from "@/components/ShopPage";
 import ProfilePage from "@/components/ProfilePage";
@@ -35,6 +34,7 @@ import DesktopBattlesPage from "@/components/desktop/DesktopBattlesPage";
 import DesktopRankWidget from "@/components/desktop/DesktopRankWidget";
 import RadioPage from "@/components/RadioPage";
 import WelcomeBackModal, { WelcomeBackRankChange } from "@/components/WelcomeBackModal";
+import CheckoutSuccessModal from "@/components/CheckoutSuccessModal";
 
 // Navigation tabs
 const navTabs = [
@@ -47,6 +47,7 @@ const navTabs = [
 
 export default function DesktopPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, isLoggedIn } = useAuth();
   const [mounted, setMounted] = useState(false);
   
@@ -76,9 +77,15 @@ export default function DesktopPage() {
   };
   const [userRank, setUserRank] = useState<number | null>(null);
   const [isBattleActive, setIsBattleActive] = useState(false);
+  const [showCheckoutSuccess, setShowCheckoutSuccess] = useState(false);
+  const [checkoutSessionId, setCheckoutSessionId] = useState<string | null>(null);
   const [pendingBattleId, setPendingBattleId] = useState<string | null>(null);
   const [radioStations, setRadioStations] = useState<{_id: string; name: string; description: string; playlistId: string}[]>([]);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [leaderboardCountdown, setLeaderboardCountdown] = useState('');
+  const [isBreakTime, setIsBreakTime] = useState(false);
+  const [breakCountdown, setBreakCountdown] = useState('');
   const [readArticles, setReadArticles] = useState<Set<string>>(new Set());
   const contentRef = useRef<HTMLDivElement>(null);
   
@@ -99,21 +106,59 @@ export default function DesktopPage() {
     loadAllData();
   }, []);
 
+  // Check for checkout success/cancelled URL params
   useEffect(() => {
-    // Use bogxCoins, or convert legacy points to BOGX, take the higher value
-    const bogx = user?.bogxCoins || 0;
-    const legacyBogx = (user?.coins || 0) / 100;
-    setCoins(Math.max(bogx, legacyBogx));
-  }, [user?.bogxCoins, user?.coins]);
+    const checkout = searchParams.get('checkout');
+    if (checkout === 'success') {
+      const sessionId = searchParams.get('session_id');
+      setCheckoutSessionId(sessionId);
+      setShowCheckoutSuccess(true);
+      setActiveTab('shop');
+      // Clean URL
+      window.history.replaceState({}, '', '/desktop');
+    } else if (checkout === 'cancelled') {
+      setActiveTab('shop');
+      window.history.replaceState({}, '', '/desktop');
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    // Fetch fresh user data from API to get current coins
+    if (user?.id) {
+      fetch(`/api/user/${user.id}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.user) {
+            const bogx = data.user.bogxCoins || 0;
+            const legacyBogx = (data.user.coins || 0) / 100;
+            setCoins(Math.max(bogx, legacyBogx));
+          }
+        })
+        .catch(() => {
+          // Fallback to cached user data
+          const bogx = user?.bogxCoins || 0;
+          const legacyBogx = (user?.coins || 0) / 100;
+          setCoins(Math.max(bogx, legacyBogx));
+        });
+    } else {
+      setCoins(0);
+    }
+  }, [user?.id]);
 
   // Load user rank and read articles when user is available
   useEffect(() => {
     if (user?.id) {
-      // Load user rank
-      fetch(`/api/rankings/user-rank?userId=${user.id}`)
+      // Load user rank - use same endpoint as mobile for consistency
+      fetch(`/api/rankings/snapshot?period=day`)
         .then(res => res.json())
         .then(data => {
-          if (data.rank) setUserRank(data.rank);
+          if (data.rankings && Array.isArray(data.rankings)) {
+            const myRankIndex = data.rankings.findIndex((r: any) => r._id === user.id);
+            if (myRankIndex !== -1) {
+              const rankData = data.rankings[myRankIndex];
+              setUserRank(rankData.rank || myRankIndex + 1);
+            }
+          }
         })
         .catch(() => {});
       
@@ -134,6 +179,10 @@ export default function DesktopPage() {
   // Show welcome back message after login
   useEffect(() => {
     if (!mounted || !isLoggedIn || !user?.id) return;
+    
+    // Don't show welcome if returning from checkout
+    const checkout = searchParams.get('checkout');
+    if (checkout === 'success' || checkout === 'cancelled') return;
     
     // Check if we already showed welcome this session
     const sessionKey = `welcome_shown_${user.id}_${new Date().toDateString()}`;
@@ -166,13 +215,84 @@ export default function DesktopPage() {
     };
     
     fetchWelcomeMessage();
-  }, [mounted, isLoggedIn, user?.id]);
+  }, [mounted, isLoggedIn, user?.id, searchParams]);
+
+  // Load leaderboard data - during break time, load yesterday's winners
+  const loadLeaderboard = async () => {
+    setLeaderboardLoading(true);
+    try {
+      // Check if we're in break time (9:00 - 10:00 Berlin)
+      const now = new Date();
+      const berlinTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+      const berlinHour = berlinTime.getHours();
+      const inBreak = berlinHour === 9;
+      
+      let url = '/api/rankings/snapshot?period=day';
+      if (inBreak) {
+        // During break, get yesterday's final rankings
+        const yesterday = new Date(berlinTime);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+        url = `/api/rankings/snapshot?period=day&date=${yesterdayStr}`;
+      }
+      
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.rankings) {
+        setRankings(data.rankings.slice(0, 10));
+      }
+    } catch (error) {
+      console.error('Error loading leaderboard:', error);
+    } finally {
+      setLeaderboardLoading(false);
+    }
+  };
+
+  // Countdown logic - handles both game time and break time
+  useEffect(() => {
+    const updateCountdown = () => {
+      const now = new Date();
+      const berlinTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+      const berlinHour = berlinTime.getHours();
+      const berlinMinute = berlinTime.getMinutes();
+      const berlinSecond = berlinTime.getSeconds();
+      
+      // Check if we're in break time (9:00 - 10:00)
+      const inBreak = berlinHour === 9;
+      setIsBreakTime(inBreak);
+      
+      if (inBreak) {
+        // Countdown to 10:00 (game start)
+        const totalSeconds = (59 - berlinMinute) * 60 + (60 - berlinSecond);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        setBreakCountdown(`${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+      } else if (rankings.length > 0) {
+        // Countdown to 9:00 (game end)
+        let totalSeconds;
+        if (berlinHour < 9) {
+          totalSeconds = (9 - berlinHour - 1) * 3600 + (60 - berlinMinute - 1) * 60 + (60 - berlinSecond);
+        } else {
+          totalSeconds = (24 - berlinHour + 8) * 3600 + (60 - berlinMinute - 1) * 60 + (60 - berlinSecond);
+        }
+        
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        setLeaderboardCountdown(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+      }
+    };
+    
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [rankings.length]);
 
   const loadAllData = async () => {
     try {
       const [radioRes, rankRes, shopRes, tvRes] = await Promise.all([
         fetch('/api/radio-stations'),
-        fetch('/api/rankings?period=day'),
+        fetch('/api/rankings/snapshot?period=day'),
         fetch('/api/shop/products'),
         fetch('/api/tv?limit=3'),
       ]);
@@ -188,10 +308,6 @@ export default function DesktopPage() {
       if (rankData.rankings) {
         // Take top 10 for leaderboard widget
         setRankings(rankData.rankings.slice(0, 10));
-        if (user?.id) {
-          const idx = rankData.rankings.findIndex((r: any) => r._id === user.id);
-          if (idx >= 0) setUserRank(idx + 1);
-        }
       }
       if (shopData.success) setShopProducts(shopData.products?.slice(0, 3) || []);
       if (tvData.success) {
@@ -244,6 +360,16 @@ export default function DesktopPage() {
     }
   }, [mounted, isLoggedIn, router]);
 
+  // Memoized callbacks to prevent re-renders
+  const handleOpenArticle = useCallback((id: string) => {
+    setOpenArticleId(id);
+    contentRef.current?.scrollTo(0, 0);
+  }, []);
+
+  const handleShowLogin = useCallback(() => {
+    setShowLoginPage(true);
+  }, []);
+
   // Show nothing while redirecting (transparent)
   if (!mounted || !isLoggedIn) {
     return null;
@@ -253,7 +379,7 @@ export default function DesktopPage() {
     <div className="min-h-screen bg-cream">
       {/* ===== HEADER – matches mobile design system ===== */}
       <div className="sticky top-0 z-50 pt-4 px-6 bg-cream">
-        <header className="max-w-[1500px] mx-auto bg-[#FDFBF7] border border-warm rounded-xl shadow-sm">
+        <header className="max-w-[1500px] mx-auto bg-[#F5F0E8] border border-warm rounded-xl shadow-sm">
           <div className="h-[72px] flex items-center px-6">
             {/* LEFT – Logo (same width as left sidebar ~240px) */}
             <div className="w-60 flex-shrink-0 flex items-center">
@@ -346,16 +472,45 @@ export default function DesktopPage() {
           <aside className="w-60 flex-shrink-0 hidden lg:block space-y-5">
             {/* Leaderboard */}
             <div className="rounded-xl border border-warm overflow-hidden shadow-sm relative" style={{ backgroundImage: 'url(/images/leader.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
-              <div className="absolute inset-0 bg-[#FDFBF7]/0" />
-              <div className="relative flex items-center justify-between px-4 py-3 border-b border-warm">
-                <div className="flex items-center gap-2">
-                  <Trophy className="w-4 h-4 text-[#D4873A]" />
-                  <span className="font-display text-sm tracking-wider uppercase text-gray-900">Leaderboard</span>
+              <div className="absolute inset-0 bg-[#F5F0E8]/0" />
+              <div className="relative px-4 py-3 border-b border-warm">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Trophy className="w-4 h-4 text-[#D4873A]" />
+                    <span className="font-display text-sm tracking-wider uppercase text-gray-900">
+                      {isBreakTime ? "Yesterday's Winners" : 'Today'}
+                    </span>
+                  </div>
+                  <button onClick={() => handleTabChange('rankings')} className="text-[10px] font-semibold text-[#D4873A] hover:underline uppercase">View All</button>
                 </div>
-                <button onClick={() => handleTabChange('rankings')} className="text-[10px] font-semibold text-[#D4873A] hover:underline uppercase">View All</button>
+                {/* Break time countdown */}
+                {isBreakTime && (
+                  <div className="flex items-center justify-center gap-2 py-2 mt-2 bg-[#FDF6E9] rounded-lg border border-[#D4873A]/20">
+                    <img src="/images/coffee-break.svg" alt="" className="w-5 h-5" />
+                    <span className="text-xs text-[#8B4513] font-medium">Nächstes Spiel in</span>
+                    <span className="font-mono text-base font-bold text-[#D4873A] tabular-nums">{breakCountdown}</span>
+                  </div>
+                )}
+                {/* Game countdown - only show if there are rankings and not break time */}
+                {!isBreakTime && rankings.length > 0 && (
+                  <div className="flex items-center justify-center gap-2 py-1.5 mt-2 bg-warm/30 rounded-lg">
+                    <div className="w-1.5 h-1.5 bg-[#D4873A] rounded-full animate-pulse" />
+                    <span className="font-mono text-sm font-bold text-gray-700 tabular-nums">{leaderboardCountdown}</span>
+                    <span className="text-[10px] text-gray-500">remaining</span>
+                  </div>
+                )}
               </div>
               <div className="relative divide-y divide-warm/50">
-                {rankings.slice(0, 10).map((r, i) => (
+                {leaderboardLoading ? (
+                  <div className="flex items-center justify-center py-10">
+                    <div className="w-6 h-6 border-2 border-[#D4873A]/30 border-t-[#D4873A] rounded-full animate-spin" />
+                  </div>
+                ) : rankings.length === 0 && !isBreakTime ? (
+                  <div className="flex flex-col items-center justify-center py-8 px-4">
+                    <Trophy className="w-8 h-8 text-[#D4873A]/30 mb-2" />
+                    <p className="text-xs text-gray-500 text-center">Be the first to play today!</p>
+                  </div>
+                ) : rankings.slice(0, 10).map((r, i) => (
                   <button key={r._id} onClick={() => { setSelectedPlayerId(r._id); handleTabChange('rankings'); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/70 transition-colors">
                     {/* Rank number */}
                     <span className={`text-sm font-bold tabular-nums w-4 text-center ${
@@ -381,7 +536,7 @@ export default function DesktopPage() {
                     {/* BOGX Coins */}
                     <div className="flex items-center gap-1">
                       <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
-                      <span className="font-display text-[13px] tracking-wide font-semibold tabular-nums text-[#D4873A]">{formatCurrency(r.bogxCoins || r.points / 100)}</span>
+                      <span className="font-display text-[13px] tracking-wide font-semibold tabular-nums text-[#D4873A]">{formatCurrency(r.bogxCoins || r.points)}</span>
                     </div>
                   </button>
                 ))}
@@ -389,7 +544,7 @@ export default function DesktopPage() {
             </div>
 
             {/* GenX TV */}
-            <div className="bg-[#FDFBF7] rounded-xl border border-warm overflow-hidden shadow-sm">
+            <div className="bg-[#F5F0E8] rounded-xl border border-warm overflow-hidden shadow-sm">
               <div className="flex items-center justify-between px-4 py-3 border-b border-warm">
                 <div className="flex items-center gap-2">
                   <Tv className="w-4 h-4 text-[#D4873A]" />
@@ -408,6 +563,8 @@ export default function DesktopPage() {
                       <img 
                         src={video.thumbnail || (video.youtubeId ? `https://img.youtube.com/vi/${video.youtubeId}/hqdefault.jpg` : '')} 
                         alt="" 
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                       />
                       {/* Gradient overlay for text */}
@@ -449,10 +606,10 @@ export default function DesktopPage() {
             <div 
               ref={contentRef}
               data-content-scroll
-              className="relative rounded-xl border border-warm overflow-y-auto shadow-sm min-h-[calc(100vh-108px)] scrollbar-hide bg-[#FDFBF7]"
+              className="relative rounded-xl border border-warm overflow-y-auto shadow-sm min-h-[calc(100vh-108px)] scrollbar-hide bg-[#F5F0E8]"
             >
               {/* Content Tabs */}
-              {activeTab === "feed" && !openArticleId && <WelcomeReel onOpenArticle={(id: string) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} readArticles={readArticles} isDesktop={true} onShowLogin={() => setShowLoginPage(true)} />}
+              {activeTab === "feed" && !openArticleId && <WelcomeReel onOpenArticle={handleOpenArticle} readArticles={readArticles} isDesktop={true} onShowLogin={handleShowLogin} />}
               {openArticleId && <ArticlePage articleId={openArticleId} onBack={() => {
                 setOpenArticleId(null);
                 // Refresh read articles from DB after viewing
@@ -465,7 +622,7 @@ export default function DesktopPage() {
                     })
                     .catch(() => {});
                 }
-              }} onShowLogin={() => setShowLoginPage(true)} isDesktop={true} onCoinAnimation={(amount) => {
+              }} onShowLogin={() => setShowLoginPage(true)} isDesktop={true} readArticles={readArticles} onOpenArticle={(id: string) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onCoinAnimation={(amount) => {
                 // Mark article as read immediately in UI
                 setReadArticles(prev => { const next = new Set(Array.from(prev)); next.add(openArticleId); return next; });
                 // Show animation + animate coins counting up
@@ -480,7 +637,7 @@ export default function DesktopPage() {
                 ) : arcadeGame === 'prediction' ? (
                   <DesktopContentWrapper><PredictionsGame onBack={() => setArcadeGame(null)} onShowLogin={() => setShowLoginPage(true)} embedded={true} /></DesktopContentWrapper>
                 ) : arcadeGame === 'trivia' ? (
-                  <div className="h-full min-h-full flex flex-col bg-[#FDFBF7]">
+                  <div className="h-full min-h-full flex flex-col bg-[#F5F0E8]">
                     <SoloTriviaGame onBack={() => setArcadeGame(null)} onCoinsChange={(amount) => animateCoins(amount)} onCoinAnimation={(amount) => setCoinAnimation({ show: true, amount })} embedded={true} />
                   </div>
                 ) : (
@@ -521,7 +678,7 @@ export default function DesktopPage() {
             </button>
 
             {/* Shop */}
-            <div className="bg-[#FDFBF7] rounded-xl border border-warm overflow-hidden shadow-sm">
+            <div className="bg-[#F5F0E8] rounded-xl border border-warm overflow-hidden shadow-sm">
               <div className="flex items-center justify-between px-4 py-3 border-b border-warm">
                 <div className="flex items-center gap-2">
                   <ShoppingBag className="w-4 h-4 text-[#D4873A]" />
@@ -674,7 +831,7 @@ export default function DesktopPage() {
       {/* Login Modal */}
       {showLoginPage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => setShowLoginPage(false)}>
-          <div className="w-full max-w-md mx-4 bg-[#FDFBF7] rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="w-full max-w-md mx-4 bg-[#F5F0E8] rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <DesktopLoginPage onClose={() => setShowLoginPage(false)} onSuccess={() => setShowLoginPage(false)} showBack={true} />
           </div>
         </div>
@@ -703,6 +860,13 @@ export default function DesktopPage() {
           }}
         />
       )}
+
+      {/* Checkout Success Modal */}
+      <CheckoutSuccessModal
+        isOpen={showCheckoutSuccess}
+        onClose={() => setShowCheckoutSuccess(false)}
+        sessionId={checkoutSessionId || undefined}
+      />
     </div>
   );
 }

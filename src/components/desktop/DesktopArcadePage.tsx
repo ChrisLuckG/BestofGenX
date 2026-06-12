@@ -54,11 +54,11 @@ const GAMES: GameBanner[] = [
     titleB: 'TRIVIA',
     titleColor: '#D4873A',
     subtitleA: '+0.30 per correct.',
-    subtitleB: '-0.01 per wrong.',
+    subtitleB: '-0.03 per wrong.',
     features: [
       { icon: HelpCircle, lines: ['10 or 20', 'Questions'] },
       { icon: Coins, lines: ['+0.30', 'Correct'] },
-      { icon: Zap, lines: ['Beat', 'the Clock'] },
+      { icon: Zap, lines: ['Beat the', 'Clock'] },
     ],
     featureColor: '#E5A55A',
   },
@@ -71,7 +71,7 @@ const GAMES: GameBanner[] = [
     titleB: 'PLAY',
     titleColor: '#22C55E',
     subtitleA: 'Call the next play.',
-    subtitleB: 'Win points and cash rewards.',
+    subtitleB: 'Win BOGX and cash rewards.',
     features: [
       { icon: Radio, lines: ['Live', 'Events'] },
       { icon: Coins, lines: ['Instant', 'Rewards'] },
@@ -110,7 +110,7 @@ const GAMES: GameBanner[] = [
     subtitleB: 'Prove you know.',
     features: [
       { icon: Lightbulb, lines: ['Make', 'Predictions'] },
-      { icon: Target, lines: ['Earn', 'Points'] },
+      { icon: Target, lines: ['Earn', 'BOGX'] },
       { icon: BarChart3, lines: ['Top', 'Predictors'] },
     ],
     featureColor: '#84CC16',
@@ -126,8 +126,8 @@ export default function DesktopArcadePage({ onSelectGame }: DesktopArcadePagePro
         <div className="flex items-center gap-3">
           <Swords className="w-5 h-5 text-[#D4873A]" />
           <div>
-            <span className="font-display text-lg tracking-wider text-gray-900 block leading-tight">Trivia</span>
-            <span className="text-[10px] text-gray-500">Challenge yourself & others</span>
+            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Arcade</span>
+            <span className="text-[10px] text-gray-500 -mt-0.5 block">Challenge yourself & others</span>
           </div>
         </div>
         {/* Placeholder for consistent spacing */}
@@ -145,7 +145,7 @@ export default function DesktopArcadePage({ onSelectGame }: DesktopArcadePagePro
                 onClick={() => !g.comingSoon && onSelectGame(g.game)}
                 disabled={g.comingSoon}
                 className={`group relative overflow-hidden rounded-2xl shadow-md transition-all bg-cover bg-center aspect-[16/9] ${
-                  g.comingSoon ? 'cursor-default' : 'hover:scale-[1.02] active:scale-[0.99]'
+                  g.comingSoon ? 'cursor-default opacity-80' : 'hover:scale-[1.02] active:scale-[0.99]'
                 }`}
                 style={{ backgroundImage: `url('${g.image}')` }}
               >
@@ -154,8 +154,8 @@ export default function DesktopArcadePage({ onSelectGame }: DesktopArcadePagePro
 
                 <div className="relative h-full flex flex-col justify-center items-start text-left px-6 py-5 max-w-[70%]">
                   {/* Badge */}
-                  <div className="inline-flex items-center gap-1.5 bg-black/50 backdrop-blur-sm border border-white/20 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest">
-                    <BadgeIcon className="w-3.5 h-3.5" />
+                  <div className="inline-flex items-center gap-1 bg-black/50 backdrop-blur-sm border border-white/20 text-white text-[8px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                    <BadgeIcon className="w-3 h-3" />
                     {g.badge}
                   </div>
 
@@ -190,14 +190,17 @@ export default function DesktopArcadePage({ onSelectGame }: DesktopArcadePagePro
 
                   {/* Play Now or Coming Soon */}
                   {g.comingSoon ? (
-                    <div className="flex items-center gap-1.5 mt-4 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full">
-                      <Clock className="w-4 h-4 text-white/80" />
-                      <span className="text-white/90 text-[12px] font-semibold uppercase tracking-wider">Coming Soon</span>
+                    <div className="flex items-center gap-1.5 mt-4 bg-black/50 backdrop-blur-sm border border-white/30 px-4 py-2 rounded-lg">
+                      <Clock className="w-4 h-4 text-white" />
+                      <span className="text-white text-[12px] font-semibold uppercase tracking-wider">Coming Soon</span>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 mt-4 bg-cream text-gray-900 font-bold text-[13px] px-5 py-2.5 rounded-full shadow-sm group-hover:bg-white transition-colors">
-                      PLAY NOW
-                      <span className="w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: g.titleColor }}>
+                    <div 
+                      className="flex items-center gap-2 mt-4 font-bold text-[13px] px-5 py-2.5 rounded-lg shadow-sm transition-colors"
+                      style={{ backgroundColor: g.titleColor }}
+                    >
+                      <span className="text-white">PLAY NOW</span>
+                      <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center">
                         <Play className="w-2.5 h-2.5 text-white fill-white ml-0.5" />
                       </span>
                     </div>

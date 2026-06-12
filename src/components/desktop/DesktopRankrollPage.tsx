@@ -209,14 +209,14 @@ export default function DesktopRankrollPage({ onOpenArticle, onShowLogin, onCoin
   const otherPolls = polls.filter(p => p.type !== 'ranking');
 
   return (
-    <div className="h-full flex flex-col bg-[#FDFBF7] overflow-hidden">
+    <div className="h-full flex flex-col bg-[#F5F0E8] overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
         <div className="flex items-center gap-3">
           <Vote className="w-5 h-5 text-[#D4873A]" />
           <div>
-            <span className="font-display text-lg tracking-wider text-gray-900 block leading-tight">Rankroll</span>
-            <span className="text-[10px] text-gray-500">Vote & rank your favorites</span>
+            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Rankroll</span>
+            <span className="text-[10px] text-gray-500 -mt-0.5 block">Vote & rank your favorites</span>
           </div>
         </div>
         <div className="w-48" />

@@ -37,6 +37,7 @@ interface Battle {
   rounds: number;
   status: 'open' | 'active' | 'completed' | 'cancelled';
   questions: {
+    cardId?: string;
     question: string;
     answers: string[]; 
     correctIndex: number;
@@ -118,6 +119,8 @@ interface BattlePageProps {
   onPendingBattleHandled?: () => void; // Callback when pending battle has been handled
   onBack?: () => void; // Callback to go back to Arcade
   embedded?: boolean; // If true, render modals inline (for desktop)
+  onGoToTrivia?: () => void; // Navigate to solo trivia
+  onGoToArticles?: () => void; // Navigate to articles
 }
 
 // Check if game is on break (9:00-10:00 CET - daily reset period)
@@ -128,7 +131,7 @@ const isGameOnBreak = () => {
   return hour >= 9 && hour < 10;
 };
 
-export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattleId, onBattleViewed, onShowLogin, onBattleActiveChange, pendingBattleId, onPendingBattleHandled, onBack, embedded = false }: BattlePageProps) {
+export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattleId, onBattleViewed, onShowLogin, onBattleActiveChange, pendingBattleId, onPendingBattleHandled, onBack, embedded = false, onGoToTrivia, onGoToArticles }: BattlePageProps) {
   const { user, isLoggedIn } = useAuth();
   
   // Check if game is on break (9:00-10:00)
@@ -159,6 +162,9 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   
   // Own battle cancel modal
   const [selectedOwnBattle, setSelectedOwnBattle] = useState<Battle | null>(null);
+  
+  // Accepting battle loading state
+  const [isAccepting, setIsAccepting] = useState(false);
   
   // Battles
   const [battles, setBattles] = useState<Battle[]>([]);
@@ -386,7 +392,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         setCoins(() => dbPoints);
       }
       
-      const rounds = createWager >= 100 ? 5 : 3;
+      const rounds = createWager >= 1 ? 5 : 3;
       const res = await fetch('/api/battles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -431,7 +437,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
             try {
               await navigator.share({
                 title: 'Battle Challenge! 🎮',
-                text: `${user.username} challenges you to a ${createTopic.toUpperCase()} battle for ${createWager} coins!`,
+                text: `${user.username} challenges you to a ${createTopic.toUpperCase()} battle for ${createWager.toFixed(2)} BOGX!`,
                 url: battleUrl
               });
             } catch (e) {
@@ -460,8 +466,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
             secondaryButtonText: 'CANCEL BATTLE',
             onSecondaryButtonClick: () => handleCancelBattle(battleId),
             details: [
-              `💰 Wager: ${createWager} coins`,
-              `🎯 Winner takes all (${createWager * 2} coins)`,
+              `💰 Wager: ${createWager.toFixed(2)} BOGX`,
+              `🎯 Winner takes all (${(createWager * 2).toFixed(2)} BOGX)`,
               `⏳ Waiting for opponent to accept`,
               `❌ Cancel anytime before someone joins`
             ]
@@ -498,7 +504,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         setCoins(() => dbPoints);
       }
       
-      const rounds = createWager >= 100 ? 5 : 3;
+      const rounds = createWager >= 1 ? 5 : 3;
       const res = await fetch('/api/battles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -662,9 +668,20 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
 
   // Start battle after accepting (as opponent)
   const startBattle = async () => {
+    // Show accepting modal
+    setIsAccepting(true);
+    
     // First accept the battle via API
     const accepted = await handleAcceptBattle();
-    if (!accepted) return;
+    
+    if (!accepted) {
+      setIsAccepting(false);
+      return;
+    }
+    
+    // Small delay for visual feedback
+    await new Promise(r => setTimeout(r, 800));
+    setIsAccepting(false);
     
     // Then start the game as opponent
     setIsCreator(false); // Mark as opponent
@@ -761,6 +778,22 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     setMyResults(newResults);
     myResultsRef.current = newResults; // Update ref immediately
     setMyTotalPoints(prev => prev + points);
+    
+    // Track question in history so it won't repeat
+    if (user?.id && question.cardId) {
+      fetch('/api/questions/smart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          cardId: question.cardId,
+          questionText: question.question,
+          correct,
+          context: 'battle',
+          battleId: currentBattle._id,
+        }),
+      }).catch(() => {}); // Fire and forget
+    }
     
     // Simulate opponent (bot)
     simulateOpponent();
@@ -992,7 +1025,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   const toBOGX = (wager: number) => {
     // If wager is >= 1, it's legacy points - divide by 100
     // If wager is < 1, it's already BOGX
-    return wager >= 1 ? wager / 100 : wager;
+    return wager; // All wagers are now in BOGX
   };
 
   // Render based on screen
@@ -1118,7 +1151,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   // POOL SCREEN
   // ═══════════════════════════════════════════════════════════════
   const renderPoolScreen = () => (
-    <div className="flex flex-col min-h-full" style={{ backgroundColor: '#F5F0E8' }}>
+    <div className="flex flex-col h-full min-h-full" style={{ backgroundColor: '#F5F0E8' }}>
       {/* Header: Back + Battle left, Create/Invite right */}
       <div className="flex items-center justify-between px-3 pt-4 pb-3 border-b border-warm">
         <div className="flex items-center gap-2">
@@ -1185,27 +1218,31 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         </div>
       </div>
 
-      {/* Topic Filter - simplified */}
-      <div className="flex px-4 py-2 border-b border-warm overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+      {/* Topic Filter */}
+      <div className="flex gap-2 px-4 py-3 border-b border-warm overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
         <button
           onClick={() => setTopicFilter('all')}
-          className={`px-3 py-1.5 text-xs font-semibold tracking-wider whitespace-nowrap transition-colors rounded ${
-            topicFilter === 'all' ? 'bg-[#D4873A] text-white' : 'text-gray-600'
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-all border ${
+            topicFilter === 'all' ? 'bg-[#D4873A] text-white border-[#D4873A]' : 'bg-cream text-gray-700 hover:bg-[#D4873A]/10 border-warm'
           }`}
         >
-          All
+          <span className="text-xs font-semibold">All</span>
         </button>
-        {TOPICS.map(t => (
-          <button
-            key={t.id}
-            onClick={() => setTopicFilter(t.id)}
-            className={`px-3 py-1.5 text-xs font-semibold tracking-wider whitespace-nowrap transition-colors rounded ${
-              topicFilter === t.id ? 'bg-[#D4873A] text-white' : 'text-gray-600'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+        {TOPICS.map(t => {
+          const Icon = t.icon;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setTopicFilter(t.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-all border ${
+                topicFilter === t.id ? 'bg-[#D4873A] text-white border-[#D4873A]' : 'bg-cream text-gray-700 hover:bg-[#D4873A]/10 border-warm'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              <span className="text-xs font-semibold">{t.label}</span>
+            </button>
+          );
+        })}
       </div>
       
       {/* Create Battle Fullscreen */}
@@ -1343,7 +1380,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         ) : isOnBreak ? (
           <div className="flex flex-col items-center justify-center h-full px-4">
             <div className="flex items-center gap-3 mb-6">
-              <span className="text-3xl">☕</span>
+              <img src="/images/coffee-break.svg" alt="" className="w-10 h-10" />
               <div>
                 <p className="font-display text-xl tracking-wider text-[#D4873A]">DAILY BREAK</p>
                 <p className="text-gray-500 text-xs">9:00 - 10:00 AM</p>
@@ -1408,7 +1445,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
           filteredBattles.map((battle: Battle) => {
             const topic = getTopicConfig(battle.topic);
             const isMyBattle = battle.creator._id === user?.id;
-            const randomRank = Math.floor(Math.random() * 50) + 1;
+            const creatorRank = (battle.creator as any).rank || '-';
             
             return (
               <div
@@ -1437,7 +1474,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                   {/* User info */}
                   <div className="flex-1 min-w-0">
                     <div className="text-xl font-display text-gray-900 leading-tight tracking-wide">{battle.creator.username}</div>
-                    <div className="text-[11px] text-gray-500 leading-tight">Rank #{randomRank}</div>
+                    <div className="text-[11px] text-gray-500 leading-tight">Rank #{creatorRank}</div>
                     <div className="flex items-center gap-1.5 mt-1">
                       <span 
                         className="text-[9px] font-bold tracking-wider uppercase px-1.5 py-0.5 rounded flex items-center gap-1 text-white"
@@ -2151,6 +2188,35 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
       {renderScreen()}
       
       
+      {/* Accepting Battle Modal */}
+      {isAccepting && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div className="relative bg-cream border-2 border-[#D4873A] rounded-2xl w-full max-w-[300px] p-8 text-center shadow-2xl">
+            {/* Animated Swords */}
+            <div className="relative w-20 h-20 mx-auto mb-4">
+              <Swords className="w-20 h-20 text-[#D4873A] animate-pulse" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-16 h-16 border-4 border-[#D4873A]/30 border-t-[#D4873A] rounded-full animate-spin" />
+              </div>
+            </div>
+            
+            <h3 className="font-display text-xl tracking-wider mb-2 text-gray-900">
+              ENTERING ARENA
+            </h3>
+            <p className="text-gray-500 text-sm mb-4">
+              Preparing your battle...
+            </p>
+            
+            {/* Coin deduction animation hint */}
+            <div className="flex items-center justify-center gap-2 text-[#D4873A] font-bold">
+              <Coins className="w-5 h-5 animate-bounce" />
+              <span>-{formatCurrency(toBOGX(currentBattle?.wager || 0))}</span>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Alert Modal */}
       <AlertModal
         show={alertState.show}
@@ -2164,6 +2230,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         onSecondaryButtonClick={alertState.onSecondaryButtonClick}
         details={alertState.details}
         embedded={embedded}
+        onPlayTrivia={onGoToTrivia}
+        onReadArticles={onGoToArticles}
       />
 
       {/* Game intro modal removed - now using setup screen */}

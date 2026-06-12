@@ -25,10 +25,12 @@ async function dbConnect(): Promise<typeof mongoose> {
   if (!cached.promise) {
     const opts = {
       bufferCommands: false,
-      maxPoolSize: 10,
-      minPoolSize: 2,
+      maxPoolSize: 5,  // Reduced for M0 free tier (max 500 connections shared)
+      minPoolSize: 1,
+      maxIdleTimeMS: 10000,  // Close idle connections after 10s
       serverSelectionTimeoutMS: 10000,
       socketTimeoutMS: 45000,
+      heartbeatFrequencyMS: 30000,  // Less frequent heartbeats
     };
 
     cached.promise = mongoose.connect(MONGODB_URI, opts).then((m) => {

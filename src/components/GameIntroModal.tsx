@@ -66,7 +66,7 @@ export default function GameIntroModal({
   // Embedded mode: render inline without overlay
   if (embedded) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-[#FDFBF7] p-6">
+      <div className="w-full h-full flex items-center justify-center bg-[#F5F0E8] p-6">
         <div className="w-full max-w-md bg-white rounded-2xl shadow-lg border border-warm overflow-hidden">
           {/* Header - Icon and Close in same row */}
           <div className="flex items-center justify-between p-4 bg-gradient-to-br from-[#D4873A]/10 via-[#D4873A]/5 to-transparent">

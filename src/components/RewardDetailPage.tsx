@@ -206,7 +206,7 @@ export default function RewardDetailPage({ isOpen, reward, coins, onClose, onRed
               <div className="flex items-center gap-2">
                 <Coins className="w-6 h-6 text-yellow-400" />
                 <span className="text-2xl font-black text-yellow-400">{formatPoints(reward.cost)}</span>
-                <span className="text-white/40 text-sm">Points</span>
+                <span className="text-white/40 text-sm">BOGX</span>
               </div>
               
               {!canAfford && (

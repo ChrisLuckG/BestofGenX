@@ -5,6 +5,8 @@ import Card from "@/models/Card";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { findDuplicateQuestion, generateQuestionHash, buildAvoidList, recordUsedTopic } from "@/lib/questionService";
+import { put } from "@vercel/blob";
+import sharp from "sharp";
 
 // Load the system prompt from the text file - NO FALLBACK
 const systemPromptPath = join(process.cwd(), "src/prompts/system-prompt.txt");
@@ -22,11 +24,11 @@ export async function POST(request: NextRequest) {
 
     const openai = new OpenAI({ apiKey });
 
-    const { topic, theme } = await request.json();
+    const { topic, theme, difficulty = 'Easy', subCategory } = await request.json();
 
     const hasCustomTopic = topic && topic.trim().length > 0;
     
-    console.log("Generating quiz SET for topic:", topic || "RANDOM", "theme:", theme);
+    console.log(`Generating SINGLE ${difficulty} question for topic:`, topic || "RANDOM", "theme:", theme, "subCategory:", subCategory || "any");
 
     // Build avoid list from used topics (last 30 days)
     const avoidList = await buildAvoidList(theme);
@@ -34,20 +36,36 @@ export async function POST(request: NextRequest) {
     
     console.log(`Avoid list has ${avoidList ? 'topics to avoid' : 'no topics yet'}`);
 
-    // User prompt based on topic
-    const userPrompt = hasCustomTopic 
-      ? `Erstelle 3 Quiz-Fragen (Easy, Medium, Hard) über: "${topic}"`
-      : `Erstelle 3 Quiz-Fragen (Easy, Medium, Hard) für die Kategorie: ${theme || 'RANDOM'}. Wähle ein KREATIVES und UNERWARTETES Thema!`;
+    // User prompt for SINGLE question with specified difficulty and optional subCategory
+    let userPrompt: string;
+    if (hasCustomTopic) {
+      userPrompt = `Erstelle EINE EINZELNE ${difficulty}-Quiz-Frage über: "${topic}"`;
+    } else if (subCategory) {
+      userPrompt = `Erstelle EINE EINZELNE ${difficulty}-Quiz-Frage für ${theme} - speziell über ${subCategory}. Wähle ein interessantes Thema aus dem Bereich ${subCategory}!`;
+    } else {
+      userPrompt = `Erstelle EINE EINZELNE ${difficulty}-Quiz-Frage für die Kategorie: ${theme || 'RANDOM'}. Wähle ein KREATIVES und UNERWARTETES Thema!`;
+    }
 
-    // Generate quiz content with GPT
+    // Generate SINGLE question with GPT
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt + "\n\nWICHTIG: Du MUSST genau diese JSON-Struktur zurückgeben mit ALLEN drei Schwierigkeitsgraden (easy, medium, hard). Keine darf fehlen!" }
+        { role: "user", content: userPrompt + `
+
+WICHTIG: Gib NUR EINE Frage zurück im JSON-Format:
+{
+  "topic": "Das spezifische Thema (z.B. Michael Jordan)",
+  "subCategory": "Die Unterkategorie (z.B. Basketball, Rock, Action Movies)",
+  "theme": "${theme || 'RANDOM'}",
+  "question": "Die Frage?",
+  "options": ["Option A", "Option B", "Option C", "Option D"],
+  "correctAnswer": "Die richtige Option",
+  "highlightWords": ["wichtige", "wörter"]
+}` }
       ],
-      temperature: 1.0, // Lowered slightly for structure compliance
-      response_format: { type: 'json_object' }, // Force JSON output
+      temperature: 1.0,
+      response_format: { type: 'json_object' },
     });
 
     const content = completion.choices[0]?.message?.content;
@@ -64,27 +82,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Failed to parse AI response" }, { status: 500 });
     }
 
-    // VALIDATE all 3 difficulties are present and complete
-    const validateVariant = (v: any, name: string): string | null => {
-      if (!v) return `Missing ${name} variant`;
-      if (!v.question || typeof v.question !== 'string') return `${name}: missing question`;
-      if (!Array.isArray(v.options) || v.options.length !== 4) return `${name}: must have exactly 4 options`;
-      if (!v.correctAnswer || !v.options.includes(v.correctAnswer)) return `${name}: correctAnswer must match one of the options`;
-      return null;
-    };
-
-    const validationErrors = [
-      validateVariant(quizData.easy, 'easy'),
-      validateVariant(quizData.medium, 'medium'),
-      validateVariant(quizData.hard, 'hard'),
-    ].filter(Boolean);
-
-    if (validationErrors.length > 0) {
-      console.error("AI returned incomplete quiz set:", validationErrors, quizData);
-      return NextResponse.json({
-        success: false,
-        error: `AI returned incomplete quiz set: ${validationErrors.join('; ')}. Please retry.`,
-      }, { status: 500 });
+    // VALIDATE single question
+    if (!quizData.question || typeof quizData.question !== 'string') {
+      return NextResponse.json({ success: false, error: "Missing question" }, { status: 500 });
+    }
+    if (!Array.isArray(quizData.options) || quizData.options.length !== 4) {
+      return NextResponse.json({ success: false, error: "Must have exactly 4 options" }, { status: 500 });
+    }
+    if (!quizData.correctAnswer || !quizData.options.includes(quizData.correctAnswer)) {
+      return NextResponse.json({ success: false, error: "correctAnswer must match one of the options" }, { status: 500 });
     }
 
     // Try to get an image from Wikimedia
@@ -136,35 +142,44 @@ export async function POST(request: NextRequest) {
           n: 1,
           size: "1024x1024",
           quality: "standard",
+          response_format: "b64_json", // Get base64 for compression
         });
         
-        imageUrl = imageResponse.data?.[0]?.url || "";
-        console.log("DALL-E image generated:", imageUrl ? "success" : "failed");
+        const b64 = imageResponse.data?.[0]?.b64_json;
+        if (b64) {
+          // Compress to 512x512 WebP
+          const originalBuffer = Buffer.from(b64, 'base64');
+          const compressedBuffer = await sharp(originalBuffer)
+            .resize(512, 512, { fit: 'cover' })
+            .webp({ quality: 80 })
+            .toBuffer();
+          
+          const filename = `quiz-${Date.now()}.webp`;
+          const blob = await put(`images/${filename}`, compressedBuffer, {
+            access: 'public',
+            contentType: 'image/webp',
+          });
+          imageUrl = blob.url;
+          console.log(`DALL-E image compressed: ${originalBuffer.length} -> ${compressedBuffer.length} bytes`);
+        }
       } catch (dalleError) {
         console.error("DALL-E image generation failed:", dalleError);
       }
     }
 
-    // Check for duplicate questions before returning
-    const duplicateChecks = await Promise.all([
-      findDuplicateQuestion(quizData.easy?.question || ''),
-      findDuplicateQuestion(quizData.medium?.question || ''),
-      findDuplicateQuestion(quizData.hard?.question || ''),
-    ]);
+    // Check for duplicate question
+    const duplicate = await findDuplicateQuestion(quizData.question);
+    const questionHash = generateQuestionHash(quizData.question);
     
-    const hasDuplicates = duplicateChecks.some(d => d !== null);
-    const duplicateInfo = {
-      easy: duplicateChecks[0] ? { isDuplicate: true, existingId: duplicateChecks[0]._id } : { isDuplicate: false },
-      medium: duplicateChecks[1] ? { isDuplicate: true, existingId: duplicateChecks[1]._id } : { isDuplicate: false },
-      hard: duplicateChecks[2] ? { isDuplicate: true, existingId: duplicateChecks[2]._id } : { isDuplicate: false },
-    };
-
-    // Generate hashes for the questions
-    const questionHashes = {
-      easy: generateQuestionHash(quizData.easy?.question || ''),
-      medium: generateQuestionHash(quizData.medium?.question || ''),
-      hard: generateQuestionHash(quizData.hard?.question || ''),
-    };
+    // Also check if topic already exists
+    const existingTopicCard = await Card.findOne({ 
+      topic: { $regex: new RegExp(`^${quizData.topic?.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+    });
+    const isDuplicate = duplicate !== null || existingTopicCard !== null;
+    
+    if (isDuplicate) {
+      console.log(`DUPLICATE DETECTED: topic="${quizData.topic}" or question already exists`);
+    }
 
     // Record this topic as used (for future avoid lists)
     if (quizData.topic) {
@@ -174,16 +189,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       topic: quizData.topic,
-      theme: quizData.theme,
-      questions: {
-        easy: quizData.easy,
-        medium: quizData.medium,
-        hard: quizData.hard,
-      },
+      subCategory: quizData.subCategory || '',
+      theme: quizData.theme || theme,
+      question: quizData.question,
+      options: quizData.options,
+      correctAnswer: quizData.correctAnswer,
+      highlightWords: quizData.highlightWords || [],
       generatedImage: imageUrl,
-      duplicateCheck: duplicateInfo,
-      hasDuplicates,
-      questionHashes,
+      isDuplicate,
+      questionHash,
     });
 
   } catch (error) {

@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Cannot refer yourself' }, { status: 400 });
     }
     
-    const REFERRAL_BONUS = 500;
+    const REFERRAL_BONUS = 5.00; // 5.00 BOGX
     
     // Update referrer
     await User.findByIdAndUpdate(referrer._id, {
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({ 
       success: true, 
-      message: `Referral successful! ${referrer.username} earned ${REFERRAL_BONUS} points.`,
+      message: `Referral successful! ${referrer.username} earned ${REFERRAL_BONUS.toFixed(2)} BOGX.`,
       referrerUsername: referrer.username,
       bonus: REFERRAL_BONUS
     });

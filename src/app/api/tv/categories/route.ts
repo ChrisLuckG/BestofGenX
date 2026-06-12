@@ -55,6 +55,30 @@ export async function PUT(request: Request) {
   }
 }
 
+// PATCH - Reorder categories (bulk update)
+export async function PATCH(request: Request) {
+  try {
+    await dbConnect();
+    const { orderedIds } = await request.json();
+    
+    if (!orderedIds || !Array.isArray(orderedIds)) {
+      return NextResponse.json({ success: false, error: 'orderedIds array required' }, { status: 400 });
+    }
+    
+    // Update order for each category
+    const updates = orderedIds.map((id: string, index: number) => 
+      TVCategory.findByIdAndUpdate(id, { order: index })
+    );
+    
+    await Promise.all(updates);
+    
+    const categories = await TVCategory.find({ active: true }).sort({ order: 1 });
+    return NextResponse.json({ success: true, categories });
+  } catch (error: any) {
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
 // DELETE - Delete category
 export async function DELETE(request: Request) {
   try {

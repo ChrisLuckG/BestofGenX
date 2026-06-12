@@ -316,7 +316,7 @@ export default function PredictionsTab() {
                             <span className="text-[10px] text-gray-500">
                               {new Date(p.closesAt).toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit" })}
                             </span>
-                            <span className="text-[10px] text-gray-500">+{p.pointsReward} pts</span>
+                            <span className="text-[10px] text-gray-500">+{p.pointsReward} BOGX</span>
                             {(p.totalVotes ?? 0) > 0 && (
                               <span className="text-[10px] text-gray-500 flex items-center gap-1">
                                 <BarChart3 className="w-3 h-3" /> {p.totalVotes} vote{p.totalVotes === 1 ? "" : "s"}

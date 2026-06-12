@@ -86,7 +86,7 @@ export default function DesktopRewardsPage({ coins, onClose, onRedeem }: Desktop
   }
 
   return (
-      <div className="flex flex-col h-full bg-[#FDFBF7] overflow-hidden">
+      <div className="flex flex-col h-full bg-[#F5F0E8] overflow-hidden">
         {/* Header - Desktop warm style */}
         <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
           <button 
@@ -96,9 +96,12 @@ export default function DesktopRewardsPage({ coins, onClose, onRedeem }: Desktop
             <Trophy className="w-5 h-5" />
             <span className="font-display text-lg tracking-wider">Ranking</span>
           </button>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Gift className="w-5 h-5 text-[#D4873A]" />
-            <span className="font-display text-lg tracking-wider text-gray-900">Rewards</span>
+            <div>
+              <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Rewards</span>
+              <span className="text-[10px] text-gray-500 -mt-0.5 block">Redeem your BOGX coins</span>
+            </div>
           </div>
         </div>
 

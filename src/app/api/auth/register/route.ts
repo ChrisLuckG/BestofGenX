@@ -66,7 +66,7 @@ export async function POST(request: Request) {
       avatar: defaultAvatar,
       country: country || 'World',
       countryFlag: countryFlag || '🌍',
-      points: 500, // Starting bonus
+      points: 5.00, // Starting bonus (5.00 BOGX)
       wins: 0,
       gamesPlayed: 0,
       referredBy: validReferrer ? validReferrer._id : undefined,

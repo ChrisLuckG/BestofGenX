@@ -34,8 +34,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Give welcome bonus
-    const WELCOME_BONUS = 500;
+    // Give welcome bonus (5.00 BOGX)
+    const WELCOME_BONUS = 5.00;
     user.points += WELCOME_BONUS;
     user.hasReceivedWelcomeBonus = true;
     await user.save();

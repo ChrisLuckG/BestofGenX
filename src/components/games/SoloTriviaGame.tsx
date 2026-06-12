@@ -48,7 +48,7 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
 const DEFAULT_CATEGORIES = ['all', 'music', 'film', 'sport'];
 
 const MAX_POINTS = 0.30; // Start at 0.30 BOGX, decreases over time
-const WRONG_PENALTY = 0.01; // -0.01 BOGX for wrong answer
+const WRONG_PENALTY = 0.03; // -0.03 BOGX for wrong answer (10% of max)
 
 export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation, embedded = false }: SoloTriviaGameProps) {
   const { user, isLoggedIn } = useAuth();

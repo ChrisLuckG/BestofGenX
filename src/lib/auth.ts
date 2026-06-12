@@ -84,7 +84,7 @@ export const authOptions: NextAuthOptions = {
               avatar: user.image || defaultAvatar,
               provider: 'google',
               emailVerified: true, // Google users are already verified
-              points: 500, // Starting bonus
+              points: 5.00, // Starting bonus (5.00 BOGX)
               wins: 0,
               gamesPlayed: 0,
               country: 'World',

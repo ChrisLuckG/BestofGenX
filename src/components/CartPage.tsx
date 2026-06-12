@@ -14,8 +14,8 @@ interface CartPageProps {
   onCoinsUsed?: (amount: number) => void;
 }
 
-// Points to EUR conversion (100 points = 1 EUR)
-const POINTS_PER_EUR = 100;
+// BOGX to EUR conversion (1 BOGX = 1 EUR)
+const BOGX_PER_EUR = 1;
 
 export default function CartPage({ onBack, onContinueShopping, userCoins = 0, onCoinsUsed }: CartPageProps) {
   const { items, removeFromCart, updateQuantity, totalItems, totalPrice, clearCart } = useCart();
@@ -23,9 +23,9 @@ export default function CartPage({ onBack, onContinueShopping, userCoins = 0, on
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'points'>('cash');
   
-  // Calculate points needed for purchase
-  const pointsNeeded = Math.ceil(totalPrice * POINTS_PER_EUR);
-  const hasEnoughPoints = userCoins >= pointsNeeded;
+  // Calculate BOGX needed for purchase (1 BOGX = 1 EUR)
+  const bogxNeeded = Math.ceil(totalPrice * BOGX_PER_EUR);
+  const hasEnoughPoints = userCoins >= bogxNeeded;
 
   const handleCheckout = async () => {
     if (items.length === 0) return;
@@ -33,7 +33,7 @@ export default function CartPage({ onBack, onContinueShopping, userCoins = 0, on
     // Check points if paying with points
     if (paymentMethod === 'points') {
       if (!hasEnoughPoints) {
-        alert(`Not enough coins! You need ${pointsNeeded.toLocaleString()} points but have ${userCoins.toLocaleString()}.`);
+        alert(`Not enough BOGX! You need ${bogxNeeded.toLocaleString()} BOGX but have ${userCoins.toLocaleString()}.`);
         return;
       }
       if (!user?.id) {
@@ -55,7 +55,8 @@ export default function CartPage({ onBack, onContinueShopping, userCoins = 0, on
           })),
           paymentMethod,
           userId: user?.id,
-          pointsToDeduct: paymentMethod === 'points' ? pointsNeeded : 0,
+          pointsToDeduct: paymentMethod === 'points' ? bogxNeeded : 0,
+          returnPath: typeof window !== 'undefined' ? window.location.pathname : '/mobile',
         }),
       });
       
@@ -64,7 +65,7 @@ export default function CartPage({ onBack, onContinueShopping, userCoins = 0, on
       if (data.success) {
         if (paymentMethod === 'points') {
           // Deduct points locally
-          onCoinsUsed?.(pointsNeeded);
+          onCoinsUsed?.(bogxNeeded);
           clearCart();
           alert('🎉 Order placed successfully! Your points have been deducted.');
           onContinueShopping();
@@ -207,9 +208,9 @@ export default function CartPage({ onBack, onContinueShopping, userCoins = 0, on
                   <Coins className={`w-5 h-5 ${paymentMethod === 'points' ? 'text-[#D4873A]' : 'text-gray-600'}`} />
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="text-gray-900 font-medium text-sm">Pay with Points</p>
+                  <p className="text-gray-900 font-medium text-sm">Pay with BOGX</p>
                   <p className={`text-xs ${hasEnoughPoints ? 'text-[#D4873A]' : 'text-red-400'}`}>
-                    {pointsNeeded.toLocaleString()} pts needed · You have {userCoins.toLocaleString()} pts
+                    {bogxNeeded.toLocaleString()} BOGX needed · You have {userCoins.toLocaleString()} BOGX
                   </p>
                 </div>
                 {paymentMethod === 'points' && (
@@ -223,7 +224,7 @@ export default function CartPage({ onBack, onContinueShopping, userCoins = 0, on
             {/* Points warning if not enough */}
             {paymentMethod === 'points' && !hasEnoughPoints && (
               <div className="mb-4 p-2 rounded-lg bg-red-50 border border-red-200 text-red-500 text-xs text-center">
-                Not enough coins! You need {(pointsNeeded - userCoins).toLocaleString()} more.
+                Not enough coins! You need {(bogxNeeded - userCoins).toLocaleString()} more.
               </div>
             )}
           </div>
@@ -236,8 +237,8 @@ export default function CartPage({ onBack, onContinueShopping, userCoins = 0, on
             </div>
             {paymentMethod === 'points' && (
               <div className="flex justify-between items-center mb-2">
-                <span className="text-gray-500">Points equivalent</span>
-                <span className="text-[#D4873A] font-bold">{pointsNeeded.toLocaleString()} pts</span>
+                <span className="text-gray-500">BOGX equivalent</span>
+                <span className="text-[#D4873A] font-bold">{bogxNeeded.toLocaleString()} BOGX</span>
               </div>
             )}
             <div className="flex justify-between items-center mb-4">
@@ -256,7 +257,7 @@ export default function CartPage({ onBack, onContinueShopping, userCoins = 0, on
                 <ShoppingCart className="w-6 h-6" />
               )}
               {paymentMethod === 'points' 
-                ? `Pay ${pointsNeeded.toLocaleString()} Points` 
+                ? `Pay ${bogxNeeded.toLocaleString()} BOGX` 
                 : `Checkout · ${totalPrice.toFixed(2)}€`}
             </button>
           </div>

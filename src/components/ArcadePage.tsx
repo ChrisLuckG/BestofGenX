@@ -12,9 +12,12 @@ export default function ArcadePage({ onSelectGame, onShowRankings }: ArcadePageP
     <div className="w-full h-full flex flex-col overflow-hidden bg-cream">
       {/* Header */}
       <div className="px-4 pt-4 pb-3 border-b border-warm bg-cream">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <img src="/images/Icon/trivia2.png" alt="" className="w-5 h-5 object-contain" />
-          <span className="font-display text-lg tracking-wider text-gray-900">Arcade</span>
+          <div>
+            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Arcade</span>
+            <span className="text-[10px] text-gray-500 -mt-0.5 block">Challenge yourself & others</span>
+          </div>
         </div>
       </div>
 
@@ -31,8 +34,8 @@ export default function ArcadePage({ onSelectGame, onShowRankings }: ArcadePageP
           <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/45 to-transparent" />
 
           {/* Badge - top right */}
-          <div className="absolute top-3 right-3 inline-flex items-center gap-1.5 bg-black/50 backdrop-blur-sm border border-white/20 text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest z-10">
-            <Users className="w-3 h-3" />
+          <div className="absolute top-2 right-2 inline-flex items-center gap-1 bg-black/50 backdrop-blur-sm border border-white/20 text-white text-[7px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider z-10">
+            <Users className="w-2.5 h-2.5" />
             Multiplayer
           </div>
 
@@ -67,9 +70,11 @@ export default function ArcadePage({ onSelectGame, onShowRankings }: ArcadePageP
             </div>
 
             {/* Play Now */}
-            <div className="flex items-center gap-1.5 mt-3 text-white/90 text-[11px] font-medium">
-              PLAY NOW
-              <Play className="w-3 h-3 text-[#A855F7] fill-[#A855F7]" />
+            <div className="flex items-center gap-2 mt-3 bg-[#A855F7] px-4 py-1.5 rounded-lg">
+              <span className="text-white text-[11px] font-bold">PLAY NOW</span>
+              <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center">
+                <Play className="w-2 h-2 text-white fill-white ml-0.5" />
+              </span>
             </div>
           </div>
         </button>
@@ -84,8 +89,8 @@ export default function ArcadePage({ onSelectGame, onShowRankings }: ArcadePageP
           <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/45 to-transparent" />
 
           {/* Badge - top right */}
-          <div className="absolute top-3 right-3 inline-flex items-center gap-1.5 bg-black/50 backdrop-blur-sm border border-white/20 text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest z-10">
-            <User className="w-3 h-3" />
+          <div className="absolute top-2 right-2 inline-flex items-center gap-1 bg-black/50 backdrop-blur-sm border border-white/20 text-white text-[7px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider z-10">
+            <User className="w-2.5 h-2.5" />
             Single Player
           </div>
 
@@ -98,7 +103,7 @@ export default function ArcadePage({ onSelectGame, onShowRankings }: ArcadePageP
             {/* Subtitle */}
             <p className="text-white text-[12px] font-semibold leading-tight mt-1.5">
               +0.30 per correct.<br />
-              <span className="text-[#E5A55A]">-0.01 per wrong.</span>
+              <span className="text-[#E5A55A]">-0.03 per wrong.</span>
             </p>
 
             {/* Features - 2 lines max like QuizzBattle */}
@@ -115,14 +120,16 @@ export default function ArcadePage({ onSelectGame, onShowRankings }: ArcadePageP
               <div className="w-px h-6 bg-white/25 flex-shrink-0" />
               <div className="flex items-center gap-1">
                 <Zap className="w-3.5 h-3.5 text-[#E5A55A] flex-shrink-0" />
-                <span className="text-white/90 text-[10px] font-medium">Beat<br/><span className="whitespace-nowrap">the Clock</span></span>
+                <span className="text-white/90 text-[10px] font-medium leading-tight">Beat the<br/>Clock</span>
               </div>
             </div>
 
-            {/* Play Now - more centered */}
-            <div className="flex items-center gap-1.5 mt-3 text-white/90 text-[11px] font-medium">
-              PLAY NOW
-              <Play className="w-3 h-3 text-[#E5A55A] fill-[#E5A55A]" />
+            {/* Play Now */}
+            <div className="flex items-center gap-2 mt-3 bg-[#D4873A] px-4 py-1.5 rounded-lg">
+              <span className="text-white text-[11px] font-bold">PLAY NOW</span>
+              <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center">
+                <Play className="w-2 h-2 text-white fill-white ml-0.5" />
+              </span>
             </div>
           </div>
         </button>
@@ -130,15 +137,15 @@ export default function ArcadePage({ onSelectGame, onShowRankings }: ArcadePageP
         {/* Next Play - Live Predictions Banner */}
         <button
           onClick={() => onSelectGame('nextplay')}
-          className="w-full relative overflow-hidden rounded-2xl shadow-md transition-all hover:scale-[1.02] active:scale-[0.98] bg-cover bg-center aspect-[2/1]"
+          className="w-full relative overflow-hidden rounded-2xl shadow-md transition-all bg-cover bg-center aspect-[2/1] opacity-85 cursor-default"
           style={{ backgroundImage: "url('/images/Hintergund/nextplay.png')" }}
         >
           {/* Left fade for text readability */}
           <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/45 to-transparent" />
 
           {/* Badge - top right */}
-          <div className="absolute top-3 right-3 inline-flex items-center gap-1.5 bg-black/50 backdrop-blur-sm border border-white/20 text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest z-10">
-            <User className="w-3 h-3" />
+          <div className="absolute top-2 right-2 inline-flex items-center gap-1 bg-black/50 backdrop-blur-sm border border-white/20 text-white text-[7px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider z-10">
+            <User className="w-2.5 h-2.5" />
             Single Player
           </div>
 
@@ -173,9 +180,9 @@ export default function ArcadePage({ onSelectGame, onShowRankings }: ArcadePageP
             </div>
 
             {/* Coming Soon */}
-            <div className="flex items-center gap-1.5 mt-3 bg-white/20 backdrop-blur-sm px-2.5 py-1 rounded-full">
-              <Clock className="w-3 h-3 text-white/80" />
-              <span className="text-white/90 text-[10px] font-semibold uppercase tracking-wider">Coming Soon</span>
+            <div className="flex items-center gap-1.5 mt-3 bg-black/50 backdrop-blur-sm border border-white/30 px-3 py-1.5 rounded-lg">
+              <Clock className="w-3 h-3 text-white" />
+              <span className="text-white text-[10px] font-semibold uppercase tracking-wider">Coming Soon</span>
             </div>
           </div>
         </button>
@@ -183,15 +190,15 @@ export default function ArcadePage({ onSelectGame, onShowRankings }: ArcadePageP
         {/* Face Blur - Recognition Challenge Banner */}
         <button
           onClick={() => onSelectGame('faceblur')}
-          className="w-full relative overflow-hidden rounded-2xl shadow-md transition-all hover:scale-[1.02] active:scale-[0.98] bg-cover bg-center aspect-[2/1]"
+          className="w-full relative overflow-hidden rounded-2xl shadow-md transition-all bg-cover bg-center aspect-[2/1] opacity-85 cursor-default"
           style={{ backgroundImage: "url('/images/Hintergund/facemash.png')" }}
         >
           {/* Left fade for text readability */}
           <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/50 to-transparent" />
 
           {/* Badge - top right */}
-          <div className="absolute top-3 right-3 inline-flex items-center gap-1.5 bg-black/50 backdrop-blur-sm border border-white/20 text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest z-10">
-            <User className="w-3 h-3" />
+          <div className="absolute top-2 right-2 inline-flex items-center gap-1 bg-black/50 backdrop-blur-sm border border-white/20 text-white text-[7px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider z-10">
+            <User className="w-2.5 h-2.5" />
             Single Player
           </div>
 
@@ -226,9 +233,9 @@ export default function ArcadePage({ onSelectGame, onShowRankings }: ArcadePageP
             </div>
 
             {/* Coming Soon */}
-            <div className="flex items-center gap-1.5 mt-3 bg-white/20 backdrop-blur-sm px-2.5 py-1 rounded-full">
-              <Clock className="w-3 h-3 text-white/80" />
-              <span className="text-white/90 text-[10px] font-semibold uppercase tracking-wider">Coming Soon</span>
+            <div className="flex items-center gap-1.5 mt-3 bg-black/50 backdrop-blur-sm border border-white/30 px-3 py-1.5 rounded-lg">
+              <Clock className="w-3 h-3 text-white" />
+              <span className="text-white text-[10px] font-semibold uppercase tracking-wider">Coming Soon</span>
             </div>
           </div>
         </button>
@@ -236,15 +243,15 @@ export default function ArcadePage({ onSelectGame, onShowRankings }: ArcadePageP
         {/* Predictions Banner */}
         <button
           onClick={() => onSelectGame('prediction')}
-          className="w-full relative overflow-hidden rounded-2xl shadow-md transition-all hover:scale-[1.02] active:scale-[0.98] bg-cover bg-center aspect-[2/1]"
+          className="w-full relative overflow-hidden rounded-2xl shadow-md transition-all bg-cover bg-center aspect-[2/1] opacity-85 cursor-default"
           style={{ backgroundImage: "url('/images/Hintergund/predict.png')" }}
         >
           {/* Left fade for text readability */}
           <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/45 to-transparent" />
 
           {/* Badge - top right */}
-          <div className="absolute top-3 right-3 inline-flex items-center gap-1.5 bg-black/50 backdrop-blur-sm border border-white/20 text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest z-10">
-            <User className="w-3 h-3" />
+          <div className="absolute top-2 right-2 inline-flex items-center gap-1 bg-black/50 backdrop-blur-sm border border-white/20 text-white text-[7px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider z-10">
+            <User className="w-2.5 h-2.5" />
             Single Player
           </div>
 
@@ -269,7 +276,7 @@ export default function ArcadePage({ onSelectGame, onShowRankings }: ArcadePageP
               <div className="w-px h-6 bg-white/25" />
               <div className="flex items-center gap-1">
                 <Target className="w-3.5 h-3.5 text-[#84CC16]" />
-                <span className="text-white/90 text-[10px] font-medium leading-tight">Earn<br/>Points</span>
+                <span className="text-white/90 text-[10px] font-medium leading-tight">Earn<br/>BOGX</span>
               </div>
               <div className="w-px h-6 bg-white/25" />
               <div className="flex items-center gap-1">
@@ -279,9 +286,9 @@ export default function ArcadePage({ onSelectGame, onShowRankings }: ArcadePageP
             </div>
 
             {/* Coming Soon */}
-            <div className="flex items-center gap-1.5 mt-3 bg-white/20 backdrop-blur-sm px-2.5 py-1 rounded-full">
-              <Clock className="w-3 h-3 text-white/80" />
-              <span className="text-white/90 text-[10px] font-semibold uppercase tracking-wider">Coming Soon</span>
+            <div className="flex items-center gap-1.5 mt-3 bg-black/50 backdrop-blur-sm border border-white/30 px-3 py-1.5 rounded-lg">
+              <Clock className="w-3 h-3 text-white" />
+              <span className="text-white text-[10px] font-semibold uppercase tracking-wider">Coming Soon</span>
             </div>
           </div>
         </button>

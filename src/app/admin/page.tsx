@@ -3,40 +3,41 @@
 import { useState, useEffect, useCallback } from "react";
 import { Lock, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import CardsTab from "@/components/admin/CardsTab";
+import ArcadeTab from "@/components/admin/CardsTab";
 import MikeTab from "@/components/admin/MikeTabNew";
-import PollsTab from "@/components/admin/PollsTab";
+import RankrollTab from "@/components/admin/RankrollTab";
 import UsersTab from "@/components/admin/UsersTab";
 import RewardsTab from "@/components/admin/RewardsTab";
 import ArticlesTab from "@/components/admin/ArticlesTab";
 import CurrencyTab from "@/components/admin/SettingsTab";
 import CostsTab from "@/components/admin/CostsTab";
 import RequestsTab from "@/components/admin/RequestsTab";
-import PredictionsTab from "@/components/admin/PredictionsTab";
+// PredictionsTab is now embedded in ArcadeTab
 import MarketingTab from "@/components/admin/MarketingTab";
 import TVTab from "@/components/admin/TVTab";
+import MenschenTab from "@/components/admin/MenschenTab";
 
 const PRINTFUL_URL = 'https://www.printful.com/dashboard/default';
 
-type TabType = 'articles' | 'cards' | 'rewards' | 'polls' | 'predictions' | 'users' | 'currency' | 'costs' | 'requests' | 'marketing' | 'tv' | 'mike';
+type TabType = 'articles' | 'arcade' | 'rewards' | 'rankroll' | 'users' | 'currency' | 'costs' | 'requests' | 'marketing' | 'tv' | 'mike' | 'menschen';
 
 // Frontend-related tabs (left)
 const CONTENT_TABS: { id: TabType; label: string }[] = [
   { id: 'articles', label: 'Articles' },
-  { id: 'cards', label: 'Cards' },
-  { id: 'rewards', label: 'Rewards' },
-  { id: 'polls', label: 'Polls' },
-  { id: 'predictions', label: 'Predictions' },
+  { id: 'arcade', label: 'Arcade' },
+  { id: 'rankroll', label: 'Rankroll' },
   { id: 'tv', label: 'TV' },
 ];
 
 // Configuration / external tabs (right)
 const CONFIG_TABS: { id: TabType; label: string }[] = [
+  { id: 'rewards', label: 'Rewards' },
   { id: 'users', label: 'Users' },
   { id: 'costs', label: 'Costs' },
   { id: 'marketing', label: 'Marketing' },
   { id: 'currency', label: 'Currency' },
   { id: 'mike', label: 'Mike' },
+  { id: 'menschen', label: 'Menschen' },
 ];
 
 export default function AdminPage() {
@@ -46,11 +47,11 @@ export default function AdminPage() {
     // Restore last active tab from localStorage
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('admin-active-tab') as TabType | null;
-      if (saved && ['articles', 'cards', 'rewards', 'polls', 'predictions', 'users', 'currency', 'costs', 'requests', 'marketing', 'tv', 'mike'].includes(saved)) {
+      if (saved && ['articles', 'arcade', 'rewards', 'rankroll', 'users', 'currency', 'costs', 'requests', 'marketing', 'tv', 'mike', 'menschen'].includes(saved)) {
         return saved;
       }
     }
-    return 'cards';
+    return 'arcade';
   });
 
   const [newRequestsCount, setNewRequestsCount] = useState(0);
@@ -178,18 +179,18 @@ export default function AdminPage() {
             ))}
           </div>
         </div>
-        {activeTab === 'cards' && <CardsTab />}
+        {activeTab === 'arcade' && <ArcadeTab />}
         {activeTab === 'articles' && <ArticlesTab userId={user?.id} />}
         {activeTab === 'users' && <UsersTab />}
         {activeTab === 'rewards' && <RewardsTab />}
-        {activeTab === 'polls' && <PollsTab />}
+        {activeTab === 'rankroll' && <RankrollTab />}
         {activeTab === 'currency' && <CurrencyTab />}
         {activeTab === 'costs' && <CostsTab />}
         {activeTab === 'requests' && <RequestsTab onArticleCreated={() => setActiveTab('articles')} onStatusChange={fetchNewRequestsCount} />}
-        {activeTab === 'predictions' && <PredictionsTab />}
-        {activeTab === 'marketing' && <MarketingTab />}
+                {activeTab === 'marketing' && <MarketingTab />}
         {activeTab === 'tv' && <TVTab />}
         {activeTab === 'mike' && <MikeTab />}
+        {activeTab === 'menschen' && <MenschenTab userId={user?.id} />}
       </div>
     </div>
   );

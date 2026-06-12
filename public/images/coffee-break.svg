@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Steam -->
+  <path d="M20 8c0-2 2-4 2-6s-2-2-2-2" stroke="#D4873A" stroke-width="2" stroke-linecap="round" opacity="0.6">
+    <animate attributeName="d" values="M20 12c0-2 1-4 0-6s-1-4 0-6;M20 12c0-2 -1-4 0-6s1-4 0-6;M20 12c0-2 1-4 0-6s-1-4 0-6" dur="2s" repeatCount="indefinite"/>
+  </path>
+  <path d="M28 10c0-2 2-4 2-6s-2-2-2-2" stroke="#D4873A" stroke-width="2" stroke-linecap="round" opacity="0.4">
+    <animate attributeName="d" values="M28 14c0-2 -1-4 0-6s1-4 0-6;M28 14c0-2 1-4 0-6s-1-4 0-6;M28 14c0-2 -1-4 0-6s1-4 0-6" dur="2.5s" repeatCount="indefinite"/>
+  </path>
+  <path d="M36 8c0-2 2-4 2-6s-2-2-2-2" stroke="#D4873A" stroke-width="2" stroke-linecap="round" opacity="0.5">
+    <animate attributeName="d" values="M36 12c0-2 1-4 0-6s-1-4 0-6;M36 12c0-2 -1-4 0-6s1-4 0-6;M36 12c0-2 1-4 0-6s-1-4 0-6" dur="1.8s" repeatCount="indefinite"/>
+  </path>
+  
+  <!-- Cup -->
+  <path d="M8 24h40v24c0 8-8 12-20 12S8 56 8 48V24z" fill="#8B4513"/>
+  <path d="M8 24h40v24c0 8-8 12-20 12S8 56 8 48V24z" fill="url(#cupGradient)"/>
+  
+  <!-- Coffee liquid -->
+  <path d="M12 28h32v18c0 6-6 10-16 10S12 52 12 46V28z" fill="#3D1F0D"/>
+  <ellipse cx="28" cy="28" rx="16" ry="3" fill="#5D3A1A"/>
+  
+  <!-- Cup highlight -->
+  <path d="M12 26c0-1 2-2 16-2s16 1 16 2" stroke="#D4873A" stroke-width="1" opacity="0.3"/>
+  
+  <!-- Handle -->
+  <path d="M48 30c8 0 10 4 10 10s-2 10-10 10" stroke="#8B4513" stroke-width="6" fill="none"/>
+  <path d="M48 30c8 0 10 4 10 10s-2 10-10 10" stroke="url(#handleGradient)" stroke-width="4" fill="none"/>
+  
+  <!-- Saucer -->
+  <ellipse cx="28" cy="60" rx="24" ry="4" fill="#A0522D"/>
+  <ellipse cx="28" cy="59" rx="20" ry="3" fill="#CD853F"/>
+  
+  <defs>
+    <linearGradient id="cupGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#CD853F"/>
+      <stop offset="50%" stop-color="#A0522D"/>
+      <stop offset="100%" stop-color="#8B4513"/>
+    </linearGradient>
+    <linearGradient id="handleGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#CD853F"/>
+      <stop offset="100%" stop-color="#A0522D"/>
+    </linearGradient>
+  </defs>
+</svg>

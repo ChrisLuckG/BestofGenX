@@ -2,17 +2,17 @@
   "crons": [
     {
       "path": "/api/cron/daily-snapshot",
-      "schedule": "0 20 * * *"
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/daily-winners-article",
+      "schedule": "1 7 * * *"
     },
     {
       "path": "/api/cron/game-ending",
       "schedule": "0 7 * * *"
     },
-    {
-      "path": "/api/cron/check-daily-cards",
-      "schedule": "0 7 * * *"
-    },
-    {
+        {
       "path": "/api/cron/resolve-predictions",
       "schedule": "5 7 * * *"
     },

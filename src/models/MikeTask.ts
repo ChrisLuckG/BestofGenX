@@ -7,6 +7,7 @@ export interface IChatMessage {
 }
 
 export interface IMikeTask extends Document {
+  ticketNumber: number;
   title: string;
   description: string;
   originalRequest: string;
@@ -30,6 +31,7 @@ export interface IMikeTask extends Document {
 }
 
 const MikeTaskSchema = new Schema<IMikeTask>({
+  ticketNumber: { type: Number, unique: true },
   title: { type: String, required: true },
   description: { type: String, default: '' },
   originalRequest: { type: String, default: '' },

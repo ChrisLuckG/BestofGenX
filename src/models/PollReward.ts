@@ -10,7 +10,7 @@ export interface IPollReward {
 const PollRewardSchema = new mongoose.Schema({
   pollId: { type: mongoose.Schema.Types.ObjectId, ref: 'Poll', required: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  pointsAwarded: { type: Number, required: true, default: 10 },
+  pointsAwarded: { type: Number, required: true, default: 0.05 }, // BOGX
 }, { timestamps: true });
 
 // One reward per user per poll

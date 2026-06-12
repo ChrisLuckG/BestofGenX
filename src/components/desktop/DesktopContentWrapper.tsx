@@ -12,7 +12,7 @@ interface DesktopContentWrapperProps {
 export default function DesktopContentWrapper({ children, backgroundImage, transparent }: DesktopContentWrapperProps) {
   return (
     <div 
-      className={`h-full flex flex-col overflow-hidden desktop-content-override ${transparent ? '' : backgroundImage ? 'bg-cover bg-center bg-no-repeat' : 'bg-[#FDFBF7]'}`}
+      className={`h-full flex flex-col overflow-hidden desktop-content-override ${transparent ? '' : backgroundImage ? 'bg-cover bg-center bg-no-repeat' : 'bg-[#F5F0E8]'}`}
       style={backgroundImage ? { backgroundImage: `url(${backgroundImage})`, minHeight: '100%' } : undefined}
     >
       {children}

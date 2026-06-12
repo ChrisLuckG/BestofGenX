@@ -89,7 +89,7 @@ export default function InviteModal({ isOpen, onClose, userId, username, referra
             Share Best of GenX with your crew, {username}.
           </p>
           <p className="text-[13px] text-[#D4873A] font-bold text-center mb-5">
-            +500 points for every friend who joins
+            +5.00 BOGX for every friend who joins
           </p>
 
           {referralCount > 0 && (

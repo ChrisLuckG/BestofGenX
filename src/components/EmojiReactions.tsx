@@ -3,13 +3,14 @@
 import { useState, useEffect, useRef } from "react";
 import { GENX_MOODS, DEFAULT_MOOD, getMoodById } from "@/config/moods";
 
-interface EmojiReactionsProps {
+export interface EmojiReactionsProps {
   articleId: string;
   userId?: string;
   isLoggedIn: boolean;
   onShowLogin?: () => void;
   initialReactions?: Record<string, number>;
   userReaction?: string | null;
+  showAll?: boolean; // Show all 5 emojis inline instead of picker
 }
 
 export default function EmojiReactions({
@@ -19,6 +20,7 @@ export default function EmojiReactions({
   onShowLogin,
   initialReactions = {},
   userReaction: initialUserReaction = null,
+  showAll = false,
 }: EmojiReactionsProps) {
   const [reactions, setReactions] = useState<Record<string, number>>(initialReactions);
   const [userReaction, setUserReaction] = useState<string | null>(initialUserReaction);
@@ -116,6 +118,44 @@ export default function EmojiReactions({
     .filter(([, count]) => count > 0)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3);
+
+  // Show all 5 emojis inline (for article end)
+  if (showAll) {
+    return (
+      <div className="flex items-center gap-4">
+        {GENX_MOODS.map((mood) => {
+          const count = reactions[mood.id] || 0;
+          const isSelected = userReaction === mood.id;
+          return (
+            <button
+              key={mood.id}
+              onClick={() => handleReaction(mood.id)}
+              disabled={loading}
+              className={`flex flex-col items-center transition-all duration-200 ${
+                isSelected ? 'scale-125' : 'hover:scale-110 opacity-70 hover:opacity-100'
+              }`}
+            >
+              <div className="relative">
+                <img 
+                  src={mood.image} 
+                  alt={mood.label} 
+                  className={`w-10 h-10 object-contain ${isSelected ? 'drop-shadow-lg' : ''}`} 
+                />
+                {count > 0 && (
+                  <span className="absolute -right-1 -top-1 min-w-[16px] h-4 px-1 bg-[#D4873A] rounded-full flex items-center justify-center text-white text-[9px] font-bold">
+                    {count}
+                  </span>
+                )}
+              </div>
+              <span className={`text-[9px] mt-1 whitespace-nowrap ${isSelected ? 'text-[#D4873A] font-bold' : 'text-gray-500'}`}>
+                {mood.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div className="relative">

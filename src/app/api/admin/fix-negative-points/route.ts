@@ -10,10 +10,10 @@ export async function POST() {
     // Find all users with negative points
     const negativeUsers = await User.find({ points: { $lt: 0 } });
     
-    // Set them to 100 points (starter amount)
+    // Set them to 1.00 BOGX (starter amount)
     const result = await User.updateMany(
       { points: { $lt: 0 } },
-      { $set: { points: 100 } }
+      { $set: { points: 1.00 } }
     );
     
     return NextResponse.json({ 

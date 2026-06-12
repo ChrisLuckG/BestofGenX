@@ -162,16 +162,16 @@ export async function PATCH(request: NextRequest) {
           emailSubject = `We're reviewing your song request!`;
           emailHtml = createSongInProgressEmail(emailParams);
         } else if (status === 'added') {
-          notifTitle = 'Song Added! +50 Points';
-          notifMessage = `Great news! "${songRequest.band} - ${songRequest.song}" was added to the ${songRequest.playlist} playlist! You earned 50 points!`;
+          notifTitle = 'Song Added! +0.50 BOGX';
+          notifMessage = `Great news! "${songRequest.band} - ${songRequest.song}" was added to the ${songRequest.playlist} playlist! You earned 0.50 BOGX!`;
           notifType = 'song_approved';
-          emailSubject = `Your song was added to ${songRequest.playlist}! +50 Points`;
+          emailSubject = `Your song was added to ${songRequest.playlist}! +0.50 BOGX`;
           emailHtml = createSongApprovedEmail(emailParams);
           
-          // Award 50 points to the user
+          // Award 0.50 BOGX to the user
           try {
-            await User.findByIdAndUpdate(songRequest.userId, { $inc: { points: 50 } });
-            console.log('song-request: awarded 50 points to user', songRequest.userId);
+            await User.findByIdAndUpdate(songRequest.userId, { $inc: { points: 0.50 } });
+            console.log('song-request: awarded 0.50 BOGX to user', songRequest.userId);
           } catch (pointsError) {
             console.error('song-request points award failed:', pointsError);
           }

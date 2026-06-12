@@ -58,7 +58,7 @@ const PredictionSchema = new Schema<IPrediction>(
     },
     options: { type: [PredictionOptionSchema], required: true },
     correctOptionId: { type: String, default: null },
-    pointsReward: { type: Number, default: 100 },
+    pointsReward: { type: Number, default: 0.10 }, // BOGX
     status: {
       type: String,
       enum: ['draft', 'active', 'resolved', 'cancelled'],

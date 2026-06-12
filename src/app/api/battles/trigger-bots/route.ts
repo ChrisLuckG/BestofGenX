@@ -5,10 +5,11 @@ import User from '@/models/User';
 import Card from '@/models/Card';
 
 const TOPICS = ['sport', 'music', 'film', 'culture', 'fashion', 'games', 'tv'];
+// BOGX wager amounts
 const WAGERS = [
-  { amount: 10, rounds: 3 },
-  { amount: 25, rounds: 3 },
-  { amount: 50, rounds: 3 },
+  { amount: 0.10, rounds: 3 },
+  { amount: 0.25, rounds: 3 },
+  { amount: 0.50, rounds: 3 },
 ];
 
 // Shadow Hunter is always available - find or ensure he has a battle
@@ -34,9 +35,9 @@ async function ensureShadowHunterBattle(): Promise<{ created: boolean; joined: b
   result.botId = shadowHunter._id.toString();
   console.log('Found ShadowHunter:', shadowHunter.username, 'ID:', shadowHunter._id);
   
-  // Ensure Shadow Hunter has enough points (give him infinite points basically)
-  if (shadowHunter.points < 1000) {
-    await User.findByIdAndUpdate(shadowHunter._id, { $set: { points: 10000 } });
+  // Ensure Shadow Hunter has enough BOGX (give him plenty)
+  if (shadowHunter.points < 10) {
+    await User.findByIdAndUpdate(shadowHunter._id, { $set: { points: 100.00 } });
   }
   
   // Check if Shadow Hunter already has an open battle
@@ -50,7 +51,11 @@ async function ensureShadowHunterBattle(): Promise<{ created: boolean; joined: b
     const topic = TOPICS[Math.floor(Math.random() * TOPICS.length)];
     const wagerConfig = WAGERS[Math.floor(Math.random() * WAGERS.length)];
     
-    const cards = await Card.find({ active: true }).limit(wagerConfig.rounds).lean();
+    // Get random cards using aggregation with $sample
+    const cards = await Card.aggregate([
+      { $match: { active: true } },
+      { $sample: { size: wagerConfig.rounds } }
+    ]);
     
     if (cards.length >= wagerConfig.rounds) {
       const questions = cards.map((card: any) => {
@@ -182,10 +187,11 @@ export async function POST(request: NextRequest) {
         const wagerConfig = WAGERS[Math.floor(Math.random() * WAGERS.length)];
         
         if (bot.points >= wagerConfig.amount) {
-          // Get cards for this battle
-          const cards = await Card.find({ active: true })
-            .limit(wagerConfig.rounds)
-            .lean();
+          // Get random cards for this battle using $sample
+          const cards = await Card.aggregate([
+            { $match: { active: true } },
+            { $sample: { size: wagerConfig.rounds } }
+          ]);
           
           if (cards.length >= wagerConfig.rounds) {
             const questions = cards.map((card: any) => {

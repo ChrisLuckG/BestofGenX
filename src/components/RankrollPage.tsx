@@ -89,9 +89,12 @@ export default function RankrollPage({ onOpenArticle, onCoinAnimation }: Rankrol
     <div className="h-full flex flex-col bg-cream overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Vote className="w-5 h-5 text-[#D4873A]" />
-          <span className="font-display text-lg tracking-wider text-gray-900">Rankroll</span>
+          <div>
+            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Rankroll</span>
+            <span className="text-[10px] text-gray-500 -mt-0.5 block">Vote & rank your favorites</span>
+          </div>
         </div>
       </div>
 

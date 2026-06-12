@@ -58,7 +58,7 @@ function ResetPasswordContent() {
 
   if (!token) {
     return (
-      <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#F5F0E8] flex items-center justify-center p-4">
         <div className="text-center">
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h1 className="text-xl font-bold text-gray-900 mb-2">Invalid Link</h1>
@@ -73,7 +73,7 @@ function ResetPasswordContent() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#F5F0E8] flex items-center justify-center p-4">
         <div className="text-center">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Check className="w-8 h-8 text-green-600" />
@@ -87,7 +87,7 @@ function ResetPasswordContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#F5F0E8] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Image src="/images/genxlogo.png" alt="Best of GenX" width={80} height={80} className="mx-auto mb-4" />
@@ -160,7 +160,7 @@ function ResetPasswordContent() {
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center"><GenXLoader size="lg" /></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-[#F5F0E8] flex items-center justify-center"><GenXLoader size="lg" /></div>}>
       <ResetPasswordContent />
     </Suspense>
   );

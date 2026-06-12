@@ -7,19 +7,8 @@ import PlayerCard from "@/components/PlayerCard";
 import CountryFlag from "@/components/CountryFlag";
 import { RankingsSkeleton } from "./DesktopSkeletons";
 import { formatCurrency, autoConvertToBOGX } from "@/utils/currency";
+import { getUserLevel, getLevelProgress, getBogxToNextLevel, getNextLevelName, getProgressSegments, LEVELS } from "@/utils/levels";
 
-// Membership tiers
-const MEMBERSHIP_TIERS = [
-  { level: 5, name: 'Rookie', minCoins: 0, maxCoins: 19.99, color: '#9CA3AF' },
-  { level: 4, name: 'Slacker', minCoins: 20, maxCoins: 39.99, color: '#A78BFA' },
-  { level: 3, name: 'Radical', minCoins: 40, maxCoins: 79.99, color: '#60A5FA' },
-  { level: 2, name: 'Legendary', minCoins: 80, maxCoins: 149.99, color: '#FBBF24' },
-  { level: 1, name: 'Icon', minCoins: 150, maxCoins: Infinity, color: '#F472B6' },
-];
-
-function getMembershipTier(coins: number) {
-  return MEMBERSHIP_TIERS.find(t => coins >= t.minCoins && coins <= t.maxCoins) || MEMBERSHIP_TIERS[0];
-}
 
 interface Player {
   id: string;
@@ -57,6 +46,7 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isLive, setIsLive] = useState(true);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(initialPlayerId || null);
+  const [countdown, setCountdown] = useState('');
 
   // Sync with external selectedPlayerId prop
   useEffect(() => {
@@ -70,6 +60,34 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
     setSelectedPlayerId(null);
     onPlayerClose?.();
   };
+
+  // Countdown to 9:00 Berlin time (end of game day) with seconds
+  useEffect(() => {
+    const updateCountdown = () => {
+      const now = new Date();
+      const berlinTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+      const berlinHour = berlinTime.getHours();
+      const berlinMinute = berlinTime.getMinutes();
+      const berlinSecond = berlinTime.getSeconds();
+      
+      let totalSeconds;
+      if (berlinHour < 9) {
+        totalSeconds = (9 - berlinHour - 1) * 3600 + (60 - berlinMinute - 1) * 60 + (60 - berlinSecond);
+      } else {
+        totalSeconds = (24 - berlinHour + 8) * 3600 + (60 - berlinMinute - 1) * 60 + (60 - berlinSecond);
+      }
+      
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      
+      setCountdown(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+    };
+    
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const isOnBreak = () => {
     const now = new Date();
@@ -109,7 +127,7 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
         params.set('userId', user.id);
       }
 
-      const res = await fetch(`/api/rankings?${params}`);
+      const res = await fetch(`/api/rankings/snapshot?${params}`);
       const data = await res.json();
 
       if (data.rankings) {
@@ -196,7 +214,23 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
     return selectedDate.getFullYear() < today.getFullYear();
   };
 
-  const currentUserRank = rankings.find(p => p.isCurrentUser);
+  // Find current user in rankings, or create from user data if logged in
+  const currentUserRank = rankings.find(p => p.isCurrentUser) || (user ? {
+    id: user.id,
+    rank: rankings.length > 0 ? rankings.length + 1 : 0,
+    name: user.username || 'You',
+    country: user.country || 'World',
+    flag: user.countryFlag || '🌍',
+    points: user.bogxCoins || user.coins || 0,
+    wins: user.wins || 0,
+    avatar: user.avatar || `https://i.pravatar.cc/100?u=${user.id}`,
+    isCurrentUser: true,
+    change: null,
+    pointsGained: 0,
+    isActive: false,
+    recentPoints: 0,
+    avgAnswerTime: 0,
+  } : null);
   const top3 = rankings.slice(0, 3);
   const restRankings = rankings.slice(3);
 
@@ -213,14 +247,14 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
   }
 
   return (
-    <div className="w-full h-full flex flex-col overflow-y-auto bg-[#FDFBF7]" style={{ scrollbarWidth: "none" }}>
+    <div className="w-full h-full flex flex-col overflow-y-auto bg-[#F5F0E8]" style={{ scrollbarWidth: "none" }}>
       {/* Header - Desktop warm style */}
       <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
         <div className="flex items-center gap-3">
           <Trophy className="w-5 h-5 text-[#D4873A]" />
           <div>
-            <span className="font-display text-lg tracking-wider text-gray-900 block leading-tight">Rankings</span>
-            <span className="text-[10px] text-gray-500">See who's on top today</span>
+            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Rankings</span>
+            <span className="text-[10px] text-gray-500 -mt-0.5 block">See who's on top today</span>
           </div>
         </div>
         {onShowRewards && (
@@ -248,113 +282,166 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
             </div>
           </div>
         ) : isLoggedIn && currentUserRank ? (
-          <div className="mx-4 mt-3 mb-3">
-            {/* Main Card */}
-            <div className="bg-gradient-to-r from-[#F5EDE4] to-[#EDE5DC] border border-[#D4873A]/20 rounded-xl overflow-hidden">
-              {/* Top Section - 3 Columns with Separators */}
-              <div className="p-5 flex items-center">
-                {/* LEFT: Avatar + Name + Country */}
-                <div className="flex items-center gap-4 pr-6">
-                  <div className="w-16 h-16 rounded-full border-2 border-[#D4873A]/40 overflow-hidden shadow-lg flex-shrink-0">
-                    <img src={currentUserRank.avatar} alt="" className="w-full h-full object-cover" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="font-bold text-lg text-gray-900">{currentUserRank.name}</span>
-                      <CountryFlag flag={currentUserRank.flag} className="w-5 h-4 rounded-[2px]" />
+          (() => {
+            const userBogx = currentUserRank.points;
+            const level = getUserLevel(userBogx);
+            const levelIndex = LEVELS.findIndex(l => l.name === level.name);
+            const progress = getLevelProgress(userBogx);
+            const toNext = getBogxToNextLevel(userBogx);
+            const nextName = getNextLevelName(userBogx);
+            
+            return (
+              <div className="mx-4 mt-3 mb-3">
+                {/* Main Card */}
+                <div className="bg-gradient-to-r from-[#F5EDE4] to-[#EDE5DC] border border-[#D4873A]/20 rounded-xl overflow-hidden">
+                  {/* Top Section - 3 Columns */}
+                  <div className="p-5 flex items-center">
+                    {/* LEFT: Avatar + Name + Country */}
+                    <div className="flex items-center gap-4 pr-6 border-r border-[#D4873A]/20">
+                      <div className="w-14 h-14 rounded-full border-2 border-[#D4873A]/40 overflow-hidden shadow-lg flex-shrink-0">
+                        <img src={currentUserRank.avatar} alt="" className="w-full h-full object-cover" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="font-bold text-base text-gray-900">{currentUserRank.name}</span>
+                          <CountryFlag flag={currentUserRank.flag} className="w-4 h-3 rounded-[2px]" />
+                        </div>
+                        <div className="text-[9px] text-gray-500 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                          EUROPE
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-[10px] text-gray-500 flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                      EUROPE
+                    
+                    {/* CENTER: Level Info */}
+                    <div className="flex-1 px-6">
+                      {/* Level Name + Badge */}
+                      <div className="flex items-center gap-2">
+                        <div className="font-display text-xl tracking-wide" style={{ color: level.color }}>{level.name.toUpperCase()}</div>
+                        <div className="px-2 py-0.5 rounded border text-[9px] font-bold uppercase tracking-wider" style={{ borderColor: level.color, color: level.color }}>
+                          Level {levelIndex + 1}
+                        </div>
+                      </div>
+                      
+                      {/* Progress Bar */}
+                      <div className="flex items-center gap-3 mt-2">
+                        <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden max-w-[200px]">
+                          <div 
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{ width: `${progress}%`, backgroundColor: level.color }}
+                          />
+                        </div>
+                        <span className="text-sm font-bold text-gray-600">{progress}%</span>
+                      </div>
+                      
+                      {/* BOGX Info */}
+                      <div className="flex items-center gap-1.5 mt-1.5 text-[10px] text-gray-600">
+                        <Star className="w-3 h-3" style={{ color: level.color }} />
+                        <span>{formatCurrency(userBogx)} BOGX gesammelt</span>
+                      </div>
+                      <div className="text-[10px] text-gray-500 mt-0.5">
+                        {nextName ? `Noch ${formatCurrency(toNext)} BOGX bis zum nächsten Rang` : 'Max Level erreicht!'}
+                      </div>
+                    </div>
+                    
+                    {/* RIGHT: Rank Box */}
+                    <div className="flex-shrink-0 bg-[#D4873A]/10 rounded-xl p-4 text-center min-w-[80px]">
+                      <Trophy className="w-5 h-5 text-[#D4873A] mx-auto mb-0.5" />
+                      <div className="text-[8px] text-gray-500 uppercase tracking-wider">Rank</div>
+                      <div className="font-display text-2xl text-[#D4873A] leading-none">#{currentUserRank.rank || 0}</div>
                     </div>
                   </div>
-                </div>
-                
-                {/* Separator */}
-                <div className="w-px h-14 bg-[#D4873A]/20 flex-shrink-0" />
-                
-                {/* CENTER: GenX Hero Part (Level/Progress) */}
-                <div className="flex-1 px-6">
-                  <div className="text-[#D4873A] font-bold text-sm">GENX HERO</div>
-                  <div className="flex items-center gap-3 mt-1.5">
-                    {/* Segmented Progress Bar - Animated */}
-                    <div className="flex gap-1 flex-1 max-w-[280px]">
-                      {[...Array(10)].map((_, i) => (
-                        <div 
-                          key={i} 
-                          className={`flex-1 h-2.5 rounded-sm ${i < 6 ? 'bg-[#D4873A]' : 'bg-gray-300'}`}
-                          style={{
-                            transformOrigin: 'left',
-                            opacity: i >= 6 ? 0.5 : 0,
-                            transform: i >= 6 ? 'scaleX(1)' : 'scaleX(0)',
-                            animation: i < 6 ? `progressFill 0.3s ease-out ${i * 80}ms forwards` : 'none',
-                          }}
-                        />
-                      ))}
-                    </div>
-                    <span className="text-[10px] text-gray-500 font-medium animate-fade-in" style={{ animationDelay: '500ms' }}>62%</span>
-                  </div>
-                  <div className="text-[10px] text-gray-600 mt-1 animate-fade-in" style={{ animationDelay: '600ms' }}>1270 / 2000 XP · 730 XP to <span className="text-[#D4873A] font-semibold">Nostalgia Master</span></div>
                   
-                  {/* Level Steps */}
-                  <div className="flex items-center gap-2 mt-1.5 text-[9px] text-gray-500">
-                    <span>ROOKIE</span>
-                    <span>•</span>
-                    <span>RETRO FAN</span>
-                    <span>•</span>
-                    <span className="text-[#D4873A] font-bold">GENX HERO</span>
-                    <span>•</span>
-                    <span>NOSTALGIA MASTER</span>
-                    <span>•</span>
-                    <span>TOP GENX</span>
+                  {/* Level Timeline with LEDs */}
+                  <div className="px-6 py-4 border-t border-dashed border-[#D4873A]/20 bg-white/30">
+                    <div className="flex items-center justify-between relative">
+                      {/* Connection Line */}
+                      <div className="absolute top-3 left-6 right-6 h-0.5 bg-gray-300" />
+                      <div 
+                        className="absolute top-3 left-6 h-0.5 transition-all duration-500"
+                        style={{ 
+                          width: `${(levelIndex / (LEVELS.length - 1)) * 100}%`,
+                          backgroundColor: level.color 
+                        }}
+                      />
+                      
+                      {/* Level Nodes */}
+                      {LEVELS.map((l, i) => {
+                        const isActive = i <= levelIndex;
+                        const isCurrent = l.name === level.name;
+                        return (
+                          <div key={l.name} className="flex flex-col items-center z-10">
+                            {/* LED Circle */}
+                            <div 
+                              className={`w-6 h-6 rounded-full flex items-center justify-center border-2 transition-all ${
+                                isCurrent ? 'shadow-lg' : ''
+                              }`}
+                              style={{ 
+                                backgroundColor: isActive ? l.color : '#E5E7EB',
+                                borderColor: isActive ? l.color : '#D1D5DB',
+                              }}
+                            >
+                              {isCurrent && <Star className="w-3 h-3 text-white" />}
+                            </div>
+                            {/* Label */}
+                            <div className="mt-2 text-center">
+                              <div 
+                                className="text-[9px] font-bold uppercase tracking-wide"
+                                style={{ color: isActive ? l.color : '#9CA3AF' }}
+                              >
+                                {l.name}
+                              </div>
+                              <div className="text-[8px] text-gray-400">Level {i + 1}</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    
+                    {/* BOGX to next */}
+                    {nextName && (
+                      <div className="text-center mt-3 text-[10px] text-gray-500">
+                        {formatCurrency(toNext)} BOGX bis zum nächsten Rang
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Stats Row */}
+                  <div className="flex items-center justify-around py-3 px-6 border-t border-dashed border-[#D4873A]/20 bg-white/50">
+                    <div className="text-center px-3">
+                      <Trophy className="w-4 h-4 text-gray-400 mx-auto" />
+                      <div className="font-bold text-sm text-gray-900 mt-0.5">{currentUserRank.wins || 0}</div>
+                      <div className="text-[7px] text-gray-500 uppercase tracking-wide">Wins</div>
+                    </div>
+                    <div className="w-px h-8 bg-[#D4873A]/20" />
+                    <div className="text-center px-3">
+                      <Gamepad2 className="w-4 h-4 text-gray-400 mx-auto" />
+                      <div className="font-bold text-sm text-gray-900 mt-0.5">{user?.gamesPlayed || 0}</div>
+                      <div className="text-[7px] text-gray-500 uppercase tracking-wide">Games</div>
+                    </div>
+                    <div className="w-px h-8 bg-[#D4873A]/20" />
+                    <div className="text-center px-3">
+                      <Target className="w-4 h-4 text-gray-400 mx-auto" />
+                      <div className="font-bold text-sm text-gray-900 mt-0.5">{user?.gamesPlayed && user?.wins ? Math.round((user.wins / user.gamesPlayed) * 100) : 0}%</div>
+                      <div className="text-[7px] text-gray-500 uppercase tracking-wide">Accuracy</div>
+                    </div>
+                    <div className="w-px h-8 bg-[#D4873A]/20" />
+                    <div className="text-center px-3">
+                      <img src="/images/bogxcoin.png" alt="" className="w-4 h-4 mx-auto" />
+                      <div className="font-bold text-sm text-gray-900 mt-0.5">{formatCurrency(currentUserRank.points)}</div>
+                      <div className="text-[7px] text-gray-500 uppercase tracking-wide">BOGX</div>
+                    </div>
+                    <div className="w-px h-8 bg-[#D4873A]/20" />
+                    <div className="text-center px-3">
+                      <Clock className="w-4 h-4 text-gray-400 mx-auto" />
+                      <div className="font-bold text-sm text-gray-900 mt-0.5">{currentUserRank.avgAnswerTime ? `${(currentUserRank.avgAnswerTime / 1000).toFixed(1)}s` : '—'}</div>
+                      <div className="text-[7px] text-gray-500 uppercase tracking-wide">Avg Time</div>
+                    </div>
                   </div>
                 </div>
-                
-                {/* Separator */}
-                <div className="w-px h-14 bg-[#D4873A]/20 flex-shrink-0" />
-                
-                {/* RIGHT: Rank Box */}
-                <div className="flex-shrink-0 bg-[#D4873A]/10 rounded-xl p-4 text-center min-w-[90px] ml-6">
-                  <Trophy className="w-5 h-5 text-[#D4873A] mx-auto mb-0.5" />
-                  <div className="text-[9px] text-gray-500 uppercase tracking-wider">Rank</div>
-                  <div className="font-display text-2xl text-[#D4873A] leading-none">#{currentUserRank.rank}</div>
-                </div>
               </div>
-              
-              {/* Stats Row with Separators */}
-              <div className="flex items-center justify-around py-3 px-6 border-t border-dashed border-[#D4873A]/20 bg-white/30">
-                <div className="text-center px-4">
-                  <Trophy className="w-5 h-5 text-gray-400 mx-auto" />
-                  <div className="font-bold text-base text-gray-900 mt-0.5">{currentUserRank.wins || 0}</div>
-                  <div className="text-[8px] text-gray-500 uppercase tracking-wide">Wins</div>
-                </div>
-                <div className="w-px h-10 bg-[#D4873A]/20" />
-                <div className="text-center px-4">
-                  <Gamepad2 className="w-5 h-5 text-gray-400 mx-auto" />
-                  <div className="font-bold text-base text-gray-900 mt-0.5">321</div>
-                  <div className="text-[8px] text-gray-500 uppercase tracking-wide">Games</div>
-                </div>
-                <div className="w-px h-10 bg-[#D4873A]/20" />
-                <div className="text-center px-4">
-                  <Target className="w-5 h-5 text-gray-400 mx-auto" />
-                  <div className="font-bold text-base text-gray-900 mt-0.5">78%</div>
-                  <div className="text-[8px] text-gray-500 uppercase tracking-wide">Accuracy</div>
-                </div>
-                <div className="w-px h-10 bg-[#D4873A]/20" />
-                <div className="text-center px-4">
-                  <img src="/images/bogxcoin.png" alt="" className="w-5 h-5 mx-auto" />
-                  <div className="font-bold text-base text-gray-900 mt-0.5">{formatCurrency(currentUserRank.points)}</div>
-                  <div className="text-[8px] text-gray-500 uppercase tracking-wide">BOGX</div>
-                </div>
-                <div className="w-px h-10 bg-[#D4873A]/20" />
-                <div className="text-center px-4">
-                  <Clock className="w-5 h-5 text-[#D4873A] mx-auto" />
-                  <div className="font-bold text-base text-gray-900 mt-0.5">{currentUserRank.avgAnswerTime ? `${(currentUserRank.avgAnswerTime / 1000).toFixed(1)}s` : '—'}</div>
-                  <div className="text-[8px] text-gray-500 uppercase tracking-wide">Avg Time</div>
-                </div>
-              </div>
-            </div>
-          </div>
+            );
+          })()
         ) : !isLoggedIn ? (
           <button
             onClick={onShowSignup}
@@ -374,7 +461,7 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
         ) : null}
 
         {/* Tabs */}
-        <div className="flex border-b border-warm sticky top-0 bg-[#FDFBF7]/95 backdrop-blur-sm z-10">
+        <div className="flex border-b border-warm sticky top-0 bg-[#F5F0E8]/95 backdrop-blur-sm z-10">
           {(["day", "month", "year"] as const).map((tab) => (
             <button
               key={tab}
@@ -396,17 +483,20 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
             <ChevronLeft className="w-4 h-4 text-gray-500" />
           </button>
           <div className="text-center">
-            {isToday() && (
-              <div className="flex items-center justify-center gap-1.5 mb-1">
+            {isToday() && rankings.length > 0 && (
+              <div className="flex items-center justify-center gap-2 mb-1">
                 {isOnBreak() ? (
                   <>
-                    <span className="text-lg">☕</span>
-                    <span className="text-[9px] font-semibold tracking-widest text-orange-500 uppercase">Break</span>
+                    <img src="/images/coffee-break.svg" alt="" className="w-5 h-5" />
+                    <span className="text-[9px] font-semibold tracking-widest text-[#D4873A] uppercase">Break</span>
                   </>
                 ) : isLive ? (
                   <>
                     <div className="w-1.5 h-1.5 bg-[#D4873A] rounded-full animate-pulse" />
                     <span className="text-[9px] font-semibold tracking-widest text-[#D4873A] uppercase">Live</span>
+                    <span className="text-gray-400">·</span>
+                    <Clock className="w-3 h-3 text-gray-500" />
+                    <span className="font-mono text-[10px] font-bold text-gray-600 tabular-nums">{countdown}</span>
                   </>
                 ) : null}
               </div>
@@ -431,7 +521,21 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
 
         {/* No Data */}
         {!loading && rankings.length === 0 && (
-          <div className="text-center py-10 text-gray-600">No ranking data for this date</div>
+          <div className="flex flex-col items-center justify-center py-16 px-6">
+            <div className="w-16 h-16 rounded-full bg-warm/50 flex items-center justify-center mb-4">
+              <Trophy className="w-8 h-8 text-gray-300" />
+            </div>
+            <h3 className="font-display text-lg text-gray-700 mb-2">No Ranking Data</h3>
+            <p className="text-sm text-gray-500 text-center max-w-xs">
+              {activeTab === 'day' && isToday()
+                ? 'Be the first to play today!'
+                : activeTab === 'day' 
+                ? 'No games were played on this day.' 
+                : activeTab === 'month'
+                ? 'No ranking data available for this month.'
+                : 'No ranking data available for this year.'}
+            </p>
+          </div>
         )}
 
         {!loading && rankings.length > 0 && (

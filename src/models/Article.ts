@@ -23,7 +23,6 @@ export interface IArticle {
   order: number; // Display order (lower = higher on page)
   featured: boolean; // Show prominently in feed
   trending: boolean; // Mark as trending
-  readTime: number; // Estimated read time in minutes
   views: number;
   likes: number;
   publishedAt?: Date;
@@ -62,6 +61,10 @@ const ArticleSchema = new mongoose.Schema({
   thumbnailUrl: {
     type: String,
     default: '',
+  },
+  galleryImages: {
+    type: [String],
+    default: [],
   },
   imageScale: {
     type: Number,
@@ -104,7 +107,7 @@ const ArticleSchema = new mongoose.Schema({
   category: {
     type: String,
     required: true,
-    enum: ['movies-tv', 'music', 'gaming', 'sports', 'tech', 'culture', 'news', 'lifestyle'],
+    enum: ['movies-tv', 'music', 'gaming', 'sports', 'tech', 'culture', 'news', 'lifestyle', 'genx-icons'],
     default: 'culture',
   },
   tags: {
@@ -145,10 +148,6 @@ const ArticleSchema = new mongoose.Schema({
   trending: {
     type: Boolean,
     default: false,
-  },
-  readTime: {
-    type: Number,
-    default: 3, // minutes
   },
   views: {
     type: Number,
@@ -205,11 +204,6 @@ ArticleSchema.index({ tags: 1 });
 
 // Calculate read time before saving
 ArticleSchema.pre('save', function() {
-  if (this.isModified('content')) {
-    // Estimate ~200 words per minute reading speed
-    const wordCount = this.content.replace(/<[^>]*>/g, '').split(/\s+/).length;
-    this.readTime = Math.max(1, Math.ceil(wordCount / 200));
-  }
 });
 
 export default mongoose.models.Article || mongoose.model<IArticle>('Article', ArticleSchema);

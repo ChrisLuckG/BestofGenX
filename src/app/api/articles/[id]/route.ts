@@ -55,21 +55,21 @@ export async function GET(
       const alreadyInReadArticles = userDoc?.readArticles?.includes(id);
       
       if (!alreadyInReadArticles) {
-        // First time reading - award coins!
-        pointsAwarded = 5;
+        // First time reading - award 0.05 BOGX!
+        pointsAwarded = 0.05; // BOGX
         await User.findByIdAndUpdate(userId, { 
-          $inc: { points: pointsAwarded, bogxCoins: 0.05 },
+          $inc: { points: pointsAwarded },
           $addToSet: { readArticles: id }
         });
         
-        // Credit the author with earnings (0.01 BOGX per read)
+        // Credit the author with earnings (0.02 BOGX per read = 10% of reader reward)
         if (article.authorId) {
           await User.findByIdAndUpdate(article.authorId, { 
-            $inc: { authorEarnings: 0.01 } 
+            $inc: { authorEarnings: 0.02 } 
           });
         }
         
-        console.log(`User ${userId} read article ${id} - awarded ${pointsAwarded} points`);
+        console.log(`User ${userId} read article ${id} - awarded ${pointsAwarded} BOGX`);
       }
     }
     

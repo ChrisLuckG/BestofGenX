@@ -277,7 +277,7 @@ function PredictionCard({
         {/* Result badge for user */}
         {userWon && (
           <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700">
-            <CheckCircle2 className="w-3 h-3" /> +{p.pointsReward} pts
+            <CheckCircle2 className="w-3 h-3" /> +{p.pointsReward} BOGX
           </span>
         )}
         {userLost && (
@@ -290,10 +290,10 @@ function PredictionCard({
             {p.myPick ? (
               <span className="flex items-center gap-1">
                 <Clock className="w-3 h-3" />
-                {p.pointsReward} pts on hold
+                {p.pointsReward} BOGX on hold
               </span>
             ) : (
-              `+${p.pointsReward} pts`
+              `+${p.pointsReward} BOGX`
             )}
           </span>
         )}
@@ -515,12 +515,12 @@ export default function PredictionsGame({ onBack, onShowLogin, embedded = false 
               </div>
 
               <div className="flex items-center justify-between py-3 border-t border-gray-100">
-                <span className="text-sm text-gray-600">Points to wager</span>
-                <span className="font-semibold text-gray-900">{confirmPick.wager} pts</span>
+                <span className="text-sm text-gray-600">BOGX to wager</span>
+                <span className="font-semibold text-gray-900">{confirmPick.wager} BOGX</span>
               </div>
 
               <p className="text-xs text-gray-400 mt-3 leading-relaxed">
-                Points will be held until the prediction closes. If correct, you'll receive your wager back plus winnings.
+                BOGX will be held until the prediction closes. If correct, you'll receive your wager back plus winnings.
               </p>
             </div>
 
@@ -549,12 +549,12 @@ export default function PredictionsGame({ onBack, onShowLogin, embedded = false 
         onAction={() => setShowIntro(false)}
         icon={Target}
         title="Predictions"
-        subtitle="Call the outcome, earn the points."
+        subtitle="Call the outcome, earn BOGX."
         actionLabel="Start predicting"
         embedded={embedded}
         rules={[
           { icon: Target, text: "Pick the outcome you think will happen for each question." },
-          { icon: Trophy, text: "Get it right and earn flat points — no stakes, no risk." },
+          { icon: Trophy, text: "Get it right and earn BOGX — no stakes, no risk." },
           { icon: Calendar, text: "All predictions close before the 9:00 AM CET break, so lock in early." },
           { icon: Check, text: "You can change your pick any time until it closes." },
         ]}
@@ -582,7 +582,7 @@ export default function PredictionsGame({ onBack, onShowLogin, embedded = false 
         <div className="px-4 pt-3">
           <div className="relative rounded-2xl bg-gradient-to-br from-[#D4873A]/10 to-transparent border border-warm p-3 pr-9">
             <p className="text-[13px] text-gray-600 leading-relaxed">
-              Predict today's outcomes and earn points if you're right. All predictions close before
+              Predict today's outcomes and earn BOGX if you're right. All predictions close before
               the 9:00 AM CET break — lock in your picks early!
             </p>
             <button

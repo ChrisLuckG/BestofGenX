@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Search, FileText, Check, MessageCircle, Heart, Eye } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { isVideoUrl } from "@/utils/media";
 
 interface Article {
   _id: string;
@@ -11,7 +12,7 @@ interface Article {
   coverImage?: string;
   category: string;
   authorName?: string;
-  readTime: number;
+  readTime?: number;
   trending?: boolean;
   views?: number;
   likes?: number;
@@ -37,6 +38,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   'movies-tv': 'Movies & TV',
   'music': 'Music',
   'gaming': 'Gaming',
+  'rewind': 'Rewind',
   'sports': 'Sports',
   'tech': 'Tech',
   'culture': 'Culture',
@@ -125,9 +127,12 @@ export default function ArticlesListPage({ onOpenArticle }: ArticlesListPageProp
     <div className="w-full h-full flex flex-col overflow-hidden bg-cream">
       {/* Header with Search */}
       <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <FileText className="w-5 h-5 text-[#D4873A]" />
-          <span className="font-display text-lg tracking-wider text-gray-900">Articles</span>
+          <div>
+            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Articles</span>
+            <span className="text-[10px] text-gray-500 -mt-0.5 block">News & stories</span>
+          </div>
         </div>
         {/* Search in header */}
         <div className="relative w-36">
@@ -144,72 +149,6 @@ export default function ArticlesListPage({ onOpenArticle }: ArticlesListPageProp
 
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
-        {/* Hero Article - Featured/Latest */}
-        {!loading && sortedArticles.length > 0 && (
-          <div 
-            className="relative mx-3 mt-3 rounded-2xl overflow-hidden cursor-pointer"
-            onClick={() => handleArticleClick(sortedArticles[0]._id)}
-          >
-            <div className="aspect-[16/9] bg-gray-200">
-              {sortedArticles[0].coverImage ? (
-                (sortedArticles[0].coverImage.includes('.mp4') || sortedArticles[0].coverImage.includes('.webm')) ? (
-                  <video 
-                    src={sortedArticles[0].coverImage} 
-                    className="w-full h-full object-cover"
-                    muted
-                    autoPlay
-                    loop
-                    playsInline
-                  />
-                ) : (
-                  <img 
-                    src={sortedArticles[0].coverImage} 
-                    alt="" 
-                    className="w-full h-full object-cover"
-                  />
-                )
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-[#D4873A] to-[#B5672A] flex items-center justify-center">
-                  <FileText className="w-16 h-16 text-white/30" />
-                </div>
-              )}
-            </div>
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-            <div className="absolute bottom-0 left-0 right-0 p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="px-2 py-0.5 bg-[#D4873A] text-white text-[10px] font-bold uppercase rounded">
-                  {CATEGORY_LABELS[sortedArticles[0].category] || sortedArticles[0].category}
-                </span>
-                {sortedArticles[0].trending && (
-                  <span className="px-2 py-0.5 bg-white/20 text-white text-[10px] font-bold uppercase rounded">
-                    Trending
-                  </span>
-                )}
-              </div>
-              <h2 className="font-display text-[26px] tracking-wide text-white leading-tight mb-1 uppercase">
-                {sortedArticles[0].title}
-              </h2>
-              {sortedArticles[0].subtitle && (
-                <p className="text-sm text-white/80 line-clamp-2">{sortedArticles[0].subtitle}</p>
-              )}
-              <div className="flex items-center gap-3 mt-2 text-white/60 text-xs">
-                {sortedArticles[0].authorName && <span>{sortedArticles[0].authorName}</span>}
-                <span>{sortedArticles[0].readTime} min read</span>
-                {sortedArticles[0].views && (
-                  <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {sortedArticles[0].views}</span>
-                )}
-              </div>
-            </div>
-            {/* Coin reward badge - consistent with list items */}
-            <div className="absolute top-3 right-3">
-              <span className={`px-2 py-1 text-xs font-bold rounded-lg flex items-center gap-1 ${readArticles.has(sortedArticles[0]._id) ? 'bg-green-500 text-white' : 'bg-gray-800/70 text-white'}`}>
-                {readArticles.has(sortedArticles[0]._id) && <Check className="w-3 h-3" />}
-                0.05
-              </span>
-            </div>
-          </div>
-        )}
-        
         {/* Filter Tabs */}
         <div className="px-4 pt-4 pb-3 flex gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
           {[
@@ -223,14 +162,14 @@ export default function ArticlesListPage({ onOpenArticle }: ArticlesListPageProp
             <button
               key={key}
               onClick={() => setFilter(key)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-all border ${
                 filter === key 
-                  ? 'bg-[#D4873A] text-white' 
-                  : 'bg-cream border border-warm text-gray-600 hover:bg-[#D4873A]/10'
+                  ? 'bg-[#D4873A] text-white border-[#D4873A]' 
+                  : 'bg-cream text-gray-700 hover:bg-[#D4873A]/10 border-warm'
               }`}
             >
-              {Icon && <Icon className="w-3.5 h-3.5" />}
-              {label}
+              {Icon && <Icon className="w-4 h-4" />}
+              <span className="text-xs font-semibold">{label}</span>
             </button>
           ))}
         </div>
@@ -243,7 +182,7 @@ export default function ArticlesListPage({ onOpenArticle }: ArticlesListPageProp
             {[1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="w-full flex gap-3 p-3 bg-cream border border-warm rounded-xl animate-pulse">
                 {/* Thumbnail Skeleton */}
-                <div className="w-20 h-20 flex-shrink-0 rounded-lg bg-skeleton" />
+                <div className="w-24 flex-shrink-0 rounded-lg bg-skeleton" style={{ aspectRatio: '3/2' }} />
                 {/* Content Skeleton */}
                 <div className="flex-1 flex flex-col justify-center">
                   <div className="w-16 h-4 bg-skeleton rounded mb-2" />
@@ -259,7 +198,7 @@ export default function ArticlesListPage({ onOpenArticle }: ArticlesListPageProp
             {searchQuery ? 'No articles found' : 'No articles yet'}
           </div>
         ) : (
-          sortedArticles.slice(1).map((article) => {
+          sortedArticles.map((article) => {
             const isRead = readArticles.has(article._id);
             return (
               <button
@@ -267,10 +206,10 @@ export default function ArticlesListPage({ onOpenArticle }: ArticlesListPageProp
                 onClick={() => handleArticleClick(article._id)}
                 className="w-full text-left flex gap-3 p-3 border rounded-xl hover:border-[#D4873A]/30 hover:shadow-sm transition-all group bg-cream border-warm"
               >
-                {/* Thumbnail */}
-                <div className="relative w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden">
+                {/* Thumbnail - 3:2 ratio like admin */}
+                <div className="relative w-24 flex-shrink-0 rounded-lg overflow-hidden" style={{ aspectRatio: '3/2' }}>
                   {article.coverImage ? (
-                    (article.coverImage.includes('.mp4') || article.coverImage.includes('.webm') || article.coverImage.includes('.mov') || article.coverImage.includes('video')) ? (
+                    isVideoUrl(article.coverImage) ? (
                       <video
                         src={article.coverImage}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"

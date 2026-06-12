@@ -95,7 +95,6 @@ ${songList}`;
         layout: 'standard',
         featured: false,
         trending: false,
-        readTime: Math.ceil(content.split(' ').length / 200),
       });
       articleId = newArticle._id.toString();
     }

@@ -31,7 +31,7 @@ export async function GET() {
       avatar: '',
       country: 'Germany',
       countryFlag: '🇩🇪',
-      points: 10000,
+      points: 100.00, // Admin gets 100 BOGX
       wins: 0,
       gamesPlayed: 0,
       isAdmin: true,

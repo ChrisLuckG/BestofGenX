@@ -154,7 +154,7 @@ export default function GuessGame({ onComplete, onStart, disabled = false }: Gue
                   <div className="w-5 h-5 rounded-full bg-yellow-500 flex items-center justify-center">
                     <span className="text-black text-xs font-bold">$</span>
                   </div>
-                  <span className="text-white font-black text-lg">+{gameData.maxReward} POINTS</span>
+                  <span className="text-white font-black text-lg">+{gameData.maxReward} BOGX</span>
                 </div>
               </div>
             </div>
@@ -283,7 +283,7 @@ export default function GuessGame({ onComplete, onStart, disabled = false }: Gue
                 <div className="flex-1 mx-4">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-yellow-400 font-bold text-sm">{gameData.maxReward}</span>
-                    <span className="text-white/50 text-xs">POINTS</span>
+                    <span className="text-white/50 text-xs">BOGX</span>
                   </div>
                   <div className="h-2 bg-cream/20 rounded-full overflow-hidden">
                     <div 
@@ -296,11 +296,11 @@ export default function GuessGame({ onComplete, onStart, disabled = false }: Gue
                 {/* Current Points */}
                 <div className="text-right">
                   <span className="text-[#D4873A] font-black text-lg">{currentPoints}</span>
-                  <span className="text-white/50 text-xs ml-1">POINTS</span>
+                  <span className="text-white/50 text-xs ml-1">BOGX</span>
                   <p className="text-white/50 text-[8px]">POSSIBLE</p>
                 </div>
               </div>
-              <p className="text-white/40 text-[10px] text-center mt-2">Points decrease the longer you take!</p>
+              <p className="text-white/40 text-[10px] text-center mt-2">BOGX decrease the longer you take!</p>
             </div>
           </div>
 
@@ -441,7 +441,7 @@ export default function GuessGame({ onComplete, onStart, disabled = false }: Gue
                   <span className={`font-black text-xl ${isCorrect ? "text-green-400" : "text-red-400"}`}>
                     {isCorrect ? `+${currentPoints}` : "+0"}
                   </span>
-                  <span className="text-white/50 text-sm">POINTS</span>
+                  <span className="text-white/50 text-sm">BOGX</span>
                 </div>
               </div>
             </div>

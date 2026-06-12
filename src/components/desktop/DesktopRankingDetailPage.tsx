@@ -166,7 +166,7 @@ export default function DesktopRankingDetailPage({ poll, onBack, onOpenArticle, 
   const sortedItems = [...(localPoll.items || [])].sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0));
 
   return (
-    <div className="h-full flex flex-col bg-[#FDFBF7] overflow-hidden">
+    <div className="h-full flex flex-col bg-[#F5F0E8] overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
         <button
@@ -230,7 +230,7 @@ export default function DesktopRankingDetailPage({ poll, onBack, onOpenArticle, 
         show={showLoginModal}
         type="login"
         title="LOGIN REQUIRED"
-        message="Log in or create a free account to vote and earn points."
+        message="Log in or create a free account to vote and earn BOGX."
         onClose={() => setShowLoginModal(false)}
         buttonText="LOGIN"
         onButtonClick={() => {

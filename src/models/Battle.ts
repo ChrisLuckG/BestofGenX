@@ -70,7 +70,7 @@ const BattleSchema = new Schema<IBattle>({
   wager: { 
     type: Number, 
     required: true,
-    enum: [10, 25, 50, 100, 150]
+    min: 0.01 // BOGX values - no enum restriction
   },
   rounds: { 
     type: Number, 
@@ -127,4 +127,8 @@ BattleSchema.index({ creator: 1, status: 1 });
 BattleSchema.index({ opponent: 1, status: 1 });
 BattleSchema.index({ challengedUser: 1, status: 1 }); // For finding pending challenges
 
-export default mongoose.models.Battle || mongoose.model<IBattle>('Battle', BattleSchema);
+// Force re-register model with new schema
+if (mongoose.models.Battle) {
+  delete mongoose.models.Battle;
+}
+export default mongoose.model<IBattle>('Battle', BattleSchema);

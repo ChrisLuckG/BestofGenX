@@ -3,6 +3,38 @@ import dbConnect from '@/lib/mongoose';
 import User from '@/models/User';
 import DailyRanking from '@/models/DailyRanking';
 import GameResult from '@/models/GameResult';
+import { berlinDateAt } from '@/lib/berlinTime';
+
+// Helper to get the "ranking day" date string
+// The ranking day starts at 10:00 Berlin time
+// So before 10:00 Berlin, we're still in "yesterday's" ranking day
+function getRankingDayString(date: Date = new Date()): string {
+  // Get Berlin time components
+  const berlinStr = date.toLocaleString('en-CA', { 
+    timeZone: 'Europe/Berlin',
+    year: 'numeric',
+    month: '2-digit', 
+    day: '2-digit',
+    hour: '2-digit',
+    hour12: false
+  });
+  const [datePart, timePart] = berlinStr.split(', ');
+  const hour = parseInt(timePart?.split(':')[0] || '12');
+  
+  // If before 10:00 Berlin time, use yesterday's date
+  if (hour < 10) {
+    const yesterday = new Date(date);
+    yesterday.setDate(yesterday.getDate() - 1);
+    return yesterday.toLocaleString('en-CA', { 
+      timeZone: 'Europe/Berlin',
+      year: 'numeric',
+      month: '2-digit', 
+      day: '2-digit'
+    }).split(',')[0];
+  }
+  
+  return datePart;
+}
 
 // Store recently active bot IDs (in-memory, resets on server restart)
 let recentlyActiveBots: { oderId: string; pointsGained: number; timestamp: number }[] = [];
@@ -32,17 +64,18 @@ async function simulateBotActivity(): Promise<{ oderId: string; pointsGained: nu
       // Simulate realistic game: Easy (40%), Medium (35%), Hard (25%)
       const diffRoll = Math.random();
       const difficulty = diffRoll < 0.4 ? 1 : diffRoll < 0.75 ? 2 : 3;
-      const maxReward = 100 * difficulty; // 100, 200, or 300
-      const penalty = difficulty === 1 ? 10 : difficulty === 2 ? 50 : 100;
+      // BOGX rewards: 0.05-0.10 (easy), 0.10-0.20 (medium), 0.15-0.30 (hard)
+      const maxReward = 0.10 * difficulty; // 0.10, 0.20, or 0.30 BOGX
+      const penalty = difficulty === 1 ? 0.01 : difficulty === 2 ? 0.05 : 0.10;
       
       // 70% chance correct answer
       const isCorrect = Math.random() < 0.7;
       
-      // If correct: random points based on answer time (50%-100% of max)
+      // If correct: random BOGX based on answer time (50%-100% of max)
       // If wrong: fixed penalty
       const pointsChange = isCorrect 
-        ? Math.floor(maxReward * (0.5 + Math.random() * 0.5)) // 50-100% of max (50-100, 100-200, 150-300)
-        : -penalty; // -10, -50, or -100
+        ? Math.round((maxReward * (0.5 + Math.random() * 0.5)) * 100) / 100 // 0.05-0.10, 0.10-0.20, 0.15-0.30 BOGX
+        : -penalty; // -0.01, -0.05, or -0.10 BOGX
       
       // Don't go below 0 points
       const safePointsChange = Math.max(-bot.points, pointsChange);
@@ -191,14 +224,19 @@ export async function GET(request: Request) {
       
       // For current month, calculate: current points - previous month end points
       if (targetMonth === currentMonth) {
-        const allUsers = await User.find({})
+        const allUsers = await User.find({ 
+          isDeleted: { $ne: true }
+        })
           .select('username avatar country countryFlag points wins')
           .lean();
+        
+        // If no previous month snapshot, all points count for this month
+        const hasPrevSnapshot = prevPointsMap.size > 0;
         
         const rankings = allUsers.map(user => {
           const oderId = user._id.toString();
           const prevPoints = prevPointsMap.get(oderId) || 0;
-          const monthlyPoints = (user.points || 0) - prevPoints;
+          const monthlyPoints = hasPrevSnapshot ? (user.points || 0) - prevPoints : (user.points || 0);
           return {
             _id: user._id,
             username: user.username,
@@ -216,7 +254,10 @@ export async function GET(request: Request) {
         // Sort by monthly points
         rankings.sort((a, b) => b.points - a.points || b.totalPoints - a.totalPoints);
         
-        const rankedResults = rankings.slice(0, 100).map((r, index) => ({
+        // Filter out users with 0 or negative points
+        const activeRankings = rankings.filter(r => r.points > 0);
+        
+        const rankedResults = activeRankings.slice(0, 100).map((r, index) => ({
           ...r,
           rank: index + 1,
         }));
@@ -236,18 +277,24 @@ export async function GET(request: Request) {
       const endSnapshot = await DailyRanking.findOne({ dateString: endOfMonthDate });
       
       if (endSnapshot && prevSnapshot) {
-        // Calculate difference for each user
-        const rankings = endSnapshot.rankings.map((entry: any, index: number) => {
-          const oderId = entry.userId?.toString() || '';
-          const prevPoints = prevPointsMap.get(oderId) || 0;
-          const monthlyPoints = (entry.points || 0) - prevPoints;
-          return {
-            ...entry,
-            points: monthlyPoints,
-            totalPoints: entry.points,
-            rank: index + 1,
-          };
-        });
+        // Get deleted user IDs to filter them out
+        const deletedUsers = await User.find({ isDeleted: true }).select('_id').lean();
+        const deletedIds = new Set(deletedUsers.map(u => u._id.toString()));
+        
+        // Calculate difference for each user, filtering out deleted users
+        const rankings = endSnapshot.rankings
+          .filter((entry: any) => !deletedIds.has(entry.userId?.toString() || ''))
+          .map((entry: any, index: number) => {
+            const oderId = entry.userId?.toString() || '';
+            const prevPoints = prevPointsMap.get(oderId) || 0;
+            const monthlyPoints = (entry.points || 0) - prevPoints;
+            return {
+              ...entry,
+              points: monthlyPoints,
+              totalPoints: entry.points,
+              rank: index + 1,
+            };
+          });
         
         // Re-sort by monthly points
         rankings.sort((a: any, b: any) => b.points - a.points);
@@ -292,14 +339,19 @@ export async function GET(request: Request) {
       
       // For current year, calculate: current points - previous year end points
       if (targetYear === currentYear) {
-        const allUsers = await User.find({})
+        const allUsers = await User.find({ 
+          isDeleted: { $ne: true }
+        })
           .select('username avatar country countryFlag points wins')
           .lean();
+        
+        // If no previous year snapshot, all points count for this year
+        const hasPrevSnapshot = prevPointsMap.size > 0;
         
         const rankings = allUsers.map(user => {
           const oderId = user._id.toString();
           const prevPoints = prevPointsMap.get(oderId) || 0;
-          const yearlyPoints = (user.points || 0) - prevPoints;
+          const yearlyPoints = hasPrevSnapshot ? (user.points || 0) - prevPoints : (user.points || 0);
           return {
             _id: user._id,
             username: user.username,
@@ -317,7 +369,10 @@ export async function GET(request: Request) {
         // Sort by yearly points
         rankings.sort((a, b) => b.points - a.points || b.totalPoints - a.totalPoints);
         
-        const rankedResults = rankings.slice(0, 100).map((r, index) => ({
+        // Filter out users with 0 or negative points
+        const activeRankings = rankings.filter(r => r.points > 0);
+        
+        const rankedResults = activeRankings.slice(0, 100).map((r, index) => ({
           ...r,
           rank: index + 1,
         }));
@@ -335,17 +390,23 @@ export async function GET(request: Request) {
       const endSnapshot = await DailyRanking.findOne({ dateString: endOfYearDate });
       
       if (endSnapshot) {
-        const rankings = endSnapshot.rankings.map((entry: any, index: number) => {
-          const oderId = entry.userId?.toString() || '';
-          const prevPoints = prevPointsMap.get(oderId) || 0;
-          const yearlyPoints = (entry.points || 0) - prevPoints;
-          return {
-            ...entry,
-            points: yearlyPoints,
-            totalPoints: entry.points,
-            rank: index + 1,
-          };
-        });
+        // Get deleted user IDs to filter them out
+        const deletedUsers = await User.find({ isDeleted: true }).select('_id').lean();
+        const deletedIds = new Set(deletedUsers.map(u => u._id.toString()));
+        
+        const rankings = endSnapshot.rankings
+          .filter((entry: any) => !deletedIds.has(entry.userId?.toString() || ''))
+          .map((entry: any, index: number) => {
+            const oderId = entry.userId?.toString() || '';
+            const prevPoints = prevPointsMap.get(oderId) || 0;
+            const yearlyPoints = (entry.points || 0) - prevPoints;
+            return {
+              ...entry,
+              points: yearlyPoints,
+              totalPoints: entry.points,
+              rank: index + 1,
+            };
+          });
         
         // Re-sort by yearly points
         rankings.sort((a: any, b: any) => b.points - a.points);
@@ -370,15 +431,18 @@ export async function GET(request: Request) {
     }
     
     // DAY rankings - show points earned TODAY ONLY
-    // Calculated as: current points - points at end of yesterday
-    const today = new Date().toISOString().split('T')[0];
+    // The "day" starts at 10:00 Berlin time (after the 9:00-10:00 break)
+    // So we use the snapshot from the previous "ranking day"
+    const today = getRankingDayString(); // Uses Berlin time, accounts for 10:00 cutoff
     
-    // Get yesterday's date for baseline
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayString = yesterday.toISOString().split('T')[0];
+    // Get previous ranking day's date for baseline
+    // This is the snapshot taken at 9:00 Berlin time (before the break)
+    const todayDate = new Date(today + 'T00:00:00Z');
+    const prevDay = new Date(todayDate);
+    prevDay.setDate(prevDay.getDate() - 1);
+    const yesterdayString = prevDay.toISOString().split('T')[0];
     
-    // Try to find yesterday's snapshot
+    // Try to find previous day's snapshot (taken at 9:00 Berlin time)
     const prevSnapshot = await DailyRanking.findOne({ dateString: yesterdayString });
     const prevPointsMap = new Map<string, number>();
     
@@ -388,28 +452,44 @@ export async function GET(request: Request) {
       }
     }
     
-    // For today, calculate: current points - yesterday's points
+    // For today (current ranking day), calculate from GameResults
     if (!dateString || dateString === today) {
-      // Trigger bot activity to keep rankings dynamic
-      await simulateBotActivity();
+      const hasPrevSnapshot = prevPointsMap.size > 0;
       
-      const allUsers = await User.find({})
-        .select('username avatar country countryFlag points wins')
+      // Aggregate today's GameResults to get daily points
+      const todayResults = await GameResult.aggregate([
+        { $match: { gameDate: today } },
+        { 
+          $group: { 
+            _id: '$userId',
+            username: { $first: '$username' },
+            dailyPoints: { $sum: '$pointsChange' },
+            gamesPlayed: { $sum: 1 },
+            wins: { $sum: { $cond: ['$isCorrect', 1, 0] } }
+          } 
+        }
+      ]);
+      
+      // Get user details for avatars etc
+      const userIds = todayResults.map(r => r._id);
+      const users = await User.find({ _id: { $in: userIds } })
+        .select('username avatar country countryFlag points')
         .lean();
       
-      const rankings = allUsers.map(user => {
-        const oderId = user._id.toString();
-        const prevPoints = prevPointsMap.get(oderId) || 0;
-        const dailyPoints = (user.points || 0) - prevPoints;
+      const userMap = new Map(users.map(u => [u._id.toString(), u]));
+      
+      const rankings = todayResults.map(result => {
+        const user = userMap.get(result._id?.toString() || '') || {};
         return {
-          _id: user._id,
-          username: user.username,
-          avatar: user.avatar || '',
-          country: user.country || 'World',
-          countryFlag: user.countryFlag || '🌍',
-          points: dailyPoints, // Points earned TODAY only
-          wins: user.wins || 0,
-          totalPoints: user.points || 0,
+          _id: result._id,
+          username: result.username || (user as any).username || 'Unknown',
+          avatar: (user as any).avatar || '',
+          country: (user as any).country || 'World',
+          countryFlag: (user as any).countryFlag || '🌍',
+          points: Math.round(result.dailyPoints * 100) / 100, // Points earned TODAY
+          wins: result.wins || 0,
+          totalPoints: (user as any).points || 0,
+          gamesPlayed: result.gamesPlayed || 0,
           isActive: false,
           recentPoints: 0,
         };
@@ -418,7 +498,10 @@ export async function GET(request: Request) {
       // Sort by daily points
       rankings.sort((a, b) => b.points - a.points || b.totalPoints - a.totalPoints);
       
-      const rankedResults = rankings.slice(0, 100).map((r, index) => ({
+      // Filter out users with 0 or negative points
+      const activeRankings = rankings.filter(r => r.points > 0);
+      
+      const rankedResults = activeRankings.slice(0, 100).map((r, index) => ({
         ...r,
         rank: index + 1,
       }));
@@ -439,22 +522,28 @@ export async function GET(request: Request) {
     const prevDaySnapshot = await DailyRanking.findOne({ dateString: prevDateString });
     
     if (daySnapshot && prevDaySnapshot) {
+      // Get deleted user IDs to filter them out
+      const deletedUsers = await User.find({ isDeleted: true }).select('_id').lean();
+      const deletedIds = new Set(deletedUsers.map(u => u._id.toString()));
+      
       const prevDayMap = new Map<string, number>();
       for (const entry of prevDaySnapshot.rankings) {
         prevDayMap.set(entry.userId?.toString() || '', entry.points || 0);
       }
       
-      const rankings = daySnapshot.rankings.map((entry: any, index: number) => {
-        const oderId = entry.userId?.toString() || '';
-        const prevPoints = prevDayMap.get(oderId) || 0;
-        const dailyPoints = (entry.points || 0) - prevPoints;
-        return {
-          ...entry,
-          points: dailyPoints,
-          totalPoints: entry.points,
-          rank: index + 1,
-        };
-      });
+      const rankings = daySnapshot.rankings
+        .filter((entry: any) => !deletedIds.has(entry.userId?.toString() || ''))
+        .map((entry: any, index: number) => {
+          const oderId = entry.userId?.toString() || '';
+          const prevPoints = prevDayMap.get(oderId) || 0;
+          const dailyPoints = (entry.points || 0) - prevPoints;
+          return {
+            ...entry,
+            points: dailyPoints,
+            totalPoints: entry.points,
+            rank: index + 1,
+          };
+        });
       
       // Re-sort by daily points
       rankings.sort((a: any, b: any) => b.points - a.points);

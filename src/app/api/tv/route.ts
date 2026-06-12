@@ -63,7 +63,6 @@ export async function POST(request: Request) {
       order: 0,
       featured: false,
       trending: false,
-      readTime: 1,
       views: 0,
       likes: 0,
     });

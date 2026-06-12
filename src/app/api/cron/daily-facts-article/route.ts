@@ -201,7 +201,6 @@ export async function GET(request: NextRequest) {
       scheduledAt: scheduledAt,
       author: authorId,
       authorName: "BOGX Team",
-      readTime: Math.max(2, Math.ceil(articleData.content.length / 1000)),
       views: 0,
       likes: 0,
       commentsEnabled: true,

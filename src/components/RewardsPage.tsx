@@ -171,12 +171,12 @@ export default function RewardsPage({ isOpen, coins, onClose, onRedeem, embedded
         <p className="text-[10px] text-[#D4873A] mb-2 text-center uppercase tracking-wider font-semibold">Top Up</p>
         <div className="grid grid-cols-3 gap-2">
           {[
-            { points: 50, price: '0,10€', priceValue: 10 },
-            { points: 100, price: '0,50€', priceValue: 50 },
-            { points: 250, price: '1,00€', priceValue: 100 },
-            { points: 500, price: '1,99€', priceValue: 199 },
-            { points: 1000, price: '3,99€', priceValue: 399 },
-            { points: 2500, price: '7,99€', priceValue: 799 },
+            { points: 0.50, price: '0,50€', priceValue: 50 },
+            { points: 1.00, price: '1,00€', priceValue: 100 },
+            { points: 2.50, price: '2,50€', priceValue: 250 },
+            { points: 5.00, price: '5,00€', priceValue: 500 },
+            { points: 10.00, price: '10,00€', priceValue: 1000 },
+            { points: 25.00, price: '25,00€', priceValue: 2500 },
           ].map((pkg) => (
             <button
               key={pkg.points}

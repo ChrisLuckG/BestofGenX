@@ -228,9 +228,12 @@ export default function TVPage() {
     <div className="h-full min-h-full bg-cream overflow-y-auto">
       {/* Header with Search & Language Filter */}
       <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3 border-b border-warm bg-cream">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Tv className="w-5 h-5 text-[#D4873A]" />
-          <span className="font-display text-lg tracking-wider text-gray-900 uppercase">TV</span>
+          <div>
+            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none uppercase">TV</span>
+            <span className="text-[10px] text-gray-500 -mt-0.5 block">Movies, shows & more</span>
+          </div>
         </div>
         
         <div className="flex items-center gap-2 flex-1 max-w-md">

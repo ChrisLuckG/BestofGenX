@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import { GENX_MOODS, DEFAULT_MOOD, getMoodById } from "@/config/moods";
 
 interface CardMoodReactionsProps {
@@ -23,7 +23,7 @@ const TEXT_SIZES = {
   md: 'text-sm',
 };
 
-export default function CardMoodReactions({
+function CardMoodReactionsInner({
   articleId,
   userId,
   isLoggedIn,
@@ -35,21 +35,23 @@ export default function CardMoodReactions({
   const [showPicker, setShowPicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const fetchedRef = useRef<string | null>(null);
+  const isMountedRef = useRef(true);
 
   const imgSize = SIZES[size];
   const textSize = TEXT_SIZES[size];
 
   // Fetch reactions on mount - only once per articleId
   useEffect(() => {
+    isMountedRef.current = true;
+    
     // Skip if already fetched for this articleId
     if (fetchedRef.current === articleId) return;
     
-    let cancelled = false;
     const fetchReactions = async () => {
       try {
         const res = await fetch(`/api/articles/react?articleId=${articleId}&userId=${userId || ''}`);
         const data = await res.json();
-        if (!cancelled && data.success) {
+        if (isMountedRef.current && data.success) {
           setReactions(data.reactions || {});
           setUserReaction(data.userReaction || null);
           fetchedRef.current = articleId;
@@ -59,8 +61,9 @@ export default function CardMoodReactions({
       }
     };
     fetchReactions();
-    return () => { cancelled = true; };
-  }, [articleId, userId]);
+    
+    return () => { isMountedRef.current = false; };
+  }, [articleId]); // Only depend on articleId, not userId
 
   const totalReactions = Object.values(reactions).reduce((sum, count) => sum + count, 0);
 
@@ -228,3 +231,13 @@ export default function CardMoodReactions({
     </>
   );
 }
+
+// Memoize to prevent re-renders when parent re-renders
+const CardMoodReactions = memo(CardMoodReactionsInner, (prevProps, nextProps) => {
+  // Only re-render if articleId changes
+  return prevProps.articleId === nextProps.articleId && 
+         prevProps.userId === nextProps.userId &&
+         prevProps.isLoggedIn === nextProps.isLoggedIn;
+});
+
+export default CardMoodReactions;

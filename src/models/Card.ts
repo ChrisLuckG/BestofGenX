@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 
 // Question variant for each difficulty level
 export interface IQuestionVariant {
+  _id?: string; // Unique question ID
   question: string;
   options: (string | number)[];
   correctAnswer: string | number;
@@ -15,6 +16,7 @@ export interface ICard {
   _id?: string;
   type: 'quiz' | 'guess' | 'betting';
   theme: string;
+  subCategory?: string; // e.g. "Basketball", "Football" for SPORTS theme
   topic: string;
   questions: IQuestionVariant[]; // Array of Easy/Medium/Hard variants
   timeLimit: number;
@@ -38,8 +40,8 @@ const QuestionVariantSchema = new mongoose.Schema({
   highlightWords: { type: [String], default: [] },
   difficulty: { type: Number, min: 1, max: 5, default: 3 },
   difficultyText: { type: String, default: 'Medium' },
-  maxReward: { type: Number, default: 100 },
-}, { _id: false });
+  maxReward: { type: Number, default: 0.10 }, // BOGX
+}); // _id: true (default) - each question gets its own unique ID
 
 const CardSchema = new mongoose.Schema({
   type: {
@@ -52,6 +54,10 @@ const CardSchema = new mongoose.Schema({
     type: String,
     required: true,
     default: 'MUSIC',
+  },
+  subCategory: {
+    type: String,
+    default: '',
   },
   topic: {
     type: String,

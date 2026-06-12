@@ -3,6 +3,7 @@
 import { Clock, TrendingUp, Check, MessageCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { isVideoUrl } from "@/utils/media";
 
 // Mood images for reactions display
 const MOOD_IMAGES: Record<string, string> = {
@@ -22,7 +23,7 @@ interface ArticleCardProps {
     category: string;
     authorName?: string;
     authorAvatar?: string;
-    readTime: number;
+    readTime?: number;
     trending?: boolean;
     commentCount?: number;
     reactions?: Record<string, number>;
@@ -36,6 +37,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   'movies-tv': 'Movies & TV',
   'music': 'Music',
   'gaming': 'Gaming',
+  'rewind': 'Rewind',
   'sports': 'Sports',
   'tech': 'Tech',
   'culture': 'Culture',
@@ -76,7 +78,7 @@ export default function ArticleCard({ article, onClick, variant = 'compact', isR
       {/* Thumbnail - Left side */}
       {article.coverImage && (
         <div className="relative w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden">
-          {article.coverImage.includes('.mp4') ? (
+          {isVideoUrl(article.coverImage) ? (
             <video
               src={article.coverImage}
               className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${isRead ? 'opacity-80' : ''}`}
@@ -129,10 +131,6 @@ export default function ArticleCard({ article, onClick, variant = 'compact', isR
               <span>·</span>
             </>
           )}
-          <div className="flex items-center gap-1">
-            <Clock className="w-3 h-3" />
-            <span>{article.readTime} min</span>
-          </div>
           
           {/* Moods & Comments */}
           {(article.reactions || article.commentCount) && (

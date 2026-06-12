@@ -133,7 +133,7 @@ export default function RewardsTab() {
                 </div>
                 <p className="text-sm text-gray-400 mb-3 line-clamp-2">{reward.description}</p>
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-[#D4873A]">{(reward.cost || 0).toLocaleString()} pts</span>
+                  <span className="font-bold text-[#D4873A]">{(reward.cost || 0).toLocaleString()} BOGX</span>
                   <div className="flex gap-1">
                     <button
                       onClick={() => setEditingReward(reward)}

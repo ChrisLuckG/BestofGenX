@@ -107,7 +107,14 @@ export async function POST(
         // No coins for changing vote - only first vote gets coins
         
       } else {
-        // First vote on this item
+        // First vote on this item - check if user has ANY votes on this poll already
+        const userHasAnyVote = await PollVote.findOne({
+          pollId: pollId,
+          oderId: `user_${userId}`,
+        });
+        const isFirstVoteOnPoll = !userHasAnyVote;
+        
+        // Create the vote record
         await PollVote.create({
           pollId: pollId,
           oderId: `user_${userId}`,
@@ -115,11 +122,11 @@ export async function POST(
           voteType,
         });
         
-        // Update item counts
+        // Update item counts - only increment totalVotes if this is user's FIRST vote on this poll
         const updateField = voteType === 'up' ? 'upvotes' : 'downvotes';
         await Poll.findByIdAndUpdate(pollId, {
           $inc: {
-            totalVotes: 1,
+            totalVotes: isFirstVoteOnPoll ? 1 : 0, // Only count once per user
             [`items.$[item].${updateField}`]: 1,
             [`items.$[item].score`]: voteType === 'up' ? 1 : -1,
           },
@@ -127,15 +134,15 @@ export async function POST(
           arrayFilters: [{ 'item.id': optionId }],
         });
         
-        // Award 0.01 coins per vote (only for FIRST vote on this item)
+        // Award 0.05 BOGX per vote (only for FIRST vote on this item)
         if (userId) {
           const updatedUser = await User.findByIdAndUpdate(
             userId, 
-            { $inc: { points: 1 } }, // 1 point = 0.01 BOGX
+            { $inc: { points: 0.05 } },
             { new: true }
           );
-          console.log(`[VOTE REWARD] User ${userId} awarded 1 point (0.01 BOGX) for voting. New balance: ${updatedUser?.points}`);
-          coinsAwarded = 0.01;
+          console.log(`[VOTE REWARD] User ${userId} awarded 0.05 BOGX for voting. New balance: ${updatedUser?.points}`);
+          coinsAwarded = 0.05;
         }
       }
       

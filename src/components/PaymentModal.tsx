@@ -59,7 +59,7 @@ export default function PaymentModal({ isOpen, package_, onClose, onSuccess }: P
             <div className="w-6 h-6 bg-[#D4873A] rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-xs">P</span>
             </div>
-            <h2 className="text-lg font-bold text-gray-900">Buy Points</h2>
+            <h2 className="text-lg font-bold text-gray-900">Buy BOGX</h2>
           </div>
           {step === 'confirm' && (
             <button 
@@ -81,7 +81,7 @@ export default function PaymentModal({ isOpen, package_, onClose, onSuccess }: P
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-gray-500 text-xs uppercase tracking-wider">You're buying</p>
-                    <p className="text-2xl font-black text-gray-900">{package_.points.toLocaleString()} <span className="text-sm font-normal text-gray-500">Points</span></p>
+                    <p className="text-2xl font-black text-gray-900">{package_.points.toLocaleString()} <span className="text-sm font-normal text-gray-500">BOGX</span></p>
                   </div>
                   <div className="text-right">
                     <p className="text-gray-500 text-xs uppercase tracking-wider">Price</p>
@@ -196,7 +196,7 @@ export default function PaymentModal({ isOpen, package_, onClose, onSuccess }: P
                 <Check className="w-8 h-8 text-[#D4873A]" />
               </div>
               <p className="text-gray-900 font-bold mt-6">Payment Successful!</p>
-              <p className="text-[#D4873A] text-xl font-black mt-2">+{package_.points.toLocaleString()} Points</p>
+              <p className="text-[#D4873A] text-xl font-black mt-2">+{package_.points.toLocaleString()} BOGX</p>
             </div>
           )}
           

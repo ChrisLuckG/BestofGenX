@@ -76,24 +76,23 @@ export default function RadioPage({ isDesktop = false }: RadioPageProps) {
 
   return (
     <div className="w-full h-full min-h-full flex flex-col overflow-hidden" style={{ backgroundColor: '#F5F0E8' }}>
-      {/* Hero Header with Equalizer */}
-      <div className={`bg-gradient-to-b from-cream to-[#F5F0E8] border-b border-warm ${isDesktop ? 'px-4 pt-8 pb-6' : 'px-3 pt-8 pb-6'}`}>
-        {/* Title with ON AIR badge */}
-        <div className="text-center mb-5">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-[10px] font-bold text-green-600 tracking-wider">ON AIR</span>
-            <svg className="w-4 h-4 text-green-500/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M4 12h2m2-3v6m3-8v10m3-6v2m3-4v6m2-3h2" strokeLinecap="round" />
-            </svg>
+      {/* Header - consistent with other pages */}
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
+        <div className="flex items-center gap-3">
+          <Radio className="w-5 h-5 text-[#D4873A]" />
+          <div>
+            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Radio</span>
+            <span className="text-[10px] text-gray-500 -mt-0.5 block">The sound of GenX</span>
           </div>
-          <h1 className={`font-display tracking-wider ${isDesktop ? 'text-4xl' : 'text-2xl'}`}>
-            <span className="text-[#D4873A]">BOGX</span> <span className="text-gray-900 font-light">PLAYLISTS</span>
-          </h1>
-          <p className={`text-gray-500 mt-1 tracking-wide ${isDesktop ? 'text-base' : 'text-xs'}`}>THE SOUND OF GEN<span className="text-[#D4873A] font-bold">X</span></p>
         </div>
-        
-        {/* Equalizer - full width */}
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+          <span className="text-[10px] font-bold text-green-600 tracking-wider">ON AIR</span>
+        </div>
+      </div>
+      
+      {/* Equalizer Banner */}
+      <div className={`bg-gradient-to-b from-cream to-[#F5F0E8] ${isDesktop ? 'px-4 py-4' : 'px-3 py-3'}`}>
         <div className="w-full">
           <Equalizer barCount={isDesktop ? 50 : 45} isDesktop={isDesktop} />
         </div>

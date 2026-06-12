@@ -163,10 +163,10 @@ export default function AlertModal({
                 </div>
                 <div className="flex-1 text-left">
                   <p className="text-gray-900 text-sm">Read articles</p>
-                  <p className="text-[10px] text-gray-600">Read 10 articles</p>
+                  <p className="text-[10px] text-gray-600">Earn per article</p>
                 </div>
                 <div className="flex items-center gap-1 text-[#D4873A] text-sm">
-                  +0,50 <img src="/images/bogxcoin.png" alt="" className="w-3.5 h-3.5" />
+                  +0,05 <img src="/images/bogxcoin.png" alt="" className="w-3.5 h-3.5" />
                   <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
                 </div>
               </button>
@@ -199,10 +199,10 @@ export default function AlertModal({
                 </div>
                 <div className="flex-1 text-left">
                   <p className="text-gray-900 text-sm">Win a trivia</p>
-                  <p className="text-[10px] text-gray-600">Play a solo trivia</p>
+                  <p className="text-[10px] text-gray-600">Earn up to 0.15 per question</p>
                 </div>
                 <div className="flex items-center gap-1 text-[#D4873A] text-sm">
-                  +0,30 <img src="/images/bogxcoin.png" alt="" className="w-3.5 h-3.5" />
+                  +0,05-0,15 <img src="/images/bogxcoin.png" alt="" className="w-3.5 h-3.5" />
                   <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
                 </div>
               </button>
@@ -237,7 +237,7 @@ export default function AlertModal({
       onClick={onClose}
     >
       <div 
-        className="mx-6 w-full max-w-sm bg-[#FDFBF7] rounded-2xl shadow-2xl p-6 relative border border-warm"
+        className="mx-6 w-full max-w-sm bg-[#F5F0E8] rounded-2xl shadow-2xl p-6 relative border border-warm"
         onClick={e => e.stopPropagation()}
       >
         {/* Close button */}

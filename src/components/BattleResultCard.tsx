@@ -82,6 +82,9 @@ export default function BattleResultCard({
   
   const hasQuestions = questions && questions.length > 0;
   
+  // Fixed card height for consistent flip effect - fits in viewport with padding
+  const CARD_HEIGHT = 480; // Fixed height in pixels
+  
   // Format time in seconds
   const formatTime = (ms?: number) => {
     if (!ms) return '-';
@@ -111,9 +114,11 @@ export default function BattleResultCard({
     
     return (
       <div 
-        className="border border-warm bg-cream rounded-2xl flex flex-col p-4 shadow-xl transition-transform duration-300 min-h-[500px] max-h-[80vh]"
+        className="border border-warm bg-cream rounded-2xl flex flex-col p-4 shadow-xl transition-transform duration-300 overflow-hidden"
         style={{ 
           animation: 'flipIn 0.3s ease-out',
+          height: `${CARD_HEIGHT}px`,
+          maxHeight: '85vh',
         }}
       >
         <style jsx>{`
@@ -155,7 +160,7 @@ export default function BattleResultCard({
           <div className="mt-2">
             {myResult?.correct ? (
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-green-100 text-green-700 text-xs font-bold">
-                <Check className="w-3 h-3" /> Correct! (+{myResult.points} pts)
+                <Check className="w-3 h-3" /> Correct! (+{myResult.points} BOGX)
               </span>
             ) : myResult?.answerIndex === -1 ? (
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-yellow-100 text-yellow-700 text-xs font-bold">
@@ -260,8 +265,12 @@ export default function BattleResultCard({
 
   return (
     <div 
-      className="border border-warm bg-cream rounded-2xl flex flex-col p-4 overflow-y-auto min-h-[500px] max-h-[85vh] shadow-xl"
-      style={{ animation: isFlipped ? undefined : 'flipBack 0.3s ease-out' }}
+      className="border border-warm bg-cream rounded-2xl flex flex-col p-4 shadow-xl overflow-hidden"
+      style={{ 
+        animation: isFlipped ? undefined : 'flipBack 0.3s ease-out',
+        height: `${CARD_HEIGHT}px`,
+        maxHeight: '85vh',
+      }}
     >
       <style jsx>{`
         @keyframes flipBack {
@@ -271,8 +280,8 @@ export default function BattleResultCard({
         }
       `}</style>
       
-      {/* Header */}
-      <div className="flex items-center justify-between mb-2">
+      {/* Header - sticky close button */}
+      <div className="flex items-center justify-between mb-2 flex-shrink-0">
         <span className="px-2 py-1 bg-white border border-warm rounded-lg text-[10px] text-gray-700 uppercase tracking-wider font-semibold">
           {topicConfig.emoji} {topicConfig.label}
         </span>
@@ -280,18 +289,18 @@ export default function BattleResultCard({
           Battle Complete
         </span>
         {onClose && (
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg border border-warm bg-white hover:bg-gray-50">
-            <X className="w-4 h-4 text-gray-600" />
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-500 hover:bg-red-600 transition-colors">
+            <X className="w-4 h-4 text-white" />
           </button>
         )}
       </div>
 
-      {/* Big Result with Lightning */}
-      <div className="text-center mb-3 relative">
-        <div className="flex items-center justify-center gap-2 mb-1">
-          <span className="text-2xl">⚡</span>
+      {/* Big Result with Lightning - compact */}
+      <div className="text-center mb-2 relative flex-shrink-0">
+        <div className="flex items-center justify-center gap-1 mb-0.5">
+          <span className="text-xl">⚡</span>
           <div 
-            className="font-display text-4xl tracking-wider"
+            className="font-display text-3xl tracking-wider"
             style={{ 
               color: isTie ? '#f59e0b' : won ? '#22c55e' : '#dc2626',
               textShadow: '2px 2px 4px rgba(0,0,0,0.1)'
@@ -299,84 +308,82 @@ export default function BattleResultCard({
           >
             {isTie ? "TIE!" : won ? 'VICTORY!' : 'DEFEATED'}
           </div>
-          <span className="text-2xl">⚡</span>
+          <span className="text-xl">⚡</span>
         </div>
-        <p className="text-sm text-gray-500 mb-2">
+        <p className="text-xs text-gray-500 mb-1">
           {isTie ? "Great battle!" : won ? 'Congratulations!' : 'Better luck next time!'}
         </p>
         <div 
-          className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-lg font-bold"
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-base font-bold"
           style={{ 
             backgroundColor: isTie ? '#fef3c7' : won ? '#dcfce7' : '#fee2e2',
             color: isTie ? '#d97706' : won ? '#16a34a' : '#dc2626'
           }}
         >
-          {isTie ? '' : won ? '+' : '-'}{(wager / 100).toFixed(2)}
-          <img src="/images/bogxcoin.png" alt="" className="w-5 h-5" />
+          {isTie ? '' : won ? '+' : '-'}{wager.toFixed(2)}
+          <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
         </div>
       </div>
 
-      {/* Players VS Box */}
-      <div className="border border-warm bg-white rounded-xl p-3 mb-3">
+      {/* Players VS Box - compact */}
+      <div className="border border-warm bg-white rounded-xl p-2 mb-2 flex-shrink-0">
         <div className="flex items-center">
           {/* Me */}
           <div className="flex-1 text-center">
-            <div className={`w-12 h-12 mx-auto rounded-full overflow-hidden border-3 mb-1 ${won ? 'border-yellow-400 ring-2 ring-yellow-200' : 'border-gray-200'}`}>
+            <div className={`w-10 h-10 mx-auto rounded-full overflow-hidden border-2 mb-0.5 ${won ? 'border-yellow-400 ring-1 ring-yellow-200' : 'border-gray-200'}`}>
               {myAvatar ? (
                 <img src={myAvatar} alt="" className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-600 text-lg font-bold">
+                <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-600 text-sm font-bold">
                   {myUsername.charAt(0).toUpperCase()}
                 </div>
               )}
             </div>
-            <div className="text-sm font-bold text-gray-900">{won ? '👑 ' : ''}You</div>
-            <div className="text-[10px] text-gray-500">{myCorrect} / {rounds} correct</div>
-            {myPerfect && <span className="inline-block mt-1 px-1.5 py-0.5 bg-green-100 text-green-700 text-[8px] font-bold rounded uppercase">Perfect!</span>}
-            <div className="mt-1 text-lg font-bold text-gray-900 flex items-center justify-center gap-1">
-              {(myTotalPoints / 100).toFixed(2)} <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
+            <div className="text-xs font-bold text-gray-900">{won ? '👑 ' : ''}You</div>
+            <div className="text-[9px] text-gray-500">{myCorrect} / {rounds} correct</div>
+            <div className="text-sm font-bold text-gray-900 flex items-center justify-center gap-0.5">
+              {myTotalPoints.toFixed(2)} <img src="/images/bogxcoin.png" alt="" className="w-3 h-3" />
             </div>
           </div>
           
           {/* VS */}
-          <div className="px-3">
-            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500">VS</div>
+          <div className="px-2">
+            <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-500">VS</div>
           </div>
           
           {/* Opponent */}
           <div className="flex-1 text-center">
-            <div className={`w-12 h-12 mx-auto rounded-full overflow-hidden border-3 mb-1 ${!won && !isTie ? 'border-yellow-400 ring-2 ring-yellow-200' : 'border-gray-200'}`}>
+            <div className={`w-10 h-10 mx-auto rounded-full overflow-hidden border-2 mb-0.5 ${!won && !isTie ? 'border-yellow-400 ring-1 ring-yellow-200' : 'border-gray-200'}`}>
               {opponentAvatar ? (
                 <img src={opponentAvatar} alt="" className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-600 text-lg font-bold">
+                <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-600 text-sm font-bold">
                   {opponentUsername.charAt(0).toUpperCase()}
                 </div>
               )}
             </div>
-            <div className="text-sm font-bold text-gray-900">{!won && !isTie ? '👑 ' : ''}{opponentUsername}</div>
-            <div className="text-[10px] text-gray-500">{oppCorrect} / {rounds} correct</div>
-            {oppPerfect && <span className="inline-block mt-1 px-1.5 py-0.5 bg-green-100 text-green-700 text-[8px] font-bold rounded uppercase">Perfect!</span>}
-            <div className="mt-1 text-lg font-bold text-gray-900 flex items-center justify-center gap-1">
-              {(opponentTotalPoints / 100).toFixed(2)} <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
+            <div className="text-xs font-bold text-gray-900">{!won && !isTie ? '👑 ' : ''}{opponentUsername}</div>
+            <div className="text-[9px] text-gray-500">{oppCorrect} / {rounds} correct</div>
+            <div className="text-sm font-bold text-gray-900 flex items-center justify-center gap-0.5">
+              {opponentTotalPoints.toFixed(2)} <img src="/images/bogxcoin.png" alt="" className="w-3 h-3" />
             </div>
           </div>
         </div>
         
         {/* Winner message */}
         {isComplete && !isTie && (
-          <div className="mt-3 pt-2 border-t border-warm text-center">
-            <span className="text-sm text-gray-600">
+          <div className="mt-1.5 pt-1.5 border-t border-warm text-center">
+            <span className="text-xs text-gray-600">
               🏆 {won ? 'You were' : `${opponentUsername} was`} better this time.
             </span>
           </div>
         )}
       </div>
 
-      {/* Round by Round - Horizontal Cards */}
-      <div className="mb-3">
-        <div className="text-[9px] font-semibold tracking-widest text-gray-500 uppercase mb-2">Round by Round</div>
-        <div className="flex gap-2 overflow-x-auto pb-1">
+      {/* Round by Round - Horizontal Cards - compact */}
+      <div className="mb-2 flex-shrink-0">
+        <div className="text-[8px] font-semibold tracking-widest text-gray-500 uppercase mb-1">Round by Round</div>
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
           {Array.from({ length: rounds }).map((_, i) => {
             const myR = myResults[i];
             const oppR = opponentResults[i];
@@ -387,25 +394,22 @@ export default function BattleResultCard({
               <div 
                 key={i} 
                 onClick={() => hasQuestions && i < questions.length && (setIsFlipped(true), setTimeout(() => setViewingQuestion(i), 150))}
-                className={`flex-1 min-w-[90px] p-2 rounded-xl border ${myR?.correct ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'} ${hasQuestions ? 'cursor-pointer hover:shadow-md' : ''}`}
+                className={`flex-1 min-w-[70px] p-1.5 rounded-lg border ${myR?.correct ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'} ${hasQuestions ? 'cursor-pointer hover:shadow-md' : ''}`}
               >
-                <div className="text-[9px] font-bold text-gray-500 uppercase mb-1 text-center">Round {i + 1}</div>
-                <div className="flex items-center justify-center gap-1 mb-1">
+                <div className="text-[8px] font-bold text-gray-500 uppercase text-center">R{i + 1}</div>
+                <div className="flex items-center justify-center gap-0.5">
                   {myR?.correct ? (
-                    <Check className="w-4 h-4 text-green-500" />
+                    <Check className="w-3 h-3 text-green-500" />
                   ) : (
-                    <X className="w-4 h-4 text-red-500" />
+                    <X className="w-3 h-3 text-red-500" />
                   )}
-                  <span className={`text-xs font-semibold ${myR?.correct ? 'text-green-600' : 'text-red-500'}`}>
-                    {myR?.correct ? 'Correct' : 'Incorrect'}
+                  <span className={`text-[10px] font-semibold ${myR?.correct ? 'text-green-600' : 'text-red-500'}`}>
+                    {myR?.correct ? '✓' : '✗'}
                   </span>
                 </div>
-                <div className="text-[10px] text-gray-500 text-center">{formatTime(myR?.timeMs)}</div>
-                <div className={`text-sm font-bold text-center ${myR?.correct ? 'text-green-600' : 'text-red-400'}`}>
-                  {myR?.correct ? (myR.points / 100).toFixed(2) : '0.00'}
-                </div>
-                <div className="text-[8px] text-gray-400 text-center mt-1">
-                  {iWon ? <span className="text-green-600">You were faster</span> : oppWon ? <span className="text-gray-500">{opponentUsername} won</span> : ''}
+                <div className="text-[9px] text-gray-500 text-center">{formatTime(myR?.timeMs)}</div>
+                <div className={`text-xs font-bold text-center ${myR?.correct ? 'text-green-600' : 'text-red-400'}`}>
+                  {myR?.correct ? myR.points.toFixed(2) : '0.00'}
                 </div>
               </div>
             );
@@ -413,38 +417,37 @@ export default function BattleResultCard({
         </div>
       </div>
 
-      {/* Close Match Banner */}
+      {/* Close Match Banner - compact */}
       {isCloseMatch && (
-        <div className="flex items-center gap-3 p-3 mb-3 rounded-xl bg-red-50 border border-red-200">
-          <div className="text-2xl">🎯</div>
+        <div className="flex items-center gap-2 p-2 mb-2 rounded-lg bg-red-50 border border-red-200 flex-shrink-0">
+          <div className="text-lg">🎯</div>
           <div className="flex-1">
-            <div className="text-sm font-bold text-red-700 uppercase">Close Match</div>
-            <div className="text-xs text-red-600">
-              You missed it by {(diff / 100).toFixed(2)} BOGX. Keep practicing!
+            <div className="text-xs font-bold text-red-700 uppercase">Close Match</div>
+            <div className="text-[10px] text-red-600">
+              Missed by {diff.toFixed(2)} BOGX
             </div>
           </div>
           <div className="text-right">
-            <div className="text-lg font-bold text-red-600">{(diff / 100).toFixed(2)}</div>
-            <div className="text-[8px] text-red-500 uppercase">Difference</div>
+            <div className="text-sm font-bold text-red-600">{diff.toFixed(2)}</div>
           </div>
         </div>
       )}
 
-      {/* Buttons */}
-      <div className="mt-auto space-y-2">
+      {/* Buttons - compact */}
+      <div className="mt-auto space-y-1.5 flex-shrink-0">
         {onPlayAgain && (
           <button
             onClick={onPlayAgain}
-            className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold text-sm tracking-wider rounded-xl flex items-center justify-center gap-2"
+            className="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs tracking-wider rounded-lg flex items-center justify-center gap-1"
           >
             REMATCH ⚔️
           </button>
         )}
-        <div className="flex gap-2">
+        <div className="flex gap-1.5">
           {onBackToPool && (
             <button
               onClick={onBackToPool}
-              className="flex-1 py-2.5 bg-white border border-warm text-gray-600 font-semibold text-sm rounded-xl hover:bg-gray-50"
+              className="flex-1 py-2 bg-white border border-warm text-gray-600 font-semibold text-xs rounded-lg hover:bg-gray-50"
             >
               ← POOL
             </button>
@@ -452,7 +455,7 @@ export default function BattleResultCard({
           {hasQuestions && (
             <button
               onClick={handleFlipToQuestions}
-              className="flex-1 py-2.5 bg-white border border-warm text-gray-600 font-semibold text-sm rounded-xl hover:bg-gray-50 flex items-center justify-center gap-1"
+              className="flex-1 py-2 bg-white border border-warm text-gray-600 font-semibold text-xs rounded-lg hover:bg-gray-50 flex items-center justify-center gap-1"
             >
               📝 Questions
             </button>

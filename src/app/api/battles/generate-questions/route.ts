@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongoose";
 import Card from "@/models/Card";
+import UserQuestionHistory from "@/models/UserQuestionHistory";
+import mongoose from "mongoose";
+
+// 6 months cooldown for questions
+const QUESTION_COOLDOWN_DAYS = 180;
 
 export async function POST(request: NextRequest) {
   try {
     await dbConnect();
     
-    const { topic, count = 3 } = await request.json();
+    const { topic, count = 3, player1Id, player2Id } = await request.json();
     
     console.log(`Fetching ${count} battle questions from Card pool for topic: ${topic || 'random'}`);
 
@@ -14,6 +19,25 @@ export async function POST(request: NextRequest) {
     const query: Record<string, unknown> = { active: true };
     if (topic && topic !== 'random' && topic !== 'MIX') {
       query.theme = topic.toUpperCase();
+    }
+
+    // Get cards both players have seen in the last 6 months
+    const excludeCardIds: Set<string> = new Set();
+    const cooldownDate = new Date();
+    cooldownDate.setDate(cooldownDate.getDate() - QUESTION_COOLDOWN_DAYS);
+    
+    for (const playerId of [player1Id, player2Id].filter(Boolean)) {
+      const seenHistory = await UserQuestionHistory.find({
+        userId: new mongoose.Types.ObjectId(playerId),
+        answeredAt: { $gte: cooldownDate }
+      }).select('cardId').lean();
+      
+      seenHistory.forEach(h => excludeCardIds.add(h.cardId.toString()));
+    }
+    
+    if (excludeCardIds.size > 0) {
+      query._id = { $nin: Array.from(excludeCardIds).map(id => new mongoose.Types.ObjectId(id)) };
+      console.log(`Excluding ${excludeCardIds.size} recently seen cards`);
     }
 
     // Get all matching cards from the pool

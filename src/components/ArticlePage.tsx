@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, Clock, Eye, Share2, TrendingUp, Facebook, Linkedin, MessageCircle, Mail, Link2, Check } from "lucide-react";
 import EmojiReactions from "./EmojiReactions";
+import CategoryBadge from "./CategoryBadge";
 import { useBackButton } from "@/hooks/useBackButton";
 import ArticleSkeleton from "./ArticleSkeleton";
 import QuizPollCard from "./QuizPoll";
@@ -10,6 +11,7 @@ import PollCard from "./PollCard";
 import RankingPollCard from "./RankingPollCard";
 import CommentSection from "./CommentSection";
 import { useAuth } from "@/context/AuthContext";
+import { isVideoUrl } from "@/utils/media";
 
 interface Article {
   _id: string;
@@ -23,7 +25,7 @@ interface Article {
   category: string;
   authorName?: string;
   authorAvatar?: string;
-  readTime: number;
+  readTime?: number;
   views: number;
   likes: number;
   trending?: boolean;
@@ -46,14 +48,17 @@ interface ArticlePageProps {
   onBack: () => void;
   onShowLogin?: () => void;
   onOpenAuthor?: (authorName: string) => void;
+  onOpenArticle?: (articleId: string) => void;
   onCoinAnimation?: (amount: number) => void;
   isDesktop?: boolean;
+  readArticles?: Set<string>;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
   'movies-tv': 'Movies & TV',
   'music': 'Music',
   'gaming': 'Gaming',
+  'rewind': 'Rewind',
   'sports': 'Sports',
   'tech': 'Tech',
   'culture': 'Culture',
@@ -119,17 +124,16 @@ function processArticleHtml(raw: string): string {
       // Remove width/height/style from iframe
       cleanAttrs = cleanAttrs.replace(/\s(width|height)="[^"]*"/gi, '');
       cleanAttrs = cleanAttrs.replace(/style="[^"]*"/gi, '');
-      return `<div class="article-video-card my-8 p-4 rounded-2xl shadow-xl" style="background:linear-gradient(135deg,#1A1A1A 0%,#2a2a2a 50%,#1A1A1A 100%);border:1px solid rgba(212,135,58,0.3);box-shadow:0 10px 30px rgba(0,0,0,0.25),0 0 0 1px rgba(212,135,58,0.1);">
-        <div style="display:flex;justify-content:center;">
-          <iframe${cleanAttrs} width="720" height="405" style="width:100%;max-width:720px;aspect-ratio:16/9;height:auto;border:0;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.4);" frameborder="0" allowfullscreen></iframe>
+      return `<div class="article-video-card my-6 rounded-xl overflow-hidden" style="background:#1A1A1A;border:1px solid rgba(255,255,255,0.1);box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+        <div style="position:relative;">
+          <iframe${cleanAttrs} width="720" height="405" style="width:100%;aspect-ratio:16/9;height:auto;border:0;display:block;" frameborder="0" allowfullscreen></iframe>
         </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid rgba(212,135,58,0.15);">
-          <a href="${watchUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:6px;color:#D4873A;text-decoration:none;font-size:12px;font-weight:600;">
-            <span>${sourceIcon}</span><span>${sourceName}</span>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:rgba(0,0,0,0.3);">
+          <a href="${watchUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:6px;color:#D4873A;text-decoration:none;font-size:11px;font-weight:500;">
+            <span style="font-size:14px;">${sourceIcon}</span><span>${sourceName}</span>
           </a>
-          <button onclick="navigator.clipboard.writeText('${watchUrl}');this.innerText='✓ Copied!';setTimeout(()=>{this.innerText='Copy link'},2000);" style="background:transparent;border:1px solid rgba(212,135,58,0.4);color:#D4873A;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Copy link</button>
+          <button onclick="navigator.clipboard.writeText('${watchUrl}');this.innerText='✓';setTimeout(()=>{this.innerText='Copy'},1500);" style="background:rgba(212,135,58,0.15);border:none;color:#D4873A;padding:4px 8px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;">Copy</button>
         </div>
-        <p style="margin:6px 0 0 0;font-size:10px;color:rgba(255,255,255,0.4);text-align:center;letter-spacing:0.05em;">Embedded content from third party · Copyright belongs to original creator</p>
       </div>`;
     }
   );
@@ -147,10 +151,10 @@ function processArticleHtml(raw: string): string {
     }
   );
 
-  // 5. Force explicit styling on headings (prose classes can be overridden)
-  html = html.replace(/<h1([^>]*)>/gi, '<h1$1 style="font-size:28px;font-weight:bold;line-height:1.2;margin:32px 0 16px 0;color:#111827;">');
-  html = html.replace(/<h2([^>]*)>/gi, '<h2$1 style="font-size:24px;font-weight:bold;line-height:1.3;margin:28px 0 14px 0;color:#111827;">');
-  html = html.replace(/<h3([^>]*)>/gi, '<h3$1 style="font-size:20px;font-weight:600;line-height:1.4;margin:24px 0 12px 0;color:#111827;">');
+  // 5. Force explicit styling on headings (prose classes can be overridden) - use Bebas Neue font
+  html = html.replace(/<h1([^>]*)>/gi, '<h1$1 style="font-family:var(--font-display),Bebas Neue,sans-serif;font-size:28px;font-weight:bold;line-height:1.2;margin:32px 0 16px 0;color:#111827;text-transform:uppercase;letter-spacing:0.02em;">');
+  html = html.replace(/<h2([^>]*)>/gi, '<h2$1 style="font-family:var(--font-display),Bebas Neue,sans-serif;font-size:24px;font-weight:bold;line-height:1.3;margin:28px 0 14px 0;color:#111827;text-transform:uppercase;letter-spacing:0.02em;">');
+  html = html.replace(/<h3([^>]*)>/gi, '<h3$1 style="font-family:var(--font-display),Bebas Neue,sans-serif;font-size:20px;font-weight:600;line-height:1.4;margin:24px 0 12px 0;color:#111827;text-transform:uppercase;letter-spacing:0.02em;">');
 
   // 6. Normalize empty paragraphs to spacing
   html = html.replace(/<p[^>]*><br\s*\/?><\/p>/gi, '<div style="height:1em;"></div>');
@@ -189,13 +193,14 @@ function processArticleHtml(raw: string): string {
   return html;
 }
 
-export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuthor, onCoinAnimation, isDesktop = false }: ArticlePageProps) {
+export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuthor, onOpenArticle, onCoinAnimation, isDesktop = false, readArticles = new Set() }: ArticlePageProps) {
   const { user, isLoggedIn } = useAuth();
   const [article, setArticle] = useState<Article | null>(null);
   const [loading, setLoading] = useState(true);
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [linkedPoll, setLinkedPoll] = useState<any | null>(null);
+  const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
   const [countdown, setCountdown] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
@@ -262,8 +267,8 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
           
           // Trigger coin animation based on API response (pointsAwarded > 0 means first read)
           if (user?.id && data.pointsAwarded > 0) {
-            console.log('Triggering coin animation for logged in user:', data.pointsAwarded / 100);
-            onCoinAnimation?.(data.pointsAwarded / 100);
+            console.log('Triggering coin animation for logged in user:', data.pointsAwarded);
+            onCoinAnimation?.(data.pointsAwarded); // Already in BOGX
           }
           // Guests don't get coins - they need to register
         }
@@ -314,6 +319,34 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
         .catch(() => {});
     }
   }, [articleId, user?.id]);
+
+  // Fetch related articles (same category, unread, excluding current)
+  useEffect(() => {
+    const category = article?.category || article?.mainCategory;
+    if (!category) return;
+    
+    const fetchRelated = async () => {
+      try {
+        const res = await fetch(`/api/articles?category=${category}&limit=10&status=published`);
+        const data = await res.json();
+        console.log('Related articles fetch:', { category, success: data.success, count: data.articles?.length });
+        if (data.success && data.articles) {
+          // Filter: exclude current article, prefer unread but show read if needed
+          const unread = data.articles
+            .filter((a: Article) => a._id !== articleId && !readArticles.has(a._id));
+          const read = data.articles
+            .filter((a: Article) => a._id !== articleId && readArticles.has(a._id));
+          
+          // Prefer unread, but fill with read articles if not enough
+          const combined = [...unread, ...read].slice(0, 4);
+          setRelatedArticles(combined);
+        }
+      } catch (e) {
+        console.error('Failed to fetch related articles:', e);
+      }
+    };
+    fetchRelated();
+  }, [article?.category, article?.mainCategory, articleId, readArticles]);
 
   // Handle clicks on CTA banners to navigate to different sections
   useEffect(() => {
@@ -444,40 +477,33 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
         </div>
       )}
 
-      {/* Mobile Sticky Top Bar - Back, Like, Share */}
+      {/* Mobile Sticky Top Bar - Back, Share - stays visible while scrolling */}
       {!isDesktop && (
-        <div className="sticky top-0 left-0 right-0 z-50 flex items-center justify-between p-4 pointer-events-none">
+        <div className="sticky top-0 left-0 right-0 z-50 flex items-center justify-between p-3 pointer-events-none" style={{ marginBottom: '-56px' }}>
           <button 
             onClick={onBack} 
             className="pointer-events-auto p-2.5 bg-black/50 backdrop-blur-md rounded-full text-white hover:bg-black/70 transition-colors border border-white/20 shadow-lg"
           >
             <ArrowLeft className="w-6 h-6 drop-shadow-md" />
           </button>
-          <div className="pointer-events-auto flex items-center gap-2">
-            <EmojiReactions
-              articleId={article._id}
-              userId={user?.id}
-              isLoggedIn={isLoggedIn}
-              onShowLogin={onShowLogin}
-            />
-            <button 
-              onClick={handleShare} 
-              className="p-2 bg-black/40 backdrop-blur-md rounded-full text-white hover:bg-black/60 transition-colors border border-white/20 shadow-lg"
-            >
-              <Share2 className="w-5 h-5" />
-            </button>
-          </div>
+          <button 
+            onClick={handleShare} 
+            className="pointer-events-auto p-2 bg-black/40 backdrop-blur-md rounded-full text-white hover:bg-black/60 transition-colors border border-white/20 shadow-lg"
+          >
+            <Share2 className="w-5 h-5" />
+          </button>
         </div>
       )}
 
       {/* Hero Section - Cover Image/Video with Title Overlay */}
-      <div className={`relative w-full min-h-[70vh] ${isDesktop ? 'min-h-[40vh]' : 'md:min-h-[50vh]'}`}>
-        {/* Cover Image/Video - Fixed on mobile for parallax effect, absolute on desktop to stay within content area */}
+      <div className={`relative w-full ${isDesktop ? 'aspect-[16/9]' : 'min-h-[60vh]'}`}>
+        {/* Cover Image/Video */}
         {article.coverImage && (
-          (article.coverImage.includes('.mp4') || article.coverImage.includes('.webm') || article.coverImage.includes('.mov') || article.coverImage.includes('video')) ? (
+          isVideoUrl(article.coverImage) ? (
             <video
               src={article.coverImage}
-              className="fixed md:absolute top-0 left-0 right-0 w-full h-[70vh] md:h-full object-cover z-0"
+              className="absolute inset-0 w-full h-full object-cover z-0"
+              style={{ objectPosition: `${article.imagePosX ?? 50}% ${article.imagePosY ?? 50}%` }}
               muted
               autoPlay
               loop
@@ -487,23 +513,18 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
             <img
               src={article.coverImage}
               alt={article.title}
-              className="fixed md:absolute top-0 left-0 right-0 w-full h-[70vh] md:h-full object-cover z-0"
+              className="absolute inset-0 w-full h-full object-cover z-0"
+              style={{ objectPosition: `${article.imagePosX ?? 50}% ${article.imagePosY ?? 50}%` }}
             />
           )
         )}
         
         {/* Gradient Overlay */}
-        <div className="fixed md:absolute top-0 left-0 right-0 h-[70vh] md:h-full bg-gradient-to-t from-black via-black/50 to-black/30 z-[1]" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/30 z-[1]" />
 
-        {/* Desktop: Emoji Reactions & Share Button on image - top right */}
+        {/* Desktop: Share Button on image - top right */}
         {isDesktop && (
-          <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
-            <EmojiReactions
-              articleId={article._id}
-              userId={user?.id}
-              isLoggedIn={isLoggedIn}
-              onShowLogin={onShowLogin}
-            />
+          <div className="absolute top-4 right-4 z-20">
             <button 
               onClick={handleShare} 
               className="p-2 bg-white/90 hover:bg-white rounded-lg text-gray-700 transition-colors shadow-md"
@@ -514,20 +535,12 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
         )}
 
         {/* Title & Meta - Bottom of Hero */}
-        <div className="absolute bottom-0 left-0 right-0 p-6 z-10">
+        <div className={`absolute bottom-0 left-0 right-0 z-10 ${isDesktop ? 'p-6' : 'p-4'}`}>
           {/* Category Badge + Read Time + Trending Badge */}
           <div className="flex items-center gap-2 mb-3 flex-wrap">
-            <span
-              className="inline-flex items-center px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] font-bold rounded-lg"
-              style={{
-                background: '#D4873A',
-                color: '#fff',
-              }}
-            >
-              {CATEGORY_LABELS[article.category] || article.category}
-            </span>
-            {/* Countdown Timer Badge - if poll has endsAt, or Reading Time if no poll */}
-            {countdown ? (
+            <CategoryBadge category={article.category} size="lg" />
+            {/* Countdown Timer Badge - if poll has endsAt */}
+            {countdown && (
               <span
                 className="inline-flex items-center gap-3 px-4 py-1.5 text-[11px] font-bold rounded-lg"
                 style={{
@@ -545,19 +558,6 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
                     : `${String(countdown.hours).padStart(2, '0')}H ${String(countdown.minutes).padStart(2, '0')}M ${String(countdown.seconds).padStart(2, '0')}S`
                   }
                 </span>
-              </span>
-            ) : !linkedPoll && (
-              <span
-                className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-semibold rounded-lg"
-                style={{
-                  background: 'rgba(0,0,0,0.5)',
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  color: 'rgba(255,255,255,0.9)',
-                  backdropFilter: 'blur(8px)',
-                }}
-              >
-                <Clock className="w-3 h-3" />
-                {article.readTime} min
               </span>
             )}
             {article.trending && (
@@ -665,7 +665,7 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
             prose-ul:my-5 prose-ol:my-5
             prose-blockquote:border-l-4 prose-blockquote:border-[#D4873A] prose-blockquote:not-italic prose-blockquote:pl-5 prose-blockquote:py-1 prose-blockquote:text-gray-700 prose-blockquote:font-medium prose-blockquote:my-6
             prose-img:rounded-xl prose-img:my-7 prose-img:shadow-md prose-img:max-w-full prose-img:w-full
-            prose-hr:my-8 prose-hr:border-t-2 prose-hr:border-gray-200
+            prose-hr:my-12 prose-hr:border-t-2 prose-hr:border-gray-200
             [&_u]:underline [&_s]:line-through
             [&_.ql-align-center]:text-center [&_.ql-align-right]:text-right [&_.ql-align-justify]:text-justify
             [&_*]:max-w-full [&_*]:break-words"
@@ -679,6 +679,18 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
             __html: processArticleHtml(article.content || '')
           }}
         />
+
+        {/* Emoji Reactions - at end of article */}
+        <div className="mt-8 mb-6 flex flex-col items-center">
+          <p className="text-sm text-gray-500 mb-3">How did this article make you feel?</p>
+          <EmojiReactions
+            articleId={article._id}
+            userId={user?.id}
+            isLoggedIn={isLoggedIn}
+            onShowLogin={onShowLogin}
+            showAll
+          />
+        </div>
 
         {/* Linked Poll/Quiz/Ranking */}
         {linkedPoll && (
@@ -705,6 +717,42 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
         {article.commentsEnabled !== false && (
           <div className="not-prose">
             <CommentSection articleId={articleId} onShowLogin={onShowLogin} />
+          </div>
+        )}
+
+        {/* Related Articles - same category, unread */}
+        {relatedArticles.length > 0 && onOpenArticle && (
+          <div className="mt-10 not-prose">
+            <h3 className="font-display text-xl text-gray-900 uppercase tracking-wider mb-4">
+              More in {CATEGORY_LABELS[article.category] || CATEGORY_LABELS[article.mainCategory || ''] || article.category || 'Articles'}
+            </h3>
+            <div className="space-y-3">
+              {relatedArticles.map((relatedArticle) => (
+                <button
+                  key={relatedArticle._id}
+                  onClick={() => onOpenArticle(relatedArticle._id)}
+                  className="w-full flex items-center gap-3 p-2 bg-cream border border-warm rounded-lg text-left shadow-md hover:shadow-lg hover:border-[#D4873A]/30 transition-all duration-200 group"
+                >
+                  {/* Thumbnail */}
+                  {relatedArticle.coverImage && (
+                    <div className="w-20 h-20 rounded-md overflow-hidden flex-shrink-0 border border-warm">
+                      <img 
+                        src={relatedArticle.coverImage} 
+                        alt={relatedArticle.title} 
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <CategoryBadge category={relatedArticle.category} size="sm" className="mb-1" />
+                    <h4 className="font-display text-lg text-gray-900 group-hover:text-[#D4873A] leading-tight line-clamp-2 transition-colors">
+                      {relatedArticle.title}
+                    </h4>
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>

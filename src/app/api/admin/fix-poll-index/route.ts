@@ -1,13 +1,30 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
-import mongoose from 'mongoose';
 import Poll from '@/models/Poll';
 import PollVote from '@/models/PollVote';
 import PollReward from '@/models/PollReward';
 
-// Reset all voting data
+// DANGEROUS: Reset all voting data - ONLY via POST with confirmation
+// GET is disabled to prevent accidental deletion
 export async function GET() {
+  return NextResponse.json({ 
+    success: false, 
+    error: 'This endpoint requires POST with confirm=RESET_ALL_VOTES parameter. This action is IRREVERSIBLE!' 
+  }, { status: 405 });
+}
+
+export async function POST(request: NextRequest) {
   try {
+    const body = await request.json();
+    
+    // Require explicit confirmation
+    if (body.confirm !== 'RESET_ALL_VOTES') {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Missing confirmation. Send { "confirm": "RESET_ALL_VOTES" } to proceed. WARNING: This deletes ALL votes permanently!' 
+      }, { status: 400 });
+    }
+    
     await dbConnect();
     
     // Delete all votes
