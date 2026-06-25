@@ -37,7 +37,7 @@ export async function POST(
     
     // Refund the wager to creator
     await User.findByIdAndUpdate(userId, {
-      $inc: { points: battle.wager }
+      $inc: { bogxCoins: battle.wager }
     });
     
     // Update battle status to cancelled

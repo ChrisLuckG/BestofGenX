@@ -3,6 +3,7 @@ import dbConnect from '@/lib/mongoose';
 import User from '@/models/User';
 
 // GET - Search users by username
+// Returns WALLET balance (bogxCoins) = the score, consistent everywhere
 export async function GET(request: NextRequest) {
   try {
     await dbConnect();
@@ -20,11 +21,17 @@ export async function GET(request: NextRequest) {
       username: { $regex: query, $options: 'i' },
       isBot: { $ne: true } // Exclude bots
     })
-      .select('_id username avatar points country countryFlag')
+      .select('_id username avatar country countryFlag bogxCoins')
       .limit(limit)
       .lean();
     
-    return NextResponse.json({ success: true, users });
+    // Return WALLET balance (bogxCoins) = the score
+    const usersWithCoins = users.map(u => ({
+      ...u,
+      points: Math.round((u.bogxCoins || 0) * 100) / 100
+    }));
+    
+    return NextResponse.json({ success: true, users: usersWithCoins });
     
   } catch (error: any) {
     console.error('User search error:', error);

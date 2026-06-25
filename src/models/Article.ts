@@ -6,11 +6,14 @@ export interface IArticle {
   subtitle?: string;
   content: string; // HTML content
   coverImage?: string;
+  thumbnailUrl?: string; // URL for thumbnail (same as coverImage for URLs)
+  thumbnailPosition?: { x: number; y: number };
+  coverPosition?: { x: number; y: number };
   imageScale?: number; // 50-100, percentage of image size
   imagePosition?: 'top' | 'center' | 'bottom' | 'left' | 'right'; // Where to focus the image
   imagePosX?: number; // 0-100, horizontal position
   imagePosY?: number; // 0-100, vertical position
-  contentType: 'article' | 'rankroll' | 'tv' | 'radio' | 'arcade' | 'shop'; // Type of content
+  contentType: 'article' | 'rankroll' | 'tv' | 'radio' | 'arcade' | 'shop' | 'music-community'; // Type of content
   linkedContentId?: string; // ID of linked Poll, TVVideo, RadioStation, etc.
   mainCategory: string; // Main category (articles, arcade, voting, shop)
   category: string;     // Sub category (music, culture, gaming, etc.)
@@ -62,6 +65,14 @@ const ArticleSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  thumbnailPosition: {
+    type: { x: Number, y: Number },
+    default: { x: 50, y: 50 },
+  },
+  coverPosition: {
+    type: { x: Number, y: Number },
+    default: { x: 50, y: 50 },
+  },
   galleryImages: {
     type: [String],
     default: [],
@@ -80,18 +91,14 @@ const ArticleSchema = new mongoose.Schema({
   imagePosX: {
     type: Number,
     default: 50,
-    min: 0,
-    max: 100,
   },
   imagePosY: {
     type: Number,
     default: 50,
-    min: 0,
-    max: 100,
   },
   contentType: {
     type: String,
-    enum: ['article', 'rankroll', 'tv', 'radio', 'arcade', 'shop'],
+    enum: ['article', 'rankroll', 'tv', 'radio', 'arcade', 'shop', 'music-community'],
     default: 'article',
   },
   linkedContentId: {
@@ -107,7 +114,7 @@ const ArticleSchema = new mongoose.Schema({
   category: {
     type: String,
     required: true,
-    enum: ['movies-tv', 'music', 'gaming', 'sports', 'tech', 'culture', 'news', 'lifestyle', 'genx-icons'],
+    enum: ['history', 'movies-tv', 'music', 'gaming', 'sports', 'tech', 'culture', 'news', 'lifestyle', 'genx-icons', 'rip'],
     default: 'culture',
   },
   tags: {
@@ -117,7 +124,8 @@ const ArticleSchema = new mongoose.Schema({
   author: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    required: false, // Optional for system-generated content
+    default: null,
   },
   authorName: {
     type: String,
@@ -206,4 +214,9 @@ ArticleSchema.index({ tags: 1 });
 ArticleSchema.pre('save', function() {
 });
 
-export default mongoose.models.Article || mongoose.model<IArticle>('Article', ArticleSchema);
+// Delete cached model to ensure schema changes take effect
+if (mongoose.models.Article) {
+  delete mongoose.models.Article;
+}
+
+export default mongoose.model<IArticle>('Article', ArticleSchema);

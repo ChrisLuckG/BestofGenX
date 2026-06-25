@@ -1222,7 +1222,10 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
                   </div>
                   <div className="flex justify-between items-center py-2">
                     <span className="text-white/60">Wager</span>
-                    <span className="text-[#D4873A] font-bold text-lg">P{selectedChallenge.wager}</span>
+                    <span className="text-[#D4873A] font-bold text-lg flex items-center gap-1">
+                      {Number(selectedChallenge.wager).toFixed(2)}
+                      <img src="/images/bogxcoin.png" alt="BOGX" className="w-4 h-4" />
+                    </span>
                   </div>
                 </div>
                 

@@ -3,7 +3,11 @@ import Stripe from 'stripe';
 import dbConnect from '@/lib/mongoose';
 import User from '@/models/User';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+// Debug: Log which key is being used
+const secretKey = process.env.STRIPE_SECRET_KEY!;
+console.log('🔑 STRIPE KEY TYPE:', secretKey?.startsWith('sk_test') ? 'TEST' : secretKey?.startsWith('sk_live') ? 'LIVE' : 'UNKNOWN');
+
+const stripe = new Stripe(secretKey);
 
 const PRINTFUL_API_TOKEN = process.env.PRINTFUL_API_TOKEN;
 const PRINTFUL_API_URL = 'https://api.printful.com';
@@ -31,17 +35,17 @@ export async function POST(request: Request) {
     if (paymentMethod === 'points' && userId && pointsToDeduct > 0) {
       await dbConnect();
       
-      // Check if user has enough points (atomic operation)
+      // Check if user has enough BOGX (atomic operation)
       const user = await User.findOneAndUpdate(
-        { _id: userId, points: { $gte: pointsToDeduct } },
-        { $inc: { points: -pointsToDeduct } },
+        { _id: userId, bogxCoins: { $gte: pointsToDeduct } },
+        { $inc: { bogxCoins: -pointsToDeduct } },
         { new: true }
       );
       
       if (!user) {
         return NextResponse.json({ 
           success: false, 
-          error: 'Not enough points' 
+          error: 'Not enough BOGX' 
         }, { status: 400 });
       }
       
@@ -56,9 +60,9 @@ export async function POST(request: Request) {
       
       return NextResponse.json({ 
         success: true, 
-        message: 'Order placed with points',
+        message: 'Order placed with coins',
         pointsDeducted: pointsToDeduct,
-        newBalance: user.points
+        newBalance: user.bogxCoins
       });
     }
 
@@ -101,15 +105,14 @@ export async function POST(request: Request) {
           quantity: item.quantity,
         });
 
-        // Store enriched cart item for webhook
+        // Store enriched cart item for webhook (no image URL - keeps metadata under 500 chars)
         enrichedCartItems.push({
           productId: item.productId,
-          productName: fullProduct.sync_product?.name || 'Product',
+          productName: (fullProduct.sync_product?.name || 'Product').slice(0, 40),
           variantId: item.variantId,
-          variantTitle: variant.name || 'Standard',
+          variantTitle: (variant.name || 'Standard').slice(0, 20),
           quantity: item.quantity,
           price: price,
-          image: image,
         });
       }
 

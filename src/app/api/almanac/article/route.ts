@@ -16,12 +16,19 @@ export async function POST(request: NextRequest) {
     }
 
     const openai = new OpenAI({ apiKey });
-    const { person, options } = await request.json();
+    const { person, options, isItem, itemCategory } = await request.json();
 
-    console.log(`[Almanac] Generating article for ${person.firstname} ${person.lastname}...`);
+    const subjectName = `${person.firstname}${person.lastname ? ' ' + person.lastname : ''}`;
+    console.log(`[Almanac] Generating article for ${subjectName} (${isItem ? itemCategory : 'person'})...`);
 
     // Minimal user message - all instructions are in system-prompt.txt
-    const userMessage = `Write an article about ${person.firstname} ${person.lastname}.
+    const userMessage = isItem
+      ? `Write an article about "${subjectName}" (${itemCategory}).
+Details: ${person.knownfor || 'a GenX cultural icon'}.
+Options: language=${options.language}, length=${options.length}, tone=${options.tone}
+${options.topic ? `Focus: ${options.topic}` : ''}
+${options.extra ? `Extra: ${options.extra}` : ''}`
+      : `Write an article about ${subjectName}.
 Person: ${person.profession}, born ${person.born || 'unknown'}, ${person.countryBorn || ''}, known for: ${person.knownfor || 'various works'}.
 ${person.died ? `Died: ${person.died}` : 'Still alive.'}
 Options: language=${options.language}, length=${options.length}, tone=${options.tone}, timeframe=${options.timeframe || 'alltime'}
@@ -62,6 +69,10 @@ ${options.extra ? `Extra: ${options.extra}` : ''}`;
         'icons': 'genx-icons',
         'people': 'genx-icons',
         'person': 'genx-icons',
+        'rip': 'rip',
+        'obituary': 'rip',
+        'memorial': 'rip',
+        'tribute': 'rip',
       };
       const mappedCategory = CATEGORY_MAP[data.category?.toLowerCase()] || 'genx-icons';
       

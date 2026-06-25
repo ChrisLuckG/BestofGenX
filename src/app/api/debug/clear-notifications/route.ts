@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     for (const battle of openChallenges) {
       // Refund creator
       await User.findByIdAndUpdate(battle.creator, {
-        $inc: { points: battle.wager }
+        $inc: { bogxCoins: battle.wager }
       });
       // Cancel battle
       battle.status = 'cancelled';

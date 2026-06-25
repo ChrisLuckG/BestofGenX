@@ -5,7 +5,7 @@ import Card from "@/models/Card";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { findDuplicateQuestion, generateQuestionHash, buildAvoidList, recordUsedTopic } from "@/lib/questionService";
-import { put } from "@vercel/blob";
+import { v2 as cloudinary } from 'cloudinary';
 import sharp from "sharp";
 
 // Load the system prompt from the text file - NO FALLBACK
@@ -13,6 +13,13 @@ const systemPromptPath = join(process.cwd(), "src/prompts/system-prompt.txt");
 const baseSystemPrompt = readFileSync(systemPromptPath, "utf-8");
 
 export async function POST(request: NextRequest) {
+  // Configure Cloudinary
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
+
   try {
     await dbConnect();
     
@@ -154,12 +161,24 @@ WICHTIG: Gib NUR EINE Frage zurück im JSON-Format:
             .webp({ quality: 80 })
             .toBuffer();
           
-          const filename = `quiz-${Date.now()}.webp`;
-          const blob = await put(`images/${filename}`, compressedBuffer, {
-            access: 'public',
-            contentType: 'image/webp',
+          const filename = `quiz-${Date.now()}`;
+          
+          // Upload to Cloudinary
+          const uploadResult = await new Promise<any>((resolve, reject) => {
+            const uploadStream = cloudinary.uploader.upload_stream(
+              {
+                public_id: `images/${filename}`,
+                resource_type: 'image',
+                folder: 'bestofgenx',
+              },
+              (error, result) => {
+                if (error) reject(error);
+                else resolve(result);
+              }
+            );
+            uploadStream.end(compressedBuffer);
           });
-          imageUrl = blob.url;
+          imageUrl = uploadResult.secure_url;
           console.log(`DALL-E image compressed: ${originalBuffer.length} -> ${compressedBuffer.length} bytes`);
         }
       } catch (dalleError) {

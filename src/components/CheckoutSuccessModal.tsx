@@ -32,13 +32,22 @@ export default function CheckoutSuccessModal({ isOpen, onClose, sessionId }: Che
 
   // Verify payment status with Stripe first
   useEffect(() => {
-    if (isOpen && sessionId) {
-      setLoading(true);
-      setPaymentVerified(null);
-      setVerificationError(null);
+    if (!isOpen || !sessionId) return;
+    
+    // Prevent re-running if already verified or errored
+    if (paymentVerified !== null) return;
+    
+    setLoading(true);
 
-      // First verify the session with Stripe
-      fetch(`/api/shop/verify-session?session_id=${sessionId}`)
+    // Timeout after 5 seconds
+    const timeout = setTimeout(() => {
+      setLoading(false);
+      setPaymentVerified(false);
+      setVerificationError('Verification timed out. Please check your email for order confirmation.');
+    }, 5000);
+
+    // First verify the session with Stripe
+    fetch(`/api/shop/verify-session?session_id=${sessionId}`)
         .then(res => res.json())
         .then(data => {
           if (data.success && data.isPaid) {
@@ -65,9 +74,13 @@ export default function CheckoutSuccessModal({ isOpen, onClose, sessionId }: Che
           setPaymentVerified(false);
           setVerificationError('Could not verify payment. Please check your email or contact support.');
         })
-        .finally(() => setLoading(false));
-    }
-  }, [isOpen, sessionId, clearCart]);
+        .finally(() => {
+          clearTimeout(timeout);
+          setLoading(false);
+        });
+
+      return () => clearTimeout(timeout);
+  }, [isOpen, sessionId, clearCart, paymentVerified]);
 
   if (!isOpen) return null;
 

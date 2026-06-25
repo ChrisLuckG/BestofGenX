@@ -53,7 +53,7 @@ export default function CoinAnimation({ amount, variant, onComplete, isDesktop =
             animation: 'goldGlow 1s ease-out forwards',
           }}
         />
-        {/* Gold coins gently parking */}
+        {/* BOGX coins gently parking */}
         {coins.map((coin) => (
           <div
             key={coin.id}
@@ -64,15 +64,14 @@ export default function CoinAnimation({ amount, variant, onComplete, isDesktop =
               marginLeft: `${coin.x}px`,
             }}
           >
-            <div
-              className="w-6 h-6 rounded-full flex items-center justify-center shadow-lg border-2 border-[#E8B96B]"
-              style={{
-                background: 'linear-gradient(145deg, #F5C46B 0%, #D4873A 100%)',
-                boxShadow: '0 0 16px rgba(212,135,58,0.6)',
+            <img 
+              src="/images/bogxcoin.png" 
+              alt="" 
+              className="w-8 h-8"
+              style={{ 
+                filter: 'drop-shadow(0 0 8px rgba(212,135,58,0.6))',
               }}
-            >
-              <span className="text-white text-xs font-bold">{getCurrencySymbol()}</span>
-            </div>
+            />
           </div>
         ))}
         {/* "On hold" label */}
@@ -128,7 +127,8 @@ export default function CoinAnimation({ amount, variant, onComplete, isDesktop =
               alt="" 
               className={coinSize}
               style={{ 
-                filter: 'drop-shadow(0 0 15px rgba(255,0,0,0.9)) drop-shadow(0 0 8px rgba(255,50,50,0.8)) saturate(0.8) brightness(0.9)',
+                filter: 'drop-shadow(0 0 10px rgba(255,0,0,0.7))',
+                opacity: 0.8,
               }}
             />
           </div>
@@ -182,7 +182,7 @@ export default function CoinAnimation({ amount, variant, onComplete, isDesktop =
               alt="" 
               className="w-14 h-14"
               style={{ 
-                filter: 'drop-shadow(0 0 10px rgba(201,162,39,0.8)) drop-shadow(0 0 5px rgba(180,150,50,0.6)) brightness(1.05) saturate(0.9)',
+                filter: 'drop-shadow(0 0 8px rgba(212,135,58,0.6))',
               }}
             />
           </div>
@@ -234,7 +234,7 @@ export default function CoinAnimation({ amount, variant, onComplete, isDesktop =
             alt="" 
             className="w-10 h-10"
             style={{ 
-              filter: 'drop-shadow(0 0 8px rgba(201,162,39,0.8)) drop-shadow(0 0 4px rgba(180,150,50,0.6)) brightness(1.05) saturate(0.9)',
+              filter: 'drop-shadow(0 0 6px rgba(212,135,58,0.6))',
             }}
           />
         </div>

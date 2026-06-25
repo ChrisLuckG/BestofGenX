@@ -30,6 +30,15 @@ type CategoryId = typeof CATEGORIES[number]['id'];
 // Profession options for people
 const PROFESSIONS = ['Music', 'Actor', 'Sport', 'Politik', 'Art', 'Tech', 'Comedy', 'Model', 'Other'];
 
+// Country options for filtering
+const COUNTRIES = [
+  'USA', 'UK', 'Germany', 'France', 'Canada', 'Australia', 'Japan', 'Italy', 
+  'Spain', 'Brazil', 'Mexico', 'Sweden', 'Netherlands', 'Belgium', 'Austria',
+  'Switzerland', 'Ireland', 'South Korea', 'India', 'Russia', 'Poland', 
+  'Denmark', 'Norway', 'Finland', 'New Zealand', 'South Africa', 'Argentina',
+  'Israel', 'Jamaica', 'Nigeria', 'China', 'Other'
+];
+
 // Profession badge colors
 const PROF_COLORS: Record<string, string> = {
   Music: 'bg-yellow-200 text-yellow-800',
@@ -198,6 +207,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
   // Data
   const [people, setPeople] = useState<Person[]>([]);
   const [items, setItems] = useState<AlmanacItem[]>([]);
+  const [personArticles, setPersonArticles] = useState<Record<string, { title: string; createdAt: string }>>({});
   
   // Form state
   const [showAddForm, setShowAddForm] = useState(false);
@@ -205,6 +215,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [generateProgress, setGenerateProgress] = useState<string[]>([]);
+  const [generateAmount, setGenerateAmount] = useState(10);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   
   // Modals
@@ -212,6 +223,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
   const [articleModal, setArticleModal] = useState<Person | null>(null);
   const [articleGenerating, setArticleGenerating] = useState(false);
   const [articleSaving, setArticleSaving] = useState(false);
+  const [articleIsItem, setArticleIsItem] = useState(false);
   const [articleData, setArticleData] = useState({
     title: '',
     subtitle: '',
@@ -219,6 +231,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
     tags: [] as string[],
     category: 'culture',
     coverImage: '',
+    thumbnailUrl: '',
   });
   const [articleOptions, setArticleOptions] = useState({
     topic: '',
@@ -241,6 +254,9 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
         params.set('filter', 'profession');
         params.set('filterValue', professionFilter);
       }
+      if (activeCategory === 'people' && countryFilter) {
+        params.set('countryBorn', countryFilter);
+      }
       
       const res = await fetch(`/api/almanac?${params}`);
       const data = await res.json();
@@ -261,7 +277,24 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
 
   useEffect(() => {
     fetchData();
-  }, [activeCategory, professionFilter]);
+  }, [activeCategory, professionFilter, countryFilter]);
+
+  // Fetch article refs for people
+  useEffect(() => {
+    if (activeCategory !== 'people') return;
+    fetch('/api/articles?personRefs=true')
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          const map: Record<string, { title: string; createdAt: string }> = {};
+          data.data.forEach((a: any) => {
+            if (a.personRef) map[a.personRef.toString()] = { title: a.title, createdAt: a.createdAt };
+          });
+          setPersonArticles(map);
+        }
+      })
+      .catch(() => {});
+  }, [activeCategory]);
 
   // Debounced search
   useEffect(() => {
@@ -353,6 +386,13 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
 
   // Add new item
   const handleAdd = async () => {
+    if (activeCategory === 'people' && formData.born) {
+      const year = parseInt(formData.born.substring(0, 4));
+      if (year < 1960 || year > 1981) {
+        alert(`⚠️ This is a GenX page! Birthday must be between 1960 and 1981. Got: ${year}`);
+        return;
+      }
+    }
     setSaving(true);
     try {
       const res = await fetch('/api/almanac', {
@@ -366,7 +406,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
         setFormData({});
         fetchData();
       } else {
-        alert('Fehler: ' + data.error);
+        alert('Error: ' + data.error);
       }
     } catch (e) {
       console.error('Add error:', e);
@@ -377,7 +417,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
 
   // Delete item
   const handleDelete = async (id: string) => {
-    if (!confirm('Eintrag wirklich löschen?')) return;
+    if (!confirm('Really delete this entry?')) return;
     try {
       await fetch(`/api/almanac?type=${activeCategory}&id=${id}`, { method: 'DELETE' });
       fetchData();
@@ -413,7 +453,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
   // Delete selected
   const handleDeleteSelected = async () => {
     if (selectedIds.size === 0) return;
-    if (!confirm(`${selectedIds.size} Einträge wirklich löschen?`)) return;
+    if (!confirm(`Really delete ${selectedIds.size} entries?`)) return;
     
     try {
       const idsArray = Array.from(selectedIds);
@@ -435,12 +475,16 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
   };
 
   // Save image (called from ImagePickerModal)
-  const saveImage = async (imageUrl: string) => {
+  const saveImage = async (imageUrl: string, _position?: { x: number; y: number }, thumbnailUrl?: string) => {
     if (!imageModal) return;
     
     // Special case: article cover image
     if (imageModal.id === 'article-cover') {
-      setArticleData(prev => ({ ...prev, coverImage: imageUrl }));
+      setArticleData(prev => ({ 
+        ...prev, 
+        coverImage: imageUrl,
+        thumbnailUrl: thumbnailUrl || imageUrl // Use thumbnail if provided, else use cover
+      }));
       setImageModal(null);
       return;
     }
@@ -462,8 +506,9 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
     }
   };
 
-  // Open article modal
+  // Open article modal (person)
   const openArticleModal = (person: Person) => {
+    setArticleIsItem(false);
     setArticleModal(person);
     setArticleData({
       title: '',
@@ -472,6 +517,41 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
       tags: [person.profession, 'Gen X', person.countryBorn || ''].filter(Boolean),
       category: 'culture',
       coverImage: person.image || '',
+      thumbnailUrl: person.image || '',
+    });
+    setArticleOptions({
+      topic: '',
+      language: 'English',
+      length: 'medium (~300 words)',
+      tone: 'informative',
+      timeframe: 'alltime',
+      extra: '',
+    });
+  };
+
+  // Open article modal (almanac item: band, game, movie etc.)
+  const openItemArticleModal = (item: AlmanacItem) => {
+    const name = item.data?.title || item.data?.name || item.data?.term || item.data?.model || 'Item';
+    const catLabel = CATEGORIES.find(c => c.id === item.category)?.label || item.category;
+    const details = Object.entries(item.data || {}).filter(([k]) => k !== 'notes').map(([_, v]) => String(v)).filter(Boolean).join(', ');
+    const fakePerson: Person = {
+      _id: item._id,
+      firstname: name,
+      lastname: '',
+      profession: catLabel,
+      knownfor: details,
+      image: item.image,
+    };
+    setArticleIsItem(true);
+    setArticleModal(fakePerson);
+    setArticleData({
+      title: '',
+      subtitle: '',
+      content: '',
+      tags: [catLabel, 'Gen X'].filter(Boolean),
+      category: 'culture',
+      coverImage: item.image || '',
+      thumbnailUrl: item.image || '',
     });
     setArticleOptions({
       topic: '',
@@ -495,6 +575,8 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
         body: JSON.stringify({
           person: articleModal,
           options: articleOptions,
+          isItem: articleIsItem,
+          itemCategory: articleIsItem ? activeCategory : undefined,
         }),
       });
       const data = await res.json();
@@ -533,9 +615,10 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
           subtitle: articleData.subtitle,
           content: articleData.content,
           coverImage: articleData.coverImage,
+          thumbnailUrl: articleData.thumbnailUrl || articleData.coverImage, // Use separate thumbnail if set
           tags: articleData.tags,
           category: articleData.category,
-          status: 'draft',
+          status: 'published', // Directly published!
           contentType: 'article',
           personRef: articleModal._id,
           autoGenerated: true,
@@ -543,7 +626,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
       });
       const data = await res.json();
       if (data.success) {
-        alert('✅ Artikel gespeichert! Du findest ihn im Articles-Tab.');
+        alert('✅ Article saved! You can find it in the Articles tab.');
         setArticleModal(null);
       } else {
         alert('Error: ' + data.error);
@@ -616,9 +699,16 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
   // AI Generate 10 entries with live progress
   const handleGenerate = async (categoryToGenerate: string, skipDuplicateCheck = false) => {
     const cat = CATEGORIES.find(c => c.id === categoryToGenerate);
+    
+    // Build filter description for confirmation
+    const filters = [];
+    if (categoryToGenerate === 'people' && professionFilter) filters.push(professionFilter);
+    if (categoryToGenerate === 'people' && countryFilter) filters.push(countryFilter);
+    const filterText = filters.length > 0 ? ` (${filters.join(', ')})` : '';
+    
     const msg = skipDuplicateCheck 
-      ? `10 neue ${cat?.label || categoryToGenerate} Einträge generieren (OHNE Duplikat-Prüfung)?`
-      : `10 neue ${cat?.label || categoryToGenerate} Einträge mit AI generieren?`;
+      ? `Generate ${generateAmount} new ${cat?.label || categoryToGenerate}${filterText} entries (WITHOUT duplicate check)?`
+      : `Generate ${generateAmount} new ${cat?.label || categoryToGenerate}${filterText} entries with AI?`;
     if (!confirm(msg)) return;
     
     setGenerating(true);
@@ -628,7 +718,14 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
       const res = await fetch('/api/almanac/generate-stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category: categoryToGenerate, skipDuplicateCheck }),
+        body: JSON.stringify({ 
+          category: categoryToGenerate, 
+          skipDuplicateCheck,
+          targetCount: generateAmount,
+          profession: categoryToGenerate === 'people' ? professionFilter : undefined,
+          country: categoryToGenerate === 'people' ? countryFilter : undefined,
+          alive: categoryToGenerate === 'people' ? aliveFilter : undefined,
+        }),
       });
 
       const reader = res.body?.getReader();
@@ -652,22 +749,22 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
             if (data.type === 'status') {
               setGenerateProgress(prev => [...prev, data.message]);
             } else if (data.type === 'progress') {
-              const stepText = data.step === 'check' ? '🔍 Prüfe' 
-                : data.step === 'image' ? '📷 Suche Bild' 
-                : '💾 Speichere';
+              const stepText = data.step === 'check' ? '🔍 Checking' 
+                : data.step === 'image' ? '📷 Finding image' 
+                : '💾 Saving';
               setGenerateProgress(prev => {
                 const filtered = prev.filter(p => !p.includes(`[${data.current}/`));
                 return [...filtered, `[${data.current}/${data.total}] ${stepText}: ${data.name}`];
               });
             } else if (data.type === 'saved') {
-              setGenerateProgress(prev => [...prev.slice(-5), `✅ ${data.name} gespeichert${data.image ? ' (mit Bild)' : ''}`]);
+              setGenerateProgress(prev => [...prev.slice(-5), `✅ ${data.name} saved${data.image ? ' (with image)' : ''}`]);
             } else if (data.type === 'skip') {
-              setGenerateProgress(prev => [...prev.slice(-5), `⏭️ ${data.name} übersprungen (${data.reason})`]);
+              setGenerateProgress(prev => [...prev.slice(-5), `⏭️ ${data.name} skipped (${data.reason})`]);
             } else if (data.type === 'done') {
-              setGenerateProgress(prev => [...prev, `\n🎉 Fertig! ${data.saved} gespeichert, ${data.skipped} übersprungen`]);
+              setGenerateProgress(prev => [...prev, `\n🎉 Done! ${data.saved} saved, ${data.skipped} skipped`]);
               fetchData();
             } else if (data.type === 'error') {
-              setGenerateProgress(prev => [...prev, `❌ Fehler: ${data.message}`]);
+              setGenerateProgress(prev => [...prev, `❌ Error: ${data.message}`]);
             }
           } catch (e) {
             // Ignore parse errors
@@ -676,7 +773,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
       }
     } catch (e) {
       console.error('Generate error:', e);
-      setGenerateProgress(prev => [...prev, '❌ Fehler beim Generieren']);
+      setGenerateProgress(prev => [...prev, '❌ Generation failed']);
     } finally {
       setGenerating(false);
     }
@@ -717,7 +814,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
             <span className="text-lg">{currentCat?.emoji}</span>
             <h2 className="text-sm font-bold text-white">{currentCat?.label}</h2>
             <span className="text-xs text-gray-400">
-              {activeCategory === 'people' ? people.length : items.length} Einträge
+              {activeCategory === 'people' ? people.length : items.length} entries
             </span>
           </div>
           
@@ -729,7 +826,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                 type="text"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Suchen..."
+                placeholder="Search..."
                 className="pl-7 pr-2 py-1 w-40 bg-gray-700 border border-gray-600 rounded text-xs text-white placeholder-gray-500"
               />
             </div>
@@ -756,13 +853,16 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                   <option value="alive">Lebend</option>
                   <option value="deceased">Verstorben</option>
                 </select>
-                <input
-                  type="text"
+                <select
                   value={countryFilter}
                   onChange={e => setCountryFilter(e.target.value)}
-                  placeholder="Land..."
-                  className="px-2 py-1 w-20 bg-gray-700 border border-gray-600 rounded text-xs text-white placeholder-gray-500"
-                />
+                  className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white"
+                >
+                  <option value="">Alle Länder</option>
+                  {COUNTRIES.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
               </>
             )}
             
@@ -777,24 +877,32 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
             
             {/* AI Generate buttons */}
             <div className="flex items-center relative">
+              <select
+                value={generateAmount}
+                onChange={e => setGenerateAmount(Number(e.target.value))}
+                disabled={generating}
+                className="px-2 py-1 bg-gray-700 border border-gray-600 rounded-l text-xs text-white disabled:opacity-50"
+              >
+                {[10, 20, 30, 40, 50].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
               <button
                 onClick={() => handleGenerate(activeCategory)}
                 disabled={generating}
-                className="flex items-center gap-1 px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-l disabled:opacity-50"
-                title="Generiert 10 neue Einträge (überspringt Duplikate)"
+                className="flex items-center gap-1 px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold disabled:opacity-50"
+                title="Generate new entries (skips duplicates)"
               >
                 {generating ? (
                   <Loader2 className="w-3 h-3 animate-spin" />
                 ) : (
                   <span>🤖</span>
                 )}
-                {generating ? 'Generiere...' : 'AI +10'}
+                {generating ? 'Generating...' : `AI +${generateAmount}`}
               </button>
               <button
                 onClick={() => handleGenerate(activeCategory, true)}
                 disabled={generating}
                 className="px-1.5 py-1 bg-purple-700 hover:bg-purple-800 text-white text-xs rounded-r border-l border-purple-500 disabled:opacity-50"
-                title="Force: Ignoriert Duplikat-Prüfung"
+                title="Force: Ignores duplicate check"
               >
                 ⚡
               </button>
@@ -836,6 +944,32 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
           </div>
         </div>
 
+        {/* Country stats bar - People only */}
+        {activeCategory === 'people' && people.length > 0 && (() => {
+          const counts: Record<string, number> = {};
+          people.forEach(p => { const c = p.countryBorn || 'Unknown'; counts[c] = (counts[c] || 0) + 1; });
+          const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+          return (
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-800/60 border-b border-gray-700 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+              <span className="text-[9px] text-gray-500 whitespace-nowrap flex-shrink-0">🌍</span>
+              {sorted.map(([country, count]) => (
+                <button
+                  key={country}
+                  onClick={() => setCountryFilter(countryFilter === country ? '' : country)}
+                  className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] whitespace-nowrap flex-shrink-0 transition-colors ${
+                    countryFilter === country
+                      ? 'bg-[#D4873A] text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  <span>{country}</span>
+                  <span className={`font-bold ${countryFilter === country ? 'text-white' : 'text-[#D4873A]'}`}>{count}</span>
+                </button>
+              ))}
+            </div>
+          );
+        })()}
+
         {/* Add form */}
         {showAddForm && (
           <div className="px-4 py-3 bg-gray-750 border-b border-gray-700">
@@ -845,7 +979,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
               <div className="grid grid-cols-7 gap-2">
                 <input placeholder="Vorname *" value={formData.firstname || ''} onChange={e => setFormData({...formData, firstname: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white" />
                 <input placeholder="Nachname *" value={formData.lastname || ''} onChange={e => setFormData({...formData, lastname: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white" />
-                                <input type="date" placeholder="Geburtstag" value={formData.born || ''} onChange={e => setFormData({...formData, born: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white" />
+                                <input type="date" placeholder="Geburtstag" min="1960-01-01" max="1981-12-31" value={formData.born || ''} onChange={e => setFormData({...formData, born: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white" />
                 <input type="date" placeholder="Todestag" value={formData.died || ''} onChange={e => setFormData({...formData, died: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white" />
                 <input placeholder="Todesursache" value={formData.causeOfDeath || ''} onChange={e => setFormData({...formData, causeOfDeath: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white" />
                 <select value={formData.profession || ''} onChange={e => setFormData({...formData, profession: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white">
@@ -914,7 +1048,8 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                   <th className="px-2 py-2 text-left text-gray-300">Todestag</th>
                   <th className="px-2 py-2 text-left text-gray-300">Todesursache</th>
                   <th className="px-2 py-2 text-left text-gray-300">Todesland</th>
-                  <th className="px-2 py-2 text-left text-gray-300 w-20">Aktionen</th>
+                  <th className="px-2 py-2 text-left text-gray-300">Article</th>
+                  <th className="px-2 py-2 text-left text-gray-300 w-20">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -957,6 +1092,16 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                                         <td className="px-2 py-1 text-gray-400">{p.died ? fmtDate(p.died) : '—'}</td>
                     <td className="px-2 py-1 text-gray-400">{p.causeOfDeath || '—'}</td>
                     <td className="px-2 py-1 text-gray-400">{p.countryDied || '—'}</td>
+                    <td className="px-2 py-1">
+                      {personArticles[p._id] ? (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-green-400 text-[10px] font-bold">✅ Yes</span>
+                          <span className="text-gray-500 text-[9px]">{new Date(personArticles[p._id].createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-600 text-[10px]">—</span>
+                      )}
+                    </td>
                     <td className="px-2 py-1">
                       <div className="flex gap-1">
                         <button onClick={() => openArticleModal(p)} className="p-1 bg-purple-600 hover:bg-purple-700 rounded" title="Artikel generieren">
@@ -1022,9 +1167,17 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                       </td>
                     ))}
                     <td className="px-2 py-1">
-                      <button onClick={() => handleDelete(item._id)} className="p-1 bg-red-600 hover:bg-red-700 rounded">
-                        <Trash2 className="w-3 h-3 text-white" />
-                      </button>
+                      <div className="flex gap-1">
+                        <button onClick={() => openItemArticleModal(item)} className="p-1 bg-purple-600 hover:bg-purple-700 rounded" title="Artikel generieren">
+                          <FileText className="w-3 h-3 text-white" />
+                        </button>
+                        <button onClick={() => openImageModal(item._id, 'items', item.image, item.data?.title || item.data?.name || '')} className="p-1 bg-orange-600 hover:bg-orange-700 rounded" title="Bild">
+                          <Image className="w-3 h-3 text-white" />
+                        </button>
+                        <button onClick={() => handleDelete(item._id)} className="p-1 bg-red-600 hover:bg-red-700 rounded">
+                          <Trash2 className="w-3 h-3 text-white" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1051,7 +1204,9 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
         onClose={() => setImageModal(null)}
         onSelect={saveImage}
         currentImage={imageModal?.currentUrl}
+        currentThumbnail={imageModal?.id === 'article-cover' ? articleData.thumbnailUrl : undefined}
         searchTerm={imageModal?.searchTerm}
+        showThumbnail={imageModal?.id === 'article-cover'} // Show thumbnail option for article covers
       />
 
       {/* ARTICLE MODAL - Full Article Builder */}
@@ -1211,6 +1366,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                     <option value="sports">Sports</option>
                     <option value="lifestyle">Lifestyle</option>
                     <option value="news">News</option>
+                    <option value="rip">RIP</option>
                   </select>
                 </div>
               </div>

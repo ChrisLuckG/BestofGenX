@@ -7,6 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "deploy:cleanup": "node scripts/cleanup-deployments.js",
     "lint": "next lint"
   },
   "dependencies": {
@@ -16,8 +17,8 @@
     "@stripe/stripe-js": "^9.5.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/web-push": "^3.6.4",
-    "@vercel/blob": "^2.4.0",
     "bcryptjs": "^3.0.3",
+    "cloudinary": "^2.10.0",
     "clsx": "^2.0.0",
     "dotenv": "^17.4.2",
     "framer-motion": "^10.16.16",

@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { 
   Plus, ChevronLeft, ChevronRight, Swords, Check, X, Clock, HelpCircle, Trophy, Coins, Users,
-  Dumbbell, Music, Film, Landmark, Shirt, Gamepad2, Tv, Palette, UtensilsCrossed, Play, Lock
+  Dumbbell, Music, Film, Landmark, Shirt, Gamepad2, Tv, Palette, UtensilsCrossed, Play, Lock, LayoutGrid,
+  Target, Zap, RefreshCcw, Shield
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -16,6 +17,7 @@ import { useAlert } from "@/hooks/useAlert";
 import InviteFlowModal from "@/components/battles/InviteFlowModal";
 import { formatCurrency, getCurrencySymbol } from "@/utils/currency";
 import { sounds } from "@/utils/sounds";
+import { compareBattleResults } from "@/utils/battleWinner";
 
 // Types
 interface BattleUser {
@@ -75,9 +77,9 @@ const TOPICS: { id: string; label: string; icon: LucideIcon; color: string }[] =
 const WAGERS = [
   { amount: 0.10, rounds: 3 },
   { amount: 0.25, rounds: 3 },
-  { amount: 0.50, rounds: 3 },
+  { amount: 0.50, rounds: 5 },
+  { amount: 0.75, rounds: 5 },
   { amount: 1.00, rounds: 5 },
-  { amount: 1.50, rounds: 5 },
 ];
 
 const GAME_TYPES = [
@@ -149,10 +151,12 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   const [screen, setScreen] = useState<GameScreen>('setup');
   const [selectedGameType, setSelectedGameType] = useState('quiz');
   const [topicFilter, setTopicFilter] = useState('all');
+  const [wagerFilter, setWagerFilter] = useState<number | 'all'>('all');
+  const topicScrollRef = useRef<HTMLDivElement>(null);
   
   // Create panel
   const [showCreate, setShowCreate] = useState(false);
-  const [createWager, setCreateWager] = useState(0.25);
+  const [createWager, setCreateWager] = useState(0.10);
   const [createTopic, setCreateTopic] = useState('sport');
   
   // Challenge modal
@@ -188,6 +192,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
   const myResultsRef = useRef<RoundResult[]>([]);
+  const opponentResultsRef = useRef<RoundResult[]>([]);
   const currentBattleRef = useRef<Battle | null>(null);
   const currentRoundRef = useRef<number>(0);
   
@@ -195,6 +200,10 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   useEffect(() => {
     myResultsRef.current = myResults;
   }, [myResults]);
+  
+  useEffect(() => {
+    opponentResultsRef.current = opponentResults;
+  }, [opponentResults]);
   
   useEffect(() => {
     currentBattleRef.current = currentBattle;
@@ -351,7 +360,6 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
       });
       const data = await res.json();
       if (data.success) {
-        console.log('Battles loaded:', data.battles.map((b: any) => ({ id: b._id, isPrivate: b.isPrivate, topic: b.topic })));
         setBattles(data.battles);
       }
     } catch (error) {
@@ -365,6 +373,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   const filteredBattles = battles.filter(b => {
     if (b.status !== 'open') return false;
     if (topicFilter !== 'all' && b.topic !== topicFilter) return false;
+    if (wagerFilter !== 'all' && b.wager !== wagerFilter) return false;
     return true;
   });
 
@@ -381,18 +390,18 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
       const syncRes = await fetch(`/api/user/points?userId=${user.id}`);
       const syncData = await syncRes.json();
       if (syncData.success) {
-        const dbPoints = syncData.points;
-        if (dbPoints < createWager) {
+        const dbCoins = syncData.bogxCoins;
+        if (dbCoins < createWager) {
           setIsGenerating(false);
-          setCoins(() => dbPoints); // Sync local coins with DB
-          showAlert('coins', `Not enough coins. You have ${dbPoints} coins.`);
+          setCoins(() => dbCoins); // Sync local coins with DB
+          showAlert('coins', `Not enough coins. You have ${dbCoins.toFixed(2)} BOGX.`);
           return;
         }
         // Update local coins to match DB
-        setCoins(() => dbPoints);
+        setCoins(() => dbCoins);
       }
       
-      const rounds = createWager >= 1 ? 5 : 3;
+      const rounds = createWager >= 0.15 ? 5 : 3;
       const res = await fetch('/api/battles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -413,6 +422,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         setShowCreate(false);
         // Wager already deducted on server - parked on hold (not lost)
         onCoinAnimation?.(-createWager, 'hold');
+        // Sync coins + pending wager indicator instantly (mobile & desktop)
+        window.dispatchEvent(new CustomEvent('bogx-updated'));
         
         // Helper to start the game
         const startGame = () => {
@@ -493,18 +504,18 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
       const syncRes = await fetch(`/api/user/points?userId=${user?.id}`);
       const syncData = await syncRes.json();
       if (syncData.success) {
-        const dbPoints = syncData.points;
-        if (dbPoints < createWager) {
+        const dbCoins = syncData.bogxCoins;
+        if (dbCoins < createWager) {
           setIsGenerating(false);
-          setCoins(() => dbPoints); // Sync local coins with DB
-          showAlert('coins', `Not enough coins. You have ${dbPoints} coins.`);
+          setCoins(() => dbCoins); // Sync local coins with DB
+          showAlert('coins', `Not enough coins. You have ${dbCoins.toFixed(2)} BOGX.`);
           return;
         }
         // Update local coins to match DB
-        setCoins(() => dbPoints);
+        setCoins(() => dbCoins);
       }
       
-      const rounds = createWager >= 1 ? 5 : 3;
+      const rounds = createWager >= 0.15 ? 5 : 3;
       const res = await fetch('/api/battles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -526,24 +537,23 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         setShowCreate(false);
         // Wager already deducted on server - parked on hold (not lost)
         onCoinAnimation?.(-createWager, 'hold');
+        // Sync coins + pending wager indicator instantly (mobile & desktop)
+        window.dispatchEvent(new CustomEvent('bogx-updated'));
         
-        // Show ready screen after alert
-        showAlert('success', `Challenge sent to ${targetUser.username}! They will receive a notification.`, {
-          buttonText: 'START PLAYING',
-          onButtonClick: () => {
-            // Now start the game
-            setCurrentBattle(data.battle);
-            setIsCreator(true);
-            setMyResults([]);
-            setOpponentResults([]);
-            setMyTotalPoints(0);
-            setOpponentTotalPoints(0);
-            setCurrentRound(0);
-            setScreen('countdown');
-            setCountdown(3);
-            runCountdown();
-          }
-        });
+        // Start the game IMMEDIATELY - no optional button
+        setCurrentBattle(data.battle);
+        setIsCreator(true);
+        setMyResults([]);
+        setOpponentResults([]);
+        setMyTotalPoints(0);
+        setOpponentTotalPoints(0);
+        setCurrentRound(0);
+        setScreen('countdown');
+        setCountdown(3);
+        runCountdown();
+        
+        // Show info that challenge was sent (non-blocking)
+        showAlert('success', `Challenge sent to ${targetUser.username}! Play your rounds now.`);
       } else {
         showAlert('error', data.error || 'Failed to create challenge');
       }
@@ -602,6 +612,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         const wagerAmount = toBOGX(currentBattle.wager);
         setCoins(prev => prev - wagerAmount);
         onCoinAnimation?.(-wagerAmount, 'hold');
+        // Sync coins + pending wager indicator instantly (mobile & desktop)
+        window.dispatchEvent(new CustomEvent('bogx-updated'));
         return true;
       } else {
         // Friendly error messages based on reason
@@ -611,7 +623,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
           message = 'Oops! Someone was faster 🏃💨 This battle was already taken.';
         } else if (data.error === 'Cannot accept own battle') {
           message = "You can't battle yourself! 😅 Challenge someone else.";
-        } else if (data.error === 'Not enough points') {
+        } else if (data.error === 'Not enough coins') {
           alertType = 'coins';
           const available = data.details?.available ?? '?';
           message = `You need ${formatCurrency(toBOGX(currentBattle.wager))} coins but only have ${formatCurrency(available)} in your account. Try refreshing the page to sync your coins.`;
@@ -688,13 +700,16 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     setCurrentRound(0);
     setMyResults([]);
     // Load creator's results from battle
+    // Normalize old points (>1) to BOGX (<1) - legacy data had points like 100, 150
     if (currentBattle?.creatorResults) {
-      setOpponentResults(currentBattle.creatorResults.map(r => ({
+      const normalizedResults = currentBattle.creatorResults.map(r => ({
         correct: r.correct,
         timeMs: r.timeMs,
-        points: r.points
-      })));
-      setOpponentTotalPoints(currentBattle.creatorTotalPoints || 0);
+        points: r.points > 1 ? r.points / 1000 : r.points // Convert legacy points to BOGX
+      }));
+      setOpponentResults(normalizedResults);
+      const totalPts = currentBattle.creatorTotalPoints || 0;
+      setOpponentTotalPoints(totalPts > 1 ? totalPts / 1000 : totalPts);
     } else {
       setOpponentResults([]);
       setOpponentTotalPoints(0);
@@ -840,7 +855,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     if (isCreator) return;
     
     // If opponent already has results (from creator's saved game), don't simulate
-    if (opponentResults.length >= currentBattle.rounds) return;
+    // Use ref to avoid stale state producing extra simulated rounds
+    if (opponentResultsRef.current.length >= currentBattle.rounds) return;
     
     // Only simulate if opponent is a bot
     if (!currentBattle.creator?.isBot) return;
@@ -853,7 +869,9 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     const points = correct ? Math.round(0.30 * pct * 100) / 100 : 0;
     
     const result: RoundResult = { correct, timeMs, points };
-    setOpponentResults(prev => [...prev, result]);
+    const newOpp = [...opponentResultsRef.current, result];
+    opponentResultsRef.current = newOpp; // Update ref immediately
+    setOpponentResults(newOpp);
     setOpponentTotalPoints(prev => prev + points);
   };
 
@@ -920,8 +938,23 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
       round: i,
       correct: r.correct,
       timeMs: r.timeMs,
-      points: r.points
+      points: r.points,
+      answerIndex: r.answerIndex
     }));
+    
+    // When playing against a bot, the bot (creator) never actually played on the server.
+    // Send the locally-simulated bot results so the server can save them and determine
+    // the winner correctly (otherwise both sides are 0 => false tie + refund).
+    const creatorIsBot = !isCreator && (currentBattle.creator as any)?.isBot;
+    const botResults = creatorIsBot
+      ? opponentResultsRef.current.map((r, i) => ({
+          round: i,
+          correct: r.correct,
+          timeMs: r.timeMs,
+          points: r.points,
+          answerIndex: r.answerIndex
+        }))
+      : undefined;
     
     try {
       const res = await fetch(`/api/battles/${currentBattle._id}/submit`, {
@@ -930,7 +963,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         body: JSON.stringify({
           playerId: user.id,
           results: formattedResults,
-          isCreator: isCreator
+          isCreator: isCreator,
+          botResults
         })
       });
       
@@ -938,23 +972,37 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
       
       if (isCreator) {
         // Creator finished - show success and go back to pool
-        showAlert('success', 'Your answers are saved! 🎯 Now wait for an opponent to challenge you.');
+        const challengedUser = currentBattle.challengedUser as any;
+        const challengedName = challengedUser?.username || challengedUser;
+        if (currentBattle.isPrivate && challengedName) {
+          // Private challenge - show who was challenged
+          showAlert('success', `Your answers are saved! 🎯 Waiting for ${challengedName} to accept your challenge.`);
+        } else {
+          // Public battle - generic message
+          showAlert('success', 'Your answers are saved! 🎯 Now wait for an opponent to challenge you.');
+        }
         setScreen('pool');
         setCurrentBattle(null);
         loadBattles();
       } else {
-        // Opponent finished - battle is complete, show result
-        const won = myTotalPoints > opponentTotalPoints;
-        const isTie = myTotalPoints === opponentTotalPoints;
+        // Opponent finished - battle is complete, show result.
+        // Use refs (not stale state) to compute the authoritative outcome.
+        // Winner = most correct answers; tie-break by fastest total time.
+        const cmp = compareBattleResults(resultsToSubmit, opponentResultsRef.current);
+        const won = cmp > 0;
+        const isTie = cmp === 0;
         
-        // Wager was already deducted when accepting
-        // Winner gets both wagers (2x), tie gets wager back, loser gets nothing
-        // Server handles the actual point changes - just trigger animation
+        // Wager was already deducted when accepting.
+        // Winner gets both wagers (2x), tie gets wager back, loser gets nothing.
+        // Server handles the actual point changes - just trigger animation.
         const wagerChange = isTie ? toBOGX(currentBattle.wager) : (won ? toBOGX(currentBattle.wager) * 2 : 0);
         
         if (wagerChange > 0) {
           onCoinAnimation?.(wagerChange);
         }
+        
+        // Notify leaderboard/rankings to refresh instantly
+        window.dispatchEvent(new CustomEvent('bogx-updated'));
       }
     } catch (error) {
       console.error('Failed to save battle result:', error);
@@ -971,15 +1019,13 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
 
   // See results with animation (triggers win/loss animation)
   const seeResultsWithAnimation = () => {
-    // Calculate if user won or lost based on current results
-    const myTotal = myResultsRef.current.reduce((sum, r) => sum + r.points, 0);
-    // For opponent, we need to check if they have results
     if (currentBattle) {
-      // Opponent results are simulated, so check opponentTotalPoints
-      if (myTotal < opponentTotalPoints) {
+      // Winner = most correct answers; tie-break by fastest total time.
+      const cmp = compareBattleResults(myResultsRef.current, opponentResultsRef.current);
+      if (cmp < 0) {
         // User lost - trigger negative coin animation (wager already deducted, this is visual)
         onCoinAnimation?.(-toBOGX(currentBattle.wager));
-      } else if (myTotal > opponentTotalPoints) {
+      } else if (cmp > 0) {
         // User won - trigger positive coin animation (winnings)
         onCoinAnimation?.(toBOGX(currentBattle.wager) * 2);
       }
@@ -991,8 +1037,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   // Cancel own battle
   const handleCancelBattle = async (battleId: string) => {
     // Find the battle to get the wager amount for animation
-    const battle = battles.find(b => b._id === battleId);
-    const wagerAmount = battle?.wager || 0;
+    const battle = battles.find(b => b._id === battleId) || currentBattle;
+    const wagerAmount = battle?.wager || 0.10; // Default to minimum wager if not found
     
     try {
       const res = await fetch(`/api/battles/${battleId}/cancel`, {
@@ -1003,9 +1049,10 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
       
       const data = await res.json();
       if (data.success) {
-        // Server refunds coins - just trigger animation
-        onCoinAnimation?.(toBOGX(wagerAmount));
-        showAlert('success', `Battle cancelled. +${formatCurrency(toBOGX(wagerAmount))} coins refunded! 💰`);
+        // Server refunds coins - use actual refunded amount from API
+        const refundedAmount = data.refunded || wagerAmount;
+        onCoinAnimation?.(refundedAmount);
+        showAlert('success', `Battle cancelled. +${formatCurrency(refundedAmount)} coins refunded! 💰`);
         loadBattles();
       } else {
         showAlert('error', data.error || 'Failed to cancel battle');
@@ -1021,12 +1068,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     return TOPICS.find(t => t.id === topicId) || TOPICS[0];
   };
 
-  // Convert legacy points to BOGX (old battles have 10, 25, 50, 100, 150 - new have 0.10, 0.25, etc.)
-  const toBOGX = (wager: number) => {
-    // If wager is >= 1, it's legacy points - divide by 100
-    // If wager is < 1, it's already BOGX
-    return wager; // All wagers are now in BOGX
-  };
+  // All wagers are stored directly in BOGX coins (0.10, 0.25, 0.50, ...)
+  const toBOGX = (wager: number) => wager;
 
   // Render based on screen
   const renderScreen = () => {
@@ -1051,97 +1094,167 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   };
 
   // ═══════════════════════════════════════════════════════════════
-  // SETUP SCREEN - Like Solo Trivia
+  // SETUP SCREEN - Redesigned with online players indicator
   // ═══════════════════════════════════════════════════════════════
+  const [onlinePlayers, setOnlinePlayers] = useState(0);
+  const [onlineLoading, setOnlineLoading] = useState(true);
+  const [selectedRounds, setSelectedRounds] = useState<3 | 5>(3);
+  
+  // Fetch online players count - real data only, no fake numbers
+  useEffect(() => {
+    const fetchOnline = async () => {
+      setOnlineLoading(true);
+      try {
+        const res = await fetch('/api/users/online?limit=100');
+        const data = await res.json();
+        if (data.success) {
+          setOnlinePlayers(data.users?.length || 0);
+        }
+      } catch {
+        setOnlinePlayers(0);
+      } finally {
+        setOnlineLoading(false);
+      }
+    };
+    fetchOnline();
+    const interval = setInterval(fetchOnline, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   const renderSetupScreen = () => (
     <div className="flex flex-col h-full min-h-full flex-1" style={{ backgroundColor: '#F5F0E8' }}>
-      {/* Header */}
-      <div className="px-3 pt-4 pb-3 border-b border-warm">
-        <div className="flex items-center gap-2">
-          {onBack && <BackButton onClick={onBack} className="-ml-1" />}
-          <div>
-            <span className="font-display text-lg tracking-wider text-gray-900">QuizzBattle</span>
-            <p className="text-[10px] text-gray-500 -mt-0.5">Challenge players, win their wager.</p>
+      {/* Header with Online Players */}
+      <div className="px-4 pt-4 pb-3 border-b border-warm">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {onBack && <BackButton onClick={onBack} className="-ml-1" />}
+            <div>
+              <span className="font-display text-lg tracking-wider text-gray-900">QUIZZBATTLE</span>
+              <p className="text-[10px] text-gray-500 -mt-0.5">Challenge players, win their wager.</p>
+            </div>
+          </div>
+          {/* Online Players Indicator */}
+          <div className="flex items-center gap-2 bg-cream border border-warm px-3 py-1.5 rounded-full">
+            <div className="relative">
+              <img src={user?.avatar || '/images/default-avatar.png'} alt="" className="w-6 h-6 rounded-full border-2 border-white" />
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white" />
+            </div>
+            {onlineLoading ? (
+              <div className="w-6 h-4 bg-gray-300 rounded animate-pulse" />
+            ) : (
+              <span className="text-xs font-bold text-gray-700">{onlinePlayers.toLocaleString()}</span>
+            )}
+            <span className="text-[10px] text-gray-500 uppercase">Online</span>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
-        {/* Hero Banner */}
+      <div className="flex-1 overflow-y-auto px-4 py-4" style={{ scrollbarWidth: 'none' }}>
+        {/* Hero Banner - in rounded box */}
         <div 
-          className={`relative overflow-hidden mb-3 bg-cover bg-center ${embedded ? 'min-h-[280px]' : ''}`}
-          style={{ backgroundImage: "url('/images/Hintergund/battle.png')" }}
+          className="relative overflow-hidden bg-cover bg-center rounded-2xl"
+          style={{ backgroundImage: "url('/images/Hintergund/battle.png')", minHeight: '240px' }}
         >
           <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent" />
-          <div className={`relative px-4 ${embedded ? 'py-8' : 'py-4'}`}>
-            <span className={`inline-block px-3 py-1 bg-[#A855F7] text-white font-bold uppercase tracking-wider rounded-full mb-2 ${embedded ? 'text-xs' : 'text-[10px]'}`}>
+          <div className="relative px-6 py-8">
+            <span className="inline-block px-3 py-1 bg-[#A855F7] text-white font-bold uppercase tracking-wider rounded-full mb-4 text-[10px]">
               Multiplayer
             </span>
-            <h2 className={`font-display text-white leading-tight mb-1 ${embedded ? 'text-3xl' : 'text-2xl'}`}>
+            <h2 className="font-display text-white leading-tight mb-2 text-2xl md:text-3xl">
               CHALLENGE PLAYERS<br/>
               <span className="text-[#A855F7]">WIN THEIR WAGER</span>
             </h2>
-            <div className={`flex items-center gap-3 mt-2 text-white/90 ${embedded ? 'text-xs' : 'text-[10px]'}`}>
-              <span className="flex items-center gap-1 bg-white/10 px-2 py-1 rounded"><Users className="w-3 h-3 text-[#A855F7]" /> 3 or 5 Rounds</span>
-              <span className="flex items-center gap-1 bg-white/10 px-2 py-1 rounded"><Clock className="w-3 h-3 text-[#A855F7]" /> 10 Sec</span>
-              <span className="flex items-center gap-1 bg-white/10 px-2 py-1 rounded"><Trophy className="w-3 h-3 text-[#A855F7]" /> High Score Wins</span>
+            <div className="flex items-center gap-2 mt-4 text-white/90 text-[10px]">
+              <span className="flex items-center gap-1 bg-white/20 px-2.5 py-1 rounded-full"><Users className="w-3 h-3" /> 3 or 5 Rounds</span>
+              <span className="flex items-center gap-1 bg-white/20 px-2.5 py-1 rounded-full"><Clock className="w-3 h-3" /> 10 Sec</span>
+              <span className="flex items-center gap-1 bg-white/20 px-2.5 py-1 rounded-full"><Trophy className="w-3 h-3" /> High Score Wins</span>
             </div>
           </div>
         </div>
 
-        <div className={`${embedded ? 'px-6' : 'px-3'}`}>
-          {/* Rules */}
-          <div className={`space-y-1 ${embedded ? 'mb-6' : 'mb-3'}`}>
-            <div className="flex items-center gap-2 bg-[#D4873A]/5 rounded-lg p-1">
-              <div className="relative w-[88px] h-[56px] rounded overflow-hidden flex-shrink-0 bg-gray-200">
-                <img src="/images/vinyl.png" alt="" className="w-full h-full object-cover" />
-                <span className="absolute top-0 left-1 text-white/70 font-display text-2xl drop-shadow-lg">1</span>
-              </div>
-              <div className="flex-1">
-                <span className="font-bold text-gray-900 text-sm">Pick a Battle</span>
-                <p className="text-gray-500 text-xs">Choose a topic and set your wager.</p>
-              </div>
+        {/* Feature Icons - 2x2 on mobile, 4 cols on desktop */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4">
+          <div className="bg-cream rounded-xl border border-warm p-3 flex flex-col items-center text-center">
+            <div className="w-10 h-10 rounded-full bg-[#A855F7]/10 flex items-center justify-center mb-2">
+              <Target className="w-5 h-5 text-[#A855F7]" />
             </div>
-            <div className="flex items-center gap-2 bg-[#D4873A]/5 rounded-lg p-1">
-              <div className="relative w-[88px] h-[56px] rounded overflow-hidden flex-shrink-0 bg-gray-200">
-                <img src="/images/retrotimer.png" alt="" className="w-full h-full object-cover" />
-                <span className="absolute top-0 left-1 text-white/70 font-display text-2xl drop-shadow-lg">2</span>
-              </div>
-              <div className="flex-1">
-                <span className="font-bold text-gray-900 text-sm">Answer Fast</span>
-                <p className="text-gray-500 text-xs">10 sec per question. Faster = more points.</p>
-              </div>
+            <span className="font-display text-gray-900 text-sm leading-tight">Pick a Battle</span>
+            <p className="text-gray-700 text-[10px] mt-1 leading-tight">Choose topic & wager.</p>
+          </div>
+          <div className="bg-cream rounded-xl border border-warm p-3 flex flex-col items-center text-center">
+            <div className="w-10 h-10 rounded-full bg-[#A855F7]/10 flex items-center justify-center mb-2">
+              <Zap className="w-5 h-5 text-[#A855F7]" />
             </div>
-            <div className="flex items-center gap-2 bg-[#D4873A]/5 rounded-lg p-1">
-              <div className="relative w-[88px] h-[56px] rounded overflow-hidden flex-shrink-0 bg-gray-200">
-                <img src="/images/coins.png" alt="" className="w-full h-full object-cover" />
-                <span className="absolute top-0 left-1 text-white/70 font-display text-2xl drop-shadow-lg">3</span>
-              </div>
-              <div className="flex-1">
-                <span className="font-bold text-gray-900 text-sm">Winner Takes All</span>
-                <p className="text-gray-500 text-xs">Win the battle and collect both wagers.</p>
-              </div>
+            <span className="font-display text-gray-900 text-sm leading-tight">Answer Fast</span>
+            <p className="text-gray-700 text-[10px] mt-1 leading-tight">10 sec per question.</p>
+          </div>
+          <div className="bg-cream rounded-xl border border-warm p-3 flex flex-col items-center text-center">
+            <div className="w-10 h-10 rounded-full bg-[#A855F7]/10 flex items-center justify-center mb-2">
+              <Trophy className="w-5 h-5 text-[#A855F7]" />
             </div>
-            <div className="flex items-center gap-2 bg-[#D4873A]/5 rounded-lg p-1">
-              <div className="relative w-[88px] h-[56px] rounded overflow-hidden flex-shrink-0 bg-gray-200">
-                <img src="/images/tape.png" alt="" className="w-full h-full object-cover" />
-                <span className="absolute top-0 left-1 text-white/70 font-display text-2xl drop-shadow-lg">4</span>
-              </div>
-              <div className="flex-1">
-                <span className="font-bold text-gray-900 text-sm">Tie = Refund</span>
-                <p className="text-gray-500 text-xs">Both players get their coins back.</p>
-              </div>
+            <span className="font-display text-gray-900 text-sm leading-tight">Winner Takes All</span>
+            <p className="text-gray-700 text-[10px] mt-1 leading-tight">Collect both wagers.</p>
+          </div>
+          <div className="bg-cream rounded-xl border border-warm p-3 flex flex-col items-center text-center">
+            <div className="w-10 h-10 rounded-full bg-[#A855F7]/10 flex items-center justify-center mb-2">
+              <RefreshCcw className="w-5 h-5 text-[#A855F7]" />
+            </div>
+            <span className="font-display text-gray-900 text-sm leading-tight">Tie = Refund</span>
+            <p className="text-gray-700 text-[10px] mt-1 leading-tight">Coins back to both.</p>
+          </div>
+        </div>
+
+        {/* Wager Options / Rounds / How it Works - in one box with dividers */}
+        <div className="bg-cream rounded-2xl border border-warm mt-4 grid grid-cols-3 divide-x divide-warm">
+          <div className="py-4 px-3 text-center">
+            <span className="font-display text-sm text-gray-700 uppercase">Wager Options</span>
+            <div className="flex items-center justify-center gap-1 mt-2 flex-wrap">
+              <span className="px-2 py-1 rounded text-[10px] font-bold bg-[#A855F7]/10 text-[#A855F7]">0.10</span>
+              <span className="px-2 py-1 rounded text-[10px] font-bold bg-[#A855F7]/10 text-[#A855F7]">0.25</span>
+              <span className="px-2 py-1 rounded text-[10px] font-bold bg-[#A855F7]/10 text-[#A855F7]">0.50</span>
+              <span className="px-2 py-1 rounded text-[10px] font-bold bg-[#A855F7]/10 text-[#A855F7]">0.75</span>
+              <span className="px-2 py-1 rounded text-[10px] font-bold bg-[#A855F7]/10 text-[#A855F7]">1.00</span>
+              <span className="text-[10px] text-gray-700">BOGX</span>
+            </div>
+            <p className="text-[9px] text-gray-700 mt-1">You choose your wager</p>
+          </div>
+          <div className="py-4 px-3 text-center">
+            <span className="font-display text-sm text-gray-700 uppercase">Rounds</span>
+            <div className="flex items-center justify-center gap-1 mt-2">
+              <span className="text-lg font-bold text-[#A855F7]">3</span>
+              <span className="text-gray-700 text-sm">or</span>
+              <span className="text-lg font-bold text-[#A855F7]">5</span>
+            </div>
+            <p className="text-[9px] text-gray-700 mt-1">Questions per battle</p>
+          </div>
+          <div className="py-4 px-3 text-center">
+            <span className="font-display text-sm text-gray-700 uppercase">How it Works</span>
+            <div className="mt-2 text-[10px] text-gray-900 space-y-1">
+              <p className="flex items-center justify-center gap-1"><Trophy className="w-3 h-3 text-[#A855F7]" /> Winner takes 2x wager</p>
+              <p className="flex items-center justify-center gap-1"><RefreshCcw className="w-3 h-3 text-[#A855F7]" /> Tie = coins back</p>
             </div>
           </div>
+        </div>
 
-          {/* Start Button */}
+        {/* Start Button - centered, narrower */}
+        <div className="flex justify-center mt-5">
           <button
             onClick={() => { incrementGamePlayCount("quizzbattle"); setScreen('pool'); }}
-            className="w-full py-3 bg-[#A855F7] hover:bg-[#9333EA] text-white font-bold rounded-xl text-sm transition-colors shadow-md flex items-center justify-center gap-2 mb-3"
+            className="px-20 py-4 rounded-2xl text-white font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+            style={{ background: 'linear-gradient(135deg, #C084FC 0%, #A855F7 50%, #9333EA 100%)' }}
           >
             <Swords className="w-5 h-5" />
             START BATTLE
           </button>
+        </div>
+
+        {/* Fair Play */}
+        <div className="flex items-center justify-center gap-3 mt-4 text-xs text-gray-500 pb-4">
+          <span className="flex items-center gap-1">
+            <Shield className="w-3.5 h-3.5 text-green-500" />
+            Fair play guaranteed
+          </span>
+          <button className="text-[#A855F7] hover:underline">How it works</button>
         </div>
       </div>
     </div>
@@ -1151,7 +1264,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   // POOL SCREEN
   // ═══════════════════════════════════════════════════════════════
   const renderPoolScreen = () => (
-    <div className="flex flex-col h-full min-h-full" style={{ backgroundColor: '#F5F0E8' }}>
+    <div className="relative flex flex-col h-full min-h-full" style={{ backgroundColor: '#F5F0E8' }}>
       {/* Header: Back + Battle left, Create/Invite right */}
       <div className="flex items-center justify-between px-3 pt-4 pb-3 border-b border-warm">
         <div className="flex items-center gap-2">
@@ -1165,6 +1278,17 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Wager Filter */}
+          <select
+            value={wagerFilter}
+            onChange={(e) => setWagerFilter(e.target.value === 'all' ? 'all' : parseFloat(e.target.value))}
+            className="w-20 px-1 py-2 border border-gray-300 rounded-lg text-[10px] font-semibold text-gray-600 bg-white hover:border-[#D4873A] transition-colors cursor-pointer"
+          >
+            <option value="all">All</option>
+            {WAGERS.map(w => (
+              <option key={w.amount} value={w.amount}>{formatCurrency(w.amount)} BOGX</option>
+            ))}
+          </select>
           <button
             onClick={() => {
               if (isOnBreak) {
@@ -1218,38 +1342,62 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         </div>
       </div>
 
-      {/* Topic Filter */}
-      <div className="flex gap-2 px-4 py-3 border-b border-warm overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+      {/* Topic Filter with Scroll Arrows */}
+      <div className="flex items-center gap-1 px-2 py-3 border-b border-warm">
+        {/* Left Arrow */}
         <button
-          onClick={() => setTopicFilter('all')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-all border ${
-            topicFilter === 'all' ? 'bg-[#D4873A] text-white border-[#D4873A]' : 'bg-cream text-gray-700 hover:bg-[#D4873A]/10 border-warm'
-          }`}
+          onClick={() => topicScrollRef.current?.scrollBy({ left: -150, behavior: 'smooth' })}
+          className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-white border border-gray-200 text-gray-500 hover:border-[#D4873A] hover:text-[#D4873A] transition-colors shadow-sm"
         >
-          <span className="text-xs font-semibold">All</span>
+          <ChevronLeft className="w-4 h-4" />
         </button>
-        {TOPICS.map(t => {
-          const Icon = t.icon;
-          return (
-            <button
-              key={t.id}
-              onClick={() => setTopicFilter(t.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-all border ${
-                topicFilter === t.id ? 'bg-[#D4873A] text-white border-[#D4873A]' : 'bg-cream text-gray-700 hover:bg-[#D4873A]/10 border-warm'
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              <span className="text-xs font-semibold">{t.label}</span>
-            </button>
-          );
-        })}
+        
+        {/* Scrollable Topics */}
+        <div 
+          ref={topicScrollRef}
+          className="flex gap-2 overflow-x-auto flex-1" 
+          style={{ scrollbarWidth: 'none' }}
+        >
+          <button
+            onClick={() => setTopicFilter('all')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-all border ${
+              topicFilter === 'all' ? 'bg-[#D4873A] text-white border-[#D4873A]' : 'bg-cream text-gray-700 hover:bg-[#D4873A]/10 border-warm'
+            }`}
+          >
+            <LayoutGrid className="w-4 h-4" />
+            <span className="text-xs font-semibold">All</span>
+          </button>
+          {TOPICS.map(t => {
+            const Icon = t.icon;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setTopicFilter(t.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-all border ${
+                  topicFilter === t.id ? 'bg-[#D4873A] text-white border-[#D4873A]' : 'bg-cream text-gray-700 hover:bg-[#D4873A]/10 border-warm'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span className="text-xs font-semibold">{t.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        
+        {/* Right Arrow */}
+        <button
+          onClick={() => topicScrollRef.current?.scrollBy({ left: 150, behavior: 'smooth' })}
+          className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-white border border-gray-200 text-gray-500 hover:border-[#D4873A] hover:text-[#D4873A] transition-colors shadow-sm"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
       </div>
       
       {/* Create Battle Fullscreen */}
       {showCreate && (
-        <div className="absolute inset-0 z-20 flex flex-col" style={{ backgroundColor: '#F5F0E8' }}>
+        <div className="absolute inset-0 z-[100] overflow-y-auto" style={{ backgroundColor: '#F5F0E8', scrollbarWidth: 'none' }}>
           {/* Header - same height as QuizzBattle header */}
-          <div className="flex items-center justify-between px-3 pt-4 pb-3 border-b border-warm">
+          <div className="sticky top-0 z-10 flex items-center justify-between px-3 pt-4 pb-3 border-b border-warm bg-[#F5F0E8]">
             <div className="flex items-center gap-2">
               <BackButton onClick={() => setShowCreate(false)} className="-ml-1" />
               <img src="/images/Icon/trivia1.png" alt="" className="w-5 h-5 object-contain" />
@@ -1271,7 +1419,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
             </div>
           </div>
           
-          <div className="flex-1 p-4">
+          <div className="p-4">
             {/* Step 1: Wager */}
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-3">
@@ -1325,30 +1473,28 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                 <span className="w-6 h-6 bg-[#D4873A] rounded text-white text-xs font-bold flex items-center justify-center">3</span>
                 <span className="text-sm font-semibold tracking-wider text-[#D4873A] uppercase">Start Battle</span>
               </div>
-              <div className="space-y-3">
-                <button
-                  onClick={() => handleCreateBattle(false)}
-                  disabled={isGenerating}
-                  className={`w-full py-4 rounded-xl font-display text-base tracking-widest flex items-center justify-center gap-2 ${
-                    isGenerating 
-                      ? 'bg-[#D4873A]/50 text-white/50 cursor-wait' 
-                      : 'bg-[#D4873A] text-white'
-                  }`}
-                >
-                  {isGenerating ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                      GENERATING...
-                    </>
-                  ) : (
-                    <>
-                      <Swords className="w-5 h-5" />
-                      OPEN BATTLE
-                    </>
-                  )}
-                </button>
-                <p className="text-center text-gray-600 text-xs">Anyone can accept your challenge</p>
-              </div>
+              <button
+                onClick={() => handleCreateBattle(false)}
+                disabled={isGenerating}
+                className={`w-full py-4 rounded-xl font-display text-base tracking-widest flex items-center justify-center gap-2 ${
+                  isGenerating 
+                    ? 'bg-[#D4873A]/50 text-white/50 cursor-wait' 
+                    : 'bg-[#D4873A] text-white'
+                }`}
+              >
+                {isGenerating ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                    GENERATING...
+                  </>
+                ) : (
+                  <>
+                    <Swords className="w-5 h-5" />
+                    OPEN BATTLE
+                  </>
+                )}
+              </button>
+              <p className="text-center text-gray-600 text-xs mt-2">Anyone can accept your challenge</p>
             </div>
           </div>
         </div>
@@ -1956,8 +2102,10 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     if (!currentBattle) return null;
     const topic = getTopicConfig(currentBattle.topic);
     const isComplete = myResults.length >= currentBattle.rounds;
-    const won = myTotalPoints > opponentTotalPoints;
-    const leading = myTotalPoints >= opponentTotalPoints;
+    // Winner = most correct answers; tie-break by fastest total time.
+    const cmp = compareBattleResults(myResults, opponentResults);
+    const won = cmp > 0;
+    const leading = cmp >= 0;
     const diff = Math.abs(myTotalPoints - opponentTotalPoints);
     const myCorrect = myResults.filter(r => r.correct).length;
     const oppCorrect = opponentResults.filter(r => r.correct).length;
@@ -2017,10 +2165,13 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                 </div>
                 <div className="flex-1">
                   <div className="text-sm font-semibold text-gray-900">{won ? '👑 ' : ''}You</div>
-                  <div className="text-[10px] text-gray-600">{myCorrect}/{myResults.length} correct</div>
+                  <div className="text-[10px] text-gray-400">{formatCurrency(myTotalPoints)} BOGX</div>
                 </div>
-                <div className={`font-display text-xl ${leading ? 'text-green-600' : 'text-gray-600'}`}>
-                  {formatCurrency(myTotalPoints)}
+                <div className="text-right">
+                  <div className={`font-display text-2xl leading-none ${leading ? 'text-green-600' : 'text-gray-400'}`}>
+                    {myCorrect}<span className="text-sm text-gray-400">/{myResults.length}</span>
+                  </div>
+                  <div className="text-[8px] uppercase tracking-widest text-gray-400 font-semibold">Correct</div>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3">
@@ -2031,9 +2182,12 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                     </div>
                     <div className="flex-1">
                       <div className="text-sm font-semibold text-gray-600">Waiting for opponent...</div>
-                      <div className="text-[10px] text-gray-300">?/? correct</div>
+                      <div className="text-[10px] text-gray-300">? BOGX</div>
                     </div>
-                    <div className="font-display text-xl text-gray-300">?</div>
+                    <div className="text-right">
+                      <div className="font-display text-2xl leading-none text-gray-300">?<span className="text-sm">/?</span></div>
+                      <div className="text-[8px] uppercase tracking-widest text-gray-300 font-semibold">Correct</div>
+                    </div>
                   </>
                 ) : (
                   <>
@@ -2042,10 +2196,13 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                     </div>
                     <div className="flex-1">
                       <div className="text-sm font-semibold text-gray-900">{!won ? '👑 ' : ''}{currentBattle.creator.username}</div>
-                      <div className="text-[10px] text-gray-600">{oppCorrect}/{opponentResults.length} correct</div>
+                      <div className="text-[10px] text-gray-400">{formatCurrency(opponentTotalPoints)} BOGX</div>
                     </div>
-                    <div className={`font-display text-xl ${!leading ? 'text-green-600' : 'text-gray-600'}`}>
-                      {formatCurrency(opponentTotalPoints)}
+                    <div className="text-right">
+                      <div className={`font-display text-2xl leading-none ${!leading ? 'text-green-600' : 'text-gray-400'}`}>
+                        {oppCorrect}<span className="text-sm text-gray-400">/{opponentResults.length}</span>
+                      </div>
+                      <div className="text-[8px] uppercase tracking-widest text-gray-400 font-semibold">Correct</div>
                     </div>
                   </>
                 )}

@@ -3,7 +3,7 @@ import dbConnect from '@/lib/mongoose';
 import User from '@/models/User';
 import { DEFAULT_CURRENCY_CONFIG } from '@/models/CurrencyConfig';
 
-const READ_ARTICLE_REWARD = DEFAULT_CURRENCY_CONFIG.readArticle; // 0.20 BOGX
+const READ_ARTICLE_REWARD = DEFAULT_CURRENCY_CONFIG.readArticle; // 0.05 BOGX
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,12 +24,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, rewarded: false, alreadyRead: true });
     }
 
-    // Add article to readArticles array AND give points
+    // Add article to readArticles array AND give BOGX
     await User.findByIdAndUpdate(
       userId,
       { 
         $addToSet: { readArticles: articleId },
-        $inc: { points: READ_ARTICLE_REWARD }
+        $inc: { bogxCoins: READ_ARTICLE_REWARD }
       }
     );
 

@@ -111,20 +111,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, changed: true });
     }
 
-    // New prediction: check if user has enough points
+    // New prediction: check if user has enough BOGX
     const user = await User.findById(userId);
     if (!user) {
       return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
     }
-    if (user.points < wager) {
+    if (user.bogxCoins < wager) {
       return NextResponse.json(
-        { success: false, error: 'Not enough points', required: wager, available: user.points },
+        { success: false, error: 'Not enough BOGX', required: wager, available: user.bogxCoins },
         { status: 400 }
       );
     }
 
-    // Deduct points and create prediction
-    await User.findByIdAndUpdate(userId, { $inc: { points: -wager } });
+    // Deduct BOGX and create prediction
+    await User.findByIdAndUpdate(userId, { $inc: { bogxCoins: -wager } });
     await UserPrediction.create({ predictionId, userId, optionId, wager });
     await Prediction.findByIdAndUpdate(predictionId, { $inc: { totalPredictions: 1 } });
 

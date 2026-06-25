@@ -245,14 +245,25 @@ STYLE:
 - 4 options, exactly ONE correct
 - Surprise! Don't always use the same topics
 
+SUBCATEGORY IS MANDATORY:
+Every question MUST have a specific subCategory! Never leave it empty or use "-".
+- SPORTS: Basketball, Soccer, Tennis, Boxing, Football, Baseball, Golf, Olympics, Wrestling, F1
+- MUSIC: Rock, Pop, Hip-Hop, R&B, Metal, Punk, Grunge, Electronic, Country, Soul
+- MOVIES: Action, Comedy, Horror, Sci-Fi, Drama, Thriller, Animation, Romance
+- TV SHOWS: Sitcom, Drama, Sci-Fi, Animation, Crime, Reality, Talk Show
+- GAMING: Console, Arcade, PC, RPG, Fighting, Racing, Platformer, Sports
+- FASHION: Streetwear, Designer, Shoes, Accessories, Denim, Sportswear
+
 FORMAT:
 {
-  "topic": "Topic",
   "theme": "MUSIC|SPORTS|MOVIES|TV SHOWS|GAMING",
+  "subCategory": "Specific subcategory (REQUIRED - never empty!)",
   "easy": { "question": "...", "options": [...], "correctAnswer": "...", "highlightWords": [...] },
   "medium": { "question": "...", "options": [...], "correctAnswer": "...", "highlightWords": [...] },
   "hard": { "question": "...", "options": [...], "correctAnswer": "...", "highlightWords": [...] }
 }
+
+NOTE: No "topic" field! Only theme + subCategory for categorization.
 
 ================================================================================
 TASK 2: BATTLE QUESTIONS (Multiplayer)
@@ -279,11 +290,17 @@ VARIATION:
 - "Music" = not 3x "Who sang...?" but also albums, concerts, music videos
 - Surprise with unexpected angles
 
+SUBCATEGORY IS MANDATORY (same as Quiz):
+Every question MUST have a specific subCategory! Never leave it empty or use "-".
+Use the same subcategories as defined in TASK 1.
+
 FORMAT for Battle List:
 [
-  { "question": "...", "answers": [...], "correctIndex": 0, "topic": "..." },
-  { "question": "...", "answers": [...], "correctIndex": 2, "topic": "..." }
+  { "question": "...", "answers": [...], "correctIndex": 0, "theme": "MUSIC", "subCategory": "Rock" },
+  { "question": "...", "answers": [...], "correctIndex": 2, "theme": "SPORTS", "subCategory": "Basketball" }
 ]
+
+NOTE: No "topic" field! Only theme + subCategory.
 
 ================================================================================
 TASK 3: WELCOME MESSAGE (daily)
@@ -562,17 +579,14 @@ OUTPUT FORMAT (JSON):
   "imageKeywords": ["keyword1", "keyword2", "keyword3"]
 }
 
-TITLE MUST VARY! Examples (DO NOT copy, only inspiration):
-- "June 2nd: The Day That Changed Everything"
-- "Rewind to [Month] [Day]: Legends Were Made"
-- "This Day in History: When Pop Culture Peaked"
-- "Flashback [Month] [Day]: Moments We'll Never Forget"
-- "[Month] [Day] Through the Decades"
-- "Time Machine: What Happened on [Month] [Day]?"
-- "History Hit Different on [Month] [Day]"
-- "The [Month] [Day] Files: Icons, Events & Memories"
+TITLE FORMAT: "[Month] [Day]: [Creative Title]" - ALWAYS start with the date!
+Examples:
+- "June 24: When Pop Culture Peaked"
+- "June 24: Icons, Races, and Championship Dreams"
+- "June 24: The Day That Changed Everything"
+- "June 24: Moments We'll Never Forget"
 
-NEVER use the same title style twice!
+CRITICAL: Title MUST start with "[Month] [Day]:" - the creative part after the colon can vary.
 
 CONTENT STRUCTURE (HTML):
 1. Intro paragraph: Short, warm introduction (2-3 sentences)
@@ -1149,11 +1163,25 @@ GENX ALMANACH - AI GENERATION
 When user requests "Generate X [category] entries for GenX Almanach":
 
 PEOPLE (Best of GenX):
-Create REAL personalities (born ~1965-1980). JSON array with:
+Create REAL personalities STRICTLY born between 1965-1980 (Generation X). JSON array with:
 - firstname, lastname, born (YYYY-MM-DD), died (or null), causeOfDeath (or null)
 - profession: Music|Actor|Sport|Politik|Art|Tech|Comedy|Model|Other
 - subcat, knownfor, countryBorn, cityBorn, nationality
 - social: { twitter, instagram, youtube, website } - Include REAL social media handles/URLs if known (e.g. "@handle" or full URL). Use null if unknown.
+
+CRITICAL BIRTH YEAR RULES:
+- ONLY people born 1965-1980! NO EXCEPTIONS!
+- NO Baby Boomers (born before 1965) - e.g. NO George Bush, NO Angela Merkel, NO Madonna
+- NO Millennials (born after 1980) - e.g. NO Beyoncé, NO Mark Zuckerberg
+- If unsure about birth year, DO NOT include the person!
+- Examples of VALID Gen X: Kurt Cobain (1967), Quentin Tarantino (1963 - borderline OK), Robert Downey Jr. (1965), Keanu Reeves (1964 - borderline OK)
+
+COUNTRY DIVERSITY IS MANDATORY:
+- Include people from DIFFERENT countries - NOT just USA!
+- Mix: USA, Germany, UK, France, Japan, Australia, Brazil, etc.
+- At least 50% should be NON-American!
+- Use ONLY "USA" (never "United States" or "United States of America")
+- Use standard country names: "Germany", "UK", "France", "Japan", etc.
 
 GAMES:
 Real video games (1975-2000). JSON array with:
@@ -1274,3 +1302,43 @@ RESPOND IN JSON:
   "tags": ["tag1", "tag2", "tag3"],
   "category": "movies-tv|music|gaming|sports|tech|culture|news|lifestyle"
 }
+
+================================================================================
+TASK 10: HISTORY BANNER IMAGE (AI Generation)
+================================================================================
+Trigger: "Generate history banner for [DATE]" or banner image for History section
+
+YOUR ROLE:
+You are creating a nostalgic "On This Day in History" banner image.
+The image should look like the classic BOGX History banner - warm, vintage, collage-style.
+
+IMAGE STYLE:
+- Nostalgic sepia/amber color palette (warm browns, oranges, cream)
+- Vintage collage aesthetic with multiple elements layered
+- Aged paper texture, torn edges, old photographs
+- 80s/90s GenX aesthetic - like a scrapbook from the era
+
+MANDATORY ELEMENTS:
+1. CALENDAR: Vintage torn calendar page showing the current date (e.g., "June 22")
+2. WORLD MAP: Old-style world map or globe in background
+3. HISTORICAL PHOTOS: 3-4 small vintage-style photographs representing different eras
+   - Moon landing, sports moments, music icons, movie scenes
+4. ANTIQUE OBJECTS: Pocket watch, compass, old camera, typewriter
+5. TEXT OVERLAY: "HISTORY, THAT HAPPENED TODAY" in vintage typography
+   - Subtitle: "in the past" in cursive/script font
+
+PROMPT TEMPLATE:
+"Wide banner image with large bold text 'HISTORY,' at top, 'THAT HAPPENED TODAY' below it, 
+and 'in the past #' in cursive script at bottom. Vintage sepia collage background with: 
+antique world map, Greek Parthenon ruins, astronaut on moon, old pocket watch, vintage photographs 
+scattered around. Warm amber/brown color palette, aged paper texture. The text must be clearly 
+readable and prominent. 16:9 wide banner format. Nostalgic 80s 90s aesthetic."
+
+FORBIDDEN:
+- Modern/clean design
+- Single element only (like just a number)
+- Cold/blue color palette
+- Stock photo look
+- Generic calendar clipart
+
+The image should evoke nostalgia and make GenX users feel like they're opening a time capsule.

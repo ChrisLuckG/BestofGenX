@@ -47,6 +47,15 @@ export async function GET(request: NextRequest) {
     if (trending === 'true') query.trending = true;
     if (layout) query.layout = layout;
     
+    // Special mode: return just personRef mapping for MenschenTab
+    if (searchParams.get('personRefs') === 'true') {
+      const refs = await Article.find(
+        { personRef: { $exists: true, $ne: null } },
+        { personRef: 1, title: 1, createdAt: 1 }
+      ).lean();
+      return NextResponse.json({ success: true, data: refs });
+    }
+
     // Filter by contentType (article, rankroll, shop, arcade)
     const contentType = searchParams.get('contentType');
     if (contentType) query.contentType = contentType;
@@ -70,13 +79,21 @@ export async function GET(request: NextRequest) {
     const includeContent = searchParams.get('includeContent') === 'true';
     const projection = includeContent ? {} : { content: 0, coverImageBase64: 0 };
     
+    // Sort: archived articles go to bottom, then by order, then by date
+    // Use aggregation to add a sortPriority field (archived = 1, others = 0)
     const [articles, total] = await Promise.all([
-      Article.find(query)
-        .select(includeContent ? '' : '-content -coverImage')
-        .sort({ order: 1, createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
+      Article.aggregate([
+        { $match: query },
+        { 
+          $addFields: { 
+            sortPriority: { $cond: [{ $eq: ['$status', 'archived'] }, 1, 0] } 
+          } 
+        },
+        { $sort: { sortPriority: 1, order: 1, createdAt: -1 } },
+        { $skip: skip },
+        { $limit: limit },
+        ...(includeContent ? [] : [{ $project: { content: 0, coverImage: 0 } }])
+      ]),
       Article.countDocuments(query)
     ]);
     
@@ -160,10 +177,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 });
     }
     
-    // Verify user is admin OR author
-    const user = await User.findById(userId).select('isAdmin isAuthor username displayName avatar').lean<any>();
-    if (!user?.isAdmin && !user?.isAuthor) {
-      return NextResponse.json({ success: false, error: 'Unauthorized - admin or author role required' }, { status: 403 });
+    // Handle 'system' as a special case for auto-generated content
+    const isSystemUser = userId === 'system';
+    let user: any = null;
+    let authorId: string | null = null;
+    let authorName = 'BOGX Team';
+    let authorAvatar = '';
+    
+    if (isSystemUser) {
+      // System-generated content - no user verification needed
+      authorId = null;
+      authorName = 'BOGX Team';
+      authorAvatar = '';
+    } else {
+      // Verify user is admin OR author
+      user = await User.findById(userId).select('isAdmin isAuthor username displayName avatar').lean<any>();
+      if (!user?.isAdmin && !user?.isAuthor) {
+        return NextResponse.json({ success: false, error: 'Unauthorized - admin or author role required' }, { status: 403 });
+      }
+      authorId = userId;
+      authorName = user.displayName || user.username || 'BOGX Team';
+      authorAvatar = user.avatar || '';
     }
     
     // Auto-set thumbnailUrl if coverImage is a URL (not base64)
@@ -177,9 +211,9 @@ export async function POST(request: NextRequest) {
       thumbnailUrl,
       category: category || 'culture',
       tags: tags || [],
-      author: userId,
-      authorName: user.displayName || user.username || 'BOGX Team',
-      authorAvatar: user.avatar || '',
+      author: authorId || undefined,
+      authorName,
+      authorAvatar,
       status: status || 'draft',
       featured: featured || false,
       trending: trending || false,

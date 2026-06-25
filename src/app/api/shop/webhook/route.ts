@@ -9,7 +9,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const PRINTFUL_API_TOKEN = process.env.PRINTFUL_API_TOKEN;
 const PRINTFUL_API_URL = 'https://api.printful.com';
 
-// Best of GenX Order Confirmation Email
+// Best of GenX Order Confirmation Email - Cream Design
 function createOrderEmail(customerName: string, orderItems: string, totalAmount: string, shippingAddress: string) {
   return `
 <!DOCTYPE html>
@@ -18,55 +18,78 @@ function createOrderEmail(customerName: string, orderItems: string, totalAmount:
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body style="margin: 0; padding: 0; background-color: #000000; font-family: Arial, sans-serif;">
-  <div style="max-width: 600px; margin: 0 auto; background-color: #000000; padding: 40px 20px;">
-    
-    <!-- Header -->
-    <div style="text-align: center; margin-bottom: 40px;">
-      <h1 style="color: #f20550; font-size: 32px; margin: 0;">Best of GenX</h1>
-      <p style="color: #888888; font-size: 14px; margin-top: 8px;">Retro Vibes. Modern Style.</p>
+<body style="margin: 0; padding: 0; background-color: #F5F0E8; font-family: 'Helvetica Neue', Arial, sans-serif;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 0;">
+
+    <!-- Header with logo -->
+    <div style="background: linear-gradient(135deg, #FDF8F0 0%, #F5F0E8 100%); padding: 32px 20px; text-align: center;">
+      <img src="https://bestofgenx.com/images/genxlogo1.png" alt="BOGX" style="height: 48px; object-fit: contain;" />
     </div>
-    
-    <!-- Confirmation -->
-    <div style="background: linear-gradient(135deg, rgba(242,5,80,0.2), rgba(128,0,255,0.2)); border: 1px solid rgba(242,5,80,0.3); border-radius: 16px; padding: 30px; text-align: center; margin-bottom: 30px;">
-      <div style="font-size: 48px; margin-bottom: 16px;">🎉</div>
-      <h2 style="color: #ffffff; font-size: 24px; margin: 0 0 8px 0;">Bestellung bestätigt!</h2>
-      <p style="color: #cccccc; font-size: 16px; margin: 0;">Danke für deine Bestellung, ${customerName}!</p>
-    </div>
-    
-    <!-- Order Details -->
-    <div style="background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 24px; margin-bottom: 20px;">
-      <h3 style="color: #f20550; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 16px 0;">Deine Bestellung</h3>
-      ${orderItems}
-      <div style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 16px; padding-top: 16px;">
-        <p style="color: #ffffff; font-size: 18px; font-weight: bold; margin: 0;">Gesamt: ${totalAmount}</p>
+
+    <!-- Main Card -->
+    <div style="background-color: #FFFDFB; margin: 0 20px; border-radius: 20px; padding: 40px 32px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); position: relative; top: -20px;">
+      
+      <!-- Badge -->
+      <div style="text-align: center; margin-bottom: 28px;">
+        <span style="display: inline-block; background-color: #FDF6EE; color: #D4873A; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; padding: 10px 20px; border-radius: 24px; border: 1px solid #F5E6D3;">
+          BESTELLUNG BESTÄTIGT
+        </span>
       </div>
-    </div>
-    
-    <!-- Shipping Address -->
-    <div style="background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 24px; margin-bottom: 30px;">
-      <h3 style="color: #f20550; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 16px 0;">Lieferadresse</h3>
-      <p style="color: #cccccc; font-size: 14px; line-height: 1.6; margin: 0; white-space: pre-line;">${shippingAddress}</p>
-    </div>
-    
-    <!-- Info -->
-    <div style="text-align: center; padding: 20px;">
-      <p style="color: #888888; font-size: 14px; line-height: 1.6; margin: 0 0 16px 0;">
-        Deine Bestellung wird jetzt liebevoll für dich produziert. 
-        Du erhältst eine weitere E-Mail mit Tracking-Infos sobald dein Paket unterwegs ist!
+
+      <!-- Title -->
+      <h1 style="color: #1a1a1a; font-size: 28px; font-weight: 700; margin: 0 0 8px 0; text-align: center; line-height: 1.2;">
+        Danke für deine Bestellung!
+      </h1>
+      
+      <p style="color: #666666; font-size: 16px; margin: 0 0 24px 0; text-align: center; line-height: 1.5;">
+        Hey <strong style="color: #D4873A;">${customerName}</strong>, wir haben deine Bestellung erhalten.
       </p>
-      <p style="color: #f20550; font-size: 14px; margin: 0;">
-        ✨ Welcome to the GenX Club! ✨
+
+      <!-- Decorative divider -->
+      <div style="text-align: center; margin: 24px 0;">
+        <div style="display: inline-block; width: 60px; height: 1px; background: linear-gradient(90deg, transparent, #E8E4DC, transparent);"></div>
+        <span style="display: inline-block; margin: 0 12px; color: #D4873A; font-size: 14px;">✦</span>
+        <div style="display: inline-block; width: 60px; height: 1px; background: linear-gradient(90deg, transparent, #E8E4DC, transparent);"></div>
+      </div>
+
+      <!-- Order Details Box -->
+      <div style="background-color: #FDF8F0; border-radius: 16px; padding: 24px; margin-bottom: 20px; border: 1px solid #F5E6D3;">
+        <h3 style="color: #D4873A; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; margin: 0 0 16px 0; font-weight: 700;">Deine Bestellung</h3>
+        <div style="color: #555555; font-size: 15px; line-height: 1.8;">
+          ${orderItems}
+        </div>
+        <div style="border-top: 1px solid #E8E4DC; margin-top: 16px; padding-top: 16px;">
+          <p style="color: #1a1a1a; font-size: 18px; font-weight: 700; margin: 0;">Gesamt: <span style="color: #D4873A;">${totalAmount}</span></p>
+        </div>
+      </div>
+      
+      <!-- Shipping Address Box -->
+      <div style="background-color: #FDF8F0; border-radius: 16px; padding: 24px; margin-bottom: 24px; border: 1px solid #F5E6D3;">
+        <h3 style="color: #D4873A; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; margin: 0 0 16px 0; font-weight: 700;">Lieferadresse</h3>
+        <p style="color: #555555; font-size: 14px; line-height: 1.7; margin: 0; white-space: pre-line;">${shippingAddress}</p>
+      </div>
+
+      <!-- Info Note -->
+      <div style="background-color: #FDF8F0; border-radius: 12px; padding: 16px; border: 1px solid #F5E6D3;">
+        <p style="color: #666666; font-size: 14px; line-height: 1.6; margin: 0; text-align: center;">
+          Deine Bestellung wird jetzt liebevoll für dich produziert.<br>
+          Du erhältst eine E-Mail mit Tracking-Infos sobald dein Paket unterwegs ist!
+        </p>
+      </div>
+
+      <!-- Welcome message -->
+      <p style="color: #D4873A; font-size: 15px; font-weight: 600; margin: 24px 0 0 0; text-align: center;">
+        Welcome to the GenX Club!
       </p>
     </div>
-    
+
     <!-- Footer -->
-    <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
-      <p style="color: #666666; font-size: 12px; margin: 0;">
-        © 2026 Best of GenX | For the 80s, 90s & 2000s Generation
+    <div style="padding: 24px 20px 40px; text-align: center;">
+      <p style="color: #AAAAAA; font-size: 11px; margin: 0;">
+        Best of GenX · <a href="https://bestofgenx.com" style="color: #D4873A; text-decoration: none;">bestofgenx.com</a>
       </p>
     </div>
-    
+
   </div>
 </body>
 </html>
@@ -89,6 +112,17 @@ export async function POST(request: Request) {
   // Handle successful payment
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
+    
+    // CRITICAL: Check if this is a TEST payment - do NOT send to Printful!
+    const isTestMode = process.env.STRIPE_SECRET_KEY?.startsWith('sk_test');
+    if (isTestMode) {
+      console.log('⚠️ TEST MODE - Skipping Printful order creation for session:', session.id);
+      return NextResponse.json({ 
+        received: true, 
+        test_mode: true, 
+        message: 'Test payment - no Printful order created' 
+      });
+    }
     
     console.log('Payment successful:', session.id);
 
@@ -219,9 +253,9 @@ export async function POST(request: Request) {
           const totalAmount = `€${((session.amount_total || 0) / 100).toFixed(2)}`;
 
           await resend.emails.send({
-            from: 'Best of GenX <orders@resend.dev>',
+            from: 'Best of GenX <orders@bestofgenx.com>',
             to: customerEmail,
-            subject: '🎉 Deine Best of GenX Bestellung ist bestätigt!',
+            subject: 'Deine Best of GenX Bestellung ist bestätigt',
             html: createOrderEmail(
               customerName,
               orderItemsHtml,

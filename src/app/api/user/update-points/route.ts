@@ -24,14 +24,15 @@ export async function POST(request: Request) {
       );
     }
     
-    // Calculate safe points change (never go below 0)
+    // Calculate safe coin change (never go below 0) — uses bogxCoins (single source of truth)
+    const currentBalance = currentUser.bogxCoins || 0;
     const safePointsChange = pointsChange < 0 
-      ? Math.max(-currentUser.points, pointsChange) // Don't go below 0
+      ? Math.max(-currentBalance, pointsChange) // Don't go below 0
       : pointsChange;
     
-    // Update user points and stats
-    const incData: { points: number; gamesPlayed: number; wins?: number } = {
-      points: safePointsChange,
+    // Update user coins and stats
+    const incData: { bogxCoins: number; gamesPlayed: number; wins?: number } = {
+      bogxCoins: safePointsChange,
       gamesPlayed: 1,
     };
     
@@ -53,7 +54,8 @@ export async function POST(request: Request) {
     }
     
     return NextResponse.json({
-      points: user.points,
+      points: user.bogxCoins, // kept key name for backward compat with callers
+      bogxCoins: user.bogxCoins,
       wins: user.wins,
       gamesPlayed: user.gamesPlayed,
     });

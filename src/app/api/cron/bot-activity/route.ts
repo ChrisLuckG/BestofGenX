@@ -40,14 +40,17 @@ export async function GET(request: Request) {
           const botSkill = 0.55 + (Math.random() * 0.15);
           const isCorrect = Math.random() < botSkill;
           
-          // Points: win = 50-200, lose = -10 to -100
-          const pointsChange = isCorrect 
-            ? Math.floor(Math.random() * 150) + 50 
-            : -(Math.floor(Math.random() * 90) + 10);
-          
-          // Create real GameResult
+          // BOGX scale (matches real gameplay): win = 0.05-0.30, lose = -0.01 to -0.10
           const difficulty = [1, 2, 3][Math.floor(Math.random() * 3)];
-          const pointsBefore = bot.points || 0;
+          const maxReward = 0.10 * difficulty; // 0.10, 0.20, 0.30
+          const penalty = difficulty === 1 ? 0.01 : difficulty === 2 ? 0.05 : 0.10;
+          const rawChange = isCorrect
+            ? Math.round((maxReward * (0.5 + Math.random() * 0.5)) * 100) / 100
+            : -penalty;
+          
+          const balanceBefore = bot.bogxCoins || 0;
+          // Don't let the bot go below 0
+          const pointsChange = Math.max(-balanceBefore, rawChange);
           
           await GameResult.create({
             userId: bot._id.toString(),
@@ -59,22 +62,24 @@ export async function GET(request: Request) {
             gameDate: targetDate,
             isCorrect,
             pointsChange,
-            pointsBefore,
-            pointsAfter: pointsBefore + pointsChange,
+            pointsBefore: balanceBefore,
+            pointsAfter: balanceBefore + pointsChange,
             timeUsed: Math.random() * 8 + 2, // 2-10 seconds
             difficulty,
             skipped: false,
             timedOut: false,
           });
           
-          // Update user totals
-          await User.findByIdAndUpdate(bot._id, {
+          // Update user totals (BOGX is the single source of truth)
+          const updatedBot = await User.findByIdAndUpdate(bot._id, {
             $inc: {
-              points: Math.max(0, pointsChange),
+              bogxCoins: pointsChange,
               gamesPlayed: 1,
               wins: isCorrect ? 1 : 0,
             }
-          });
+          }, { new: true });
+          // Keep local balance in sync for the next iteration's floor check
+          bot.bogxCoins = updatedBot?.bogxCoins ?? balanceBefore + pointsChange;
           
           totalGames++;
         }

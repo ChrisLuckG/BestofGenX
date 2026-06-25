@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { X, TrendingDown, TrendingUp, Bell, Sparkles } from "lucide-react";
+import { X, TrendingDown, TrendingUp, Bell, Swords } from "lucide-react";
 
 export interface WelcomeBackRankChange {
   from: number;
@@ -12,8 +11,8 @@ export interface WelcomeBackRankChange {
 interface WelcomeAI {
   greeting: string;
   subtitle: string;
-  facts?: string[];  // Array of 3 daily facts
-  fact?: string;     // Legacy single fact (fallback)
+  facts?: string[];
+  fact?: string;
   factReaction?: string;
   callToAction: string;
 }
@@ -29,19 +28,11 @@ interface WelcomeBackModalProps {
   unreadCount: number;
   playedCount: number;
   totalCards: number;
+  pendingChallengeCount?: number;
+  activeBattleCount?: number;
   onPrimaryAction: () => void;
   onEnableNotifications: () => void;
-}
-
-// Slide content types
-interface SlideContent {
-  icon: React.ElementType;
-  label: string;
-  content: string;
-  reaction?: string;
-  bgClass: string;
-  iconClass: string;
-  labelClass: string;
+  onGoToBattles?: () => void;
 }
 
 export default function WelcomeBackModal({
@@ -55,82 +46,33 @@ export default function WelcomeBackModal({
   unreadCount,
   playedCount,
   totalCards,
+  pendingChallengeCount = 0,
+  activeBattleCount = 0,
   onPrimaryAction,
   onEnableNotifications,
+  onGoToBattles,
 }: WelcomeBackModalProps) {
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-
   const hasStarted = playedCount > 0;
   const isComplete = totalCards > 0 && playedCount >= totalCards;
   const progressPct = totalCards > 0 ? Math.round((playedCount / totalCards) * 100) : 0;
   const showNotificationReminder = !notificationsEnabled && unreadCount > 0;
+  const hasBattleAlerts = pendingChallengeCount > 0 || activeBattleCount > 0;
 
-  // AI-generated or fallback content
   const greeting = welcomeAI?.greeting || `Hey ${username}!`;
   const subtitle = welcomeAI?.subtitle || "Ready for today's challenge?";
-  const facts = welcomeAI?.facts || (welcomeAI?.fact ? [welcomeAI.fact] : []);
   const callToAction = welcomeAI?.callToAction || (
     hasStarted && !isComplete ? "Continue" : isComplete ? "View Results" : "Let's go!"
   );
 
-  // Build slides array - one slide per daily fact
-  const slides: SlideContent[] = facts.map((factText, idx) => ({
-    icon: Sparkles,
-    label: "On This Day",
-    content: factText,
-    bgClass: idx === 0 
-      ? "bg-gradient-to-br from-[#D4873A]/10 to-[#D4873A]/5"
-      : idx === 1
-        ? "bg-gradient-to-br from-purple-50 to-purple-100/50"
-        : "bg-gradient-to-br from-emerald-50 to-emerald-100/50",
-    iconClass: idx === 0 ? "text-[#D4873A]" : idx === 1 ? "text-purple-500" : "text-emerald-500",
-    labelClass: idx === 0 ? "text-[#D4873A]" : idx === 1 ? "text-purple-600" : "text-emerald-600",
-  }));
-
-  // Auto-advance slides
-  useEffect(() => {
-    if (!isOpen || slides.length <= 1) return;
-    const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % slides.length);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [isOpen, slides.length]);
-
-  const nextSlide = () => setCurrentSlide((prev) => (prev + 1) % slides.length);
-  const prevSlide = () => setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
-
-  // Touch swipe handlers
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchStart(e.touches[0].clientX);
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStart === null) return;
-    const touchEnd = e.changedTouches[0].clientX;
-    const diff = touchStart - touchEnd;
-    
-    if (Math.abs(diff) > 50) { // Minimum swipe distance
-      if (diff > 0) {
-        nextSlide(); // Swipe left = next
-      } else {
-        prevSlide(); // Swipe right = prev
-      }
-    }
-    setTouchStart(null);
-  };
-
   if (!isOpen) return null;
 
-  const slide = slides[currentSlide];
-
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-5">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-3">
       <div
         className="absolute inset-0 bg-black/30 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-md bg-cream rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col border border-warm">
+      <div className="relative w-full max-w-md bg-cream rounded-2xl shadow-2xl overflow-hidden max-h-[96vh] flex flex-col border border-warm">
         {/* Close button */}
         <button
           onClick={onClose}
@@ -141,16 +83,16 @@ export default function WelcomeBackModal({
         </button>
 
         {/* Header - Logo centered on top */}
-        <div className="px-6 pt-6 pb-4 text-center flex-shrink-0">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-[#D4873A]/10 to-[#D4873A]/5 flex items-center justify-center shadow-sm">
-            <img src="/images/genxlogo1.png" alt="Best of GenX" className="h-10 object-contain" />
+        <div className="px-5 pt-5 pb-3 text-center flex-shrink-0">
+          <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-[#D4873A]/10 to-[#D4873A]/5 flex items-center justify-center shadow-sm">
+            <img src="/images/genxlogo1.png" alt="Best of GenX" className="h-9 object-contain" />
           </div>
           <h2 className="text-xl font-bold text-gray-900">{greeting}</h2>
           <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
         </div>
 
-        {/* Scrollable content */}
-        <div className="px-6 py-4 overflow-y-auto space-y-4">
+        {/* Content - no scroll */}
+        <div className="px-5 pb-2 space-y-3">
           {/* Ranking change - down */}
           {rankChange && rankChange.direction === "down" && (
             <div className="rounded-xl bg-red-50 border border-red-100 p-4 flex items-start gap-3">
@@ -186,41 +128,34 @@ export default function WelcomeBackModal({
             </div>
           )}
 
-          {/* Slider for facts/tips */}
-          {slides.length > 0 && (
-            <div 
-              className="relative"
-              onTouchStart={handleTouchStart}
-              onTouchEnd={handleTouchEnd}
+          {/* Battle Alerts - pending invitations & active battles */}
+          {hasBattleAlerts && (
+            <button
+              onClick={() => { onGoToBattles?.(); onClose(); }}
+              className="w-full rounded-xl bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a] border border-[#D4873A]/40 p-4 flex items-center gap-4 hover:border-[#D4873A] transition-all group"
             >
-              <div className={`rounded-xl ${slide.bgClass} border border-warm p-5 text-center min-h-[120px] flex flex-col justify-center transition-all duration-300`}>
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <slide.icon className={`w-4 h-4 ${slide.iconClass}`} />
-                  <span className={`text-xs font-bold uppercase tracking-wide ${slide.labelClass}`}>
-                    {slide.label}
-                  </span>
+              <div className="relative flex-shrink-0">
+                <div className="w-12 h-12 rounded-xl bg-[#D4873A]/20 flex items-center justify-center">
+                  <Swords className="w-6 h-6 text-[#D4873A]" />
                 </div>
-                <p className="text-sm text-gray-800 leading-relaxed">{slide.content}</p>
-                {slide.reaction && (
-                  <p className="text-sm text-[#D4873A] mt-2 font-semibold">{slide.reaction}</p>
-                )}
+                <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 bg-red-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold shadow-lg animate-pulse">
+                  {pendingChallengeCount + activeBattleCount}
+                </span>
               </div>
-
-              {/* Dots indicator */}
-              {slides.length > 1 && (
-                <div className="flex justify-center gap-1.5 mt-3">
-                  {slides.map((_, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setCurrentSlide(idx)}
-                      className={`w-2 h-2 rounded-full transition-all ${
-                        idx === currentSlide ? "bg-[#D4873A] w-4" : "bg-gray-300 hover:bg-gray-400"
-                      }`}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
+              <div className="flex-1 text-left">
+                {pendingChallengeCount > 0 && (
+                  <p className="text-white font-semibold text-sm">
+                    ⚔️ {pendingChallengeCount === 1 ? "1 battle challenge" : `${pendingChallengeCount} battle challenges`} waiting!
+                  </p>
+                )}
+                {activeBattleCount > 0 && (
+                  <p className={`font-semibold text-sm ${pendingChallengeCount > 0 ? 'text-white/70' : 'text-white'}`}>
+                    🎯 {activeBattleCount === 1 ? "1 active battle" : `${activeBattleCount} active battles`} to play
+                  </p>
+                )}
+                <p className="text-[#D4873A] text-xs mt-0.5 group-hover:underline">Tap to open Arcade →</p>
+              </div>
+            </button>
           )}
 
           {/* Notification reminder */}
@@ -266,7 +201,7 @@ export default function WelcomeBackModal({
         </div>
 
         {/* Footer action */}
-        <div className="px-6 pb-6 pt-2 flex-shrink-0">
+        <div className="px-5 pb-5 pt-2 flex-shrink-0">
           <button
             onClick={onPrimaryAction}
             className="w-full py-3.5 bg-[#D4873A] hover:bg-[#C4772A] text-white font-semibold rounded-xl text-sm transition-colors shadow-sm"

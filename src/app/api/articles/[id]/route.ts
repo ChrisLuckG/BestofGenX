@@ -3,6 +3,7 @@ import dbConnect from '@/lib/mongoose';
 import Article from '@/models/Article';
 import User from '@/models/User';
 import ArticleView from '@/models/ArticleView';
+import { awardBogx } from '@/lib/awardBogx';
 import crypto from 'crypto';
 
 // Helper to parse user agent
@@ -57,14 +58,14 @@ export async function GET(
       if (!alreadyInReadArticles) {
         // First time reading - award 0.05 BOGX!
         pointsAwarded = 0.05; // BOGX
-        await User.findByIdAndUpdate(userId, { 
-          $inc: { points: pointsAwarded },
-          $addToSet: { readArticles: id }
-        });
+        // Mark as read
+        await User.findByIdAndUpdate(userId, { $addToSet: { readArticles: id } });
+        // awardBogx credits coins + creates GameResult so it counts in rankings
+        await awardBogx({ userId, amount: pointsAwarded, source: `article-${id}`, description: `Read article: ${article.title || id}` });
         
         // Credit the author with earnings (0.02 BOGX per read = 10% of reader reward)
-        if (article.authorId) {
-          await User.findByIdAndUpdate(article.authorId, { 
+        if (article.author) {
+          await User.findByIdAndUpdate(article.author, { 
             $inc: { authorEarnings: 0.02 } 
           });
         }
@@ -175,13 +176,13 @@ export async function PUT(
       }
     }
 
-    // Auto-set thumbnailUrl if coverImage is a URL (not base64)
-    if (updates.coverImage !== undefined) {
+    // Auto-set thumbnailUrl from coverImage ONLY if thumbnailUrl is not explicitly provided
+    if (updates.coverImage !== undefined && updates.thumbnailUrl === undefined) {
       updates.thumbnailUrl = updates.coverImage?.startsWith('http') ? updates.coverImage : '';
-      // If coverImage is base64, clear it to save space (thumbnailUrl will be empty, user should re-upload)
-      if (updates.coverImage?.startsWith('data:')) {
-        console.log('Warning: Article has base64 coverImage, this causes slow loading');
-      }
+    }
+    // Warn about base64 images
+    if (updates.coverImage?.startsWith('data:')) {
+      console.log('Warning: Article has base64 coverImage, this causes slow loading');
     }
     
     const article = await Article.findByIdAndUpdate(

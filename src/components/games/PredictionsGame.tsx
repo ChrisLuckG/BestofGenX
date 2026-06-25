@@ -560,7 +560,7 @@ export default function PredictionsGame({ onBack, onShowLogin, embedded = false 
         ]}
       />
       {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-warm bg-cream flex items-center gap-3">
+      <div className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent flex items-center gap-3">
         <BackButton onClick={onBack} />
         <div className="flex items-center gap-2">
           <Target className="w-5 h-5 text-[#D4873A]" />

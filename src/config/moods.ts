@@ -9,7 +9,7 @@ export const GENX_MOODS = [
 ];
 
 // Default mood shown when no reactions exist
-export const DEFAULT_MOOD = GENX_MOODS[3]; // 'cool'
+export const DEFAULT_MOOD = GENX_MOODS[2]; // 'ok' - yellow smiley (Fair Enough)
 
 // Helper to find mood by id
 export const getMoodById = (id: string) => GENX_MOODS.find(m => m.id === id);

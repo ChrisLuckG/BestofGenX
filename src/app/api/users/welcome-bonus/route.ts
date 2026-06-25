@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import User from '@/models/User';
+import { awardBogx } from '@/lib/awardBogx';
 
-// POST - Claim welcome bonus (500 points, only once per user)
+// POST - Claim welcome bonus (5.00 BOGX, only once per user)
 export async function POST(request: NextRequest) {
   try {
     await dbConnect();
@@ -29,22 +30,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         alreadyReceived: true,
-        points: user.points,
+        points: user.bogxCoins || 0,
+        bogxCoins: user.bogxCoins || 0,
         message: 'Welcome bonus already claimed'
       });
     }
 
     // Give welcome bonus (5.00 BOGX)
     const WELCOME_BONUS = 5.00;
-    user.points += WELCOME_BONUS;
+    // Mark as received first to prevent double-claims
     user.hasReceivedWelcomeBonus = true;
     await user.save();
+    // awardBogx credits coins + creates GameResult so it counts in rankings
+    const newBalance = await awardBogx({ userId, amount: WELCOME_BONUS, source: 'welcome-bonus', description: 'Welcome bonus' });
 
     return NextResponse.json({
       success: true,
       alreadyReceived: false,
       bonusAmount: WELCOME_BONUS,
-      points: user.points,
+      points: newBalance ?? user.bogxCoins,
+      bogxCoins: newBalance ?? user.bogxCoins,
       message: 'Welcome bonus claimed!'
     });
 
@@ -71,7 +76,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const user = await User.findById(userId).select('hasReceivedWelcomeBonus points');
+    const user = await User.findById(userId).select('hasReceivedWelcomeBonus bogxCoins');
     
     if (!user) {
       return NextResponse.json(
@@ -83,7 +88,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       hasReceivedWelcomeBonus: user.hasReceivedWelcomeBonus || false,
-      points: user.points
+      points: user.bogxCoins || 0,
+      bogxCoins: user.bogxCoins || 0
     });
 
   } catch (error: any) {

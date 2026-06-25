@@ -1,25 +1,72 @@
 "use client";
 
-import { Users, User, HelpCircle, Trophy, BarChart3, Coins, Zap, Play, Radio, Clock, Target, Eye, Lightbulb } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Users, User, HelpCircle, Trophy, BarChart3, Coins, Zap, Play, Radio, Clock, Target, Eye, Lightbulb, Swords } from "lucide-react";
+import OpenBattlesModal from "./OpenBattlesModal";
 
 interface ArcadePageProps {
   onSelectGame: (game: 'quizzbattle' | 'trivia' | 'spacegenx' | 'memory' | 'prediction' | 'genxmen' | 'nextplay' | 'faceblur') => void;
   onShowRankings?: () => void;
+  onShowBattles?: () => void;
+  battleAlertCount?: number;
+  userId?: string;
+  onCoinsChange?: (amount: number) => void;
+  onPlaySpecificBattle?: (battleId: string) => void;
 }
 
-export default function ArcadePage({ onSelectGame, onShowRankings }: ArcadePageProps) {
+export default function ArcadePage({ onSelectGame, onShowRankings, onShowBattles, battleAlertCount = 0, userId, onCoinsChange, onPlaySpecificBattle }: ArcadePageProps) {
+  const [showOpenBattles, setShowOpenBattles] = useState(false);
+  const [liveBattleCount, setLiveBattleCount] = useState(battleAlertCount);
+
+  // Fetch live battle count every time arcade is shown — independent of bottom nav badge
+  useEffect(() => {
+    if (!userId) return;
+    fetch(`/api/battles?userId=${userId}&countOnly=true`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          setLiveBattleCount((data.pendingChallenges ?? 0) + (data.activeBattles ?? 0));
+        }
+      })
+      .catch(() => {});
+  }, [userId]);
+
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-cream">
       {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-warm bg-cream">
+      <div className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
         <div className="flex items-center gap-3">
           <img src="/images/Icon/trivia2.png" alt="" className="w-5 h-5 object-contain" />
           <div>
             <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Arcade</span>
             <span className="text-[10px] text-gray-500 -mt-0.5 block">Challenge yourself & others</span>
           </div>
+          {/* Open battles button - right side */}
+          <button
+            onClick={() => userId ? setShowOpenBattles(true) : onShowBattles?.()}
+            className="ml-auto relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#D4873A]/40 bg-[#D4873A]/10 hover:bg-[#D4873A]/20 transition-colors"
+          >
+            <Swords className="w-4 h-4 text-[#D4873A]" />
+            <span className="text-xs font-bold text-[#D4873A]">Open Battles</span>
+            {liveBattleCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 bg-red-500 rounded-full flex items-center justify-center text-white text-[9px] font-black shadow animate-pulse">
+                {liveBattleCount > 9 ? '9+' : liveBattleCount}
+              </span>
+            )}
+          </button>
         </div>
       </div>
+
+      {/* Open Battles Popup */}
+      {userId && (
+        <OpenBattlesModal
+          isOpen={showOpenBattles}
+          onClose={() => setShowOpenBattles(false)}
+          userId={userId}
+          onPlayBattle={(battleId) => { setShowOpenBattles(false); onPlaySpecificBattle?.(battleId) || onSelectGame('quizzbattle'); }}
+          onCoinsChange={onCoinsChange}
+        />
+      )}
 
       {/* Games */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4" style={{ scrollbarWidth: 'none' }}>
@@ -158,7 +205,7 @@ export default function ArcadePage({ onSelectGame, onShowRankings }: ArcadePageP
             {/* Subtitle */}
             <p className="text-white text-[12px] font-semibold leading-tight mt-1.5">
               Call the next play.<br />
-              <span className="text-[#22C55E]">Win points and cash rewards.</span>
+              <span className="text-[#22C55E]">Win coins and cash rewards.</span>
             </p>
 
             {/* Features */}

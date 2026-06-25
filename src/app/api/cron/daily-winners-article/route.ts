@@ -2,12 +2,44 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import User from '@/models/User';
 import Article from '@/models/Article';
-import DailyRanking from '@/models/DailyRanking';
+import GameResult from '@/models/GameResult';
+import { berlinDateAt } from '@/lib/berlinTime';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+// Generate cover image via /api/generate-image
+async function generateCoverImage(winnerName: string, dateNice: string, baseUrl: string): Promise<string | null> {
+  try {
+    const prompt = `Retro 80s 90s arcade championship podium scene. Neon lights, trophy, pixel art scoreboard showing "DAILY CHAMPIONS". Dramatic stage lighting, confetti, crowd silhouettes. GenX gaming aesthetic, synthwave colors, cinematic. NO people, NO faces, NO text.`;
+    const response = await fetch(`${baseUrl}/api/generate-image`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, style: 'article' }),
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.success && data.imageUrl ? data.imageUrl : null;
+  } catch (err) {
+    console.error('Cover image generation failed:', err);
+    return null;
+  }
+}
+
+// Convert flag emoji to ISO country code for flagcdn.com
+function flagEmojiToCode(flag?: string): string | null {
+  if (!flag) return null;
+  if (flag.length === 2 && flag.charCodeAt(0) < 127) return flag.toLowerCase();
+  const cps = Array.from(flag).map((c) => c.codePointAt(0) ?? 0);
+  if (cps.length >= 2 && cps[0] >= 0x1f1e6 && cps[0] <= 0x1f1ff) {
+    const a = String.fromCharCode(cps[0] - 0x1f1e6 + 65);
+    const b = String.fromCharCode(cps[1] - 0x1f1e6 + 65);
+    return (a + b).toLowerCase();
+  }
+  return null;
+}
 
 // Helper to get Berlin date string
 function getBerlinDateString(date: Date = new Date()): string {
@@ -44,53 +76,62 @@ export async function GET(request: Request) {
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayString = getBerlinDateString(yesterday);
     
-    // Check if article already exists for this date
-    const existingArticle = await Article.findOne({ 
-      tags: { $in: [`daily-winners-${yesterdayString}`] }
-    });
+    // Check if article already exists for this date (skip with ?force=true)
+    const url = new URL(request.url);
+    const force = url.searchParams.get('force') === 'true';
     
-    if (existingArticle) {
-      return NextResponse.json({ 
-        success: true, 
-        message: 'Article already exists for this date',
-        articleId: existingArticle._id
+    if (!force) {
+      const existingArticle = await Article.findOne({ 
+        tags: { $in: [`daily-winners-${yesterdayString}`] }
       });
-    }
-    
-    // Get yesterday's snapshot to find the day before
-    const dayBeforeYesterday = new Date(yesterday);
-    dayBeforeYesterday.setDate(dayBeforeYesterday.getDate() - 1);
-    const dayBeforeString = getBerlinDateString(dayBeforeYesterday);
-    
-    // Get baseline snapshot (day before yesterday)
-    const baselineSnapshot = await DailyRanking.findOne({ dateString: dayBeforeString });
-    const baselineMap = new Map<string, number>();
-    
-    if (baselineSnapshot) {
-      for (const entry of baselineSnapshot.rankings) {
-        baselineMap.set(entry.userId?.toString() || '', entry.points || 0);
+      
+      if (existingArticle) {
+        return NextResponse.json({ 
+          success: true, 
+          message: 'Article already exists for this date',
+          articleId: existingArticle._id
+        });
       }
     }
     
-    // Get all users and calculate daily points
-    const allUsers = await User.find({ isDeleted: { $ne: true } })
-      .select('username avatar country countryFlag points wins')
-      .lean();
+    // Aggregate the just-ended ranking day from GameResult (single source of truth),
+    // aligned to the 10:00 Berlin cutoff. The crons run during the 9-10 break, so the
+    // window [yesterday 10:00 Berlin, today 10:00 Berlin) is effectively complete.
+    const dayStart = berlinDateAt(-1, 10); // yesterday 10:00 Berlin
+    const dayEnd = berlinDateAt(0, 10);    // today 10:00 Berlin
     
-    const dailyRankings = allUsers.map(user => {
-      const oderId = user._id.toString();
-      const baselinePoints = baselineMap.get(oderId) || 0;
-      const dailyPoints = (user.points || 0) - baselinePoints;
-      return {
-        oderId,
-        username: user.username,
-        avatar: user.avatar || '',
-        country: user.country || 'World',
-        countryFlag: user.countryFlag || '🌍',
-        dailyPoints,
-        totalPoints: user.points || 0,
-      };
-    });
+    const aggregated = await GameResult.aggregate([
+      { $match: { playedAt: { $gte: dayStart, $lt: dayEnd } } },
+      {
+        $group: {
+          _id: '$userId',
+          username: { $first: '$username' },
+          dailyPoints: { $sum: '$pointsChange' },
+        },
+      },
+    ]);
+    
+    // Resolve user profile info, excluding deleted users
+    const userIds = aggregated.map(r => r._id);
+    const users = await User.find({ _id: { $in: userIds }, isDeleted: { $ne: true } })
+      .select('username avatar country countryFlag bogxCoins')
+      .lean();
+    const userMap = new Map(users.map(u => [u._id.toString(), u as any]));
+    
+    const dailyRankings = aggregated
+      .filter(r => userMap.has(r._id?.toString() || ''))
+      .map(r => {
+        const user = userMap.get(r._id?.toString() || '');
+        return {
+          oderId: r._id?.toString() || '',
+          username: r.username || user.username,
+          avatar: user.avatar || '',
+          country: user.country || 'World',
+          countryFlag: user.countryFlag || '🌍',
+          dailyPoints: Math.round((r.dailyPoints || 0) * 100) / 100,
+          totalPoints: user.bogxCoins || 0,
+        };
+      });
     
     // Sort by daily points and get top 3
     dailyRankings.sort((a, b) => b.dailyPoints - a.dailyPoints);
@@ -105,57 +146,114 @@ export async function GET(request: Request) {
       });
     }
     
-    // Generate article content with AI
+    // Generate article content with player cards + AI intro
     const dateNice = formatDateNice(yesterdayString);
-    const winnersText = top3.map((w, i) => 
+
+    // Generate AI content: intro + personalized blurb per player
+    const playersDesc = top3.map((w, i) => 
       `${i + 1}. ${w.username} (${w.country}) - ${w.dailyPoints.toFixed(2)} BOGX`
     ).join('\n');
-    
-    const aiPrompt = `Write a short, exciting news article (2-3 paragraphs) about the daily winners of the BOGX trivia game for ${dateNice}. 
 
-Top 3 Winners:
-${winnersText}
+    const aiPrompt = `You are writing for BestOfGenX, a GenX nostalgia community app. Write a short, punchy daily champions recap for ${dateNice}.
 
-The article should:
-- Congratulate the winners enthusiastically
-- Mention each winner by name and their score
-- Be written in a fun, engaging sports-news style
-- Include a call to action to play tomorrow
-- Be around 150-200 words
+Players:
+${playersDesc}
 
-Do NOT include a title - just the article body.`;
+Return JSON with this structure:
+{
+  "intro": "2-3 sentence hype intro (no player names, just set the scene)",
+  "players": [
+    { "blurb": "1-2 fun sentences about this player's performance, mention their score and country" },
+    ...one per player above...
+  ],
+  "outro": "1 short sentence teasing tomorrow's battle"
+}
 
-    let articleBody = '';
+Keep it fun, GenX-flavored, energetic. Each player blurb should feel personal and different.`;
+
+    let aiContent: { intro: string; players: { blurb: string }[]; outro: string } = {
+      intro: `Another fierce day of trivia battles is in the books! The competition was relentless and only the sharpest minds claimed the crown.`,
+      players: top3.map(w => ({ blurb: `${w.username} from ${w.country} played like a champion, racking up ${w.dailyPoints.toFixed(2)} BOGX.` })),
+      outro: `Think you can do better? The arena opens again tomorrow at 10:00 AM!`
+    };
     
     try {
       const completion = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: aiPrompt }],
-        max_tokens: 500,
+        max_tokens: 400,
         temperature: 0.8,
+        response_format: { type: 'json_object' },
       });
-      articleBody = completion.choices[0]?.message?.content || '';
+      const parsed = JSON.parse(completion.choices[0]?.message?.content || '{}');
+      if (parsed.intro && parsed.players) aiContent = parsed;
     } catch (aiError) {
       console.error('[CRON] AI generation failed, using fallback:', aiError);
-      // Fallback content
-      articleBody = `Congratulations to our daily champions! 🏆\n\n${top3.map((w, i) => 
-        `**${i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'} ${w.username}** from ${w.country} earned ${w.dailyPoints.toFixed(2)} BOGX!`
-      ).join('\n\n')}\n\nThink you can beat them? Join the competition tomorrow at 10:00 AM!`;
     }
     
-    // Create the article
-    const title = `Daily Champions: ${formatDateNice(yesterdayString).split(',')[0]}`;
+    // Build article using the same block system as the editor
+    // Avatar uses background-image (not <img>) to avoid ArticlePage auto-expanding to full-width
+    const rankColors  = ['#C9913A', '#8A9BB0', '#A0673A'];
+    const rankBg      = ['rgba(201,145,58,0.08)', 'rgba(138,155,176,0.08)', 'rgba(160,103,58,0.08)'];
+    const rankNums    = ['01', '02', '03'];
+    const rankLabels  = ['CHAMPION', 'RUNNER-UP', 'THIRD'];
+
+    const playerSectionsHtml = top3.map((player, index) => {
+      const blurb = aiContent.players[index]?.blurb || '';
+      const avatarSrc = player.avatar || '/images/default-avatar.png';
+      const flagCode = flagEmojiToCode(player.countryFlag);
+      const flagHtml = flagCode
+        ? `<span style="display:inline-block;width:18px;height:13px;border-radius:2px;vertical-align:middle;margin-right:5px;background-image:url('https://flagcdn.com/24x18/${flagCode}.png');background-size:cover;background-position:center;flex-shrink:0;"></span>`
+        : '';
+      const color = rankColors[index];
+      const bg = rankBg[index];
+      return `<div style="display:flex;align-items:stretch;background:${bg};border:1px solid ${color}30;border-left:4px solid ${color};border-radius:8px;margin:16px 0;overflow:hidden;">
+  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px 16px;min-width:56px;border-right:1px solid ${color}20;">
+    <span style="font-family:monospace;font-size:22px;font-weight:900;color:${color};line-height:1;">${rankNums[index]}</span>
+    <span style="font-size:9px;font-weight:700;letter-spacing:0.1em;color:${color}99;text-transform:uppercase;margin-top:2px;">${rankLabels[index]}</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;flex:1;">
+    <div style="width:44px;height:44px;min-width:44px;border-radius:50%;background-image:url('${avatarSrc}');background-size:cover;background-position:center;border:2px solid ${color};flex-shrink:0;"></div>
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:13px;font-weight:800;letter-spacing:0.04em;color:#1a1a1a;text-transform:uppercase;margin-bottom:4px;">${player.username}</div>
+      <div style="display:flex;align-items:center;font-size:11px;color:#888;margin-bottom:6px;">${flagHtml}${player.country} &nbsp;·&nbsp; <strong style="color:${color};font-size:12px;">${player.dailyPoints.toFixed(2)} BOGX</strong></div>
+      <p style="margin:0;font-size:13px;color:#555;line-height:1.55;">${blurb}</p>
+    </div>
+  </div>
+</div>`;
+    }).join('\n');
+
+    // Use the exact Arcade CTA block from the editor block system
+    const arcadeCtaBlock = `<div class="cta-block arcade-cta-banner" data-cta-type="arcade" style="display:flex;flex-direction:column;gap:12px;padding:16px;background:linear-gradient(to right,rgba(139,92,246,0.15),rgba(139,92,246,0.05));border-radius:16px;border:1px solid rgba(139,92,246,0.2);margin:24px 0;cursor:pointer;"><div style="display:flex;align-items:center;gap:12px;"><div class="cta-icon" style="width:44px;height:44px;min-width:44px;background:#8B5CF6;border-radius:50%;display:flex;align-items:center;justify-content:center;" data-emoji="🎮"><svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-10 7H8v3H6v-3H3v-2h3V8h2v3h3v2zm4.5 2c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm4-3c-.83 0-1.5-.67-1.5-1.5S18.67 9 19.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg></div><div><div style="font-weight:700;color:#1a1a1a;font-size:14px;line-height:1.3;">Play Trivia</div><div style="font-size:12px;color:#666;line-height:1.4;">Test your 80s/90s knowledge and win BOGX!</div></div></div><span style="display:block;text-align:center;padding:10px 18px;background:#8B5CF6;color:white;border-radius:10px;font-weight:700;font-size:13px;">Go to Trivia →</span></div>`;
+
+    const articleBody = `<p>${aiContent.intro}</p>
+${playerSectionsHtml}
+<p style="font-style:italic;color:#9CA3AF;font-size:13px;">${aiContent.outro}</p>
+${arcadeCtaBlock}`;
+    
+    // Create the article - Title: "Daily Champions: Tuesday, June 23"
+    const niceDateFull = formatDateNice(yesterdayString); // "Tuesday, June 23, 2026"
+    const niceDateNoYear = niceDateFull.split(',').slice(0, 2).join(',').trim(); // "Tuesday, June 23"
+    const title = `Daily Champions: ${niceDateNoYear}`;
     const subtitle = `${top3[0].username} takes the crown with ${top3[0].dailyPoints.toFixed(2)} BOGX!`;
     
+    // Generate cover image
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL 
+      ? process.env.NEXT_PUBLIC_BASE_URL
+      : process.env.VERCEL_URL 
+        ? `https://${process.env.VERCEL_URL}` 
+        : 'http://localhost:3000';
+    const coverImage = await generateCoverImage(top3[0].username, dateNice, baseUrl) || '/images/winners-default.jpg';
+
     const article = await Article.create({
       title,
       subtitle,
       content: articleBody,
-      category: 'Gaming',
-      subcategory: 'Daily Rankings',
-      author: 'BOGX Bot',
-      authorId: null,
-      image: '/images/winners-default.jpg', // Default winners image
+      category: 'gaming',
+      mainCategory: 'articles',
+      coverImage,
+      thumbnailUrl: coverImage,
+      authorName: 'BOGX Bot',
       tags: [`daily-winners-${yesterdayString}`, 'daily-winners', 'rankings', 'champions'],
       status: 'published',
       publishedAt: new Date(),

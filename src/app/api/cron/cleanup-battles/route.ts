@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     for (const battle of expiredBattles) {
       // Refund the creator
       await User.findByIdAndUpdate(battle.creator._id || battle.creator, {
-        $inc: { points: battle.wager }
+        $inc: { bogxCoins: battle.wager }
       });
       refundedCount++;
       

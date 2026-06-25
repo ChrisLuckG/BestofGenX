@@ -17,11 +17,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'userId and cardId required' }, { status: 400 });
     }
 
-    const user = await User.findById(userId).select('username points');
+    const user = await User.findById(userId).select('username bogxCoins');
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
-    const pointsBefore = user.points - pointsChange; // points already updated
-    const today = new Date().toISOString().split('T')[0];
+    const balanceAfter = user.bogxCoins || 0;
+    const pointsBefore = balanceAfter - pointsChange; // balance already updated
+    // Use Berlin time for gameDate to match ranking system
+    const berlinDate = new Date().toLocaleString('en-CA', { 
+      timeZone: 'Europe/Berlin',
+      year: 'numeric',
+      month: '2-digit', 
+      day: '2-digit'
+    }).split(',')[0];
+    const today = berlinDate;
 
     const result = await GameResult.create({
       userId,
@@ -33,7 +41,7 @@ export async function POST(request: Request) {
       isCorrect,
       pointsChange,
       pointsBefore,
-      pointsAfter: user.points,
+      pointsAfter: balanceAfter,
       timeUsed: timeUsed ?? 0,
       difficulty: difficulty ?? 1,
       skipped: skipped ?? false,
@@ -44,6 +52,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, id: result._id });
   } catch (error) {
     console.error('Save game result error:', error);
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
+}
+
+// DELETE - delete game results for a user (optionally filtered by date)
+export async function DELETE(request: Request) {
+  try {
+    await dbConnect();
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId');
+    const date = searchParams.get('date');
+
+    if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 });
+
+    const query: Record<string, unknown> = { userId };
+    if (date) query.gameDate = date;
+
+    const result = await GameResult.deleteMany(query);
+
+    return NextResponse.json({ success: true, deleted: result.deletedCount });
+  } catch (error) {
+    console.error('Delete game results error:', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

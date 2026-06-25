@@ -3,7 +3,7 @@ import dbConnect from '@/lib/mongoose';
 import User from '@/models/User';
 import DailyRanking from '@/models/DailyRanking';
 import GameResult from '@/models/GameResult';
-import { berlinDateAt } from '@/lib/berlinTime';
+import { berlinDateAt, berlinOffsetMinutes } from '@/lib/berlinTime';
 
 // Helper to get the "ranking day" date string
 // The ranking day starts at 10:00 Berlin time
@@ -36,8 +36,151 @@ function getRankingDayString(date: Date = new Date()): string {
   return datePart;
 }
 
+// ============================================================
+// PERIOD BOUNDARIES — all aligned to the 10:00 Berlin cutoff.
+// The "ranking day" runs from 10:00 Berlin to the next 10:00.
+// Months/years start at 10:00 Berlin on the 1st / Jan 1st so
+// that every period shares the SAME boundary as the day.
+// We filter by the GameResult.playedAt timestamp (precise),
+// NOT by the midnight-based gameDate string.
+// ============================================================
+
+// Current Berlin calendar parts + hour
+function berlinParts(date: Date = new Date()) {
+  const dtf = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Berlin',
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hour12: false,
+  });
+  const map: Record<string, string> = {};
+  for (const p of dtf.formatToParts(date)) map[p.type] = p.value;
+  return {
+    year: Number(map.year),
+    month: Number(map.month),
+    day: Number(map.day),
+    hour: Number(map.hour === '24' ? '0' : map.hour),
+  };
+}
+
+// UTC Date for a specific Berlin wall-clock Y-M-D at hour:00 (DST-safe)
+function berlinInstant(year: number, month1to12: number, day: number, hour: number): Date {
+  const provisional = new Date(Date.UTC(year, month1to12 - 1, day, hour, 0, 0));
+  const offset = berlinOffsetMinutes(provisional);
+  return new Date(provisional.getTime() - offset * 60000);
+}
+
+// Start of the CURRENT ranking day = most recent 10:00 Berlin boundary
+function rankingDayStartInstant(now: Date = new Date()): Date {
+  const todayTen = berlinDateAt(0, 10);
+  return now.getTime() >= todayTen.getTime() ? todayTen : berlinDateAt(-1, 10);
+}
+
+// Start of the CURRENT ranking month = 10:00 Berlin on the 1st
+function rankingMonthStartInstant(now: Date = new Date()): Date {
+  const { year, month } = berlinParts(now);
+  return berlinInstant(year, month, 1, 10);
+}
+
+// Start of the CURRENT ranking year = 10:00 Berlin on Jan 1st
+function rankingYearStartInstant(now: Date = new Date()): Date {
+  const { year } = berlinParts(now);
+  return berlinInstant(year, 1, 1, 10);
+}
+
+// Build rankings from the GameResult collection (single source of truth) over a
+// [start, end) playedAt window. This guarantees consistency across day/month/year
+// (e.g. month always includes today) since they all sum the same events.
+async function buildPeriodRankings(startInstant: Date, endInstant?: Date) {
+  const playedAtMatch: any = { $gte: startInstant };
+  if (endInstant) playedAtMatch.$lt = endInstant;
+
+  const results = await GameResult.aggregate([
+    { $match: { playedAt: playedAtMatch } },
+    {
+      $group: {
+        _id: '$userId',
+        username: { $first: '$username' },
+        periodPoints: { $sum: '$pointsChange' },
+        gamesPlayed: { $sum: 1 },
+        wins: { $sum: { $cond: ['$isCorrect', 1, 0] } },
+        lastPlayedAt: { $max: '$playedAt' },
+      },
+    },
+  ]);
+
+  const userIds = results.map(r => r._id);
+  const users = await User.find({ _id: { $in: userIds }, isDeleted: { $ne: true } })
+    .select('username avatar country countryFlag bogxCoins isBot botActive')
+    .lean();
+  const userMap = new Map(users.map(u => [u._id.toString(), u]));
+
+  const ONLINE_THRESHOLD_MS = 10 * 60 * 1000;
+  const nowMs = Date.now();
+
+  const rankings = results
+    .filter(r => userMap.has(r._id?.toString() || '')) // exclude deleted users
+    .map(result => {
+      const user = userMap.get(result._id?.toString() || '') as any;
+      const isBot = user.isBot === true;
+      const lastPlayed = result.lastPlayedAt ? new Date(result.lastPlayedAt).getTime() : 0;
+      const isOnline = isBot ? user.botActive !== false : (nowMs - lastPlayed) < ONLINE_THRESHOLD_MS;
+      return {
+        _id: result._id,
+        username: result.username || user.username || 'Unknown',
+        avatar: user.avatar || '',
+        country: user.country || 'World',
+        countryFlag: user.countryFlag || '🌍',
+        points: Math.round(result.periodPoints * 100) / 100,
+        wins: result.wins || 0,
+        totalPoints: user.bogxCoins || 0,
+        gamesPlayed: result.gamesPlayed || 0,
+        isActive: false,
+        isOnline,
+        isBot,
+        recentPoints: 0,
+      };
+    });
+
+  rankings.sort((a, b) => b.points - a.points || b.totalPoints - a.totalPoints);
+  const active = rankings.filter(r => r.points > 0);
+  return active.slice(0, 100).map((r, index) => ({ ...r, rank: index + 1 }));
+}
+
+const NO_CACHE_HEADERS = {
+  'Cache-Control': 'no-cache, no-store, must-revalidate',
+  'Pragma': 'no-cache',
+  'Expires': '0',
+};
+
 // Store recently active bot IDs (in-memory, resets on server restart)
 let recentlyActiveBots: { oderId: string; pointsGained: number; timestamp: number }[] = [];
+
+// Throttle bot activity: bots play roughly every 5-15 minutes (spread over the day).
+// IMPORTANT: On serverless (Vercel) each request can be a fresh instance, so an
+// in-memory throttle does NOT persist and bots would "play" on nearly every request,
+// massively inflating daily totals. We therefore gate on the most recent bot
+// GameResult timestamp stored in the database.
+const BOT_PLAY_INTERVAL_MS = 5 * 60 * 1000; // minimum 5 minutes between bot sims
+
+async function maybeSimulateBotActivity() {
+  // Only during active hours (10:00 - 09:00 Berlin, skip the 9-10 break)
+  const berlinHour = parseInt(new Date().toLocaleString('en-US', { 
+    timeZone: 'Europe/Berlin', hour: '2-digit', hour12: false 
+  }));
+  if (berlinHour === 9) return; // matchday break
+  
+  // DB-backed throttle: find the latest bot-sim GameResult and skip if too recent.
+  const lastBotResult = await GameResult.findOne({ cardId: { $regex: /^bot-card-/ } })
+    .sort({ playedAt: -1 })
+    .select('playedAt')
+    .lean();
+  
+  if (lastBotResult?.playedAt) {
+    const elapsed = Date.now() - new Date(lastBotResult.playedAt).getTime();
+    if (elapsed < BOT_PLAY_INTERVAL_MS) return;
+  }
+  
+  await simulateBotActivity();
+}
 
 // Simulate bot activity and create GameResult entries
 async function simulateBotActivity(): Promise<{ oderId: string; pointsGained: number }[]> {
@@ -51,7 +194,13 @@ async function simulateBotActivity(): Promise<{ oderId: string; pointsGained: nu
     
     if (bots.length === 0) return [];
     
-    const today = new Date().toISOString().split('T')[0];
+    // Use Berlin time to match ranking system
+    const today = new Date().toLocaleString('en-CA', { 
+      timeZone: 'Europe/Berlin',
+      year: 'numeric',
+      month: '2-digit', 
+      day: '2-digit'
+    }).split(',')[0];
     
     // Pick 1-3 random bots to "play" each request
     const numBotsToPlay = Math.floor(Math.random() * 3) + 1;
@@ -64,26 +213,26 @@ async function simulateBotActivity(): Promise<{ oderId: string; pointsGained: nu
       // Simulate realistic game: Easy (40%), Medium (35%), Hard (25%)
       const diffRoll = Math.random();
       const difficulty = diffRoll < 0.4 ? 1 : diffRoll < 0.75 ? 2 : 3;
-      // BOGX rewards: 0.05-0.10 (easy), 0.10-0.20 (medium), 0.15-0.30 (hard)
+      // BOGX scale matches real gameplay (same as cron/bot-activity)
       const maxReward = 0.10 * difficulty; // 0.10, 0.20, or 0.30 BOGX
-      const penalty = difficulty === 1 ? 0.01 : difficulty === 2 ? 0.05 : 0.10;
       
       // 70% chance correct answer
       const isCorrect = Math.random() < 0.7;
       
       // If correct: random BOGX based on answer time (50%-100% of max)
       // If wrong: fixed penalty
+      const penalty = difficulty === 1 ? 0.01 : difficulty === 2 ? 0.05 : 0.10;
       const pointsChange = isCorrect 
-        ? Math.round((maxReward * (0.5 + Math.random() * 0.5)) * 100) / 100 // 0.05-0.10, 0.10-0.20, 0.15-0.30 BOGX
+        ? Math.round((maxReward * (0.5 + Math.random() * 0.5)) * 100) / 100 // 0.05-0.10, 0.10-0.20, 0.15-0.30
         : -penalty; // -0.01, -0.05, or -0.10 BOGX
       
-      // Don't go below 0 points
-      const safePointsChange = Math.max(-bot.points, pointsChange);
+      // Don't go below 0 BOGX
+      const safePointsChange = Math.max(-(bot.bogxCoins || 0), pointsChange);
       
-      // Update user points
+      // Update user BOGX
       await User.findByIdAndUpdate(bot._id, {
         $inc: {
-          points: safePointsChange,
+          bogxCoins: safePointsChange,
           gamesPlayed: 1,
           wins: isCorrect ? 1 : 0,
         }
@@ -99,8 +248,8 @@ async function simulateBotActivity(): Promise<{ oderId: string; pointsGained: nu
         correctAnswer: 'correct',
         isCorrect,
         pointsChange: safePointsChange,
-        pointsBefore: bot.points,
-        pointsAfter: bot.points + safePointsChange,
+        pointsBefore: bot.bogxCoins || 0,
+        pointsAfter: (bot.bogxCoins || 0) + safePointsChange,
         timeUsed: Math.floor(Math.random() * 10) + 1,
         difficulty,
         skipped: false,
@@ -152,10 +301,10 @@ export async function POST(request: Request) {
       });
     }
     
-    // Get current rankings
+    // Get current rankings (lifetime wallet balance = bogxCoins)
     const users = await User.find({})
-      .select('username avatar country countryFlag points wins')
-      .sort({ points: -1 })
+      .select('username avatar country countryFlag bogxCoins wins')
+      .sort({ bogxCoins: -1 })
       .limit(100)
       .lean();
     
@@ -166,7 +315,7 @@ export async function POST(request: Request) {
       avatar: user.avatar || '',
       country: user.country || 'World',
       countryFlag: user.countryFlag || '🌍',
-      points: user.points,
+      points: user.bogxCoins || 0,
       wins: user.wins,
       rank: index + 1,
     }));
@@ -201,233 +350,50 @@ export async function GET(request: Request) {
     const monthString = searchParams.get('month'); // YYYY-MM format
     const yearString = searchParams.get('year'); // YYYY format
     
-    // MONTH rankings - show points earned THIS MONTH ONLY
-    // Calculated as: current points - points at end of previous month
+    // MONTH rankings - coins earned THIS MONTH (10:00 Berlin on the 1st → now).
+    // Unified source: sum of GameResult.pointsChange in the period window.
     if (period === 'month') {
-      const targetMonth = monthString || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-      const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-      
-      // Get previous month's end date for baseline
-      const [year, month] = targetMonth.split('-').map(Number);
-      const prevMonthDate = new Date(year, month - 1, 0); // Last day of previous month
-      const prevMonthString = prevMonthDate.toISOString().split('T')[0];
-      
-      // Try to find previous month's snapshot
-      const prevSnapshot = await DailyRanking.findOne({ dateString: prevMonthString });
-      const prevPointsMap = new Map<string, number>();
-      
-      if (prevSnapshot) {
-        for (const entry of prevSnapshot.rankings) {
-          prevPointsMap.set(entry.userId?.toString() || '', entry.points || 0);
-        }
-      }
-      
-      // For current month, calculate: current points - previous month end points
-      if (targetMonth === currentMonth) {
-        const allUsers = await User.find({ 
-          isDeleted: { $ne: true }
-        })
-          .select('username avatar country countryFlag points wins')
-          .lean();
-        
-        // If no previous month snapshot, all points count for this month
-        const hasPrevSnapshot = prevPointsMap.size > 0;
-        
-        const rankings = allUsers.map(user => {
-          const oderId = user._id.toString();
-          const prevPoints = prevPointsMap.get(oderId) || 0;
-          const monthlyPoints = hasPrevSnapshot ? (user.points || 0) - prevPoints : (user.points || 0);
-          return {
-            _id: user._id,
-            username: user.username,
-            avatar: user.avatar || '',
-            country: user.country || 'World',
-            countryFlag: user.countryFlag || '🌍',
-            points: monthlyPoints, // Points earned THIS MONTH only
-            wins: user.wins || 0,
-            totalPoints: user.points || 0,
-            isActive: false,
-            recentPoints: 0,
-          };
-        });
-        
-        // Sort by monthly points
-        rankings.sort((a, b) => b.points - a.points || b.totalPoints - a.totalPoints);
-        
-        // Filter out users with 0 or negative points
-        const activeRankings = rankings.filter(r => r.points > 0);
-        
-        const rankedResults = activeRankings.slice(0, 100).map((r, index) => ({
-          ...r,
-          rank: index + 1,
-        }));
-        
-        return NextResponse.json({ 
-          rankings: rankedResults,
-          isLive: true,
-          period: 'month',
-          month: targetMonth
-        });
-      }
-      
-      // For historical months, calculate difference between end of that month and end of previous month
-      const lastDayOfMonth = new Date(year, month, 0).getDate();
-      const endOfMonthDate = `${targetMonth}-${String(lastDayOfMonth).padStart(2, '0')}`;
-      
-      const endSnapshot = await DailyRanking.findOne({ dateString: endOfMonthDate });
-      
-      if (endSnapshot && prevSnapshot) {
-        // Get deleted user IDs to filter them out
-        const deletedUsers = await User.find({ isDeleted: true }).select('_id').lean();
-        const deletedIds = new Set(deletedUsers.map(u => u._id.toString()));
-        
-        // Calculate difference for each user, filtering out deleted users
-        const rankings = endSnapshot.rankings
-          .filter((entry: any) => !deletedIds.has(entry.userId?.toString() || ''))
-          .map((entry: any, index: number) => {
-            const oderId = entry.userId?.toString() || '';
-            const prevPoints = prevPointsMap.get(oderId) || 0;
-            const monthlyPoints = (entry.points || 0) - prevPoints;
-            return {
-              ...entry,
-              points: monthlyPoints,
-              totalPoints: entry.points,
-              rank: index + 1,
-            };
-          });
-        
-        // Re-sort by monthly points
-        rankings.sort((a: any, b: any) => b.points - a.points);
-        rankings.forEach((r: any, i: number) => r.rank = i + 1);
-        
-        return NextResponse.json({ 
-          rankings: rankings.slice(0, 100),
-          isLive: false,
-          period: 'month',
-          month: targetMonth
-        });
-      }
-      
-      // No snapshots found, return empty
-      return NextResponse.json({ 
-        rankings: [],
-        isLive: false,
-        period: 'month',
-        month: targetMonth,
-        message: 'No snapshot available for this month'
-      });
+      const now = new Date();
+      const cur = berlinParts(now);
+      const targetMonth = monthString || `${cur.year}-${String(cur.month).padStart(2, '0')}`;
+      const currentMonth = `${cur.year}-${String(cur.month).padStart(2, '0')}`;
+      const [y, m] = targetMonth.split('-').map(Number);
+
+      const start = berlinInstant(y, m, 1, 10);
+      const isCurrent = targetMonth === currentMonth;
+      // Also trigger bot activity on month view
+      if (isCurrent) await maybeSimulateBotActivity();
+      // Historical month ends at 10:00 Berlin on the 1st of the next month
+      const nextM = m === 12 ? 1 : m + 1;
+      const nextY = m === 12 ? y + 1 : y;
+      const end = isCurrent ? undefined : berlinInstant(nextY, nextM, 1, 10);
+
+      const rankings = await buildPeriodRankings(start, end);
+      return NextResponse.json(
+        { rankings, isLive: isCurrent, period: 'month', month: targetMonth },
+        { headers: NO_CACHE_HEADERS }
+      );
     }
     
-    // YEAR rankings - show points earned THIS YEAR ONLY
-    // Calculated as: current points - points at end of previous year
+    // YEAR rankings - coins earned THIS YEAR (10:00 Berlin on Jan 1st → now).
+    // Unified source: sum of GameResult.pointsChange in the period window.
     if (period === 'year') {
-      const targetYear = yearString || `${new Date().getFullYear()}`;
-      const currentYear = `${new Date().getFullYear()}`;
-      
-      // Get previous year's end date for baseline (Dec 31 of previous year)
-      const prevYearEnd = `${parseInt(targetYear) - 1}-12-31`;
-      
-      // Try to find previous year's snapshot
-      const prevSnapshot = await DailyRanking.findOne({ dateString: prevYearEnd });
-      const prevPointsMap = new Map<string, number>();
-      
-      if (prevSnapshot) {
-        for (const entry of prevSnapshot.rankings) {
-          prevPointsMap.set(entry.userId?.toString() || '', entry.points || 0);
-        }
-      }
-      
-      // For current year, calculate: current points - previous year end points
-      if (targetYear === currentYear) {
-        const allUsers = await User.find({ 
-          isDeleted: { $ne: true }
-        })
-          .select('username avatar country countryFlag points wins')
-          .lean();
-        
-        // If no previous year snapshot, all points count for this year
-        const hasPrevSnapshot = prevPointsMap.size > 0;
-        
-        const rankings = allUsers.map(user => {
-          const oderId = user._id.toString();
-          const prevPoints = prevPointsMap.get(oderId) || 0;
-          const yearlyPoints = hasPrevSnapshot ? (user.points || 0) - prevPoints : (user.points || 0);
-          return {
-            _id: user._id,
-            username: user.username,
-            avatar: user.avatar || '',
-            country: user.country || 'World',
-            countryFlag: user.countryFlag || '🌍',
-            points: yearlyPoints, // Points earned THIS YEAR only
-            wins: user.wins || 0,
-            totalPoints: user.points || 0,
-            isActive: false,
-            recentPoints: 0,
-          };
-        });
-        
-        // Sort by yearly points
-        rankings.sort((a, b) => b.points - a.points || b.totalPoints - a.totalPoints);
-        
-        // Filter out users with 0 or negative points
-        const activeRankings = rankings.filter(r => r.points > 0);
-        
-        const rankedResults = activeRankings.slice(0, 100).map((r, index) => ({
-          ...r,
-          rank: index + 1,
-        }));
-        
-        return NextResponse.json({ 
-          rankings: rankedResults,
-          isLive: true,
-          period: 'year',
-          year: targetYear
-        });
-      }
-      
-      // For historical years, calculate difference
-      const endOfYearDate = `${targetYear}-12-31`;
-      const endSnapshot = await DailyRanking.findOne({ dateString: endOfYearDate });
-      
-      if (endSnapshot) {
-        // Get deleted user IDs to filter them out
-        const deletedUsers = await User.find({ isDeleted: true }).select('_id').lean();
-        const deletedIds = new Set(deletedUsers.map(u => u._id.toString()));
-        
-        const rankings = endSnapshot.rankings
-          .filter((entry: any) => !deletedIds.has(entry.userId?.toString() || ''))
-          .map((entry: any, index: number) => {
-            const oderId = entry.userId?.toString() || '';
-            const prevPoints = prevPointsMap.get(oderId) || 0;
-            const yearlyPoints = (entry.points || 0) - prevPoints;
-            return {
-              ...entry,
-              points: yearlyPoints,
-              totalPoints: entry.points,
-              rank: index + 1,
-            };
-          });
-        
-        // Re-sort by yearly points
-        rankings.sort((a: any, b: any) => b.points - a.points);
-        rankings.forEach((r: any, i: number) => r.rank = i + 1);
-        
-        return NextResponse.json({ 
-          rankings: rankings.slice(0, 100),
-          isLive: false,
-          period: 'year',
-          year: targetYear
-        });
-      }
-      
-      // No snapshot found
-      return NextResponse.json({ 
-        rankings: [],
-        isLive: false,
-        period: 'year',
-        year: targetYear,
-        message: 'No snapshot available for this year'
-      });
+      const now = new Date();
+      const cur = berlinParts(now);
+      const targetYear = yearString || `${cur.year}`;
+      const currentYear = `${cur.year}`;
+      const y = Number(targetYear);
+
+      const start = berlinInstant(y, 1, 1, 10);
+      const isCurrent = targetYear === currentYear;
+      // Historical year ends at 10:00 Berlin on Jan 1st of the next year
+      const end = isCurrent ? undefined : berlinInstant(y + 1, 1, 1, 10);
+
+      const rankings = await buildPeriodRankings(start, end);
+      return NextResponse.json(
+        { rankings, isLive: isCurrent, period: 'year', year: targetYear },
+        { headers: NO_CACHE_HEADERS }
+      );
     }
     
     // DAY rankings - show points earned TODAY ONLY
@@ -435,134 +401,40 @@ export async function GET(request: Request) {
     // So we use the snapshot from the previous "ranking day"
     const today = getRankingDayString(); // Uses Berlin time, accounts for 10:00 cutoff
     
-    // Get previous ranking day's date for baseline
-    // This is the snapshot taken at 9:00 Berlin time (before the break)
-    const todayDate = new Date(today + 'T00:00:00Z');
-    const prevDay = new Date(todayDate);
-    prevDay.setDate(prevDay.getDate() - 1);
-    const yesterdayString = prevDay.toISOString().split('T')[0];
-    
-    // Try to find previous day's snapshot (taken at 9:00 Berlin time)
-    const prevSnapshot = await DailyRanking.findOne({ dateString: yesterdayString });
-    const prevPointsMap = new Map<string, number>();
-    
-    if (prevSnapshot) {
-      for (const entry of prevSnapshot.rankings) {
-        prevPointsMap.set(entry.userId?.toString() || '', entry.points || 0);
-      }
-    }
-    
-    // For today (current ranking day), calculate from GameResults
+    // For today (current ranking day), calculate from GameResults using the
+    // precise 10:00 Berlin boundary (playedAt >= ranking day start).
     if (!dateString || dateString === today) {
-      const hasPrevSnapshot = prevPointsMap.size > 0;
+      // Let bots play occasionally (throttled, spread over the day)
+      await maybeSimulateBotActivity();
       
-      // Aggregate today's GameResults to get daily points
-      const todayResults = await GameResult.aggregate([
-        { $match: { gameDate: today } },
-        { 
-          $group: { 
-            _id: '$userId',
-            username: { $first: '$username' },
-            dailyPoints: { $sum: '$pointsChange' },
-            gamesPlayed: { $sum: 1 },
-            wins: { $sum: { $cond: ['$isCorrect', 1, 0] } }
-          } 
-        }
-      ]);
+      const rankedResults = await buildPeriodRankings(rankingDayStartInstant());
       
-      // Get user details for avatars etc
-      const userIds = todayResults.map(r => r._id);
-      const users = await User.find({ _id: { $in: userIds } })
-        .select('username avatar country countryFlag points')
-        .lean();
-      
-      const userMap = new Map(users.map(u => [u._id.toString(), u]));
-      
-      const rankings = todayResults.map(result => {
-        const user = userMap.get(result._id?.toString() || '') || {};
-        return {
-          _id: result._id,
-          username: result.username || (user as any).username || 'Unknown',
-          avatar: (user as any).avatar || '',
-          country: (user as any).country || 'World',
-          countryFlag: (user as any).countryFlag || '🌍',
-          points: Math.round(result.dailyPoints * 100) / 100, // Points earned TODAY
-          wins: result.wins || 0,
-          totalPoints: (user as any).points || 0,
-          gamesPlayed: result.gamesPlayed || 0,
-          isActive: false,
-          recentPoints: 0,
-        };
-      });
-      
-      // Sort by daily points
-      rankings.sort((a, b) => b.points - a.points || b.totalPoints - a.totalPoints);
-      
-      // Filter out users with 0 or negative points
-      const activeRankings = rankings.filter(r => r.points > 0);
-      
-      const rankedResults = activeRankings.slice(0, 100).map((r, index) => ({
-        ...r,
-        rank: index + 1,
-      }));
-      
-      return NextResponse.json({ 
-        rankings: rankedResults,
-        isLive: true,
-        date: today
-      });
+      return NextResponse.json(
+        { rankings: rankedResults, isLive: true, date: today },
+        { headers: NO_CACHE_HEADERS }
+      );
     }
     
-    // For historical dates, calculate difference from previous day
-    const prevDate = new Date(dateString);
-    prevDate.setDate(prevDate.getDate() - 1);
-    const prevDateString = prevDate.toISOString().split('T')[0];
-    
-    const daySnapshot = await DailyRanking.findOne({ dateString });
-    const prevDaySnapshot = await DailyRanking.findOne({ dateString: prevDateString });
-    
-    if (daySnapshot && prevDaySnapshot) {
-      // Get deleted user IDs to filter them out
-      const deletedUsers = await User.find({ isDeleted: true }).select('_id').lean();
-      const deletedIds = new Set(deletedUsers.map(u => u._id.toString()));
-      
-      const prevDayMap = new Map<string, number>();
-      for (const entry of prevDaySnapshot.rankings) {
-        prevDayMap.set(entry.userId?.toString() || '', entry.points || 0);
-      }
-      
-      const rankings = daySnapshot.rankings
-        .filter((entry: any) => !deletedIds.has(entry.userId?.toString() || ''))
-        .map((entry: any, index: number) => {
-          const oderId = entry.userId?.toString() || '';
-          const prevPoints = prevDayMap.get(oderId) || 0;
-          const dailyPoints = (entry.points || 0) - prevPoints;
-          return {
-            ...entry,
-            points: dailyPoints,
-            totalPoints: entry.points,
-            rank: index + 1,
-          };
-        });
-      
-      // Re-sort by daily points
-      rankings.sort((a: any, b: any) => b.points - a.points);
-      rankings.forEach((r: any, i: number) => r.rank = i + 1);
-      
-      return NextResponse.json({ 
-        rankings: rankings.slice(0, 100),
-        isLive: false,
-        date: dateString
-      });
-    }
-    
-    // No snapshot found for this date
-    return NextResponse.json({ 
-      rankings: [],
-      isLive: false,
-      date: dateString,
-      message: 'No snapshot available for this date'
-    });
+    // Historical day: the ranking day labelled D runs from D 10:00 Berlin to
+    // D+1 09:00 Berlin (the 09:00-10:00 window is the daily break, excluded).
+    // Same unified GameResult source as the live day/month/year views.
+    const [dy, dm, dd] = dateString.split('-').map(Number);
+    const dayStart = berlinInstant(dy, dm, dd, 10);
+    // Compute the next calendar day for the break boundary
+    const nextCal = new Date(Date.UTC(dy, dm - 1, dd + 1));
+    const dayEnd = berlinInstant(
+      nextCal.getUTCFullYear(),
+      nextCal.getUTCMonth() + 1,
+      nextCal.getUTCDate(),
+      9 // break starts at 09:00 → day ends here
+    );
+
+    const rankedResults = await buildPeriodRankings(dayStart, dayEnd);
+
+    return NextResponse.json(
+      { rankings: rankedResults, isLive: false, date: dateString },
+      { headers: NO_CACHE_HEADERS }
+    );
   } catch (error) {
     console.error('Get snapshot error:', error);
     return NextResponse.json({ error: 'Failed to get rankings' }, { status: 500 });

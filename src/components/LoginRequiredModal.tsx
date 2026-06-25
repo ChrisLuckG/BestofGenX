@@ -80,7 +80,7 @@ export default function LoginRequiredModal({
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-5">
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-sm bg-[#F5F0E8] rounded-2xl shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="px-6 pt-6 pb-4 border-b border-warm">
           <button
@@ -88,6 +88,7 @@ export default function LoginRequiredModal({
             aria-label="Close"
             className="absolute top-4 right-4 w-8 h-8 rounded-full hover:bg-[#D4873A]/10 flex items-center justify-center text-gray-400 hover:text-[#D4873A] transition-colors"
           >
+
             <X className="w-4 h-4" />
           </button>
           <div className="w-12 h-12 rounded-xl bg-[#D4873A]/10 flex items-center justify-center mb-4">

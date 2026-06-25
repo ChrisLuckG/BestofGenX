@@ -168,7 +168,7 @@ function CardMoodReactionsInner({
       
       setPickerPosition({ top, left });
     }
-    setShowPicker(true);
+    setTimeout(() => setShowPicker(true), 0);
   };
 
   return (

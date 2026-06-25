@@ -5,11 +5,10 @@ import User from '@/models/User';
 import Card from '@/models/Card';
 
 const TOPICS = ['sport', 'music', 'film', 'culture', 'fashion', 'games', 'tv'];
-// BOGX wager amounts
+// BOGX wager amounts - Bot uses the lowest VALID wager so new users can play
+// (0.05 no longer exists - minimum is 0.10)
 const WAGERS = [
   { amount: 0.10, rounds: 3 },
-  { amount: 0.25, rounds: 3 },
-  { amount: 0.50, rounds: 3 },
 ];
 
 // Shadow Hunter is always available - find or ensure he has a battle
@@ -35,10 +34,12 @@ async function ensureShadowHunterBattle(): Promise<{ created: boolean; joined: b
   result.botId = shadowHunter._id.toString();
   console.log('Found ShadowHunter:', shadowHunter.username, 'ID:', shadowHunter._id);
   
-  // Ensure Shadow Hunter has enough BOGX (give him plenty)
-  if (shadowHunter.points < 10) {
-    await User.findByIdAndUpdate(shadowHunter._id, { $set: { points: 100.00 } });
-  }
+  // NOTE: We deliberately do NOT top up the bot's wallet here.
+  // The wallet (bogxCoins) MUST always equal the sum of the bot's GameResults
+  // (its real earnings), so it stays consistent everywhere (invite = ranking).
+  // The bot earns coins naturally via the bot-activity cron (which creates
+  // GameResults). If it cannot afford a wager, it simply skips creating a
+  // battle this round. NO artificial wallet manipulation.
   
   // Check if Shadow Hunter already has an open battle
   const existingBattle = await Battle.findOne({
@@ -158,7 +159,7 @@ export async function POST(request: NextRequest) {
       { 
         $match: { 
           $or: [{ isBot: true }, { botActive: true }],
-          points: { $gte: 25 }
+          bogxCoins: { $gte: 25 }
         } 
       },
       { $sample: { size: 2 } }
@@ -186,7 +187,7 @@ export async function POST(request: NextRequest) {
         const topic = TOPICS[Math.floor(Math.random() * TOPICS.length)];
         const wagerConfig = WAGERS[Math.floor(Math.random() * WAGERS.length)];
         
-        if (bot.points >= wagerConfig.amount) {
+        if (bot.bogxCoins >= wagerConfig.amount) {
           // Get random cards for this battle using $sample
           const cards = await Card.aggregate([
             { $match: { active: true } },
@@ -218,7 +219,7 @@ export async function POST(request: NextRequest) {
             
             // Deduct wager
             await User.findByIdAndUpdate(bot._id, {
-              $inc: { points: -wagerConfig.amount }
+              $inc: { bogxCoins: -wagerConfig.amount }
             });
             
             results.battlesCreated++;
@@ -231,7 +232,7 @@ export async function POST(request: NextRequest) {
           creator: { $ne: bot._id },
         }).populate('creator', 'isBot');
         
-        if (openBattle && bot.points >= openBattle.wager) {
+        if (openBattle && bot.bogxCoins >= openBattle.wager) {
           const creator = openBattle.creator as any;
           
           // Don't join if creator is also a bot (avoid bot vs bot)
@@ -242,7 +243,7 @@ export async function POST(request: NextRequest) {
             
             // Deduct wager
             await User.findByIdAndUpdate(bot._id, {
-              $inc: { points: -openBattle.wager }
+              $inc: { bogxCoins: -openBattle.wager }
             });
             
             results.battlesJoined++;

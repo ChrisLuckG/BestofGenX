@@ -53,10 +53,11 @@ const WRONG_PENALTY = 0.03; // -0.03 BOGX for wrong answer (10% of max)
 export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation, embedded = false }: SoloTriviaGameProps) {
   const { user, isLoggedIn } = useAuth();
   const [phase, setPhase] = useState<GamePhase>('setup');
-  const [questionCount, setQuestionCount] = useState<10 | 20>(10);
+  const [questionCount, setQuestionCount] = useState<5 | 10 | 15 | 20>(10);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
@@ -71,10 +72,35 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
   const [currentPoints, setCurrentPoints] = useState(MAX_POINTS);
   const [totalEarnings, setTotalEarnings] = useState(0);
   
+  // Online players count
+  const [onlinePlayers, setOnlinePlayers] = useState(0);
+  const [onlineLoading, setOnlineLoading] = useState(true);
+  
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
   const questionsRef = useRef<Question[]>([]);
+  
+  // Fetch online players count (heartbeat is now global in AuthContext)
+  useEffect(() => {
+    const fetchOnline = async () => {
+      setOnlineLoading(true);
+      try {
+        const res = await fetch('/api/users/online?limit=100');
+        const data = await res.json();
+        if (data.success) {
+          setOnlinePlayers(data.users?.length || 0);
+        }
+      } catch {
+        setOnlinePlayers(0);
+      } finally {
+        setOnlineLoading(false);
+      }
+    };
+    fetchOnline();
+    const interval = setInterval(fetchOnline, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Run countdown before showing answers
   const runCountdown = () => {
@@ -158,19 +184,45 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
     setTotalEarnings(prev => prev - WRONG_PENALTY);
     setAnswerHistory(prev => [...prev, 'wrong']);
     
-    // Trigger coin animation for timeout penalty
+    // Trigger coin animation and update header for timeout penalty
     onCoinAnimation?.(-WRONG_PENALTY);
+    onCoinsChange?.(-WRONG_PENALTY);
     
     // Deduct penalty from DB and track played question
     const currentQ = questions[currentIndex];
-    if (isLoggedIn && user?.id) {
+    if (!isLoggedIn) {
+      // Guest: save coins to localStorage
+      const guestCoins = parseFloat(localStorage.getItem('bogx_guest_coins') || '0');
+      localStorage.setItem('bogx_guest_coins', String(Math.round((guestCoins - WRONG_PENALTY) * 100) / 100));
+    } else if (isLoggedIn && user?.id) {
       try {
         await fetch('/api/user/update-bogx', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id, amount: -WRONG_PENALTY }),
+          body: JSON.stringify({ userId: user.id, amount: -WRONG_PENALTY, skipGameResult: true }),
         });
-        onCoinsChange?.(-WRONG_PENALTY);
+        
+        // Save GameResult for ranking system (timeout)
+        await fetch('/api/game-results', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user.id,
+            cardId: currentQ?.cardId || 'trivia-' + Date.now(),
+            question: currentQ?.question || '',
+            userAnswer: null,
+            correctAnswer: currentQ?.options?.[currentQ?.correctIndex] || '',
+            isCorrect: false,
+            pointsChange: -WRONG_PENALTY,
+            timeUsed: 10,
+            difficulty: 1,
+            skipped: false,
+            timedOut: true,
+          }),
+        });
+        
+        // Notify leaderboard/rankings to refresh instantly
+        window.dispatchEvent(new CustomEvent('bogx-updated'));
         
         // Track played question so it won't repeat soon
         if (currentQ?.cardId) {
@@ -213,6 +265,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
   // Load categories from DB
   useEffect(() => {
     const loadCategories = async () => {
+      setCategoriesLoading(true);
       try {
         const res = await fetch('/api/trivia/categories');
         const data = await res.json();
@@ -225,6 +278,8 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
         }
       } catch (e) {
         console.error('Failed to load categories:', e);
+      } finally {
+        setCategoriesLoading(false);
       }
     };
     loadCategories();
@@ -330,19 +385,44 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
       setAnswerHistory(prev => [...prev, 'wrong']);
     }
 
-    // Trigger coin animation
+    // Trigger coin animation and update header
     onCoinAnimation?.(points);
+    onCoinsChange?.(points);
 
-    // Save to DB if logged in
-    if (isLoggedIn && user?.id) {
+    // Save to DB if logged in, or persist locally for guests
+    if (!isLoggedIn) {
+      const guestCoins = parseFloat(localStorage.getItem('bogx_guest_coins') || '0');
+      localStorage.setItem('bogx_guest_coins', String(Math.round((guestCoins + points) * 100) / 100));
+    } else if (isLoggedIn && user?.id) {
       try {
-        // Update coins
+        // Update coins (skip auto GameResult since we save manually below)
         await fetch('/api/user/update-bogx', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id, amount: points }),
+          body: JSON.stringify({ userId: user.id, amount: points, skipGameResult: true }),
         });
-        onCoinsChange?.(points);
+        
+        // Save GameResult for ranking system
+        await fetch('/api/game-results', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user.id,
+            cardId: currentQ.cardId || 'trivia-' + Date.now(),
+            question: currentQ.question,
+            userAnswer: currentQ.options[answerIndex],
+            correctAnswer: currentQ.options[currentQ.correctIndex],
+            isCorrect,
+            pointsChange: points,
+            timeUsed: Math.round((10000 - timeLeft) / 1000),
+            difficulty: 1,
+            skipped: false,
+            timedOut: false,
+          }),
+        });
+        
+        // Notify leaderboard/rankings to refresh instantly
+        window.dispatchEvent(new CustomEvent('bogx-updated'));
         
         // Track played question so it won't repeat soon
         if (currentQ.cardId) {
@@ -364,11 +444,22 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
     }
 
     // Move to next question after delay - use ref to avoid closure issues
-    setTimeout(() => {
+    setTimeout(async () => {
       const qs = questionsRef.current;
       setCurrentIndex(prev => {
         if (prev + 1 >= qs.length) {
           setPhase('result');
+          // Update game stats when game ends
+          if (isLoggedIn && user?.id) {
+            // Calculate if won (more than 50% correct)
+            const totalCorrect = correctCount + (isCorrect ? 1 : 0);
+            const won = totalCorrect > qs.length / 2;
+            fetch('/api/user/game-stats', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId: user.id, won }),
+            }).catch(e => console.error('Failed to update game stats:', e));
+          }
           return prev;
         }
         runCountdown();
@@ -382,11 +473,26 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
   // Unified Header Component - same on all phases
   const GameHeader = ({ showBack = true }: { showBack?: boolean }) => (
     <div className="px-3 pt-4 pb-3 border-b border-warm">
-      <div className="flex items-center gap-2">
-        {showBack && <BackButton onClick={onBack} className="-ml-1" />}
-        <div>
-          <span className="font-display text-lg tracking-wider text-gray-900">Solo Trivia</span>
-          <p className="text-[10px] text-gray-500 -mt-0.5">Answer fast, earn coins.</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {showBack && <BackButton onClick={onBack} className="-ml-1" />}
+          <div>
+            <span className="font-display text-lg tracking-wider text-gray-900">Solo Trivia</span>
+            <p className="text-[10px] text-gray-500 -mt-0.5">Answer fast, earn coins.</p>
+          </div>
+        </div>
+        {/* Online Players Indicator */}
+        <div className="flex items-center gap-2 bg-cream border border-warm px-3 py-1.5 rounded-full">
+          <div className="relative">
+            <img src={user?.avatar || '/images/default-avatar.png'} alt="" className="w-6 h-6 rounded-full border-2 border-white" />
+            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white" />
+          </div>
+          {onlineLoading ? (
+            <div className="w-6 h-4 bg-gray-300 rounded animate-pulse" />
+          ) : (
+            <span className="text-xs font-bold text-gray-700">{onlinePlayers.toLocaleString()}</span>
+          )}
+          <span className="text-[10px] text-gray-500 uppercase">Online</span>
         </div>
       </div>
     </div>
@@ -559,7 +665,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
     );
   }
 
-  // Setup Phase
+  // Setup Phase - Redesigned like QuizzBattle
   if (phase === 'setup') {
     return (
       <div className="w-full h-full min-h-full flex-1 flex flex-col relative" style={{ backgroundColor: '#F5F0E8' }}>
@@ -587,127 +693,169 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
-          {/* Hero Banner - using solo.png background */}
+        <div className="flex-1 overflow-y-auto px-4 py-4" style={{ scrollbarWidth: 'none' }}>
+          {/* Hero Banner - in rounded box */}
           <div 
-            className={`relative overflow-hidden mb-4 bg-cover bg-center cursor-pointer ${embedded ? 'min-h-[280px]' : ''}`}
-            style={{ backgroundImage: "url('/images/Hintergund/solo.png')" }}
-            onClick={() => { if (!loading) startGame(); }}
+            className="relative overflow-hidden bg-cover bg-center rounded-2xl"
+            style={{ backgroundImage: "url('/images/Hintergund/solo.png')", minHeight: '240px' }}
           >
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent" />
-            <div className={`relative px-4 ${embedded ? 'py-8' : 'py-4'}`}>
-              <span className={`inline-block px-3 py-1 bg-[#D4873A] text-white font-bold uppercase tracking-wider rounded-full mb-2 ${embedded ? 'text-xs' : 'text-[10px]'}`}>
+            <div className="relative px-6 py-8">
+              <span className="inline-block px-3 py-1 bg-[#D4873A] text-white font-bold uppercase tracking-wider rounded-full mb-4 text-[10px]">
                 Solo Trivia
               </span>
-              <h2 className={`font-display text-white leading-tight mb-1 ${embedded ? 'text-3xl' : 'text-2xl'}`}>
+              <h2 className="font-display text-white leading-tight mb-2 text-2xl md:text-3xl">
                 WIN BOGX COINS<br/>
                 IN <span className="text-[#D4873A]">60</span> SECONDS
               </h2>
-              <div className={`flex items-center gap-4 mt-2 text-white/80 ${embedded ? 'text-xs' : 'text-[11px]'}`}>
-                <span className="flex items-center gap-1"><span className="text-[#D4873A]">⚡</span> Answer fast</span>
-                <span className="flex items-center gap-1"><img src="/images/bogxcoin.png" alt="" className="w-3.5 h-3.5" /> Earn coins</span>
-                <span className="flex items-center gap-1"><Trophy className="w-3.5 h-3.5 text-[#D4873A]" /> Climb ranks</span>
+              <div className="flex items-center gap-3 mt-4 text-white/90 text-[10px]">
+                <span className="flex items-center gap-1 bg-white/20 px-2.5 py-1 rounded-full"><span className="text-[#D4873A]">⚡</span> Answer fast</span>
+                <span className="flex items-center gap-1 bg-white/20 px-2.5 py-1 rounded-full"><img src="/images/bogxcoin.png" alt="" className="w-3 h-3" /> Earn coins</span>
+                <span className="flex items-center gap-1 bg-white/20 px-2.5 py-1 rounded-full"><Trophy className="w-3 h-3" /> Climb ranks</span>
               </div>
             </div>
           </div>
 
-          <div className="px-4">
-            {/* Step 1: Choose Questions */}
-            <div className="mb-8">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="w-5 h-5 bg-[#D4873A] rounded-full text-white text-[10px] font-bold flex items-center justify-center">1</span>
-                <span className="text-sm font-bold tracking-wider text-gray-800 uppercase">Choose Questions</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {/* 10 Questions Card */}
+          {/* Step 1: Choose Questions - 4 options in boxes */}
+          <div className="mt-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-5 h-5 bg-[#D4873A] rounded-full text-white text-[10px] font-bold flex items-center justify-center">1</span>
+              <span className="font-display text-base text-gray-900 uppercase">Choose Number of Questions</span>
+            </div>
+            <div className="grid grid-cols-4 gap-3">
+              {([5, 10, 15, 20] as const).map((count) => (
                 <button
-                  onClick={() => setQuestionCount(10)}
-                  className={`relative py-2.5 text-center rounded-xl transition-all ${
-                    questionCount === 10
-                      ? 'bg-[#D4873A]/10 border-2 border-[#D4873A]'
-                      : 'bg-[#D4873A]/5 border-2 border-transparent'
+                  key={count}
+                  onClick={() => setQuestionCount(count)}
+                  className={`bg-[#D4873A]/5 rounded-2xl border p-4 flex flex-col items-center text-center transition-all ${
+                    questionCount === count
+                      ? 'border-[#D4873A] border-2'
+                      : 'border-[#D4873A]/20 hover:border-[#D4873A]/40'
                   }`}
                 >
-                  {questionCount === 10 && (
-                    <div className="absolute top-1.5 right-1.5 w-4 h-4 bg-[#D4873A] rounded-full flex items-center justify-center">
-                      <Check className="w-2.5 h-2.5 text-white" />
-                    </div>
-                  )}
-                  <div className="font-display text-3xl leading-none text-[#D4873A]">10</div>
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-gray-600">Questions</div>
+                  <div className="flex items-center gap-1 mb-1">
+                    <img src="/images/bogxcoin.png" alt="" className="w-5 h-5" />
+                    <span className="font-display text-2xl text-gray-900">{count}</span>
+                  </div>
+                  <span className="text-[10px] text-gray-500 uppercase tracking-wider">Questions</span>
                 </button>
-                {/* 20 Questions Card */}
-                <button
-                  onClick={() => setQuestionCount(20)}
-                  className={`relative py-2.5 text-center rounded-xl transition-all ${
-                    questionCount === 20
-                      ? 'bg-[#D4873A]/10 border-2 border-[#D4873A]'
-                      : 'bg-[#D4873A]/5 border-2 border-transparent'
-                  }`}
-                >
-                  {questionCount === 20 && (
-                    <div className="absolute top-1.5 right-1.5 w-4 h-4 bg-[#D4873A] rounded-full flex items-center justify-center">
-                      <Check className="w-2.5 h-2.5 text-white" />
-                    </div>
-                  )}
-                  <div className="font-display text-3xl leading-none text-gray-800">20</div>
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-gray-600">Questions</div>
-                </button>
-              </div>
+              ))}
             </div>
+          </div>
 
-            {/* Step 2: Choose Category - Horizontal scroll like screenshot */}
-            <div className="mb-8">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="w-5 h-5 bg-[#D4873A] rounded-full text-white text-[10px] font-bold flex items-center justify-center">2</span>
-                <span className="text-sm font-bold tracking-wider text-gray-800 uppercase">Choose Category</span>
-              </div>
-              <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4" style={{ scrollbarWidth: 'none' }}>
-                {categories.map((cat: string) => {
-                  const Icon = CATEGORY_ICONS[cat] || CATEGORY_ICONS[cat.toUpperCase()] || HelpCircle;
-                  const displayName = cat === 'all' ? 'All' : cat.charAt(0).toUpperCase() + cat.slice(1);
-                  return (
-                    <button
-                      key={cat}
-                      onClick={() => setSelectedCategory(cat)}
-                      className={`flex-shrink-0 py-1.5 px-2.5 text-sm font-semibold rounded-lg transition-all flex items-center gap-1 whitespace-nowrap ${
-                        selectedCategory === cat
-                          ? 'bg-[#D4873A] text-white'
-                          : 'bg-[#D4873A]/5 text-gray-700'
-                      }`}
-                    >
-                      <Icon className="w-3.5 h-3.5" /> {displayName}
-                    </button>
-                  );
-                })}
-              </div>
+          {/* Step 2: Choose Category */}
+          <div className="mt-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-5 h-5 bg-[#D4873A] rounded-full text-white text-[10px] font-bold flex items-center justify-center">2</span>
+              <span className="font-display text-base text-gray-900 uppercase">Choose Category</span>
             </div>
-
-            {/* Step 3: Start Game */}
-            <div className="mb-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="w-5 h-5 bg-[#D4873A] rounded-full text-white text-[10px] font-bold flex items-center justify-center">3</span>
-                <span className="text-sm font-bold tracking-wider text-gray-800 uppercase">Start Game</span>
+            <div className="relative">
+              {/* Left scroll button */}
+              <button 
+                onClick={() => {
+                  const container = document.getElementById('category-scroll');
+                  if (container) container.scrollBy({ left: -150, behavior: 'smooth' });
+                }}
+                className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/90 border border-[#D4873A]/20 rounded-full shadow-md flex items-center justify-center hover:bg-[#D4873A]/10 transition-colors"
+              >
+                <span className="text-[#D4873A] text-sm">‹</span>
+              </button>
+              
+              <div id="category-scroll" className="flex gap-2 overflow-x-auto pb-1 px-10 scroll-smooth" style={{ scrollbarWidth: 'none' }}>
+                {categoriesLoading ? (
+                  // Skeleton loader for categories
+                  <>
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div key={i} className="flex-shrink-0 py-1.5 px-6 rounded-lg bg-[#D4873A]/10 animate-pulse h-7 w-20" />
+                    ))}
+                  </>
+                ) : (
+                  categories.map((cat: string) => {
+                    const Icon = CATEGORY_ICONS[cat] || CATEGORY_ICONS[cat.toUpperCase()] || HelpCircle;
+                    const displayName = cat === 'all' ? 'All' : cat.charAt(0).toUpperCase() + cat.slice(1);
+                    return (
+                      <button
+                        key={cat}
+                        onClick={() => setSelectedCategory(cat)}
+                        className={`flex-shrink-0 py-1.5 px-3 text-[10px] uppercase tracking-wider font-medium rounded-lg transition-all flex items-center gap-1 whitespace-nowrap border ${
+                          selectedCategory === cat
+                            ? 'bg-[#D4873A] text-white border-[#D4873A]'
+                            : 'bg-[#D4873A]/5 text-gray-700 border-[#D4873A]/20 hover:border-[#D4873A]/40'
+                        }`}
+                      >
+                        <Icon className="w-3.5 h-3.5" /> {displayName}
+                      </button>
+                    );
+                  })
+                )}
               </div>
               
-              {/* Start banner with coins - fully clickable */}
-              <button
-                onClick={startGame}
-                disabled={loading}
-                className="w-full bg-[#D4873A]/10 border border-[#D4873A]/20 rounded-xl p-3 flex items-center gap-3 relative overflow-hidden disabled:opacity-50 hover:bg-[#D4873A]/15 transition-colors cursor-pointer"
+              {/* Right scroll button */}
+              <button 
+                onClick={() => {
+                  const container = document.getElementById('category-scroll');
+                  if (container) container.scrollBy({ left: 150, behavior: 'smooth' });
+                }}
+                className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/90 border border-[#D4873A]/20 rounded-full shadow-md flex items-center justify-center hover:bg-[#D4873A]/10 transition-colors"
               >
-                <img src="/images/bogxcoin.png" alt="" className="w-8 h-8 relative z-10" />
-                <div className="flex-1 relative z-10 text-left">
-                  <p className="text-gray-700 text-sm font-medium">
-                    Answer fast! Win up to <span className="text-[#D4873A] font-bold">{formatCurrency(questionCount * MAX_POINTS)} BOGX</span>
-                  </p>
-                </div>
-                <div className="w-9 h-9 bg-[#D4873A] rounded-full flex items-center justify-center shadow-lg relative z-10">
-                  <Play className="w-4 h-4 text-white fill-white ml-0.5" />
-                </div>
+                <span className="text-[#D4873A] text-sm">›</span>
               </button>
             </div>
+          </div>
 
+          {/* Max Win / Wrong Penalty / How it Works - in one box with dividers */}
+          <div className="bg-[#D4873A]/5 rounded-2xl border border-[#D4873A]/20 mt-4 grid grid-cols-3 divide-x divide-[#D4873A]/20">
+            <div className="py-4 px-3 text-center">
+              <span className="font-display text-sm text-gray-700 uppercase">Correct Answer</span>
+              <div className="flex items-center justify-center gap-1.5 mt-1">
+                <span className="text-green-500 font-bold">+</span>
+                <img src="/images/bogxcoin.png" alt="BOGX" className="w-6 h-6" />
+                <span className="font-display text-2xl text-green-600">{formatCurrency(MAX_POINTS)}</span>
+                <span className="text-xs text-gray-500">max</span>
+              </div>
+              <p className="text-[9px] text-gray-700 mt-1">Faster = more points</p>
+            </div>
+            <div className="py-4 px-3 text-center">
+              <span className="font-display text-sm text-gray-700 uppercase">Wrong / Time Up</span>
+              <div className="flex items-center justify-center gap-1.5 mt-1">
+                <span className="text-red-500 font-bold">-</span>
+                <img src="/images/bogxcoin.png" alt="BOGX" className="w-6 h-6" />
+                <span className="font-display text-2xl text-red-500">{formatCurrency(WRONG_PENALTY)}</span>
+              </div>
+              <p className="text-[9px] text-gray-700 mt-1">Per wrong or timeout</p>
+            </div>
+            <div className="py-4 px-3 text-center">
+              <span className="font-display text-sm text-gray-700 uppercase">How it Works</span>
+              <div className="mt-2 text-[10px] text-gray-700 space-y-1">
+                <p className="flex items-center justify-center gap-1"><Timer className="w-3 h-3 text-[#D4873A]" /> 10 sec per question</p>
+                <p className="flex items-center justify-center gap-1"><Trophy className="w-3 h-3 text-[#D4873A]" /> Max: {formatCurrency(questionCount * MAX_POINTS)} BOGX</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Start Button - centered, narrower */}
+          <div className="flex flex-col items-center mt-5 gap-3">
+            <button
+              onClick={startGame}
+              disabled={loading}
+              className="px-20 py-4 rounded-2xl text-white font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg, #E8A54B 0%, #D4873A 50%, #C4772A 100%)' }}
+            >
+              <Play className="w-5 h-5" />
+              START GAME
+            </button>
+            {error && (
+              <p className="text-red-500 text-sm text-center px-4">{error}</p>
+            )}
+          </div>
+
+          {/* Fair Play */}
+          <div className="flex items-center justify-center gap-3 mt-4 text-xs text-gray-500 pb-4">
+            <span className="flex items-center gap-1">
+              <Check className="w-3.5 h-3.5 text-green-500" />
+              Fair play guaranteed
+            </span>
+            <button className="text-[#D4873A] hover:underline">How it works</button>
           </div>
         </div>
       </div>

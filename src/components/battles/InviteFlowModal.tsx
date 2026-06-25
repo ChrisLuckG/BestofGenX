@@ -19,9 +19,9 @@ type PlayerFilter = 'online' | 'country' | 'level';
 const WAGERS = [
   { amount: 0.10, rounds: 3 },
   { amount: 0.25, rounds: 3 },
-  { amount: 0.50, rounds: 3 },
+  { amount: 0.50, rounds: 5 },
+  { amount: 0.75, rounds: 5 },
   { amount: 1.00, rounds: 5 },
-  { amount: 1.50, rounds: 5 },
 ];
 
 const TOPICS = [
@@ -254,7 +254,7 @@ export default function InviteFlowModal({
                         </div>
                         <div className="flex-1 text-left">
                           <div className="text-gray-900 font-semibold">{u.username}</div>
-                          <div className="text-gray-600 text-xs">{u.points || 0} coins</div>
+                          <div className="text-gray-600 text-xs">{(u.points || 0).toFixed(2)} coins</div>
                         </div>
                         <ArrowRight className="w-4 h-4 text-gray-500" />
                       </button>
@@ -315,7 +315,7 @@ export default function InviteFlowModal({
                           <div className="flex-1 text-left">
                             <div className="text-gray-900 font-semibold">{u.username}</div>
                             <div className="text-gray-600 text-xs">
-                              {u.points || 0} coins{u.country ? ` · ${u.country}` : ''}
+                              {(u.points || 0).toFixed(2)} coins{u.country ? ` · ${u.country}` : ''}
                             </div>
                           </div>
                           <Swords className="w-4 h-4 text-gray-600" />
@@ -350,7 +350,7 @@ export default function InviteFlowModal({
                 </div>
                 <div className="flex-1">
                   <div className="text-gray-900 font-semibold">{selectedUser.username}</div>
-                  <div className="text-gray-600 text-xs">{selectedUser.points || 0} coins</div>
+                  <div className="text-gray-600 text-xs">{(selectedUser.points || 0).toFixed(2)} coins</div>
                 </div>
                 <span className="text-gray-500 text-sm">Opponent</span>
               </div>
@@ -372,7 +372,7 @@ export default function InviteFlowModal({
                           : 'bg-cream border border-warm text-gray-600'
                       }`}
                     >
-                      <div className="font-display text-lg">P{w.amount}</div>
+                      <div className="font-display text-lg">P{w.amount.toFixed(2)}</div>
                       <div className="text-[9px] text-current opacity-60">{w.rounds}R</div>
                     </button>
                   ))}

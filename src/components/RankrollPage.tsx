@@ -48,10 +48,11 @@ function RankrollSkeleton() {
 
 interface RankrollPageProps {
   onOpenArticle?: (articleId: string) => void;
+  onOpenRankroll?: (pollId: string) => void;
   onCoinAnimation?: (amount: number) => void;
 }
 
-export default function RankrollPage({ onOpenArticle, onCoinAnimation }: RankrollPageProps) {
+export default function RankrollPage({ onOpenArticle, onOpenRankroll, onCoinAnimation }: RankrollPageProps) {
   const { user } = useAuth();
   const [polls, setPolls] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,7 +100,7 @@ export default function RankrollPage({ onOpenArticle, onCoinAnimation }: Rankrol
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4" style={{ scrollbarWidth: "none" }}>
+      <div className="flex-1 overflow-y-auto px-4 py-3 pb-20 space-y-4" style={{ scrollbarWidth: "none" }}>
 
         {loading ? (
           <RankrollSkeleton />
@@ -115,7 +116,7 @@ export default function RankrollPage({ onOpenArticle, onCoinAnimation }: Rankrol
               {poll.type === "quiz" ? (
                 <QuizPollCard poll={poll} userId={user?.id} visitorId={visitorId} onOpenArticle={onOpenArticle} />
               ) : poll.type === "ranking" ? (
-                <RankingListCard poll={poll} userId={user?.id} visitorId={visitorId} onOpenArticle={onOpenArticle} onCoinAnimation={onCoinAnimation} />
+                <RankingListCard poll={poll} userId={user?.id} visitorId={visitorId} onOpenArticle={onOpenArticle} onOpenRankroll={onOpenRankroll} onCoinAnimation={onCoinAnimation} />
               ) : (
                 <PollCard poll={poll} userId={user?.id} visitorId={visitorId} onOpenArticle={onOpenArticle} />
               )}

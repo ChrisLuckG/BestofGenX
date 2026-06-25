@@ -52,10 +52,11 @@ interface RankingListCardProps {
   userId?: string;
   visitorId?: string;
   onOpenArticle?: (articleId: string) => void;
+  onOpenRankroll?: (pollId: string) => void;
   onCoinAnimation?: (amount: number) => void;
 }
 
-export default function RankingListCard({ poll, onOpenArticle, onCoinAnimation }: RankingListCardProps) {
+export default function RankingListCard({ poll, onOpenArticle, onOpenRankroll, onCoinAnimation }: RankingListCardProps) {
   const { user } = useAuth();
   const [linkedArticleId, setLinkedArticleId] = useState<string | null>(null);
   const [hasVoted, setHasVoted] = useState(false);
@@ -119,19 +120,21 @@ export default function RankingListCard({ poll, onOpenArticle, onCoinAnimation }
   const handleClick = () => {
     if (linkedArticleId && onOpenArticle) {
       onOpenArticle(linkedArticleId);
+    } else if (onOpenRankroll) {
+      onOpenRankroll(poll._id);
     }
   };
 
   return (
     <button 
       onClick={handleClick}
-      disabled={!linkedArticleId}
+      disabled={!linkedArticleId && !onOpenRankroll}
       className="w-full text-left rounded-2xl overflow-hidden hover:shadow-lg transition-all group border border-warm"
     >
-      {/* Header with Background Image */}
+      {/* Header with Background Image - use articleImage, fallback to image, then first item */}
       <div className="relative aspect-[16/9]">
-        {poll.articleImage ? (
-          <img src={poll.articleImage} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        {(poll.articleImage || poll.image || poll.items?.[0]?.image) ? (
+          <img src={poll.articleImage || poll.image || poll.items?.[0]?.image} alt="" className="absolute inset-0 w-full h-full object-cover" />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-[#D4873A]/20 to-[#D4873A]/5" />
         )}
@@ -164,57 +167,27 @@ export default function RankingListCard({ poll, onOpenArticle, onCoinAnimation }
             )}
           </div>
           
-          {/* Bottom: Title + Stats - add bottom padding when timer is present */}
-          <div className={countdown ? 'pb-12' : ''}>
+          {/* Bottom: Title + Stats */}
+          <div>
             <h3 className="font-display text-xl text-white group-hover:text-[#D4873A] transition-colors line-clamp-2 leading-tight uppercase">
               {poll.title}
             </h3>
-            {poll.subtitle && (
-              <p className="text-sm text-white/80 mt-1 line-clamp-1">{poll.subtitle}</p>
-            )}
           </div>
         </div>
-        
-        {/* Countdown Timer Bar - INSIDE image container, at bottom */}
-        {countdown && (
-          <div className="absolute bottom-2 left-2 right-2 px-3 py-1.5 flex items-center justify-between rounded-lg border border-[#D4873A]/40" style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)' }}>
-            {/* Left: Clock + ENDS IN + Time */}
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-white/60" />
-              <div>
-                <span className="text-[7px] font-medium text-white/50 uppercase block">ENDS IN</span>
-                <span className="font-display text-base text-[#D4873A] normal-case" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.7)' }}>
-                  {countdown.expired ? 'Ended' : `${countdown.days > 0 ? countdown.days + 'd ' : ''}${countdown.hours.toString().padStart(2, '0')}h ${countdown.minutes.toString().padStart(2, '0')}m ${countdown.seconds.toString().padStart(2, '0')}s`}
-                </span>
-              </div>
-            </div>
-            
-            {/* Separator */}
-            <div className="w-px h-6 bg-white/30" />
-            
-            {/* Right: Info + Text */}
-            <div className="flex items-center gap-1.5">
-              <Info className="w-3.5 h-3.5 text-white/50 flex-shrink-0" />
-              <span className="text-[8px] text-white/50 leading-tight max-w-[140px]">
-                After the deadline, voting remains open and rankings continue to evolve.
-              </span>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Top 3 Preview */}
-      <div className="bg-cream">
+      {/* Top 3 Preview - fixed height */}
+      <div className="bg-cream h-[168px]">
         {sortedItems.map((item, index) => {
           const rank = index + 1;
           
           return (
-            <div key={item.id} className="px-3 py-2 flex items-center gap-3 border-b border-warm last:border-b-0">
+            <div key={item.id} className="px-3 h-[56px] flex items-center gap-3 border-b border-warm last:border-b-0">
               <RankingItemImage image={item.image} rank={rank} title={item.title} />
               
               {/* Content */}
               <div className="flex-1 min-w-0">
-                <h4 className="font-semibold text-sm text-gray-900 line-clamp-2">{item.title}</h4>
+                <h4 className="font-display text-sm text-gray-900 truncate uppercase">{item.title}</h4>
               </div>
               
               {/* Score + Arrow */}
@@ -228,7 +201,47 @@ export default function RankingListCard({ poll, onOpenArticle, onCoinAnimation }
             </div>
           );
         })}
+        {/* Fill empty slots if less than 3 items */}
+        {Array.from({ length: Math.max(0, 3 - sortedItems.length) }).map((_, idx) => (
+          <div key={`empty-${idx}`} className="px-3 h-[56px] flex items-center gap-3 border-b border-warm last:border-b-0">
+            <div className="w-16 h-10 rounded bg-skeleton" />
+            <div className="flex-1">
+              <div className="w-20 h-4 bg-skeleton rounded" />
+            </div>
+          </div>
+        ))}
       </div>
+      
+      {/* Countdown Timer Bar - at bottom, after Top 3 */}
+      {countdown && (
+        <div className="px-3 py-2 flex items-center justify-between bg-[#D4873A]/10 border-t border-[#D4873A]/20">
+          {/* Left: Clock + ENDS IN + Time */}
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-[#D4873A]/60" />
+            <div>
+              <span className="text-[7px] font-medium text-gray-900 uppercase block">ENDS IN</span>
+              <span className="text-xl text-[#D4873A] font-bold">
+                {countdown.expired ? 'Ended' : (
+                  <>
+                    {countdown.days > 0 && <><span className="font-display">{countdown.days}</span><span className="font-sans-lv">d </span></>}
+                    <span className="font-display">{countdown.hours.toString().padStart(2, '0')}</span><span className="font-sans-lv">h </span>
+                    <span className="font-display">{countdown.minutes.toString().padStart(2, '0')}</span><span className="font-sans-lv">m </span>
+                    <span className="font-display">{countdown.seconds.toString().padStart(2, '0')}</span><span className="font-sans-lv">s</span>
+                  </>
+                )}
+              </span>
+            </div>
+          </div>
+          
+          {/* Right: Info + Text */}
+          <div className="flex items-center gap-1.5">
+            <Info className="w-3.5 h-3.5 text-gray-700 flex-shrink-0" />
+            <span className="text-[8px] text-gray-700 leading-tight max-w-[120px]">
+              After the deadline, voting remains open and rankings continue to evolve.
+            </span>
+          </div>
+        </div>
+      )}
     </button>
   );
 }

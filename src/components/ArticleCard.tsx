@@ -4,15 +4,7 @@ import { Clock, TrendingUp, Check, MessageCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { isVideoUrl } from "@/utils/media";
-
-// Mood images for reactions display
-const MOOD_IMAGES: Record<string, string> = {
-  goth: '/images/moods/goth.png',
-  grunge: '/images/moods/grunge.png',
-  skater: '/images/moods/skater.png',
-  newwave: '/images/moods/newwave.png',
-  rockstar: '/images/moods/rockstar.png',
-};
+import CardMoodReactions from "@/components/CardMoodReactions";
 
 interface ArticleCardProps {
   article: {
@@ -29,6 +21,7 @@ interface ArticleCardProps {
     reactions?: Record<string, number>;
   };
   onClick?: () => void;
+  onShowLogin?: () => void;
   variant?: 'compact' | 'full';
   isRead?: boolean; // Pass from parent if available
 }
@@ -43,10 +36,11 @@ const CATEGORY_LABELS: Record<string, string> = {
   'culture': 'Culture',
   'news': 'News',
   'lifestyle': 'Lifestyle',
+  'rip': 'RIP',
 };
 
-export default function ArticleCard({ article, onClick, variant = 'compact', isRead: isReadProp }: ArticleCardProps) {
-  const { user } = useAuth();
+export default function ArticleCard({ article, onClick, onShowLogin, variant = 'compact', isRead: isReadProp }: ArticleCardProps) {
+  const { user, isLoggedIn } = useAuth();
   const [isRead, setIsRead] = useState(isReadProp ?? false);
 
   // Load read status from DB if not passed as prop
@@ -69,15 +63,14 @@ export default function ArticleCard({ article, onClick, variant = 'compact', isR
 
   // Small Full Template - horizontal list item style
   return (
-    <button
-      onClick={onClick}
+    <div
       className={`w-full text-left flex gap-3 p-3 border rounded-xl hover:border-[#D4873A]/30 hover:shadow-sm transition-all group ${
         isRead ? 'bg-cream/50 border-warm/50' : 'bg-cream border-warm'
       }`}
     >
       {/* Thumbnail - Left side */}
       {article.coverImage && (
-        <div className="relative w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden">
+        <div className="relative w-24 h-24 flex-shrink-0 overflow-hidden cursor-pointer" onClick={onClick}>
           {isVideoUrl(article.coverImage) ? (
             <video
               src={article.coverImage}
@@ -103,7 +96,7 @@ export default function ArticleCard({ article, onClick, variant = 'compact', isR
       )}
 
       {/* Content - Middle */}
-      <div className="flex-1 flex flex-col justify-center min-w-0">
+      <div className="flex-1 flex flex-col justify-center min-w-0 cursor-pointer" onClick={onClick}>
         {/* Category Badge */}
         <div className="mb-1">
           <span className="px-2 py-0.5 bg-[#D4873A] rounded text-[9px] font-semibold text-white uppercase tracking-wider">
@@ -133,35 +126,15 @@ export default function ArticleCard({ article, onClick, variant = 'compact', isR
           )}
           
           {/* Moods & Comments */}
-          {(article.reactions || article.commentCount) && (
-            <>
-              <span>·</span>
-              <div className="flex items-center gap-2">
-                {/* Top Moods */}
-                {article.reactions && Object.keys(article.reactions).length > 0 && (
-                  <div className="flex items-center gap-0.5">
-                    <span className="flex -space-x-1">
-                      {Object.entries(article.reactions)
-                        .filter(([, count]) => count > 0)
-                        .sort((a, b) => b[1] - a[1])
-                        .slice(0, 3)
-                        .map(([id]) => (
-                          MOOD_IMAGES[id] && <img key={id} src={MOOD_IMAGES[id]} alt="" className="w-4 h-4" />
-                        ))}
-                    </span>
-                    <span className="font-medium">{Object.values(article.reactions).reduce((a, b) => a + b, 0)}</span>
-                  </div>
-                )}
-                {/* Comments */}
-                {article.commentCount !== undefined && article.commentCount > 0 && (
-                  <div className="flex items-center gap-0.5">
-                    <MessageCircle className="w-3 h-3" />
-                    <span>{article.commentCount}</span>
-                  </div>
-                )}
+          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" />
+            {article.commentCount !== undefined && article.commentCount > 0 && (
+              <div className="flex items-center gap-0.5">
+                <MessageCircle className="w-3 h-3" />
+                <span>{article.commentCount}</span>
               </div>
-            </>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
@@ -176,6 +149,6 @@ export default function ArticleCard({ article, onClick, variant = 'compact', isR
           0.05
         </div>
       </div>
-    </button>
+    </div>
   );
 }

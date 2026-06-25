@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
-import { Mail, Lock, Eye, EyeOff, User, Globe, ChevronDown, ArrowRight, ArrowLeft, Check, Trophy, Gift, Star, PartyPopper, Shield } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, User, Globe, ChevronDown, ArrowRight, ArrowLeft, Check, Trophy, Gift, Star, PartyPopper, Shield, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { COUNTRIES } from "@/utils/countries";
 
@@ -11,12 +11,13 @@ interface DesktopLoginPageProps {
   onSuccess?: () => void;
   initialView?: 'login' | 'signup';
   showBack?: boolean;
+  isModal?: boolean;
 }
 
 const countries = COUNTRIES;
 type SignupStep = 1 | 2 | 3 | 4 | 5;
 
-export default function DesktopLoginPage({ onClose, onSuccess, initialView = 'login', showBack = true }: DesktopLoginPageProps) {
+export default function DesktopLoginPage({ onClose, onSuccess, initialView = 'login', showBack = true, isModal = false }: DesktopLoginPageProps) {
   const { login, register } = useAuth();
   const [isLogin, setIsLogin] = useState(initialView === 'login');
   const [showPassword, setShowPassword] = useState(false);
@@ -239,16 +240,24 @@ export default function DesktopLoginPage({ onClose, onSuccess, initialView = 'lo
   // ============ LOGIN VIEW ============
   if (isLogin) {
     return (
-      <div className="h-full flex flex-col bg-cream">
+      <div className={`${isModal ? '' : 'h-full'} flex flex-col bg-cream`}>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-warm">
-          <img src="/images/genxlogo1.png" alt="BOGX" className="h-8" />
-          {showBack && (
-            <button onClick={onClose} className="flex items-center gap-1 text-gray-600 text-sm hover:text-[#D4873A] transition-colors">
-              <ArrowLeft className="w-4 h-4" /> Back
+        {isModal ? (
+          <div className="flex items-center justify-end px-4 pt-3 pb-2">
+            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-800">
+              <X className="w-5 h-5" />
             </button>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between px-6 py-4 border-b border-warm">
+            <img src="/images/genxlogo1.png" alt="BOGX" className="h-8" />
+            {showBack && (
+              <button onClick={onClose} className="flex items-center gap-1 text-gray-600 text-sm hover:text-[#D4873A] transition-colors">
+                <ArrowLeft className="w-4 h-4" /> Back
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-8 py-10 flex flex-col items-center justify-center">
@@ -347,12 +356,21 @@ export default function DesktopLoginPage({ onClose, onSuccess, initialView = 'lo
 
   // ============ SIGNUP WIZARD ============
   return (
-    <div className="h-full flex flex-col bg-cream">
+    <div className={`${isModal ? '' : 'h-full'} flex flex-col bg-cream`}>
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-warm">
-        <img src="/images/genxlogo1.png" alt="BOGX" className="h-8" />
-        <span className="text-sm text-gray-500">Step <span className="text-[#D4873A] font-bold">{signupStep}</span> of 5</span>
-      </div>
+      {isModal ? (
+        <div className="flex items-center justify-between px-4 pt-3 pb-2">
+          <span className="text-sm text-gray-500 pl-2">Step <span className="text-[#D4873A] font-bold">{signupStep}</span> of 5</span>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-800">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between px-6 py-4 border-b border-warm">
+          <img src="/images/genxlogo1.png" alt="BOGX" className="h-8" />
+          <span className="text-sm text-gray-500">Step <span className="text-[#D4873A] font-bold">{signupStep}</span> of 5</span>
+        </div>
+      )}
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-8 py-10 flex flex-col items-center justify-center">

@@ -16,6 +16,7 @@ export const CURRENCY_SYMBOL = 'BOGX';
  * Format BOGX value to display string
  * Always shows 2 decimal places: 1.50, 0.05, 25.00
  * Never shows negative values (shows 0.00 instead)
+ * Auto-converts legacy points (>10) to BOGX for backwards compatibility
  */
 export function formatCurrency(value: number): string {
   const displayValue = value < 0 ? 0 : value;

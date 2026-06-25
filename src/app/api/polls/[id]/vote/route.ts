@@ -4,6 +4,7 @@ import Poll from '@/models/Poll';
 import PollVote from '@/models/PollVote';
 import PollReward from '@/models/PollReward';
 import User from '@/models/User';
+import { awardBogx } from '@/lib/awardBogx';
 
 // POST - Vote on a poll
 export async function POST(
@@ -135,13 +136,9 @@ export async function POST(
         });
         
         // Award 0.05 BOGX per vote (only for FIRST vote on this item)
+        // awardBogx also creates a GameResult so it counts in the rankings
         if (userId) {
-          const updatedUser = await User.findByIdAndUpdate(
-            userId, 
-            { $inc: { points: 0.05 } },
-            { new: true }
-          );
-          console.log(`[VOTE REWARD] User ${userId} awarded 0.05 BOGX for voting. New balance: ${updatedUser?.points}`);
+          await awardBogx({ userId, amount: 0.05, source: 'vote', description: 'Voted on ranking' });
           coinsAwarded = 0.05;
         }
       }

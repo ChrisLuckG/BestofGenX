@@ -10,7 +10,7 @@ export interface IBattle extends Document {
   
   // Questions for this battle
   questions: {
-    questionId: mongoose.Types.ObjectId;
+    questionId: string; // Card ID with suffix (e.g., "cardId_3")
     question: string;
     answers: string[];
     correctIndex: number;
@@ -84,7 +84,7 @@ const BattleSchema = new Schema<IBattle>({
   },
   
   questions: [{
-    questionId: { type: Schema.Types.ObjectId, ref: 'Question' },
+    questionId: { type: String }, // Card ID with suffix (e.g., "cardId_3")
     question: String,
     answers: [String],
     correctIndex: Number,

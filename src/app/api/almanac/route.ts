@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search');
     const filter = searchParams.get('filter');
     const filterValue = searchParams.get('filterValue');
+    const countryBorn = searchParams.get('countryBorn');
     
     if (type === 'people') {
       const query: any = {};
@@ -22,7 +23,10 @@ export async function GET(request: NextRequest) {
         ];
       }
       if (filter && filterValue) {
-        query[filter] = filterValue;
+        query[filter] = { $regex: `^${filterValue}$`, $options: 'i' };
+      }
+      if (countryBorn) {
+        query.countryBorn = { $regex: `^${countryBorn}$`, $options: 'i' };
       }
       
       const people = await Person.find(query).lean();
@@ -93,6 +97,12 @@ export async function POST(request: NextRequest) {
     const { type, ...data } = body;
     
     if (type === 'people') {
+      if (data.born) {
+        const year = parseInt(data.born.substring(0, 4));
+        if (year < 1960 || year > 1981) {
+          return NextResponse.json({ success: false, error: `GenX only! Birthday must be 1960-1981 (got ${year})` }, { status: 400 });
+        }
+      }
       const person = await Person.create(data);
       return NextResponse.json({ success: true, data: person });
     }

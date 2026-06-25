@@ -5,6 +5,7 @@ import SongRequest from '@/models/SongRequest';
 import Notification from '@/models/Notification';
 import { sendEmail, createSongRequestEmail, createSongApprovedEmail, createSongRejectedEmail, createSongInProgressEmail } from '@/lib/email';
 import { sendPushNotification } from '@/lib/webpush';
+import { awardBogx } from '@/lib/awardBogx';
 
 const TEAM_EMAIL = 'contact@bestofgenx.com';
 
@@ -111,6 +112,31 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// PUT - Vote on a song request (community)
+export async function PUT(request: NextRequest) {
+  try {
+    await dbConnect();
+    const { id, userId } = await request.json();
+    if (!id || !userId) {
+      return NextResponse.json({ success: false, error: 'Missing id or userId' }, { status: 400 });
+    }
+    const song = await SongRequest.findById(id);
+    if (!song) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
+
+    const alreadyVoted = (song.votedBy ?? []).includes(userId);
+    if (alreadyVoted) {
+      // Toggle off
+      await SongRequest.findByIdAndUpdate(id, { $inc: { votes: -1 }, $pull: { votedBy: userId } });
+      return NextResponse.json({ success: true, voted: false, votes: song.votes - 1 });
+    } else {
+      await SongRequest.findByIdAndUpdate(id, { $inc: { votes: 1 }, $addToSet: { votedBy: userId } });
+      return NextResponse.json({ success: true, voted: true, votes: song.votes + 1 });
+    }
+  } catch (error: any) {
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
 // PATCH - Update a song request status (admin)
 // Sends email + push notification to user when approved or rejected
 export async function PATCH(request: NextRequest) {
@@ -168,12 +194,11 @@ export async function PATCH(request: NextRequest) {
           emailSubject = `Your song was added to ${songRequest.playlist}! +0.50 BOGX`;
           emailHtml = createSongApprovedEmail(emailParams);
           
-          // Award 0.50 BOGX to the user
+          // Award 0.50 BOGX to the user (also creates a GameResult for rankings)
           try {
-            await User.findByIdAndUpdate(songRequest.userId, { $inc: { points: 0.50 } });
-            console.log('song-request: awarded 0.50 BOGX to user', songRequest.userId);
+            await awardBogx({ userId: songRequest.userId.toString(), amount: 0.50, source: 'song-request', description: 'Song added to playlist' });
           } catch (pointsError) {
-            console.error('song-request points award failed:', pointsError);
+            console.error('song-request bogxCoins award failed:', pointsError);
           }
         } else {
           notifTitle = 'Song Request Update';

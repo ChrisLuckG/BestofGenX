@@ -71,11 +71,14 @@ export async function getQuestionsForUser(
     query._id = { $nin: excludeCardIds.map(id => new mongoose.Types.ObjectId(id)) };
   }
   
-  // Get cards the user has already seen
-  const seenHistory = await UserQuestionHistory.find({ userId })
-    .select('cardId answeredAt')
-    .sort({ answeredAt: -1 })
-    .lean();
+  // Get cards the user has already seen (skip for guests - userId is not a valid ObjectId)
+  const isValidObjectId = mongoose.Types.ObjectId.isValid(userId);
+  const seenHistory = isValidObjectId
+    ? await UserQuestionHistory.find({ userId })
+        .select('cardId answeredAt')
+        .sort({ answeredAt: -1 })
+        .lean()
+    : [];
   
   const seenCardIds = new Set(seenHistory.map(h => h.cardId.toString()));
   

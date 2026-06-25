@@ -3,14 +3,15 @@ import dbConnect from '@/lib/mongoose';
 import Battle from '@/models/Battle';
 import User from '@/models/User';
 import Card from '@/models/Card';
+import { compareBattleResults } from '@/utils/battleWinner';
 
 const TOPICS = ['sport', 'music', 'film', 'culture', 'fashion', 'games', 'tv', 'art', 'food'];
 const WAGERS = [
-  { amount: 10, rounds: 3 },
-  { amount: 25, rounds: 3 },
-  { amount: 50, rounds: 3 },
-  { amount: 100, rounds: 5 },
-  { amount: 150, rounds: 5 },
+  { amount: 0.10, rounds: 3 },
+  { amount: 0.25, rounds: 3 },
+  { amount: 0.50, rounds: 5 },
+  { amount: 0.75, rounds: 5 },
+  { amount: 1.00, rounds: 5 },
 ];
 
 // Known bot names
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
       battlesCreated: 0,
       battlesAccepted: 0,
       botsFound: bots.length,
-      botsWithPoints: bots.filter(b => b.points >= 10).length,
+      botsWithPoints: bots.filter(b => (b.bogxCoins || 0) >= 10).length,
       activeCards,
       openBattlesCount: 0,
       errors: [] as string[]
@@ -73,8 +74,8 @@ export async function POST(request: NextRequest) {
           const topic = TOPICS[Math.floor(Math.random() * TOPICS.length)];
           const wagerConfig = WAGERS[Math.floor(Math.random() * WAGERS.length)];
           
-          // Check bot has enough points
-          if (bot.points < wagerConfig.amount) continue;
+          // Check bot has enough BOGX
+          if ((bot.bogxCoins || 0) < wagerConfig.amount) continue;
           
           // Get questions
           const cards = await Card.aggregate([
@@ -169,7 +170,7 @@ export async function POST(request: NextRequest) {
       try {
         // Pick a random bot to accept (not the creator)
         const availableBots = bots.filter(b => 
-          b.points >= battle.wager && 
+          (b.bogxCoins || 0) >= battle.wager && 
           b._id.toString() !== battle.creator.toString()
         );
         
@@ -216,16 +217,18 @@ export async function POST(request: NextRequest) {
           battle.status = 'completed';
           battle.completedAt = new Date();
           
-          // Update points for bots
-          const creatorWon = battle.creatorTotalPoints > battle.opponentTotalPoints;
-          if (creatorWon) {
-            await User.findByIdAndUpdate(battle.creator, { $inc: { points: battle.wager, wins: 1 } });
-            await User.findByIdAndUpdate(bot._id, { $inc: { points: -battle.wager } });
-          } else if (battle.opponentTotalPoints > battle.creatorTotalPoints) {
-            await User.findByIdAndUpdate(bot._id, { $inc: { points: battle.wager, wins: 1 } });
-            await User.findByIdAndUpdate(battle.creator, { $inc: { points: -battle.wager } });
+          // Update BOGX for bots — most correct wins; tie-break by fastest total time.
+          const cmp = compareBattleResults(creatorResults, opponentResults);
+          if (cmp > 0) {
+            battle.winner = battle.creator;
+            await User.findByIdAndUpdate(battle.creator, { $inc: { bogxCoins: battle.wager, wins: 1 } });
+            await User.findByIdAndUpdate(bot._id, { $inc: { bogxCoins: -battle.wager } });
+          } else if (cmp < 0) {
+            battle.winner = bot._id;
+            await User.findByIdAndUpdate(bot._id, { $inc: { bogxCoins: battle.wager, wins: 1 } });
+            await User.findByIdAndUpdate(battle.creator, { $inc: { bogxCoins: -battle.wager } });
           }
-          // Tie = no point change
+          // Tie = no BOGX change, no winner
         }
         
         await battle.save();

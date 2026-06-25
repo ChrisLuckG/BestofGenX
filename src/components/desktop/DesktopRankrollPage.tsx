@@ -1,10 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Vote, ChevronRight, Clock, Info } from "lucide-react";
+import { Vote, ChevronRight, Clock } from "lucide-react";
 import { PollsSkeleton } from "./DesktopSkeletons";
-import DesktopRankingDetailPage from "./DesktopRankingDetailPage";
-import RankingItemImage from "@/components/RankingItemImage";
+
+interface PollOption {
+  id: string;
+  label: string;
+  emoji?: string;
+  votes: number;
+}
 
 interface Poll {
   _id: string;
@@ -14,7 +19,9 @@ interface Poll {
   type: 'simple' | 'quiz' | 'ranking';
   totalVotes: number;
   items?: any[];
+  options?: PollOption[]; // For simple polls
   linkedArticleId?: string;
+  image?: string; // Main thumbnail/cover image
   articleImage?: string; // Cover image from linked article
   closesAt?: string; // ISO date string for countdown
 }
@@ -56,116 +63,244 @@ function useCountdown(endsAt?: string) {
   return countdown;
 }
 
-// Ranking Card with its own countdown
-function RankingCard({ poll, onClick }: { poll: Poll; onClick: () => void }) {
+// Ranking Card - Image block left, content right
+function RankingCard({ poll, onOpenArticle, onOpenRankroll }: { poll: Poll; onOpenArticle?: (articleId: string) => void; onOpenRankroll?: (pollId: string) => void }) {
   const countdown = useCountdown(poll.closesAt);
   const top3 = [...(poll.items || [])].sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0)).slice(0, 3);
+  const [linkedArticleId, setLinkedArticleId] = useState<string | null>(null);
+  
+  // Find the article that links to this poll
+  useEffect(() => {
+    const findLinkedArticle = async () => {
+      try {
+        const res = await fetch(`/api/articles?linkedContentId=${poll._id}&limit=1`);
+        const data = await res.json();
+        if (data.success && data.articles?.length > 0) {
+          setLinkedArticleId(data.articles[0]._id);
+        }
+      } catch (e) {
+        console.error('Failed to find linked article:', e);
+      }
+    };
+    findLinkedArticle();
+  }, [poll._id]);
+  
+  const handleClick = () => {
+    if (linkedArticleId && onOpenArticle) {
+      onOpenArticle(linkedArticleId);
+    } else if (onOpenRankroll) {
+      onOpenRankroll(poll._id);
+    }
+  };
   
   return (
     <button
-      onClick={onClick}
-      className="w-full text-left rounded-2xl overflow-hidden hover:shadow-xl hover:border-[#D4873A]/50 hover:scale-[1.02] transition-all duration-300 group relative border border-warm"
+      onClick={handleClick}
+      className="w-full text-left rounded-xl overflow-hidden hover:shadow-xl hover:border-[#D4873A]/50 transition-all duration-300 group border border-warm bg-cream flex"
     >
-      {/* Background Image with Overlay */}
-      <div className={`relative overflow-hidden ${countdown ? 'h-64' : 'h-44'}`}>
-        {poll.articleImage ? (
-          <img src={poll.articleImage} alt="" className="absolute inset-0 w-full h-full object-cover" />
+      {/* Left: Large Image Block with Timer */}
+      <div className="w-48 flex-shrink-0 relative overflow-hidden">
+        {(poll.articleImage || poll.image || poll.items?.[0]?.image) ? (
+          <img src={poll.articleImage || poll.image || poll.items?.[0]?.image} alt="" className="absolute inset-0 w-full h-full object-cover" />
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-[#D4873A]/20 to-[#D4873A]/5" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#D4873A]/40 to-[#D4873A]/20" />
         )}
-        {/* Dark gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-black/30" />
-        
-        {/* Content */}
-        <div className="absolute inset-0 p-5 flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <span className="h-6 inline-flex items-center px-2 bg-[#D4873A] text-white text-xs font-display uppercase tracking-wider rounded">
-              RANKING
-            </span>
-            {/* Vote Now Button with votes count - same height as RANKING badge */}
-            <div className="h-6 flex items-center gap-1 bg-white/20 backdrop-blur-sm group-hover:bg-[#D4873A] px-2 rounded transition-all duration-300 border border-white/30">
-              <span className="text-xs font-display text-white group-hover:text-white uppercase tracking-wider">Vote Now</span>
-              <span className="text-white/60 group-hover:text-white/80">·</span>
-              <Vote className="w-2.5 h-2.5 text-white/80 group-hover:text-white" />
-              <span className="text-[10px] font-bold text-white group-hover:text-white">{poll.totalVotes}</span>
-              <ChevronRight className="w-2.5 h-2.5 text-white group-hover:text-white" />
-            </div>
-          </div>
-          <h4 className="text-2xl font-display text-white group-hover:text-[#D4873A] transition-colors leading-tight mt-4">
-            {poll.title}
-          </h4>
-          {poll.subtitle && (
-            <p className="text-sm text-white/80 mt-1 line-clamp-1">{poll.subtitle}</p>
-          )}
-        </div>
-        
-        {/* Countdown Timer Bar - INSIDE image container, at bottom */}
+        {/* Timer at bottom of image */}
         {countdown && (
-          <div className="absolute bottom-2 left-2 right-2 px-3 py-2 flex items-center justify-between rounded-lg border border-[#D4873A]/40" style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}>
-            {/* Left: Clock + ENDS IN + Time */}
+          <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-sm px-3 py-2">
             <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-white/60 group-hover:text-white transition-colors" />
+              <Clock className="w-3.5 h-3.5 text-white/70" />
               <div>
-                <span className="text-[7px] font-medium text-white/50 group-hover:text-white uppercase block transition-colors">ENDS IN</span>
-                <span className="font-display text-lg text-[#D4873A] group-hover:text-white transition-colors normal-case" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.7)' }}>
-                  {countdown.expired ? 'Ended' : `${countdown.days > 0 ? countdown.days + 'd ' : ''}${countdown.hours.toString().padStart(2, '0')}h ${countdown.minutes.toString().padStart(2, '0')}m ${countdown.seconds.toString().padStart(2, '0')}s`}
+                <span className="text-[7px] text-white/60 uppercase block">ENDS IN</span>
+                <span className="text-sm text-white font-bold">
+                  {countdown.expired ? 'Ended' : (
+                    <>
+                      {countdown.days > 0 && <><span className="font-display">{countdown.days}</span><span className="font-sans-lv">d </span></>}
+                      <span className="font-display">{countdown.hours.toString().padStart(2, '0')}</span><span className="font-sans-lv">h </span>
+                      <span className="font-display">{countdown.minutes.toString().padStart(2, '0')}</span><span className="font-sans-lv">m </span>
+                      <span className="font-display">{countdown.seconds.toString().padStart(2, '0')}</span><span className="font-sans-lv">s</span>
+                    </>
+                  )}
                 </span>
               </div>
-            </div>
-            
-            {/* Separator */}
-            <div className="w-px h-6 bg-white/30 group-hover:bg-white/50 transition-colors" />
-            
-            {/* Right: Info + Text */}
-            <div className="flex items-center gap-1.5">
-              <Info className="w-3.5 h-3.5 text-white/50 group-hover:text-white flex-shrink-0 transition-colors" />
-              <span className="text-[9px] text-white/50 group-hover:text-white leading-tight max-w-[160px] transition-colors">
-                After the deadline, voting remains open and rankings continue to evolve.
-              </span>
             </div>
           </div>
         )}
       </div>
       
-      {/* Top 3 Preview */}
-      {top3.length > 0 && (
-        <div className="bg-cream">
+      {/* Right: Header + Items */}
+      <div className="flex-1 flex flex-col">
+        {/* Header Row */}
+        <div className="flex items-center justify-between px-4 py-3 bg-[#D4873A]/10 border-b border-[#D4873A]/20">
+          {/* Left: Icon + Title */}
+          <div className="flex items-center gap-2">
+            <Vote className="w-5 h-5 text-[#D4873A]" />
+            <div>
+              <h4 className="font-display text-lg text-gray-900 group-hover:text-[#D4873A] transition-colors uppercase leading-tight">
+                {poll.title}
+              </h4>
+              <p className="text-[10px] text-gray-500">Vote & rank your favorites</p>
+            </div>
+          </div>
+          
+          {/* Right: Vote Button */}
+          <span className="px-5 py-2 bg-[#D4873A] text-white text-sm font-bold rounded-lg group-hover:bg-[#C4772A] transition-colors">
+            VOTE NOW
+          </span>
+        </div>
+        
+        {/* Items List */}
+        <div className="bg-cream flex-1">
           {top3.map((item, idx) => {
             const rank = idx + 1;
             return (
-              <div key={item.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-warm last:border-b-0">
-                <RankingItemImage image={item.image} rank={rank} title={item.title} />
+              <div key={item.id} className="group/row flex items-center gap-4 px-4 h-[56px] border-b border-warm last:border-b-0 hover:bg-[#D4873A]/10 transition-colors duration-150 cursor-pointer">
+                {/* Rank Badge */}
+                <span className={`w-7 h-7 rounded flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${
+                  rank === 1 ? 'bg-[#D4873A]' : 'bg-gray-400'
+                }`}>
+                  {rank.toString().padStart(2, '0')}
+                </span>
+                {/* Image */}
+                <div className="w-10 h-8 rounded overflow-hidden flex-shrink-0">
+                  {item.image ? (
+                    <img src={item.image} alt="" className="w-full h-full object-cover group-hover/row:scale-105 transition-transform duration-200" />
+                  ) : (
+                    <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-400 text-xs">
+                      {item.title?.charAt(0)}
+                    </div>
+                  )}
+                </div>
                 {/* Title */}
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-900 text-sm line-clamp-2">{item.title}</p>
+                  <p className="font-display text-gray-900 group-hover/row:text-[#D4873A] text-sm truncate uppercase transition-colors duration-150">{item.title}</p>
                 </div>
-                {/* Score + Arrow */}
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <div className="flex items-center gap-1 text-[#D4873A]">
-                    <span className="text-xs">↑</span>
-                    <span className="font-bold text-sm">{item.upvotes || 0}</span>
-                  </div>
+                {/* Score */}
+                <div className="flex items-center gap-1 text-[#D4873A] flex-shrink-0">
+                  <span className="text-xs">↑</span>
+                  <span className="font-bold text-sm">{item.upvotes || 0}</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-gray-300 group-hover/row:text-[#D4873A] group-hover/row:translate-x-0.5 transition-all duration-150" />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+// Simple Poll Card - Image block left, content right (same layout as RankingCard)
+function SimplePollCard({ poll, onClick }: { poll: Poll; onClick: () => void }) {
+  const countdown = useCountdown(poll.closesAt);
+  const options = poll.options || [];
+  const totalVotes = poll.totalVotes || 0;
+  
+  // Get percentage for each option
+  const getPercentage = (votes: number) => {
+    if (totalVotes === 0) return 0;
+    return Math.round((votes / totalVotes) * 100);
+  };
+  
+  // Sort by votes and take top 3
+  const topOptions = [...options].sort((a, b) => (b.votes || 0) - (a.votes || 0)).slice(0, 3);
+  
+  return (
+    <button
+      onClick={onClick}
+      className="w-full text-left rounded-xl overflow-hidden hover:shadow-xl hover:border-[#D4873A]/50 transition-all duration-300 group border border-warm bg-cream flex"
+    >
+      {/* Left: Large Image Block with Timer */}
+      <div className="w-48 flex-shrink-0 relative overflow-hidden">
+        {(poll.articleImage || poll.image || poll.items?.[0]?.image) ? (
+          <img src={poll.articleImage || poll.image || poll.items?.[0]?.image} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-[#D4873A]/40 to-[#D4873A]/20" />
+        )}
+        {/* Timer at bottom of image */}
+        {countdown && (
+          <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-sm px-3 py-2">
+            <div className="flex items-center gap-2">
+              <Clock className="w-3.5 h-3.5 text-white/70" />
+              <div>
+                <span className="text-[7px] text-white/60 uppercase block">ENDS IN</span>
+                <span className="text-sm text-white font-bold">
+                  {countdown.expired ? 'Ended' : (
+                    <>
+                      {countdown.days > 0 && <><span className="font-display">{countdown.days}</span><span className="font-sans-lv">d </span></>}
+                      <span className="font-display">{countdown.hours.toString().padStart(2, '0')}</span><span className="font-sans-lv">h </span>
+                      <span className="font-display">{countdown.minutes.toString().padStart(2, '0')}</span><span className="font-sans-lv">m </span>
+                      <span className="font-display">{countdown.seconds.toString().padStart(2, '0')}</span><span className="font-sans-lv">s</span>
+                    </>
+                  )}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      
+      {/* Right: Header + Options */}
+      <div className="flex-1 flex flex-col">
+        {/* Header Row */}
+        <div className="flex items-center justify-between px-4 py-3 bg-[#D4873A]/10 border-b border-[#D4873A]/20">
+          {/* Left: Icon + Title */}
+          <div className="flex items-center gap-2">
+            <Vote className="w-5 h-5 text-[#D4873A]" />
+            <div>
+              <h4 className="font-display text-lg text-gray-900 group-hover:text-[#D4873A] transition-colors uppercase leading-tight">
+                {poll.title}
+              </h4>
+              <p className="text-[10px] text-gray-500">Vote for your favorite</p>
+            </div>
+          </div>
+          
+          {/* Right: Vote Button */}
+          <span className="px-5 py-2 bg-[#D4873A] text-white text-sm font-bold rounded-lg group-hover:bg-[#C4772A] transition-colors">
+            VOTE NOW
+          </span>
+        </div>
+        
+        {/* Options List */}
+        <div className="bg-cream flex-1">
+          {topOptions.map((option, idx) => {
+            const percentage = getPercentage(option.votes || 0);
+            return (
+              <div key={option.id} className="flex items-center gap-4 px-4 h-[56px] border-b border-warm last:border-b-0 relative overflow-hidden">
+                {/* Progress bar background */}
+                <div 
+                  className="absolute inset-y-0 left-0 bg-[#D4873A]/10 transition-all duration-500"
+                  style={{ width: `${percentage}%` }}
+                />
+                {/* Content */}
+                <div className="relative flex items-center gap-3 flex-1 min-w-0">
+                  {option.emoji && <span className="text-xl">{option.emoji}</span>}
+                  <p className="font-display text-gray-900 text-sm truncate uppercase">{option.label}</p>
+                </div>
+                {/* Percentage */}
+                <div className="relative flex items-center gap-3 flex-shrink-0">
+                  <span className="font-bold text-sm text-[#D4873A]">{percentage}%</span>
                   <ChevronRight className="w-4 h-4 text-gray-300" />
                 </div>
               </div>
             );
           })}
         </div>
-      )}
+      </div>
     </button>
   );
 }
 
 interface DesktopRankrollPageProps {
   onOpenArticle?: (articleId: string) => void;
+  onOpenRankroll?: (pollId: string) => void;
   onShowLogin?: () => void;
   onCoinAnimation?: (amount: number) => void;
 }
 
-export default function DesktopRankrollPage({ onOpenArticle, onShowLogin, onCoinAnimation }: DesktopRankrollPageProps) {
+export default function DesktopRankrollPage({ onOpenArticle, onOpenRankroll }: DesktopRankrollPageProps) {
   const [polls, setPolls] = useState<Poll[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedRanking, setSelectedRanking] = useState<Poll | null>(null);
 
   const loadPolls = async () => {
     try {
@@ -184,25 +319,6 @@ export default function DesktopRankrollPage({ onOpenArticle, onShowLogin, onCoin
   useEffect(() => {
     loadPolls();
   }, []);
-
-  // Handle back from detail page - refresh polls to show updated votes
-  const handleBackFromDetail = () => {
-    setSelectedRanking(null);
-    loadPolls(); // Refresh to show updated rankings
-  };
-
-  // If a ranking is selected, show the detail page
-  if (selectedRanking) {
-    return (
-      <DesktopRankingDetailPage
-        poll={selectedRanking}
-        onBack={handleBackFromDetail}
-        onOpenArticle={onOpenArticle}
-        onShowLogin={onShowLogin}
-        onCoinAnimation={onCoinAnimation}
-      />
-    );
-  }
 
   // Filter to only show ranking type polls
   const rankingPolls = polls.filter(p => p.type === 'ranking');
@@ -237,48 +353,35 @@ export default function DesktopRankrollPage({ onOpenArticle, onShowLogin, onCoin
           <>
             {/* Ranking Lists Section */}
             {rankingPolls.length > 0 && (
-              <div>
-                <div className="grid grid-cols-2 gap-4">
-                  {rankingPolls.map((poll) => (
-                    <RankingCard key={poll._id} poll={poll} onClick={() => setSelectedRanking(poll)} />
-                  ))}
-                </div>
+              <div className="space-y-4">
+                {rankingPolls.map((poll) => (
+                  <RankingCard key={poll._id} poll={poll} onOpenArticle={onOpenArticle} onOpenRankroll={onOpenRankroll} />
+                ))}
               </div>
             )}
 
-            {/* Other Polls Section (simple, quiz) */}
-            {otherPolls.length > 0 && (
-              <div>
-                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Quick Polls</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  {otherPolls.map((poll) => (
-                    <button
-                      key={poll._id}
-                      className="w-full text-left rounded-2xl overflow-hidden hover:shadow-lg transition-all group border border-warm"
-                    >
-                      {/* Header with gradient */}
-                      <div className="relative h-24 bg-gradient-to-br from-[#D4873A]/30 to-[#D4873A]/10">
-                        <div className="absolute inset-0 p-4 flex flex-col justify-end">
-                          <span className="inline-block px-2 py-0.5 bg-gray-700 text-white text-[10px] font-bold uppercase tracking-wider rounded w-fit mb-1">
-                            {poll.type === 'quiz' ? 'QUIZ' : 'POLL'}
-                          </span>
-                          <h4 className="font-display text-lg text-gray-900 group-hover:text-[#D4873A] transition-colors line-clamp-1 uppercase">
-                            {poll.title}
-                          </h4>
-                        </div>
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/50 flex items-center justify-center group-hover:bg-[#D4873A] transition-colors">
-                          <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-white" />
-                        </div>
-                      </div>
-                      {/* Footer */}
-                      <div className="bg-cream px-4 py-2 border-t border-warm">
-                        <p className="text-xs text-gray-400">{poll.totalVotes} votes</p>
-                      </div>
-                    </button>
-                  ))}
+            {/* Simple Polls Section */}
+            {(() => {
+              const simplePolls = otherPolls.filter(p => p.type === 'simple');
+              return simplePolls.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Quick Polls</h3>
+                  <div className="space-y-4">
+                    {simplePolls.map((poll) => (
+                      <SimplePollCard 
+                        key={poll._id}
+                        poll={poll} 
+                        onClick={() => {
+                          if (poll.linkedArticleId && onOpenArticle) {
+                            onOpenArticle(poll.linkedArticleId);
+                          }
+                        }} 
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </>
         )}
       </div>

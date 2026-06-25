@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { put } from '@vercel/blob';
+import { v2 as cloudinary } from 'cloudinary';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rateLimit';
 import sharp from 'sharp';
 
@@ -9,6 +9,13 @@ const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm'];
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
 export async function POST(request: NextRequest) {
+  // Configure Cloudinary
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
+
   try {
     // Rate limiting by IP
     const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
@@ -70,16 +77,26 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    const blobPath = `${folder}/${timestamp}_${finalName}`;
+    const publicId = `${folder}/${timestamp}_${finalName.replace(/\.[^.]+$/, '')}`;
     
-    // Upload to Vercel Blob
-    const blob = await put(blobPath, fileBuffer, {
-      access: 'public',
-      contentType,
+    // Upload to Cloudinary
+    const uploadResult = await new Promise<any>((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          public_id: publicId,
+          resource_type: isVideo ? 'video' : 'image',
+          folder: 'bestofgenx',
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      uploadStream.end(fileBuffer);
     });
 
-    // Add cache-busting query param
-    const urlWithCacheBust = `${blob.url}?v=${timestamp}`;
+    // Cloudinary URL with cache-busting
+    const urlWithCacheBust = `${uploadResult.secure_url}?v=${timestamp}`;
     
     return NextResponse.json({ 
       success: true, 

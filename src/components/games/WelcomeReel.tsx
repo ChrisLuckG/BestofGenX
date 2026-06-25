@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, memo } from "react";
-import { Clock, Play, Share2, MoreHorizontal, MessageCircle, Check, Bookmark, Flag, ChevronLeft, ChevronRight } from "lucide-react";
+import { Clock, Play, Share2, MoreHorizontal, MessageCircle, Check, Bookmark, Flag, ChevronLeft, ChevronRight, BookOpen, Music, Gamepad2, Trophy, Sparkles, Cross, Newspaper, Clapperboard } from "lucide-react";
 import PollCard from "@/components/PollCard";
 import QuizPollCard from "@/components/QuizPoll";
 import CardMoodReactions from "@/components/CardMoodReactions";
@@ -14,6 +14,8 @@ interface Article {
   title: string;
   subtitle?: string;
   coverImage?: string;
+  thumbnailPosition?: { x: number; y: number };
+  coverPosition?: { x: number; y: number };
   imageScale?: number;
   imagePosition?: 'top' | 'center' | 'bottom' | 'left' | 'right';
   imagePosX?: number;
@@ -29,6 +31,7 @@ interface Article {
   views?: number;
   commentsCount?: number;
   status?: 'draft' | 'published' | 'archived';
+  contentType?: string;
   createdAt?: string;
   closesAt?: string;  // For voting/poll articles - when the poll closes
   // Styling options
@@ -53,11 +56,24 @@ const getCategoryLabel = (mainCategory: string): string => {
 
 // Helper to check if URL is a video
 const isVideo = (url?: string): boolean => {
-  return url?.includes('.mp4') || false;
+  if (!url) return false;
+  // Check for video file extensions (anywhere in URL, not just at end)
+  if (/\.(mp4|webm|mov)/i.test(url)) return true;
+  // Check for Cloudinary video upload path
+  if (url.includes('/video/upload/')) return true;
+  return false;
 };
 
 // Helper to get object-position from article
-const getImagePosition = (article: Article): string => {
+const getImagePosition = (article: Article, type: 'cover' | 'thumbnail' = 'cover'): string => {
+  // Use new position fields first
+  if (type === 'thumbnail' && article.thumbnailPosition) {
+    return `${article.thumbnailPosition.x}% ${article.thumbnailPosition.y}%`;
+  }
+  if (article.coverPosition) {
+    return `${article.coverPosition.x}% ${article.coverPosition.y}%`;
+  }
+  // Fallback to legacy fields
   if (article.imagePosX !== undefined || article.imagePosY !== undefined) {
     return `${article.imagePosX ?? 50}% ${article.imagePosY ?? 50}%`;
   }
@@ -93,7 +109,31 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
   const { user, isLoggedIn } = useAuth();
   const [articles, setArticles] = useState<Article[]>([]);
   const [polls, setPolls] = useState<any[]>([]);
-  const [templateItems, setTemplateItems] = useState<{size: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10, articleId: string | null, articleId2?: string | null, sliderArticles?: string[], sliderTitle?: string, verticalArticles?: string[], verticalTitle?: string, adData?: {image: string, link: string, title: string}}[]>([]);
+  const [templateItems, setTemplateItems] = useState<{
+    size: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12, 
+    articleId: string | null, 
+    articleId2?: string | null, 
+    sliderArticles?: string[], 
+    sliderTitle?: string, 
+    verticalArticles?: string[], 
+    verticalTitle?: string, 
+    adData?: {image: string, link: string, title: string},
+    // Container fields (size 12)
+    containerName?: string,
+    containerTheme?: string,
+    containerBlocks?: {
+      type: 'MAIN' | '2H' | 'FIXED' | 'SLIDER' | 'VERTICAL' | 'SOCIAL';
+      articleId?: string | null;
+      articleId2?: string | null;
+      articles?: string[];
+      bannerImage?: string;
+      bannerLink?: string;
+      showDateOverlay?: boolean;
+      autoFill?: 'latest' | 'history' | 'category';
+      autoFillCategory?: string;
+      autoFillLimit?: number;
+    }[]
+  }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [toast, setToast] = useState<{ message: string; icon: 'check' | 'bookmark' | 'flag' } | null>(null);
 
@@ -128,9 +168,37 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         
         if (templateData.success && templateData.template?.length > 0) {
           console.log('Loaded template from DB:', templateData.template);
+          // Log container blocks specifically
+          templateData.template.forEach((item: any, i: number) => {
+            if (item.size === 12) {
+              console.log(`Container ${i}:`, item.containerName, 'blocks:', item.containerBlocks);
+            }
+          });
           setTemplateItems(templateData.template);
         } else {
-          console.log('No template found in DB:', templateData);
+          console.log('No template found in DB - using auto-generated fallback');
+          // FALLBACK: auto-generate feed from published articles so feed is never empty
+          const published = (articlesData.articles || []).filter((a: Article) => a.status !== 'draft');
+          if (published.length > 0) {
+            const fallback: typeof templateItems = [
+              // First article as featured
+              { size: 3, articleId: published[0]._id },
+            ];
+            // Pairs of half cards for next articles
+            for (let i = 1; i < Math.min(published.length, 7); i += 2) {
+              fallback.push({ 
+                size: 10, 
+                articleId: published[i]._id, 
+                articleId2: published[i + 1]?._id || null 
+              });
+            }
+            // Rest as vertical list
+            const rest = published.slice(7, 20).map((a: Article) => a._id);
+            if (rest.length > 0) {
+              fallback.push({ size: 9, articleId: null, verticalArticles: rest });
+            }
+            setTemplateItems(fallback);
+          }
         }
       } catch (e) {
         console.error('Failed to fetch data:', e);
@@ -304,7 +372,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           <>
             {/* Backdrop to close menu */}
             <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setOpen(false); }} />
-            <div className="absolute right-0 top-8 bg-white border border-warm rounded-xl shadow-xl py-1.5 z-50 min-w-[160px]">
+            <div className="absolute right-0 top-8 bg-white border border-warm rounded-none shadow-xl py-1.5 z-50 min-w-[160px]">
               <button onClick={handleOpenArticle} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-[#D4873A]/5 flex items-center gap-3">
                 <svg className="w-4 h-4 text-[#D4873A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                 Read Article
@@ -333,11 +401,20 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
     );
   };
 
+  // Theme card styles for highlighted containers
+  const getCardThemeStyles = (themeName?: string) => {
+    if (!themeName || themeName === 'cream') return { border: 'border-warm', hoverBorder: 'hover:border-[#D4873A]/30' };
+    // All colored themes get white border for consistency
+    return { border: 'border-2 border-white/80', hoverBorder: 'hover:border-white' };
+  };
+
   // Article Card Components
-  const MainBox = ({ article }: { article: Article }) => (
+  const MainBox = ({ article, theme }: { article: Article; theme?: string }) => {
+    const cardTheme = getCardThemeStyles(theme);
+    return (
     <button
       onClick={() => onOpenArticle?.(article._id)}
-      className="w-full h-[280px] md:h-[350px] lg:h-[400px] rounded-2xl overflow-hidden group text-left relative border border-white/10 hover:shadow-lg hover:border-[#D4873A]/30 transition-all duration-200"
+      className={`w-full h-[280px] md:h-[350px] lg:h-[400px] rounded-none overflow-hidden group text-left relative border ${cardTheme.border} hover:shadow-lg ${cardTheme.hoverBorder} transition-all duration-200`}
       style={{
         backgroundImage: article.coverImage ? `url(${article.coverImage})` : undefined,
         backgroundSize: 'cover',
@@ -355,7 +432,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       {/* Read badge - only show green check when read */}
       {readArticles.has(article._id) && (
         <div className="absolute top-3 right-3 z-20">
-          <span className="w-4 h-4 border border-emerald-600 bg-emerald-600/30 rounded flex items-center justify-center">
+          <span className="w-4 h-4 border border-emerald-600 bg-emerald-600/30 rounded-none flex items-center justify-center">
             <Check className="w-2.5 h-2.5 text-white" />
           </span>
         </div>
@@ -406,12 +483,13 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       </div>
     </button>
   );
+  };
 
   // MainSocial - Like MainBox but with social header (avatar, name, likes) like HalfCard
   const MainSocial = ({ article }: { article: Article }) => (
     <button
       onClick={() => onOpenArticle?.(article._id)}
-      className="w-full rounded-xl overflow-hidden bg-cream border border-warm text-left shadow-md hover:shadow-lg hover:border-[#D4873A]/30 transition-all duration-200 group"
+      className="w-full rounded-none overflow-hidden bg-cream border border-warm text-left shadow-md hover:shadow-lg hover:border-[#D4873A]/30 transition-all duration-200 group"
     >
       {/* Social Header: Avatar + Name + Time + Menu */}
       <div className="flex items-center gap-2 p-3 border-b border-warm/50">
@@ -467,7 +545,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         {/* Read badge - only show green check when read */}
         {readArticles.has(article._id) && (
           <div className="absolute top-3 right-3 z-20">
-            <span className="w-4 h-4 border border-emerald-600 bg-emerald-600/30 rounded flex items-center justify-center">
+            <span className="w-4 h-4 border border-emerald-600 bg-emerald-600/30 rounded-none flex items-center justify-center">
               <Check className="w-2.5 h-2.5 text-white" />
             </span>
           </div>
@@ -490,7 +568,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
   const SmallBox = ({ article }: { article: Article }) => (
     <button
       onClick={() => onOpenArticle?.(article._id)}
-      className="w-full h-[180px] rounded-xl overflow-hidden group text-left relative border border-white/10"
+      className="w-full h-[180px] rounded-none overflow-hidden group text-left relative border border-white/10"
     >
       {/* Full background image/video */}
       {article.coverImage && (
@@ -511,7 +589,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       {/* Read badge - only show green check when read */}
       {readArticles.has(article._id) && (
         <div className="absolute top-2 right-2 z-20">
-          <span className="w-3.5 h-3.5 border border-emerald-600 bg-emerald-600/30 rounded-sm flex items-center justify-center">
+          <span className="w-3.5 h-3.5 border border-emerald-600 bg-emerald-600/30 rounded-none flex items-center justify-center">
             <Check className="w-2 h-2 text-white" />
           </span>
         </div>
@@ -522,7 +600,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         <h3 className="font-display text-[18px] lg:text-xl tracking-wide text-white leading-tight mb-1 line-clamp-2">{article.title}</h3>
         <div className="flex items-center justify-end gap-1 text-[10px] text-white/70">
           {/* Moods & Comments inline */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" />
             <span className="flex items-center gap-0.5">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -539,7 +617,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
   const MediumBox = ({ article }: { article: Article }) => (
     <button
       onClick={() => onOpenArticle?.(article._id)}
-      className="w-full h-[180px] rounded-xl overflow-hidden group text-left relative border border-warm hover:shadow-lg hover:border-[#D4873A]/30 transition-all duration-200"
+      className="w-full h-[180px] rounded-none overflow-hidden group text-left relative border border-warm hover:shadow-lg hover:border-[#D4873A]/30 transition-all duration-200"
     >
       {/* Full background image/video */}
       {article.coverImage && (
@@ -560,7 +638,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       {/* Read badge - only show green check when read */}
       {readArticles.has(article._id) && (
         <div className="absolute top-2 right-2 z-20">
-          <span className="w-3.5 h-3.5 border border-emerald-600 bg-emerald-600/30 rounded-sm flex items-center justify-center">
+          <span className="w-3.5 h-3.5 border border-emerald-600 bg-emerald-600/30 rounded-none flex items-center justify-center">
             <Check className="w-2 h-2 text-white" />
           </span>
         </div>
@@ -574,7 +652,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
             <span className="truncate">{article.authorName}</span>
                       </div>
           {/* Likes & Comments inline */}
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
             <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" />
             <span className="flex items-center gap-0.5">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -589,22 +667,25 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
   );
 
   // Slider Card - Vertical card with square image (same size as other cards)
-  const SliderCard = ({ article }: { article: Article }) => (
-    <button
-      onClick={() => onOpenArticle?.(article._id)}
-      className="flex-shrink-0 w-40 rounded-xl overflow-hidden bg-cream border border-warm text-left shadow-md hover:shadow-lg hover:border-[#D4873A]/30 transition-all duration-200 relative group"
+  const SliderCard = ({ article, theme }: { article: Article; theme?: string }) => {
+    const cardTheme = getCardThemeStyles(theme);
+    const hasColorTheme = theme && theme !== 'cream';
+    const bgClass = hasColorTheme ? 'bg-white/20 backdrop-blur-sm' : 'bg-cream';
+    return (
+    <div
+      className={`flex-shrink-0 w-40 rounded-none overflow-hidden ${bgClass} border ${cardTheme.border} text-left shadow-md hover:shadow-lg ${cardTheme.hoverBorder} transition-all duration-200 relative group cursor-pointer`}
     >
       {/* Read badge - only show green check when read */}
       {readArticles.has(article._id) && (
         <div className="absolute top-1 right-1 z-20">
-          <span className="w-3.5 h-3.5 border border-emerald-600 bg-emerald-600/30 rounded-sm flex items-center justify-center">
+          <span className="w-3.5 h-3.5 border border-emerald-600 bg-emerald-600/30 rounded-none flex items-center justify-center">
             <Check className="w-2 h-2 text-white" />
           </span>
         </div>
       )}
       {/* Image/Video - shorter aspect ratio */}
       {article.coverImage && (
-        <div className="w-full aspect-[4/3] overflow-hidden">
+        <div className="w-full aspect-[4/3] overflow-hidden relative" onClick={() => onOpenArticle?.(article._id)}>
           {isVideo(article.coverImage) ? (
             <video src={article.coverImage} className="w-full h-full object-cover" style={{ objectPosition: getImagePosition(article), transform: `scale(${(article.imageScale || 100) / 100})` }} muted autoPlay loop playsInline />
           ) : (
@@ -614,9 +695,9 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       )}
       {/* Content - below image */}
       <div className="p-1.5">
-        <h3 className="font-display text-[20px] tracking-wide text-gray-900 group-hover:text-[#D4873A] leading-tight line-clamp-2 transition-colors">{article.title}</h3>
+        <h3 onClick={() => onOpenArticle?.(article._id)} className={`font-display text-[20px] tracking-wide leading-tight line-clamp-2 transition-colors ${hasColorTheme ? 'text-white group-hover:text-gray-900' : 'text-white group-hover:text-gray-900'}`}>{article.title}</h3>
         {/* Likes & Comments */}
-        <div className="flex items-center gap-2 mt-1 text-[8px] text-gray-500">
+        <div className={`flex items-center gap-2 mt-1 text-[8px] ${hasColorTheme ? 'text-gray-700' : 'text-gray-500'}`} onClick={(e) => e.stopPropagation()}>
           <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" />
           <span className="flex items-center gap-0.5">
             <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -626,13 +707,15 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           </span>
         </div>
       </div>
-    </button>
+    </div>
   );
+  };
 
   // Horizontal Slider Container with navigation arrows
-  const SliderContainer = ({ articleIds, title }: { articleIds: string[], title?: string }) => {
+  const SliderContainer = ({ articleIds, title, theme }: { articleIds: string[], title?: string, theme?: string }) => {
     const sliderArticles = articleIds.map(id => getArticleById(id)).filter(Boolean) as Article[];
     if (sliderArticles.length === 0) return null;
+    const hasColorTheme = theme && theme !== 'cream';
     
     const scrollRef = useRef<HTMLDivElement>(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -665,27 +748,14 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
     };
     
     return (
-      <div className="w-full bg-cream rounded-xl border border-warm shadow-sm p-3">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-bold text-[#D4873A] uppercase tracking-wider">More Articles</span>
-          <div className="flex gap-1">
-            {Array.from({ length: totalPages }).map((_, idx) => (
-              <div 
-                key={idx}
-                className={`w-1.5 h-1.5 rounded-full transition-colors ${idx === activePage ? 'bg-[#D4873A]' : 'bg-[#D4873A]/30'}`}
-              />
-            ))}
-          </div>
-        </div>
-        
+      <div className={`w-full rounded-none py-2 ${hasColorTheme ? 'bg-transparent' : 'bg-cream border border-warm shadow-sm'}`}>
         {/* Slider with Arrows */}
         <div className="relative group/slider">
           {/* Left Arrow */}
           {canScrollLeft && (
             <button
               onClick={() => scroll('left')}
-              className="absolute -left-1 top-1/2 -translate-y-1/2 z-10 w-8 h-12 rounded-lg bg-black/60 hover:bg-black/80 text-white shadow-lg flex items-center justify-center transition-all backdrop-blur-sm border border-white/10"
+              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-12 rounded-none bg-black/60 hover:bg-black/80 text-white shadow-lg flex items-center justify-center transition-all backdrop-blur-sm border border-white/10"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
@@ -695,13 +765,13 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           {canScrollRight && (
             <button
               onClick={() => scroll('right')}
-              className="absolute -right-1 top-1/2 -translate-y-1/2 z-10 w-8 h-12 rounded-lg bg-black/60 hover:bg-black/80 text-white shadow-lg flex items-center justify-center transition-all backdrop-blur-sm border border-white/10"
+              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-12 rounded-none bg-black/60 hover:bg-black/80 text-white shadow-lg flex items-center justify-center transition-all backdrop-blur-sm border border-white/10"
             >
               <ChevronRight className="w-5 h-5" />
             </button>
           )}
           
-          {/* Scrollable Content */}
+          {/* Scrollable Content - starts at left edge, scrolls to right */}
           <div 
             ref={scrollRef}
             onScroll={checkScroll}
@@ -709,7 +779,19 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
             style={{ scrollbarWidth: 'none' }}
           >
             {sliderArticles.map((article, idx) => (
-              <SliderCard key={idx} article={article} />
+              <SliderCard key={idx} article={article} theme={theme} />
+            ))}
+          </div>
+        </div>
+        
+        {/* Dots - below slider */}
+        <div className="flex items-center justify-center mt-2">
+          <div className="flex gap-1">
+            {Array.from({ length: totalPages }).map((_, idx) => (
+              <div 
+                key={idx}
+                className={`w-1.5 h-1.5 rounded-full transition-colors ${idx === activePage ? 'bg-white' : 'bg-white/40'}`}
+              />
             ))}
           </div>
         </div>
@@ -718,10 +800,14 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
   };
 
   // Half Card - 50% width, like "FROM THE COMMUNITY" social post style
-  const HalfCard = ({ article }: { article: Article }) => (
+  const HalfCard = ({ article, theme }: { article: Article; theme?: string }) => {
+    const cardTheme = getCardThemeStyles(theme);
+    const hasColorTheme = theme && theme !== 'cream';
+    const bgClass = hasColorTheme ? 'bg-white/20 backdrop-blur-sm' : 'bg-cream';
+    return (
     <button
       onClick={() => onOpenArticle?.(article._id)}
-      className="w-full rounded-xl overflow-hidden bg-cream border border-warm text-left shadow-md hover:shadow-lg hover:border-[#D4873A]/30 transition-all duration-200 group"
+      className={`w-full rounded-none overflow-hidden ${bgClass} border ${cardTheme.border} text-left shadow-md hover:shadow-lg ${cardTheme.hoverBorder} transition-all duration-200 group`}
     >
       {/* Header: Avatar + Name + Time + Menu */}
       <div className="flex items-center gap-2 p-3 pb-2 md:border-b md:border-warm/50">
@@ -779,7 +865,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           {/* Read badge - only show green check when read */}
           {readArticles.has(article._id) && (
             <div className="absolute top-2 right-2 z-20">
-              <span className="w-3.5 h-3.5 border border-emerald-600 bg-emerald-600/30 rounded-sm flex items-center justify-center">
+              <span className="w-3.5 h-3.5 border border-emerald-600 bg-emerald-600/30 rounded-none flex items-center justify-center">
                 <Check className="w-2 h-2 text-white" />
               </span>
             </div>
@@ -799,26 +885,65 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       </div>
     </button>
   );
+  };
+
+  // Fixed Banner - Full width image only, no overlay, no text - for recurring content like Monthly Music
+  const FixedBanner = ({ article }: { article: Article }) => (
+    <button
+      onClick={() => onOpenArticle?.(article._id)}
+      className="w-full rounded-none overflow-hidden shadow-md hover:shadow-lg hover:border-[#D4873A]/30 transition-all duration-200 block bg-cream border border-warm p-2"
+    >
+      {article.coverImage && (
+        isVideo(article.coverImage) ? (
+          <video 
+            src={article.coverImage} 
+            className="w-full h-auto" 
+            muted 
+            autoPlay 
+            loop 
+            playsInline
+          />
+        ) : (
+          <img 
+            src={article.coverImage} 
+            alt={article.title} 
+            className="w-full h-auto" 
+          />
+        )
+      )}
+    </button>
+  );
 
   // Full Width Banner - Like "TRENDING ARTICLES" section - horizontal card with image left, text right
   const FullWidthBanner = ({ article }: { article: Article }) => (
     <button
       onClick={() => onOpenArticle?.(article._id)}
-      className="w-full flex items-center gap-3 p-2 bg-cream border border-warm rounded-lg text-left shadow-md hover:shadow-lg hover:border-[#D4873A]/30 transition-all duration-200 relative group"
+      className="w-full flex items-center gap-3 p-2 bg-cream border border-warm rounded-none text-left shadow-md hover:shadow-lg hover:border-[#D4873A]/30 transition-all duration-200 relative group"
     >
       {/* Read badge - only show green check when read */}
       {readArticles.has(article._id) && (
         <div className="absolute top-1.5 right-1.5 z-20">
-          <span className="w-3.5 h-3.5 border border-emerald-600 bg-emerald-600/30 rounded-sm flex items-center justify-center">
+          <span className="w-3.5 h-3.5 border border-emerald-600 bg-emerald-600/30 rounded-none flex items-center justify-center">
             <Check className="w-2 h-2 text-white" />
           </span>
         </div>
       )}
       {/* Thumbnail - bigger */}
       {article.coverImage && (
-        <div className="w-20 h-20 rounded-md overflow-hidden flex-shrink-0 border border-warm">
+        <div className="w-20 h-20 rounded-none overflow-hidden flex-shrink-0 border border-warm bg-gray-200">
           {isVideo(article.coverImage) ? (
-            <video src={article.coverImage} className="w-full h-full object-cover" style={{ objectPosition: getImagePosition(article), transform: `scale(${(article.imageScale || 100) / 100})` }} muted autoPlay loop playsInline />
+            <video 
+              src={article.coverImage} 
+              className="w-full h-full object-cover" 
+              style={{ objectPosition: getImagePosition(article), transform: `scale(${(article.imageScale || 100) / 100})` }} 
+              muted 
+              autoPlay 
+              loop 
+              playsInline
+              preload="metadata"
+              poster=""
+              onError={(e) => console.log('Video error:', article.coverImage, e)}
+            />
           ) : (
             <LazyImage src={article.coverImage} alt={article.title} className="w-full h-full object-cover" style={{ objectPosition: getImagePosition(article), transform: `scale(${(article.imageScale || 100) / 100})` }} />
           )}
@@ -833,7 +958,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           </div>
           <h3 className={`font-display tracking-wide text-gray-900 group-hover:text-[#D4873A] leading-tight line-clamp-1 transition-colors ${isDesktop ? 'text-[20px]' : 'text-[20px]'}`}>{article.title}</h3>
         </div>
-        <div className="flex items-center gap-3 text-[10px] text-gray-500">
+        <div className="flex items-center gap-3 text-[10px] text-gray-500" onClick={(e) => e.stopPropagation()}>
           <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" />
           <span className="flex items-center gap-0.5">
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -860,7 +985,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
 
   // Placeholder for unpublished/draft articles
   const UnpublishedPlaceholder = () => (
-    <div className="w-full h-32 rounded-xl border-2 border-dashed border-gray-300 bg-cream flex flex-col items-center justify-center text-gray-600">
+    <div className="w-full h-32 rounded-none border-2 border-dashed border-gray-300 bg-cream flex flex-col items-center justify-center text-gray-600">
       <svg className="w-8 h-8 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
       </svg>
@@ -887,7 +1012,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
     return (
       <div className="w-full h-full flex flex-col overflow-hidden bg-cream">
         {/* Header - exactly like Rankings */}
-        <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
+        <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
           <div className="flex items-center gap-3">
             <Play className="w-5 h-5 text-[#D4873A]" />
             <div>
@@ -901,39 +1026,39 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         <div className="flex-1 overflow-hidden px-2 pt-3">
           <div className="grid grid-cols-6 gap-2">
             {/* Large Card Skeleton */}
-            <div className="col-span-6 rounded-xl bg-skeleton-light overflow-hidden">
+            <div className="col-span-6 rounded-none bg-skeleton-light overflow-hidden">
               <div className="aspect-[16/9] bg-gradient-to-r from-skeleton-light via-skeleton to-skeleton-light animate-shimmer" />
               <div className="p-4 space-y-2">
-                <div className="h-4 bg-skeleton rounded w-3/4 animate-pulse" />
-                <div className="h-3 bg-skeleton rounded w-1/2 animate-pulse" />
+                <div className="h-4 bg-skeleton rounded-none w-3/4 animate-pulse" />
+                <div className="h-3 bg-skeleton rounded-none w-1/2 animate-pulse" />
               </div>
             </div>
             
             {/* Two Half Cards Skeleton */}
             {[1, 2].map((i) => (
-              <div key={i} className="col-span-3 rounded-xl bg-skeleton-light overflow-hidden">
+              <div key={i} className="col-span-3 rounded-none bg-skeleton-light overflow-hidden">
                 <div className="flex items-center gap-2 p-3">
                   <div className="w-9 h-9 rounded-full bg-skeleton animate-pulse" />
                   <div className="flex-1 space-y-1">
-                    <div className="h-3 bg-skeleton rounded w-20 animate-pulse" />
-                    <div className="h-2 bg-skeleton rounded w-12 animate-pulse" />
+                    <div className="h-3 bg-skeleton rounded-none w-20 animate-pulse" />
+                    <div className="h-2 bg-skeleton rounded-none w-12 animate-pulse" />
                   </div>
                 </div>
                 <div className="aspect-[4/3] bg-gradient-to-r from-skeleton-light via-skeleton to-skeleton-light animate-shimmer" />
                 <div className="p-3 space-y-2">
-                  <div className="h-3 bg-skeleton rounded w-full animate-pulse" />
-                  <div className="h-3 bg-skeleton rounded w-2/3 animate-pulse" />
+                  <div className="h-3 bg-skeleton rounded-none w-full animate-pulse" />
+                  <div className="h-3 bg-skeleton rounded-none w-2/3 animate-pulse" />
                 </div>
               </div>
             ))}
             
             {/* Full Width Banner Skeleton */}
-            <div className="col-span-6 flex items-center gap-3 p-3 rounded-xl bg-skeleton-light">
-              <div className="w-20 h-20 rounded-lg bg-gradient-to-r from-skeleton-light via-skeleton to-skeleton-light animate-shimmer flex-shrink-0" />
+            <div className="col-span-6 flex items-center gap-3 p-3 rounded-none bg-skeleton-light">
+              <div className="w-20 h-20 rounded-none bg-gradient-to-r from-skeleton-light via-skeleton to-skeleton-light animate-shimmer flex-shrink-0" />
               <div className="flex-1 space-y-2">
-                <div className="h-4 bg-skeleton rounded w-3/4 animate-pulse" />
-                <div className="h-3 bg-skeleton rounded w-1/2 animate-pulse" />
-                <div className="h-2 bg-skeleton rounded w-1/4 animate-pulse" />
+                <div className="h-4 bg-skeleton rounded-none w-3/4 animate-pulse" />
+                <div className="h-3 bg-skeleton rounded-none w-1/2 animate-pulse" />
+                <div className="h-2 bg-skeleton rounded-none w-1/4 animate-pulse" />
               </div>
             </div>
           </div>
@@ -963,7 +1088,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-cream">
       {/* Header - exactly like Rankings */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
         <div className="flex items-center gap-3">
           <Play className="w-5 h-5 text-[#D4873A]" />
           <div>
@@ -979,6 +1104,8 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         <div className="grid grid-cols-6 gap-1.5 px-2 pb-4 pt-3">
             {templateItems
               .filter(item => {
+                // Container (size 12) - always show if has blocks
+                if (item.size === 12) return (item.containerBlocks || []).length > 0;
                 // Multi-article containers don't need articleId check
                 if (item.size === 6 || item.size === 9) return true;
                 // 2 Halfer needs at least one article
@@ -990,6 +1117,232 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                 return true;
               })
               .map((item, index) => {
+                // Size 12 = Container (just a carrier with title)
+                if (item.size === 12) {
+                  const blocks = item.containerBlocks || [];
+                  // Frontend theme styles - SAME as Admin (ContainerBlock.tsx)
+                  const themeStyles: Record<string, { bg: string; border: string; titleColor: string }> = {
+                    cream: { bg: 'bg-[#F5F0E8]', border: 'border-[#E5DDD0]', titleColor: 'text-[#D4873A]' },
+                    bogx: { bg: 'bg-[#D4873A]', border: 'border-[#E5A55A]', titleColor: 'text-white' },
+                    arcade: { bg: 'bg-purple-800', border: 'border-purple-500', titleColor: 'text-white' },
+                    sports: { bg: 'bg-green-800', border: 'border-green-500', titleColor: 'text-white' },
+                    music: { bg: 'bg-orange-800', border: 'border-orange-500', titleColor: 'text-white' },
+                    movies: { bg: 'bg-blue-800', border: 'border-blue-500', titleColor: 'text-white' },
+                    history: { bg: 'bg-amber-700', border: 'border-amber-500', titleColor: 'text-white' },
+                    culture: { bg: 'bg-pink-800', border: 'border-pink-500', titleColor: 'text-white' },
+                    gaming: { bg: 'bg-indigo-800', border: 'border-indigo-500', titleColor: 'text-white' },
+                    retro: { bg: 'bg-teal-800', border: 'border-teal-500', titleColor: 'text-white' },
+                  };
+                  const theme = themeStyles[item.containerTheme || 'cream'] || themeStyles.cream;
+                  const hasTheme = item.containerTheme && item.containerTheme !== 'cream';
+                  
+                  return (
+                    <div key={index} className="col-span-6">
+                      {/* Container Title — always outside the colored box */}
+                      {item.containerName && (() => {
+                        const n = item.containerName.toLowerCase();
+                        const Icon = n.includes('history') ? BookOpen
+                          : n.includes('music') ? Music
+                          : n.includes('arcade') || n.includes('gaming') ? Gamepad2
+                          : n.includes('sport') ? Trophy
+                          : n.includes('lifestyle') || n.includes('culture') ? Sparkles
+                          : n.includes('rip') || n.includes('memorial') ? Cross
+                          : n.includes('movie') || n.includes('cinema') ? Clapperboard
+                          : Newspaper;
+                        const accentColor = n.includes('history') ? '#92400e'
+                          : n.includes('music') ? '#c2410c'
+                          : n.includes('arcade') || n.includes('gaming') ? '#7c3aed'
+                          : n.includes('sport') ? '#15803d'
+                          : n.includes('lifestyle') || n.includes('culture') ? '#db2777'
+                          : n.includes('rip') || n.includes('memorial') ? '#4b5563'
+                          : n.includes('movie') || n.includes('cinema') ? '#1d4ed8'
+                          : '#374151';
+                        return (
+                          <div className="flex items-center gap-2 mb-1.5 pl-2" style={{ borderLeft: `3px solid ${accentColor}` }}>
+                            <Icon className="w-3.5 h-3.5" style={{ color: accentColor }} />
+                            <span className="font-display text-sm font-bold uppercase tracking-widest text-[#2D1F14]">{item.containerName}</span>
+                          </div>
+                        );
+                      })()}
+                      {/* Colored container box */}
+                      <div className={`${hasTheme ? `${theme.bg} ${theme.border} border rounded-lg p-2` : ''}`}>
+                      {/* Container Blocks */}
+                      <div className="flex flex-col gap-2">
+                      {blocks.map((block, blockIdx) => {
+                        const containerTheme = item.containerTheme;
+                        if (block.type === 'MAIN') {
+                          const mainArticle = block.articleId ? getArticleById(block.articleId) : null;
+                          if (!mainArticle) return null;
+                          return <div key={blockIdx}><MainBox article={mainArticle} theme={containerTheme} /></div>;
+                        }
+                        if (block.type === '2H') {
+                          const leftArticle = block.articleId ? getArticleById(block.articleId) : null;
+                          const rightArticle = block.articleId2 ? getArticleById(block.articleId2) : null;
+                          if (!leftArticle && !rightArticle) return null;
+                          return (
+                            <div key={blockIdx} className="grid grid-cols-2 gap-1.5">
+                              {leftArticle && <HalfCard article={leftArticle} theme={containerTheme} />}
+                              {rightArticle && <HalfCard article={rightArticle} theme={containerTheme} />}
+                            </div>
+                          );
+                        }
+                        if (block.type === 'FIXED') {
+                          // Find latest article from this container's category
+                          const isMusicContainer = containerTheme === 'music'
+                            || item.containerName?.toLowerCase().includes('music')
+                            || item.containerName?.toLowerCase().includes('muci');
+                          let fixedArticle: Article | undefined;
+                          let autoCategory = '';
+                          if (isMusicContainer) {
+                            autoCategory = 'music';
+                            fixedArticle = articles.find(a => a.contentType === 'music-community')
+                              || articles.find(a => a.category === 'music' && a.status === 'published');
+                          } else {
+                            const sliderBlock = item.containerBlocks?.find(b => (b.type === 'SLIDER' || b.type === 'VERTICAL') && b.autoFillCategory);
+                            autoCategory = sliderBlock?.autoFillCategory?.toLowerCase() || containerTheme || '';
+                            if (!autoCategory) return null;
+                            fixedArticle = articles
+                              .filter(a => a.status === 'published' && (a.category?.toLowerCase() === autoCategory || a.mainCategory?.toLowerCase() === autoCategory))
+                              .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0];
+                          }
+                          if (!fixedArticle) return null;
+                          // Prefer the dedicated banner image stored on the block — never use the article's own coverImage for the banner
+                          const fixedImg = (block as any).bannerImage || '';
+                          return (
+                            <button
+                              key={blockIdx}
+                              type="button"
+                              onClick={() => onOpenArticle?.(fixedArticle._id)}
+                              className="block w-full rounded-none overflow-hidden bg-[#F5F0E8] border border-[#E5DDD0] p-1 shadow-md hover:shadow-lg hover:border-[#D4873A]/30 transition-all cursor-pointer"
+                            >
+                              <div className="relative w-full aspect-[2/1] md:aspect-[2.5/1] lg:aspect-[2.7/1] overflow-hidden bg-gray-800">
+                                {fixedImg ? (
+                                  fixedImg.match(/\.(mp4|webm|mov)($|\?)/i) || fixedImg.includes('/video/') ? (
+                                    <video src={fixedImg} className="w-full h-full object-cover" muted autoPlay loop playsInline style={{ objectPosition: `${(fixedArticle as any).imagePosX ?? 50}% ${(fixedArticle as any).imagePosY ?? 50}%` }} />
+                                  ) : (
+                                    <img src={fixedImg} alt="" className="w-full h-full object-cover" style={{ objectPosition: `${(fixedArticle as any).imagePosX ?? 50}% ${(fixedArticle as any).imagePosY ?? 50}%` }} />
+                                  )
+                                ) : (
+                                  <div className="w-full h-full bg-gradient-to-r from-gray-800 to-gray-700" />
+                                )}
+                                {(autoCategory === 'history' || autoCategory === 'arcade' || autoCategory === 'gaming') && (() => {
+                                  const dateStr = fixedArticle.createdAt
+                                    ? new Date(fixedArticle.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                                    : new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                                  return (
+                                    <div className="absolute bottom-0 left-0 right-0 flex items-stretch bg-black/55 backdrop-blur-sm">
+                                      {/* Date block left - amber accent */}
+                                      <div className="flex flex-row items-center justify-center gap-1.5 px-4 py-3 border-r border-white/20 bg-[#D4873A]/20 whitespace-nowrap">
+                                        <span className="text-[#D4873A] text-sm font-bold uppercase tracking-widest leading-none">{dateStr.split(' ')[0]}</span>
+                                        <span className="text-white font-black text-2xl leading-none">{dateStr.split(' ')[1]}</span>
+                                      </div>
+                                      {/* Title + subtitle right */}
+                                      <div className="flex flex-col justify-center px-4 py-3 min-w-0 gap-0.5 text-left flex-1">
+                                        <div className="text-white font-bold text-base leading-tight line-clamp-1">{fixedArticle.title}</div>
+                                        {fixedArticle.subtitle && <div className="text-white/65 text-xs leading-tight line-clamp-1 pl-0">{fixedArticle.subtitle}</div>}
+                                      </div>
+                                      {/* Read More button - desktop only */}
+                                      <div className="hidden md:flex items-center px-4 py-3 flex-shrink-0">
+                                        <span className="flex items-center gap-1.5 px-3 py-1.5 border border-[#D4873A]/60 text-[#D4873A] text-xs font-bold uppercase tracking-wider rounded hover:bg-[#D4873A]/20 transition-colors whitespace-nowrap">
+                                          Read More →
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            </button>
+                          );
+                        }
+                        if (block.type === 'SLIDER') {
+                          // Auto-fill by category
+                          if (block.autoFill === 'category' && block.autoFillCategory) {
+                            const limit = block.autoFillLimit || 10;
+                            const cat = block.autoFillCategory.toLowerCase();
+                            
+                            // Filter by category OR mainCategory and sort by date (newest first)
+                            // For history: check if container has a FIXED banner block - if so, exclude today's article
+                            const containerHasFixedBanner = item.containerBlocks?.some(b => b.type === 'FIXED');
+                            const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+                            
+                            const autoArticles = [...articles]
+                              .filter(a => {
+                                if (a.status !== 'published') return false;
+                                const artCat = a.category?.toLowerCase() || '';
+                                const artMain = a.mainCategory?.toLowerCase() || '';
+                                if (!( artCat === cat || artMain === cat || artCat.includes(cat) || artMain.includes(cat))) return false;
+                                // If container has a banner (showing today's article), exclude today's articles from slider
+                                // Banner always shows the latest; slider shows older articles
+                                if (containerHasFixedBanner && (cat === 'history' || cat === 'gaming')) {
+                                  const created = new Date(a.createdAt || 0);
+                                  if (created >= todayStart) return false;
+                                }
+                                return true;
+                              })
+                              .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+                              .slice(0, limit);
+                            
+                            console.log(`SLIDER auto-fill: category=${cat}, found ${autoArticles.length} articles`);
+                            
+                            if (autoArticles.length === 0) return null;
+                            return <div key={blockIdx}><SliderContainer articleIds={autoArticles.map(a => a._id)} theme={containerTheme} /></div>;
+                          }
+                          // Manual: use specified article IDs
+                          return <div key={blockIdx}><SliderContainer articleIds={block.articles || []} theme={containerTheme} /></div>;
+                        }
+                        if (block.type === 'VERTICAL') {
+                          console.log('VERTICAL block found:', block);
+                          // Auto-fill by category or manual articles
+                          const cat = block.autoFillCategory?.toLowerCase() || '';
+                          let vertArticles: Article[] = [];
+                          
+                          if (cat) {
+                            // Auto-fill: get latest articles from category
+                            vertArticles = articles
+                              .filter(a => a.category?.toLowerCase() === cat && a.status === 'published' && a.coverImage)
+                              .slice(0, block.autoFillLimit || 5);
+                          } else {
+                            // Manual: use specified article IDs
+                            vertArticles = (block.articles || []).map(id => getArticleById(id)).filter(Boolean) as Article[];
+                          }
+                          
+                          if (vertArticles.length === 0) return null;
+                          
+                          // Category label for "See more" link
+                          const categoryLabels: Record<string, string> = {
+                            'history': 'History', 'movies-tv': 'Movies & TV', 'music': 'Music',
+                            'gaming': 'Gaming', 'rewind': 'Rewind', 'sports': 'Sports',
+                            'tech': 'Tech', 'culture': 'Culture', 'news': 'News', 'lifestyle': 'Lifestyle',
+                            'rip': 'RIP'
+                          };
+                          
+                          return (
+                            <div key={blockIdx} className="space-y-1.5">
+                              {vertArticles.slice(0, 5).map((art, i) => <FullWidthBanner key={i} article={art} />)}
+                              {cat && (
+                                <button 
+                                  onClick={() => window.dispatchEvent(new Event('openArticles'))}
+                                  className="block w-full text-center py-2 text-[#D4873A] text-xs font-bold uppercase tracking-wider hover:underline"
+                                >
+                                  See more {categoryLabels[cat] || cat} →
+                                </button>
+                              )}
+                            </div>
+                          );
+                        }
+                        if (block.type === 'SOCIAL') {
+                          const socialArticle = block.articleId ? getArticleById(block.articleId) : null;
+                          if (!socialArticle) return null;
+                          return <div key={blockIdx}><MainSocial article={socialArticle} /></div>;
+                        }
+                        return null;
+                      })}
+                      </div>
+                      </div>
+                    </div>
+                  );
+                }
+
                 // Size 10 = 2 Halfer (two half cards side by side)
                 if (item.size === 10) {
                   const leftArticle = getArticleById(item.articleId);
@@ -1026,7 +1379,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                       href={item.adData.link || '#'} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="col-span-6 block rounded-xl overflow-hidden border border-warm"
+                      className="col-span-6 block rounded-none overflow-hidden border border-warm"
                     >
                       <img src={item.adData.image} alt={item.adData.title || 'Ad'} className="w-full h-20 object-cover" />
                     </a>
@@ -1052,7 +1405,8 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                   return null;
                 }
                 
-                // Size mapping: 7=MainSocial(6cols), 5=Half(3cols), 4=Full(6cols), 2=Med(4cols), 1=Small(2cols)
+                // Size mapping: 11=FixedBanner(6cols), 7=MainSocial(6cols), 5=Half(3cols), 4=Full(6cols), 2=Med(4cols), 1=Small(2cols)
+                if (item.size === 11) return <div key={index} className="col-span-6"><FixedBanner article={article} /></div>;
                 if (item.size === 7) return <div key={index} className="col-span-6"><MainSocial article={article} /></div>;
                 if (item.size === 5) return <div key={index} className="col-span-3"><HalfCard article={article} /></div>;
                 if (item.size === 4) return <div key={index} className="col-span-6"><FullWidthBanner article={article} /></div>;
@@ -1060,6 +1414,45 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                 return <div key={index} className="col-span-2"><SmallBox article={article} /></div>;
               })}
           </div>
+          
+          {/* Mobile Footer - only show on mobile, desktop has its own footer */}
+          <footer className="lg:hidden px-4 py-8 mt-6 border-t border-warm">
+            {/* Logo */}
+            <div className="flex justify-center mb-4">
+              <a href="/about" className="hover:opacity-60 transition-opacity">
+                <img src="/images/genxlogo1.png" alt="Best of GenX" className="h-6 opacity-40" />
+              </a>
+            </div>
+            
+            {/* Links */}
+            <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-gray-500 mb-4">
+              <a href="/impressum" className="hover:text-[#D4873A] transition-colors">Impressum</a>
+              <a href="/datenschutz" className="hover:text-[#D4873A] transition-colors">Datenschutz</a>
+              <a href="/agb" className="hover:text-[#D4873A] transition-colors">AGB</a>
+              <a href="/kontakt" className="hover:text-[#D4873A] transition-colors">Kontakt</a>
+            </div>
+            
+            {/* Social Links */}
+            <div className="flex justify-center gap-3 mb-4">
+              <a href="https://instagram.com/bestofgenx" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-[#D4873A]/10 flex items-center justify-center text-[#D4873A] hover:bg-[#D4873A]/20 transition-colors">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+              </a>
+              <a href="https://facebook.com/bestofgenx" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-[#D4873A]/10 flex items-center justify-center text-[#D4873A] hover:bg-[#D4873A]/20 transition-colors">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+              </a>
+              <a href="mailto:contact@bestofgenx.com" className="w-8 h-8 rounded-full bg-[#D4873A]/10 flex items-center justify-center text-[#D4873A] hover:bg-[#D4873A]/20 transition-colors">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+              </a>
+            </div>
+            
+            {/* Copyright */}
+            <p className="text-center text-[10px] text-gray-400">
+              © {new Date().getFullYear()} Best of GenX. All rights reserved.
+            </p>
+            <p className="text-center text-[9px] text-gray-300 mt-1 flex items-center justify-center gap-1">
+              Made with <svg className="w-2.5 h-2.5 text-[#D4873A]" fill="currentColor" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> for Generation X
+            </p>
+          </footer>
         
               </div>
 

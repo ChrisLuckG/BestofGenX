@@ -59,7 +59,7 @@ export async function GET() {
         title: article.title,
         subtitle: article.subtitle,
         image: article.coverImage,
-        createdAt: article.publishedAt || article.createdAt,
+        createdAt: article.publishedAt || article.createdAt || new Date(),
         order: article.order || 0,
         category: article.category,
       };

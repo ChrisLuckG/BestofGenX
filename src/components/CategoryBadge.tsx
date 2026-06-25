@@ -18,6 +18,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   'travel': 'Travel',
   'culture': 'Culture',
   'lifestyle': 'Lifestyle',
+  'rip': 'RIP',
 };
 
 interface CategoryBadgeProps {

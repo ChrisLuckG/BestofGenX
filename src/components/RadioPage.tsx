@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Radio, Play, ExternalLink, Music, Check, ClipboardPaste } from "lucide-react";
 import GenXLoader from "./GenXLoader";
 import { useAuth } from "@/context/AuthContext";
@@ -9,25 +9,26 @@ import { RadioSkeleton } from "@/components/desktop/DesktopSkeletons";
 // Animated Equalizer Component
 function Equalizer({ barCount = 20, isDesktop = false }: { barCount?: number; isDesktop?: boolean }) {
   const heights = isDesktop ? [40, 60, 80, 100] : [35, 50, 70, 90];
+  const bars = useMemo(() =>
+    Array.from({ length: barCount }).map((_, i) => ({
+      height: `${heights[Math.floor(Math.random() * heights.length)]}%`,
+      duration: `${(0.4 + Math.random() * 0.3).toFixed(2)}s`,
+      delay: `${((i * 0.05) % 0.5).toFixed(2)}s`,
+    })), [barCount]);
   
   return (
     <div className={`flex items-end justify-between w-full ${isDesktop ? 'h-16' : 'h-14'}`}>
-      {Array.from({ length: barCount }).map((_, i) => {
-        const randomHeight = heights[Math.floor(Math.random() * heights.length)];
-        const delay = (i * 0.05) % 0.5;
-        return (
+      {bars.map((bar, i) => (
           <div
             key={i}
             className="bg-gradient-to-t from-[#D4873A]/60 to-[#E5A55A]/40 rounded-t-sm flex-1 mx-[1px]"
             style={{
               maxWidth: isDesktop ? '6px' : '5px',
-              animation: `equalizer ${0.4 + Math.random() * 0.3}s ease-in-out infinite alternate`,
-              animationDelay: `${delay}s`,
-              height: `${randomHeight}%`,
+              animation: `equalizer ${bar.duration} ease-in-out ${bar.delay} infinite alternate`,
+              height: bar.height,
             }}
           />
-        );
-      })}
+        ))}
       <style>{`
         @keyframes equalizer {
           0% { height: 20%; opacity: 0.6; }
@@ -77,7 +78,7 @@ export default function RadioPage({ isDesktop = false }: RadioPageProps) {
   return (
     <div className="w-full h-full min-h-full flex flex-col overflow-hidden" style={{ backgroundColor: '#F5F0E8' }}>
       {/* Header - consistent with other pages */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
         <div className="flex items-center gap-3">
           <Radio className="w-5 h-5 text-[#D4873A]" />
           <div>

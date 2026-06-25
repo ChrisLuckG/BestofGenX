@@ -99,9 +99,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Reward not found' }, { status: 404 });
     }
 
-    // Check if user has enough points
-    if (user.points < reward.cost) {
-      return NextResponse.json({ success: false, error: 'Not enough points' }, { status: 400 });
+    // Check if user has enough coins
+    if ((user.bogxCoins || 0) < reward.cost) {
+      return NextResponse.json({ success: false, error: 'Not enough coins' }, { status: 400 });
     }
 
     // If this is a shop product, create Printful order
@@ -162,8 +162,8 @@ export async function POST(request: Request) {
       }
     }
 
-    // Deduct points from user
-    user.points -= reward.cost;
+    // Deduct coins from user
+    user.bogxCoins = (user.bogxCoins || 0) - reward.cost;
     await user.save();
 
     // Send confirmation email
@@ -184,7 +184,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ 
       success: true, 
       message: 'Reward redeemed successfully',
-      newPoints: user.points,
+      newCoins: user.bogxCoins,
     });
   } catch (error: any) {
     console.error('Redeem shop reward error:', error);

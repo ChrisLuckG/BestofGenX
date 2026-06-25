@@ -17,15 +17,15 @@ export async function GET(request: NextRequest) {
     }
 
     const user = await User.findById(userId).select(
-      'points lastSeenRank lastSeenRankAt pushSubscription notifyEmail notifySms'
+      'bogxCoins lastSeenRank lastSeenRankAt pushSubscription notifyEmail notifySms'
     );
 
     if (!user) {
       return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
     }
 
-    // Current rank = number of users with strictly more points + 1
-    const higherRanked = await User.countDocuments({ points: { $gt: user.points } });
+    // Current rank = number of users with strictly more BOGX + 1
+    const higherRanked = await User.countDocuments({ bogxCoins: { $gt: user.bogxCoins || 0 } });
     const currentRank = higherRanked + 1;
 
     const previousRank: number | null =

@@ -33,14 +33,14 @@ export async function POST(request: NextRequest) {
       // Refund both players
       if (battle.creator) {
         await User.findByIdAndUpdate(battle.creator, {
-          $inc: { points: battle.wager }
+          $inc: { bogxCoins: battle.wager }
         });
         refundedCreators++;
       }
       
       if (battle.opponent) {
         await User.findByIdAndUpdate(battle.opponent, {
-          $inc: { points: battle.wager }
+          $inc: { bogxCoins: battle.wager }
         });
         refundedOpponents++;
       }
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       // Refund creator only (opponent never joined)
       if (battle.creator) {
         await User.findByIdAndUpdate(battle.creator, {
-          $inc: { points: battle.wager }
+          $inc: { bogxCoins: battle.wager }
         });
       }
       

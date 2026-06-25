@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, X, Check, HelpCircle } from "lucide-react";
+import { compareBattleResults } from "@/utils/battleWinner";
+import { formatCurrency } from "@/utils/currency";
 
 interface RoundResult {
   correct: boolean;
@@ -73,17 +75,21 @@ export default function BattleResultCard({
   
   const topicConfig = TOPICS[topic] || { label: topic, emoji: '❓' };
   const isComplete = forceComplete || (myResults.length >= rounds && opponentResults.length >= rounds);
-  const won = myTotalPoints > opponentTotalPoints;
-  const isTie = myTotalPoints === opponentTotalPoints;
-  const leading = myTotalPoints >= opponentTotalPoints;
+  // Winner = most correct answers; tie-break by fastest total time.
+  const cmp = compareBattleResults(myResults, opponentResults);
+  const won = cmp > 0;
+  const isTie = cmp === 0;
+  const leading = cmp >= 0;
   const diff = Math.abs(myTotalPoints - opponentTotalPoints);
   const myCorrect = myResults.filter(r => r.correct).length;
   const oppCorrect = opponentResults.filter(r => r.correct).length;
+  const myTotalTime = myResults.reduce((sum, r) => sum + (r.timeMs || 0), 0);
+  const oppTotalTime = opponentResults.reduce((sum, r) => sum + (r.timeMs || 0), 0);
   
   const hasQuestions = questions && questions.length > 0;
   
   // Fixed card height for consistent flip effect - fits in viewport with padding
-  const CARD_HEIGHT = 480; // Fixed height in pixels
+  const CARD_HEIGHT = 560; // Increased to fit all content including buttons
   
   // Format time in seconds
   const formatTime = (ms?: number) => {
@@ -118,7 +124,7 @@ export default function BattleResultCard({
         style={{ 
           animation: 'flipIn 0.3s ease-out',
           height: `${CARD_HEIGHT}px`,
-          maxHeight: '85vh',
+          maxHeight: '90vh',
         }}
       >
         <style jsx>{`
@@ -156,26 +162,6 @@ export default function BattleResultCard({
         {/* Question - compact */}
         <div className="text-center mb-3 px-1">
           <p className="text-base font-bold text-gray-900 leading-snug">{q?.question}</p>
-          {/* Your result indicator */}
-          <div className="mt-2">
-            {myResult?.correct ? (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-green-100 text-green-700 text-xs font-bold">
-                <Check className="w-3 h-3" /> Correct! (+{myResult.points} BOGX)
-              </span>
-            ) : myResult?.answerIndex === -1 ? (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-yellow-100 text-yellow-700 text-xs font-bold">
-                <HelpCircle className="w-3 h-3" /> Time's up - no answer
-              </span>
-            ) : typeof myResult?.answerIndex === 'number' && myResult.answerIndex >= 0 ? (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-red-100 text-red-700 text-xs font-bold">
-                <X className="w-3 h-3" /> You answered {String.fromCharCode(65 + myResult.answerIndex)} - Wrong! Correct: {String.fromCharCode(65 + correctIndex)}
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-red-100 text-red-700 text-xs font-bold">
-                <X className="w-3 h-3" /> Wrong! Correct: {String.fromCharCode(65 + correctIndex)}
-              </span>
-            )}
-          </div>
         </div>
         
         {/* Answers - compact */}
@@ -269,7 +255,7 @@ export default function BattleResultCard({
       style={{ 
         animation: isFlipped ? undefined : 'flipBack 0.3s ease-out',
         height: `${CARD_HEIGHT}px`,
-        maxHeight: '85vh',
+        maxHeight: '90vh',
       }}
     >
       <style jsx>{`
@@ -340,9 +326,12 @@ export default function BattleResultCard({
               )}
             </div>
             <div className="text-xs font-bold text-gray-900">{won ? '👑 ' : ''}You</div>
-            <div className="text-[9px] text-gray-500">{myCorrect} / {rounds} correct</div>
-            <div className="text-sm font-bold text-gray-900 flex items-center justify-center gap-0.5">
-              {myTotalPoints.toFixed(2)} <img src="/images/bogxcoin.png" alt="" className="w-3 h-3" />
+            <div className={`text-2xl font-extrabold leading-none mt-0.5 ${won ? 'text-green-600' : isTie ? 'text-gray-900' : 'text-gray-400'}`}>
+              {myCorrect}<span className="text-sm font-bold text-gray-400">/{rounds}</span>
+            </div>
+            <div className="text-[8px] uppercase tracking-widest text-gray-400 font-semibold">Correct</div>
+            <div className="text-[10px] text-gray-400 flex items-center justify-center gap-0.5 mt-0.5">
+              ⏱ {(myTotalTime / 1000).toFixed(1)}s
             </div>
           </div>
           
@@ -363,9 +352,12 @@ export default function BattleResultCard({
               )}
             </div>
             <div className="text-xs font-bold text-gray-900">{!won && !isTie ? '👑 ' : ''}{opponentUsername}</div>
-            <div className="text-[9px] text-gray-500">{oppCorrect} / {rounds} correct</div>
-            <div className="text-sm font-bold text-gray-900 flex items-center justify-center gap-0.5">
-              {opponentTotalPoints.toFixed(2)} <img src="/images/bogxcoin.png" alt="" className="w-3 h-3" />
+            <div className={`text-2xl font-extrabold leading-none mt-0.5 ${!won && !isTie ? 'text-green-600' : isTie ? 'text-gray-900' : 'text-gray-400'}`}>
+              {oppCorrect}<span className="text-sm font-bold text-gray-400">/{rounds}</span>
+            </div>
+            <div className="text-[8px] uppercase tracking-widest text-gray-400 font-semibold">Correct</div>
+            <div className="text-[10px] text-gray-400 flex items-center justify-center gap-0.5 mt-0.5">
+              ⏱ {(oppTotalTime / 1000).toFixed(1)}s
             </div>
           </div>
         </div>
@@ -409,7 +401,7 @@ export default function BattleResultCard({
                 </div>
                 <div className="text-[9px] text-gray-500 text-center">{formatTime(myR?.timeMs)}</div>
                 <div className={`text-xs font-bold text-center ${myR?.correct ? 'text-green-600' : 'text-red-400'}`}>
-                  {myR?.correct ? myR.points.toFixed(2) : '0.00'}
+                  {myR?.correct ? formatCurrency(myR.points) : '0,00'}
                 </div>
               </div>
             );
@@ -424,11 +416,11 @@ export default function BattleResultCard({
           <div className="flex-1">
             <div className="text-xs font-bold text-red-700 uppercase">Close Match</div>
             <div className="text-[10px] text-red-600">
-              Missed by {diff.toFixed(2)} BOGX
+              Missed by {formatCurrency(diff)} BOGX
             </div>
           </div>
           <div className="text-right">
-            <div className="text-sm font-bold text-red-600">{diff.toFixed(2)}</div>
+            <div className="text-sm font-bold text-red-600">{formatCurrency(diff)}</div>
           </div>
         </div>
       )}

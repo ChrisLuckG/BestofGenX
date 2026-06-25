@@ -227,7 +227,7 @@ export default function TVPage() {
   return (
     <div className="h-full min-h-full bg-cream overflow-y-auto">
       {/* Header with Search & Language Filter */}
-      <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3 border-b border-warm bg-cream">
+      <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
         <div className="flex items-center gap-3">
           <Tv className="w-5 h-5 text-[#D4873A]" />
           <div>

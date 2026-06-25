@@ -40,9 +40,11 @@ export async function GET(request: Request) {
       const index = skip % Math.max(validGifs.length, 1);
       const gifUrl = validGifs[index] || validGifs[0] || matches[0];
       
+      // Return both single url (for old code) and results array (for ImagePickerModal)
       return NextResponse.json({ 
         success: true, 
-        url: gifUrl
+        url: gifUrl,
+        results: validGifs.slice(0, 20) // Return up to 20 GIFs for the picker
       });
     }
     
@@ -51,9 +53,11 @@ export async function GET(request: Request) {
     const mediaMatches = html.match(mediaPattern);
     
     if (mediaMatches && mediaMatches.length > 0) {
+      const uniqueMedia = Array.from(new Set(mediaMatches));
       return NextResponse.json({ 
         success: true, 
-        url: mediaMatches[0]
+        url: uniqueMedia[0],
+        results: uniqueMedia.slice(0, 20)
       });
     }
     

@@ -16,6 +16,19 @@ export async function GET(request: NextRequest) {
     const topic = searchParams.get('topic');
     const status = searchParams.get('status') || 'open';
     const userId = searchParams.get('userId'); // Current user ID to show their private battles
+    const countOnly = searchParams.get('countOnly') === 'true';
+
+    // Fast path: just return counts for the welcome modal / nav badge
+    if (countOnly && userId) {
+      const [pendingChallenges, activeBattles] = await Promise.all([
+        Battle.countDocuments({ challengedUser: userId, status: 'open' }),
+        Battle.countDocuments({
+          $or: [{ creator: userId }, { opponent: userId }],
+          status: 'active',
+        }),
+      ]);
+      return NextResponse.json({ success: true, pendingChallenges, activeBattles });
+    }
     
     const query: any = { status };
     if (topic && topic !== 'all') {
@@ -31,14 +44,14 @@ export async function GET(request: NextRequest) {
       const botIds = bots.map(b => b._id);
       
       // Show battles where: creator has played OR creator is a bot
-      query.$and = [
-        {
-          $or: [
-            { 'creatorResults.0': { $exists: true } },
-            { creator: { $in: botIds } }
-          ]
-        }
+      const creatorConditions: any[] = [
+        { 'creatorResults.0': { $exists: true } },
+        { creator: { $in: botIds } },
       ];
+      // Always include user's own open battles (sent invitations) even without results
+      if (userId) creatorConditions.push({ creator: userId });
+
+      query.$and = [{ $or: creatorConditions }];
       
       if (userId) {
         // Show: public battles OR my private battles OR battles where I'm challenged
@@ -59,6 +72,7 @@ export async function GET(request: NextRequest) {
       .select('_id creator opponent topic wager rounds status questions creatorResults opponentResults creatorTotalPoints opponentTotalPoints winner isPrivate challengedUser createdAt')
       .populate('creator', 'username avatar country countryFlag points isBot')
       .populate('opponent', 'username avatar country countryFlag points isBot')
+      .populate('challengedUser', 'username avatar country countryFlag')
       .sort({ createdAt: -1 })
       .limit(50);
     
@@ -123,19 +137,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
     }
     
-    if (creator.points < wager) {
-      return NextResponse.json({ success: false, error: 'Not enough points' }, { status: 400 });
+    if ((creator.bogxCoins || 0) < wager) {
+      return NextResponse.json({ success: false, error: 'Not enough coins' }, { status: 400 });
     }
     
     // Deduct wager from creator immediately (with atomic check to prevent negative)
     const updateResult = await User.findOneAndUpdate(
-      { _id: creatorId, points: { $gte: wager } },
-      { $inc: { points: -wager } },
+      { _id: creatorId, bogxCoins: { $gte: wager } },
+      { $inc: { bogxCoins: -wager } },
       { new: true }
     );
     
     if (!updateResult) {
-      return NextResponse.json({ success: false, error: 'Not enough points' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Not enough coins' }, { status: 400 });
     }
     
     // Map topic to theme for Card model
@@ -166,11 +180,14 @@ export async function POST(request: NextRequest) {
     console.log(`User ${creatorId} has seen ${seenCardIds.size} cards in last 30 days`);
     
     // Get all active cards for this theme (no date filtering)
+    // Use exact match (case-insensitive) to avoid cross-category pollution
     const allCards = await Card.find({ 
-      theme: { $regex: new RegExp(theme, 'i') }, 
+      theme: { $regex: new RegExp(`^${theme}$`, 'i') }, 
       active: true,
       'questions.2': { $exists: true } // Must have all 3 difficulties
     }).lean();
+    
+    console.log(`Found ${allCards.length} cards for theme "${theme}" (topic: ${topic})`);
     
     // Shuffle cards
     allCards.sort(() => Math.random() - 0.5);
@@ -254,7 +271,7 @@ export async function POST(request: NextRequest) {
               model: "gpt-4o-mini",
               messages: [
                 { role: "system", content: systemPrompt },
-                { role: "user", content: `Generate 3 quiz questions (Easy, Medium, Hard) about: ${theme}` }
+                { role: "user", content: `Generate 3 quiz questions (Easy, Medium, Hard) STRICTLY about: ${theme}. The questions MUST be about ${theme === 'GAMES' ? 'video games, board games, or gaming' : theme === 'MUSIC' ? 'music, bands, songs, or musicians' : theme === 'SPORTS' ? 'sports, athletes, or sporting events' : theme === 'FILM' || theme === 'MOVIES' ? 'movies, films, actors, or directors' : theme === 'TV' ? 'TV shows, series, or TV personalities' : theme}. Do NOT mix categories!` }
               ],
               temperature: 1.0,
               response_format: { type: 'json_object' },
@@ -342,7 +359,7 @@ export async function POST(request: NextRequest) {
     // Final check - do we have enough questions?
     if (battleQuestions.length < rounds) {
       // Refund the wager since we can't create the battle
-      await User.findByIdAndUpdate(creatorId, { $inc: { points: wager } });
+      await User.findByIdAndUpdate(creatorId, { $inc: { bogxCoins: wager } });
       return NextResponse.json({ success: false, error: 'Not enough questions available for this topic' }, { status: 500 });
     }
     
@@ -363,8 +380,11 @@ export async function POST(request: NextRequest) {
       challengedUser: challengedUserId || null
     });
     
-    // Populate creator info
+    // Populate creator and challengedUser info
     await battle.populate('creator', 'username avatar country countryFlag points isBot');
+    if (challengedUserId) {
+      await battle.populate('challengedUser', 'username avatar country countryFlag');
+    }
     
     // NOTE: Push notification is sent AFTER creator finishes playing (in submit API)
     // This ensures the challenged user only gets notified when the battle is ready

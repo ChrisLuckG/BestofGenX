@@ -6,10 +6,11 @@ interface DesktopRankWidgetProps {
   rank: number | null;
   coins: number;
   isActive?: boolean;
+  hasPendingWager?: boolean;
   onClick?: () => void;
 }
 
-export default function DesktopRankWidget({ rank, coins, isActive = false, onClick }: DesktopRankWidgetProps) {
+export default function DesktopRankWidget({ rank, coins, isActive = false, hasPendingWager = false, onClick }: DesktopRankWidgetProps) {
   const active = isActive;
   
   return (
@@ -51,9 +52,13 @@ export default function DesktopRankWidget({ rank, coins, isActive = false, onCli
           </span>
         </div>
         
-        {/* Right accent */}
+        {/* Right accent - blinks when pending wager */}
         <div className={`absolute right-0 top-1.5 bottom-1.5 w-1 rounded-full transition-all ${
-          active ? 'bg-gradient-to-b from-white to-white/80' : 'bg-gradient-to-b from-[#D4873A] to-[#E5A55A] group-hover:from-white group-hover:to-white/80'
+          hasPendingWager 
+            ? 'bg-white animate-pulse' 
+            : active 
+              ? 'bg-gradient-to-b from-white to-white/80' 
+              : 'bg-gradient-to-b from-[#D4873A] to-[#E5A55A] group-hover:from-white group-hover:to-white/80'
         }`} />
       </div>
     </button>

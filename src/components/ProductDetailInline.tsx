@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { ShoppingCart, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 
@@ -31,6 +31,8 @@ interface ProductDetailInlineProps {
 export default function ProductDetailInline({ product, onClose }: ProductDetailInlineProps) {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null);
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [addedToCart, setAddedToCart] = useState(false);
   const [scale, setScale] = useState(1);
@@ -39,6 +41,47 @@ export default function ProductDetailInline({ product, onClose }: ProductDetailI
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const lastTouchDistance = useRef<number | null>(null);
   const { addToCart } = useCart();
+
+  // Parse variants into color → size groups
+  const colors = useMemo(() => {
+    const seen = new Set<string>();
+    return (product.variants || []).reduce<string[]>((acc, v) => {
+      const color = v.title.includes(' / ') ? v.title.split(' / ')[0] : '__single__';
+      if (!seen.has(color)) { seen.add(color); acc.push(color); }
+      return acc;
+    }, []);
+  }, [product.variants]);
+
+  const hasColorChoice = colors.length > 1 && colors[0] !== '__single__';
+
+  const sizesForColor = useMemo(() => {
+    const colorKey = hasColorChoice ? selectedColor : colors[0];
+    if (!colorKey) return [];
+    return (product.variants || []).filter(v =>
+      colorKey === '__single__' ? true : v.title.startsWith(colorKey + ' / ')
+    );
+  }, [selectedColor, hasColorChoice, colors, product.variants]);
+
+  // Auto-select color if only one
+  useEffect(() => {
+    if (!hasColorChoice && colors.length > 0) setSelectedColor(colors[0]);
+  }, [hasColorChoice, colors]);
+
+  // When color changes, reset size
+  useEffect(() => {
+    setSelectedSize(null);
+    setSelectedVariant(null);
+  }, [selectedColor]);
+
+  // When size chosen, find the variant
+  useEffect(() => {
+    if (!selectedSize) return;
+    const colorKey = hasColorChoice ? selectedColor : colors[0];
+    const match = (product.variants || []).find(v =>
+      colorKey === '__single__' ? v.title === selectedSize : v.title === `${colorKey} / ${selectedSize}`
+    );
+    setSelectedVariant(match || null);
+  }, [selectedSize, selectedColor, hasColorChoice, colors, product.variants]);
 
   const images = product.images || [product.image];
 
@@ -229,45 +272,64 @@ export default function ProductDetailInline({ product, onClose }: ProductDetailI
         <p className="text-gray-600 text-sm mt-2">{product.description}</p>
       </div>
 
-      {/* Variants (Size Selection) */}
+      {/* Variants — 2-step Color → Size */}
       {product.variants && product.variants.length > 0 && (
-        <div data-variant-select className="mx-3 mt-4 p-4 bg-cream rounded-xl border border-warm transition-all">
-          <p className="text-gray-500 text-xs mb-3 uppercase tracking-wider font-medium">Select Option</p>
-          <div className="flex flex-wrap gap-2">
-            {product.variants.map((variant) => {
-              const isSelected = selectedVariant?.id === variant.id;
-              const isAvailable = variant.available;
-              
-              // Clean up the title - remove redundant color if all same
-              let displayTitle = variant.title;
-              const allTitles = product.variants?.map(v => v.title) || [];
-              const allSameColor = allTitles.every(t => {
-                const color = t.split(' / ')[0];
-                return color === allTitles[0]?.split(' / ')[0];
-              });
-              if (allSameColor && variant.title.includes(' / ')) {
-                // All same color - just show size
-                displayTitle = variant.title.split(' / ').slice(1).join(' / ');
-              }
-              
-              return (
-                <button
-                  key={variant.id}
-                  onClick={() => setSelectedVariant(variant)}
-                  disabled={!isAvailable}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
-                    isSelected
-                      ? 'bg-[#D4873A] text-white border-[#D4873A]'
-                      : isAvailable
-                        ? 'bg-cream text-gray-700 border-warm hover:bg-[#D4873A]/10'
-                        : 'bg-cream/50 text-gray-300 border-warm cursor-not-allowed line-through'
-                  }`}
-                >
-                  {displayTitle}
-                </button>
-              );
-            })}
-          </div>
+        <div data-variant-select className="mx-3 mt-4 p-4 bg-cream rounded-xl border border-warm transition-all space-y-4">
+
+          {/* Step 1: Color (only if multiple colors) */}
+          {hasColorChoice && (
+            <div>
+              <p className="text-gray-500 text-xs mb-2 uppercase tracking-wider font-medium">
+                Color{selectedColor ? <span className="text-gray-900 normal-case tracking-normal ml-1">— {selectedColor}</span> : ''}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {colors.map(color => (
+                  <button
+                    key={color}
+                    onClick={() => setSelectedColor(color)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
+                      selectedColor === color
+                        ? 'bg-[#D4873A] text-white border-[#D4873A]'
+                        : 'bg-cream text-gray-700 border-warm hover:bg-[#D4873A]/10'
+                    }`}
+                  >
+                    {color}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: Size */}
+          {sizesForColor.length > 0 && (
+            <div>
+              <p className="text-gray-500 text-xs mb-2 uppercase tracking-wider font-medium">Size</p>
+              <div className="flex flex-wrap gap-2">
+                {sizesForColor.map(variant => {
+                  const sizeLabel = variant.title.includes(' / ')
+                    ? variant.title.split(' / ').slice(1).join(' / ')
+                    : variant.title;
+                  const isSelected = selectedSize === sizeLabel;
+                  return (
+                    <button
+                      key={variant.id}
+                      onClick={() => setSelectedSize(sizeLabel)}
+                      disabled={!variant.available}
+                      className={`w-14 py-2 rounded-lg text-sm font-bold transition-all border ${
+                        isSelected
+                          ? 'bg-[#D4873A] text-white border-[#D4873A]'
+                          : variant.available
+                            ? 'bg-cream text-gray-700 border-warm hover:bg-[#D4873A]/10'
+                            : 'bg-cream/50 text-gray-300 border-warm cursor-not-allowed line-through'
+                      }`}
+                    >
+                      {sizeLabel}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

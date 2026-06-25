@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { FileText, Search, ChevronRight, Check, Heart, MessageCircle, Eye, Clock } from "lucide-react";
 import { FeedSkeleton } from "./DesktopSkeletons";
-import InlineMoods from "@/components/InlineMoods";
+import CardMoodReactions from "@/components/CardMoodReactions";
 import { useAuth } from "@/context/AuthContext";
 import { isVideoUrl } from "@/utils/media";
 
@@ -12,6 +12,8 @@ interface Article {
   title: string;
   subtitle?: string;
   coverImage?: string;
+  thumbnailPosition?: { x: number; y: number };
+  coverPosition?: { x: number; y: number };
   category: string;
   authorName?: string;
   authorAvatar?: string;
@@ -45,16 +47,18 @@ const CATEGORY_LABELS: Record<string, string> = {
   'culture': 'Culture',
   'news': 'News',
   'lifestyle': 'Lifestyle',
+  'rip': 'RIP',
 };
 
 interface DesktopArticlesPageProps {
   onOpenArticle: (articleId: string) => void;
+  onShowLogin?: () => void;
 }
 
 type FilterType = 'all' | 'unread' | 'top-commented' | 'most-liked' | 'newest' | 'oldest';
 
-export default function DesktopArticlesPage({ onOpenArticle }: DesktopArticlesPageProps) {
-  const { user } = useAuth();
+export default function DesktopArticlesPage({ onOpenArticle, onShowLogin }: DesktopArticlesPageProps) {
+  const { user, isLoggedIn } = useAuth();
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterType>('all');
@@ -204,19 +208,18 @@ export default function DesktopArticlesPage({ onOpenArticle }: DesktopArticlesPa
               {(filter === 'all' ? articles : sortedArticles).map((article) => {
                 const isRead = readArticles.has(article._id);
                 return (
-                  <button
+                  <div
                     key={article._id}
-                    onClick={() => handleArticleClick(article._id)}
                     className="w-full text-left p-4 border rounded-xl hover:border-[#D4873A]/50 hover:shadow-lg transition-all duration-200 group bg-cream border-warm"
                   >
                     <div className="flex items-center gap-4">
                       {/* Thumbnail */}
-                      <div className="w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-skeleton">
+                      <div className="w-20 h-20 flex-shrink-0 overflow-hidden bg-skeleton cursor-pointer" onClick={() => handleArticleClick(article._id)}>
                         {article.coverImage ? (
                           isVideoUrl(article.coverImage) ? (
-                            <video src={article.coverImage} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" muted autoPlay loop playsInline />
+                            <video src={article.coverImage} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" style={{ objectPosition: `${article.thumbnailPosition?.x || 50}% ${article.thumbnailPosition?.y || 50}%` }} muted autoPlay loop playsInline />
                           ) : (
-                            <img src={article.coverImage} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                            <img src={article.coverImage} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" style={{ objectPosition: `${article.thumbnailPosition?.x || 50}% ${article.thumbnailPosition?.y || 50}%` }} />
                           )
                         ) : (
                           <div className="w-full h-full bg-[#D4873A]/10 flex items-center justify-center">
@@ -224,25 +227,29 @@ export default function DesktopArticlesPage({ onOpenArticle }: DesktopArticlesPa
                           </div>
                         )}
                       </div>
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0 cursor-pointer" onClick={() => handleArticleClick(article._id)}>
                         <span className="text-[10px] font-bold uppercase tracking-wider text-[#D4873A]">
                           {CATEGORY_LABELS[article.category] || article.category}
                         </span>
                         <h4 className="font-display text-xl tracking-wide text-gray-900 group-hover:text-[#D4873A] transition-colors line-clamp-2 uppercase">{article.title}</h4>
                         <div className="flex items-center gap-3 text-xs text-gray-400 mt-1">
                           <span>{article.authorName || 'BOGX Team'} · {formatDate(article.createdAt)}</span>
-                          <InlineMoods count={article.likes || 0} size="xs" />
                         </div>
                       </div>
-                      {/* Coin Badge - Right side like mobile */}
-                      <div className={`px-2 py-1 rounded-lg border-2 font-display text-sm flex items-center gap-1 flex-shrink-0 ${
-                        isRead ? 'border-green-500 text-green-600' : 'border-[#D4873A] text-[#D4873A]'
-                      }`}>
-                        {isRead && <Check className="w-3 h-3" />}
-                        0.05
+                      {/* Moods + Coin Badge */}
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" />
+                        </div>
+                        <div className={`px-2 py-1 rounded-lg border-2 font-display text-sm flex items-center gap-1 ${
+                          isRead ? 'border-green-500 text-green-600' : 'border-[#D4873A] text-[#D4873A]'
+                        }`}>
+                          {isRead && <Check className="w-3 h-3" />}
+                          0.05
+                        </div>
                       </div>
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>

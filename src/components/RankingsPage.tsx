@@ -1,32 +1,14 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ChevronLeft, ChevronRight, Trophy, Gamepad2, Gift, Zap, Target, TrendingUp, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Trophy, Gift, Zap, Target, TrendingUp, Clock } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import PlayerCard from "@/components/PlayerCard";
 import CountryFlag from "@/components/CountryFlag";
 import LogoLoader from "@/components/LogoLoader";
 import { formatCurrency, getCurrencySymbol, autoConvertToBOGX } from "@/utils/currency";
 import { getUserLevel, getLevelProgress, getBogxToNextLevel, getNextLevelName, getProgressSegments, LEVELS } from "@/utils/levels";
-
-
-interface Player {
-  id: string;
-  rank: number;
-  name: string;
-  country: string;
-  flag: string;
-  points: number;
-  wins: number;
-  avatar: string;
-  change?: "up" | "down" | null;
-  pointsGained?: number;
-  isGuest?: boolean;
-  isCurrentUser?: boolean;
-  isActive?: boolean;
-  recentPoints?: number;
-  avgAnswerTime?: number;
-}
+import { useLiveRankings, RankingPlayer as Player } from "@/hooks/useLiveRankings";
 
 interface RankingsPageProps {
   currentUserScore: number;
@@ -38,12 +20,32 @@ interface RankingsPageProps {
 export default function RankingsPage({ currentUserScore, onBack, onShowSignup, onShowRewards }: RankingsPageProps) {
   const { user, isLoggedIn } = useAuth();
   const [activeTab, setActiveTab] = useState<"day" | "month" | "year">("day");
-  const [rankings, setRankings] = useState<Player[]>([]);
-  const prevRankingsRef = useRef<Map<string, { rank: number; points: number }>>(new Map());
-  const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [isLive, setIsLive] = useState(true);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  
+  // Central live rankings hook - same logic on Desktop AND Mobile
+  const { rankings, loading, isLive } = useLiveRankings({
+    period: activeTab,
+    selectedDate,
+    userId: user?.id,
+    pollIntervalMs: 5000, // mobile refreshes faster
+  });
+
+  // Real lifetime stats (quizzbattle W/L, accuracy, avg time) from GameResult + Battle
+  const [userStats, setUserStats] = useState<{
+    quizzWins: number;
+    quizzLosses: number;
+    accuracy: number | null;
+    avgAnswerTime: number | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!isLoggedIn || !user?.id) { setUserStats(null); return; }
+    fetch(`/api/users/${user.id}/stats`)
+      .then(r => r.json())
+      .then(d => { if (d && !d.error) setUserStats(d); })
+      .catch(() => {});
+  }, [isLoggedIn, user?.id, rankings]);
 
   // Check if game is on break (9:00-10:00 CET)
   const isOnBreak = () => {
@@ -58,96 +60,6 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
     const today = new Date();
     return selectedDate.toDateString() === today.toDateString();
   };
-
-  // Format date for API based on period
-  const formatDateForApi = (date: Date, period: string) => {
-    if (period === 'day') {
-      return date.toISOString().split('T')[0]; // YYYY-MM-DD
-    } else if (period === 'month') {
-      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; // YYYY-MM
-    } else {
-      return `${date.getFullYear()}`; // YYYY
-    }
-  };
-
-  // Fetch rankings from API (silent = no loading spinner for background refresh)
-  const fetchRankings = async (silent = false) => {
-    if (!silent) setLoading(true);
-    try {
-      // Build query params based on period
-      const params = new URLSearchParams();
-      params.set('period', activeTab);
-      if (activeTab === 'day' && !isToday()) {
-        params.set('date', formatDateForApi(selectedDate, 'day'));
-      } else if (activeTab === 'month') {
-        params.set('month', formatDateForApi(selectedDate, 'month'));
-      } else if (activeTab === 'year') {
-        params.set('year', formatDateForApi(selectedDate, 'year'));
-      }
-      const res = await fetch(`/api/rankings/snapshot?${params.toString()}`);
-      
-      if (res.ok) {
-        const data = await res.json();
-        setIsLive(data.isLive || isToday());
-        
-        const players: Player[] = (data.rankings || []).map((r: { _id?: string; oderId?: string; username: string; avatar?: string; country?: string; countryFlag?: string; points: number; wins: number; rank?: number }, index: number) => {
-          const id = r._id || r.oderId || `user-${index}`;
-          const currentRank = r.rank || index + 1;
-          const prev = prevRankingsRef.current.get(id);
-          
-          // Determine change
-          let change: "up" | "down" | null = null;
-          
-          if (prev) {
-            if (currentRank < prev.rank) {
-              change = "up";
-            } else if (currentRank > prev.rank) {
-              change = "down";
-            }
-          }
-          
-          // Use recentPoints from server (actual game results) instead of calculating diff
-          const pointsGained = (r as any).recentPoints || 0;
-          
-          return {
-            id,
-            rank: currentRank,
-            name: r.username,
-            country: r.country || "World",
-            flag: r.countryFlag || "🌍",
-            points: autoConvertToBOGX(r.points || 0),
-            wins: r.wins,
-            avatar: (r.avatar && r.avatar.length > 0) ? r.avatar : `https://i.pravatar.cc/100?u=${r._id || index}`,
-            isCurrentUser: user?.id === r._id,
-            change,
-            pointsGained: autoConvertToBOGX(pointsGained),
-            isActive: (r as any).isActive || false,
-            recentPoints: autoConvertToBOGX((r as any).recentPoints || 0),
-          };
-        });
-        
-        // Save current rankings for next comparison
-        const newPrevRankings = new Map<string, { rank: number; points: number }>();
-        players.forEach(p => newPrevRankings.set(p.id, { rank: p.rank, points: p.points }));
-        prevRankingsRef.current = newPrevRankings;
-        
-        setRankings(players);
-      }
-    } catch (error) {
-      console.error('Failed to fetch rankings:', error);
-    } finally {
-      if (!silent) setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchRankings(false); // Initial load with spinner
-    // Only auto-refresh if viewing today's daily rankings - every 5 seconds silently in background
-    if (activeTab === 'day' && isToday()) {
-      const interval = setInterval(() => fetchRankings(true), 5000);
-      return () => clearInterval(interval);
-    }
-  }, [user?.id, selectedDate, activeTab]);
 
   // Navigate based on active tab (day/month/year)
   const goToPrevious = () => {
@@ -251,7 +163,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-cream">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
         <div className="flex items-center gap-2">
           <Trophy className="w-5 h-5 text-[#D4873A]" />
           <span className="font-display text-lg tracking-wider text-gray-900">Rankings</span>
@@ -333,7 +245,9 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
               
               {/* Row 2: Level Progress (full width) */}
               {(() => {
-                const userBogx = currentUserRank.points;
+                // Tier/level is based on LIFETIME wallet balance (not the period score),
+                // so it stays consistent across Today/Month/Year tabs.
+                const userBogx = user?.bogxCoins ?? currentUserScore ?? currentUserRank.points;
                 const level = getUserLevel(userBogx);
                 const progress = getLevelProgress(userBogx);
                 const segments = getProgressSegments(userBogx);
@@ -383,27 +297,23 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
               <div className="flex items-center justify-around py-3 px-3 border-t border-dashed border-[#D4873A]/20 bg-white/50">
                 <div className="text-center">
                   <Trophy className="w-4 h-4 text-gray-900 mx-auto" />
-                  <div className="font-bold text-base text-gray-900">{currentUserRank.wins}</div>
-                  <div className="text-[8px] text-gray-700 uppercase font-medium">Wins</div>
-                </div>
-                <div className="text-center">
-                  <Gamepad2 className="w-4 h-4 text-gray-900 mx-auto" />
-                  <div className="font-bold text-base text-gray-900">{user?.gamesPlayed || '-'}</div>
-                  <div className="text-[8px] text-gray-700 uppercase font-medium">Games</div>
+                  <div className="font-bold text-base text-gray-900">
+                    {userStats ? `${userStats.quizzWins} / ${userStats.quizzLosses}` : '—'}
+                  </div>
+                  <div className="text-[8px] text-gray-700 uppercase font-medium">Battle W/L</div>
                 </div>
                 <div className="text-center">
                   <Target className="w-4 h-4 text-gray-900 mx-auto" />
-                  <div className="font-bold text-base text-gray-900">{user?.gamesPlayed && user?.wins ? Math.round((user.wins / user.gamesPlayed) * 100) : 0}%</div>
+                  <div className="font-bold text-base text-gray-900">
+                    {userStats && userStats.accuracy != null ? `${Math.round(userStats.accuracy)}%` : '—'}
+                  </div>
                   <div className="text-[8px] text-gray-700 uppercase font-medium">Accuracy</div>
                 </div>
                 <div className="text-center">
-                  <img src="/images/bogxcoin.png" alt="" className="w-4 h-4 mx-auto" />
-                  <div className="font-bold text-base text-gray-900">{formatCurrency(currentUserRank.points)}</div>
-                  <div className="text-[8px] text-gray-700 uppercase font-medium">BOGX</div>
-                </div>
-                <div className="text-center">
                   <Clock className="w-4 h-4 text-gray-900 mx-auto" />
-                  <div className="font-bold text-base text-gray-900">{currentUserRank.avgAnswerTime ? `${(currentUserRank.avgAnswerTime / 1000).toFixed(1)}s` : '—'}</div>
+                  <div className="font-bold text-base text-gray-900">
+                    {userStats && userStats.avgAnswerTime != null ? `${(userStats.avgAnswerTime / 1000).toFixed(1)}s` : '—'}
+                  </div>
                   <div className="text-[8px] text-gray-700 uppercase font-medium">Avg Time</div>
                 </div>
               </div>
@@ -430,6 +340,16 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
               JOIN NOW
             </div>
           </button>
+        )}
+        
+        {/* Info: Why user might not appear in rankings */}
+        {isLoggedIn && currentUserRank && !rankings.find(p => p.isCurrentUser) && activeTab === 'day' && (
+          <div className="mx-4 mb-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+            <span className="text-amber-500 text-sm mt-0.5">💡</span>
+            <p className="text-xs text-amber-700">
+              <strong>Tip:</strong> You appear in the daily ranking once you've earned positive points today.
+            </p>
+          </div>
         )}
 
         {/* Tabs - Today/Month/Year */}
@@ -530,6 +450,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                     <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-[#A0A8B8]">
                       <img src={top3[1].avatar} alt="" className="w-full h-full object-cover" />
                     </div>
+                    <div className={`absolute top-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-cream ${top3[1].isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
                     <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-[#A0A8B8] flex items-center justify-center">
                       <span className="text-[10px] font-black text-black">2</span>
                     </div>
@@ -550,6 +471,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                     <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#FFB800]">
                       <img src={top3[0].avatar} alt="" className="w-full h-full object-cover" />
                     </div>
+                    <div className={`absolute top-0 right-0 w-4 h-4 rounded-full border-2 border-cream ${top3[0].isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
                     <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-[#FFB800] flex items-center justify-center">
                       <span className="text-xs font-black text-black">1</span>
                     </div>
@@ -570,6 +492,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                     <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-[#CD7F32]">
                       <img src={top3[2].avatar} alt="" className="w-full h-full object-cover" />
                     </div>
+                    <div className={`absolute top-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-cream ${top3[2].isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
                     <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-[#CD7F32] flex items-center justify-center">
                       <span className="text-[10px] font-black text-black">3</span>
                     </div>
@@ -602,8 +525,11 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                     </div>
                     
                     {/* Avatar */}
-                    <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-cream border border-warm">
-                      <img src={player.avatar} alt="" className="w-full h-full object-cover" />
+                    <div className="relative flex-shrink-0">
+                      <div className="w-9 h-9 rounded-full overflow-hidden bg-cream border border-warm">
+                        <img src={player.avatar} alt="" className="w-full h-full object-cover" />
+                      </div>
+                      <div className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-cream ${player.isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
                     </div>
                     
                     {/* Info */}

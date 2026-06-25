@@ -110,9 +110,49 @@ const SUBCATEGORY_MAPPINGS: Record<string, Record<string, string>> = {
   },
 };
 
-function detectSubCategory(theme: string, topic: string, question: string): string {
+function normalizeTheme(theme: string, topic: string, question: string): string {
+  const rawTheme = (theme || '').toUpperCase().trim();
   const searchText = `${topic} ${question}`.toLowerCase();
-  const mappings = SUBCATEGORY_MAPPINGS[theme] || {};
+  
+  // Direct normalization
+  if (rawTheme === 'FILM' || rawTheme === 'FILMS' || rawTheme === 'CINEMA') return 'MOVIES';
+  
+  // Check if theme is actually a topic - try to detect real theme from topic/question
+  const validThemes = ['MUSIC', 'MOVIES', 'TV SHOWS', 'SPORTS', 'GAMING', 'FASHION', 'TECHNOLOGY', 'CELEBRITIES'];
+  if (!validThemes.includes(rawTheme)) {
+    // Try to find a theme in the topic
+    const topicLower = (topic || '').toLowerCase();
+    if (topicLower.includes('sports') || topicLower.includes('basketball') || topicLower.includes('soccer') || topicLower.includes('football')) return 'SPORTS';
+    if (topicLower.includes('music') || topicLower.includes('song') || topicLower.includes('album') || topicLower.includes('band')) return 'MUSIC';
+    if (topicLower.includes('movie') || topicLower.includes('film') || topicLower.includes('cinema')) return 'MOVIES';
+    if (topicLower.includes('tv') || topicLower.includes('show') || topicLower.includes('sitcom') || topicLower.includes('series')) return 'TV SHOWS';
+    if (topicLower.includes('game') || topicLower.includes('gaming') || topicLower.includes('nintendo') || topicLower.includes('playstation')) return 'GAMING';
+    if (topicLower.includes('fashion') || topicLower.includes('style') || topicLower.includes('clothing') || topicLower.includes('shoes')) return 'FASHION';
+    if (topicLower.includes('tech') || topicLower.includes('computer') || topicLower.includes('internet') || topicLower.includes('phone')) return 'TECHNOLOGY';
+    if (topicLower.includes('celebr') || topicLower.includes('actor') || topicLower.includes('musician') || topicLower.includes('star')) return 'CELEBRITIES';
+  }
+  
+  return rawTheme;
+}
+
+function getDefaultSubCategory(theme: string): string {
+  const defaults: Record<string, string> = {
+    'SPORTS': 'Olympics',
+    'MUSIC': 'Pop',
+    'MOVIES': 'Drama',
+    'TV SHOWS': 'Drama',
+    'GAMING': 'Nintendo',
+    'FASHION': 'Vintage',
+    'TECHNOLOGY': 'Computers',
+    'CELEBRITIES': 'Actors',
+  };
+  return defaults[theme] || 'Other';
+}
+
+function detectSubCategory(theme: string, topic: string, question: string): string {
+  const normalizedTheme = normalizeTheme(theme, topic, question);
+  const searchText = `${topic} ${question}`.toLowerCase();
+  const mappings = SUBCATEGORY_MAPPINGS[normalizedTheme] || {};
   
   for (const [keyword, subCat] of Object.entries(mappings)) {
     if (searchText.includes(keyword.toLowerCase())) {
@@ -120,7 +160,8 @@ function detectSubCategory(theme: string, topic: string, question: string): stri
     }
   }
   
-  return '';
+  // Fallback: return default for normalized theme
+  return getDefaultSubCategory(normalizedTheme);
 }
 
 export async function POST(request: NextRequest) {
@@ -144,19 +185,25 @@ export async function POST(request: NextRequest) {
     let updated = 0;
     const results: { topic: string; theme: string; subCategory: string }[] = [];
     
-    // First pass: keyword matching
+    // First pass: keyword matching + fallback defaults
     for (const card of cards) {
       const question = card.questions?.[0]?.question || '';
+      const normalizedTheme = normalizeTheme(card.theme, card.topic, question);
       const subCategory = detectSubCategory(card.theme, card.topic, question);
       
       if (subCategory) {
-        await Card.updateOne({ _id: card._id }, { subCategory });
+        const update: any = { subCategory };
+        // Fix invalid theme if needed
+        if (normalizedTheme !== card.theme) {
+          update.theme = normalizedTheme;
+        }
+        await Card.updateOne({ _id: card._id }, { $set: update });
         updated++;
-        results.push({ topic: card.topic, theme: card.theme, subCategory });
+        results.push({ topic: card.topic, theme: normalizedTheme, subCategory });
       }
     }
     
-    // Second pass: use AI for remaining cards (batch of 20)
+    // Second pass: use AI for remaining cards
     if (openai) {
       const remaining = await Card.find({ 
         $or: [
@@ -164,23 +211,30 @@ export async function POST(request: NextRequest) {
           { subCategory: '' },
           { subCategory: null }
         ]
-      }).limit(50);
+      });
       
       if (remaining.length > 0) {
-        const batchData = remaining.map(c => ({
-          id: c._id.toString(),
-          theme: c.theme,
-          topic: c.topic,
-          question: c.questions?.[0]?.question?.substring(0, 100) || ''
-        }));
+        const batchData = remaining.map(c => {
+          const question = c.questions?.[0]?.question || '';
+          const normalizedTheme = normalizeTheme(c.theme, c.topic, question);
+          return {
+            id: c._id.toString(),
+            theme: normalizedTheme,
+            topic: c.topic,
+            question: question.substring(0, 100)
+          };
+        });
         
         // Valid subcategories per theme
         const VALID_SUBS: Record<string, string[]> = {
           'SPORTS': ['Basketball', 'Soccer', 'American Football', 'Rugby', 'Tennis', 'Table Tennis', 'Boxing', 'Golf', 'Hockey', 'Baseball', 'Wrestling', 'Olympics', 'Racing', 'Cycling', 'Swimming', 'X-Games'],
-          'MUSIC': ['Rock', 'Pop', 'Hip Hop', 'R&B', 'Electronic', 'Metal', 'Punk', 'Alternative'],
+          'MUSIC': ['Rock', 'Pop', 'Hip Hop', 'R&B', 'Electronic', 'Metal', 'Punk', 'Alternative', 'Country', 'Soul', 'Grunge'],
           'MOVIES': ['Action', 'Comedy', 'Horror', 'Sci-Fi', 'Drama', 'Thriller', 'Animation', 'Romance'],
           'TV SHOWS': ['Sitcom', 'Drama', 'Sci-Fi', 'Animation', 'Reality', 'Talk Show', 'Crime'],
-          'GAMING': ['Nintendo', 'PlayStation', 'Sega', 'PC Gaming', 'Fighting', 'RPG'],
+          'GAMING': ['Nintendo', 'PlayStation', 'Sega', 'PC Gaming', 'Fighting', 'RPG', 'Arcade', 'Sports'],
+          'FASHION': ['Streetwear', 'Designer', 'Shoes', 'Accessories', 'Denim', 'Sportswear', 'Vintage'],
+          'TECHNOLOGY': ['Computers', 'Internet', 'Gaming', 'Audio', 'Mobile', 'Software', 'Hardware'],
+          'CELEBRITIES': ['Actors', 'Musicians', 'Athletes', 'TV Stars', 'Models', 'Directors'],
         };
         
         const completion = await openai.chat.completions.create({
@@ -190,10 +244,13 @@ export async function POST(request: NextRequest) {
             { role: "user", content: `For each item, pick ONE subCategory from the EXACT list for that theme. DO NOT invent new categories!
 
 SPORTS: Basketball, Soccer, American Football, Rugby, Tennis, Table Tennis, Boxing, Golf, Hockey, Baseball, Wrestling, Olympics, Racing, Cycling, Swimming, X-Games
-MUSIC: Rock, Pop, Hip Hop, R&B, Electronic, Metal, Punk, Alternative
+MUSIC: Rock, Pop, Hip Hop, R&B, Electronic, Metal, Punk, Alternative, Country, Soul, Grunge
 MOVIES: Action, Comedy, Horror, Sci-Fi, Drama, Thriller, Animation, Romance
 TV SHOWS: Sitcom, Drama, Sci-Fi, Animation, Reality, Talk Show, Crime
-GAMING: Nintendo, PlayStation, Sega, PC Gaming, Fighting, RPG
+GAMING: Nintendo, PlayStation, Sega, PC Gaming, Fighting, RPG, Arcade, Sports
+FASHION: Streetwear, Designer, Shoes, Accessories, Denim, Sportswear, Vintage
+TECHNOLOGY: Computers, Internet, Gaming, Audio, Mobile, Software, Hardware
+CELEBRITIES: Actors, Musicians, Athletes, TV Stars, Models, Directors
 
 Items:
 ${JSON.stringify(batchData, null, 2)}
@@ -215,10 +272,12 @@ IMPORTANT: subCategory MUST be from the exact list above!` }
                 const card = remaining.find(c => c._id.toString() === item.id);
                 if (!card) continue;
                 
+                const normalizedTheme = normalizeTheme(card.theme, card.topic, card.questions?.[0]?.question || '');
+                
                 // Validate subCategory is in allowed list (only for themes that need it)
-                const validList = VALID_SUBS[card.theme];
+                const validList = VALID_SUBS[normalizedTheme];
                 if (validList && !validList.includes(item.subCategory)) {
-                  console.log(`Invalid subCategory "${item.subCategory}" for theme ${card.theme}, skipping`);
+                  console.log(`Invalid subCategory "${item.subCategory}" for theme ${normalizedTheme}, skipping`);
                   continue;
                 }
                 // Skip themes that don't need subcategories
@@ -226,9 +285,13 @@ IMPORTANT: subCategory MUST be from the exact list above!` }
                   continue;
                 }
                 
-                await Card.updateOne({ _id: item.id }, { subCategory: item.subCategory });
+                const update: any = { subCategory: item.subCategory };
+                if (normalizedTheme !== card.theme) {
+                  update.theme = normalizedTheme;
+                }
+                await Card.updateOne({ _id: item.id }, { $set: update });
                 updated++;
-                results.push({ topic: card.topic, theme: card.theme, subCategory: item.subCategory });
+                results.push({ topic: card.topic, theme: normalizedTheme, subCategory: item.subCategory });
               }
             }
           }

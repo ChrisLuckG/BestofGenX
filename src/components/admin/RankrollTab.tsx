@@ -23,7 +23,9 @@ export default function RankrollTab() {
   const [generatedArticle, setGeneratedArticle] = useState<any | null>(null);
   const [articleLanguage, setArticleLanguage] = useState<string>(DEFAULT_LANGUAGE);
   const [articleStyle, setArticleStyle] = useState<string>(DEFAULT_AUTHOR_STYLE);
-  const [showImagePicker, setShowImagePicker] = useState(false);
+  const [showImagePicker, setShowImagePicker] = useState(false); // For article thumbnail (right side)
+  const [showRankrollImagePicker, setShowRankrollImagePicker] = useState(false); // For rankroll cover (left side)
+  const [imagePickerItemIndex, setImagePickerItemIndex] = useState<number | null>(null);
   const [activeSubTab, setActiveSubTab] = useState<'all' | 'ranking' | 'quiz' | 'simple'>('all');
   const itemImageInputRef = useRef<HTMLInputElement>(null);
 
@@ -59,9 +61,7 @@ export default function RankrollTab() {
       const data = await res.json();
       
       if (data.success && data.url) {
-        const newItems = [...editingPoll.items];
-        newItems[itemIndex] = { ...newItems[itemIndex], image: data.url };
-        setEditingPoll({ ...editingPoll, items: newItems });
+        await updateItemImage(itemIndex, data.url);
       } else {
         alert('No GIF found for: ' + title);
       }
@@ -212,6 +212,29 @@ export default function RankrollTab() {
     }
   };
 
+  // Update item image and sync to linked article if first item
+  const updateItemImage = async (itemIndex: number, imageUrl: string) => {
+    if (!editingPoll) return;
+    
+    const newItems = [...editingPoll.items];
+    newItems[itemIndex] = { ...newItems[itemIndex], image: imageUrl };
+    setEditingPoll({ ...editingPoll, items: newItems });
+    
+    // If first item and article is linked, update article cover too
+    if (itemIndex === 0 && editingPoll.linkedArticleId) {
+      try {
+        await fetch(`/api/articles/${editingPoll.linkedArticleId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ coverImage: imageUrl }),
+        });
+        console.log('Article cover updated:', imageUrl);
+      } catch (e) {
+        console.error('Failed to update article cover:', e);
+      }
+    }
+  };
+
   // Handle image upload for ranking items
   const handleItemImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, itemIndex: number) => {
     const file = e.target.files?.[0];
@@ -225,9 +248,7 @@ export default function RankrollTab() {
       const data = await res.json();
       
       if (data.success && data.url) {
-        const newItems = [...editingPoll.items];
-        newItems[itemIndex] = { ...newItems[itemIndex], image: data.url };
-        setEditingPoll({ ...editingPoll, items: newItems });
+        await updateItemImage(itemIndex, data.url);
       } else {
         alert('Upload failed: ' + (data.error || 'Unknown error'));
       }
@@ -246,27 +267,38 @@ export default function RankrollTab() {
       let articleId = editingPoll.linkedArticleId;
       
       // If publishing with article, create article first
-      if (publishWithArticle && generatedArticle) {
+      if (publishWithArticle) {
+        // Use generated article if available, otherwise create from poll data
+        const articlePayload = generatedArticle || {
+          title: editingPoll.title,
+          subtitle: editingPoll.subtitle || editingPoll.description || '',
+          content: '', // Empty content, will be linked to rankroll
+          category: editingPoll.category || 'culture',
+          tags: [],
+          coverImage: editingPoll.items?.[0]?.image || '',
+        };
+        
         const articleRes = await fetch('/api/articles', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             userId: 'system', // Will be handled by API
-            title: generatedArticle.title,
-            subtitle: generatedArticle.subtitle,
-            content: generatedArticle.content,
-            category: generatedArticle.category || 'culture',
-            tags: generatedArticle.tags || [],
-            coverImage: generatedArticle.coverImage || editingPoll.items?.[0]?.image || '',
+            title: articlePayload.title,
+            subtitle: articlePayload.subtitle,
+            content: articlePayload.content,
+            category: articlePayload.category || 'culture',
+            tags: articlePayload.tags || [],
+            coverImage: articlePayload.coverImage || editingPoll.items?.[0]?.image || '',
             status: 'published',
+            contentType: 'rankroll', // Mark as rankroll article
           }),
         });
         
-        const articleData = await articleRes.json();
-        if (articleData.success && articleData.article?._id) {
-          articleId = articleData.article._id;
+        const articleResult = await articleRes.json();
+        if (articleResult.success && articleResult.article?._id) {
+          articleId = articleResult.article._id;
         } else {
-          alert('Failed to create article: ' + (articleData.error || 'Unknown error'));
+          alert('Failed to create article: ' + (articleResult.error || 'Unknown error'));
           return;
         }
       }
@@ -278,7 +310,8 @@ export default function RankrollTab() {
       const pollData = {
         ...editingPoll,
         linkedArticleId: articleId || editingPoll.linkedArticleId,
-        articleImage: editingPoll.items?.[0]?.image || editingPoll.articleImage,
+        // Use rankroll cover image, fallback to first item image
+        articleImage: editingPoll.image || editingPoll.items?.[0]?.image || editingPoll.articleImage,
       };
       
       console.log('Saving poll:', pollData);
@@ -327,6 +360,21 @@ export default function RankrollTab() {
     }
   };
 
+  // Toggle poll status
+  const toggleStatus = async (poll: any) => {
+    const newStatus = poll.status === 'active' ? 'inactive' : 'active';
+    try {
+      const res = await fetch(`/api/polls/${poll._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) fetchPolls();
+    } catch (error) {
+      console.error('Error toggling status:', error);
+    }
+  };
+
   // Group polls by type
   const rankingPolls = polls.filter(p => p.type === 'ranking');
   const quizPolls = polls.filter(p => p.type === 'quiz');
@@ -362,7 +410,7 @@ export default function RankrollTab() {
           { id: 'item_2', title: '', description: '', image: '', upvotes: 0, downvotes: 0, score: 0 },
           { id: 'item_3', title: '', description: '', image: '', upvotes: 0, downvotes: 0, score: 0 },
         ],
-        category: 'ranking', status: 'active', featured: false,
+        category: 'ranking', status: 'inactive', featured: false,
       });
     } else if (type === 'quiz') {
       setEditingPoll({
@@ -375,7 +423,7 @@ export default function RankrollTab() {
           { id: 'type_a', label: '', image: '', description: '', votes: 0 },
           { id: 'type_b', label: '', image: '', description: '', votes: 0 },
         ],
-        category: 'personality', status: 'active', featured: false,
+        category: 'personality', status: 'inactive', featured: false,
       });
     } else {
       setEditingPoll({
@@ -384,7 +432,7 @@ export default function RankrollTab() {
           { id: 'option_1', label: '', emoji: '' },
           { id: 'option_2', label: '', emoji: '' },
         ],
-        category: 'general', status: 'active', featured: false,
+        category: 'general', status: 'inactive', featured: false,
       });
     }
   };
@@ -463,9 +511,9 @@ export default function RankrollTab() {
                 onClick={() => setEditingPoll(poll)}
                 className="bg-gray-800 rounded-xl p-3 border border-gray-700 hover:border-gray-600 cursor-pointer transition-colors flex items-center gap-4"
               >
-                {/* Image */}
-                {(poll.items?.[0]?.image || poll.image) && (
-                  <img src={poll.items?.[0]?.image || poll.image} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0" />
+                {/* Image - prioritize main thumbnail (poll.image), then articleImage, then first item */}
+                {(poll.image || poll.articleImage || poll.items?.[0]?.image) && (
+                  <img src={poll.image || poll.articleImage || poll.items?.[0]?.image} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0" />
                 )}
                 {/* Content */}
                 <div className="flex-1 min-w-0">
@@ -478,23 +526,30 @@ export default function RankrollTab() {
                     {poll.linkedArticleId && <span className="text-purple-400 ml-1">· Article</span>}
                   </div>
                 </div>
-                {/* Type badge */}
-                <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
+                {/* Type badge - smaller */}
+                <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
                   poll.type === 'ranking' ? 'bg-[#D4873A]/20 text-[#D4873A]' :
                   poll.type === 'quiz' ? 'bg-purple-500/20 text-purple-400' :
                   'bg-blue-500/20 text-blue-400'
                 }`}>
-                  {poll.type === 'ranking' ? 'Ranking' : poll.type === 'quiz' ? 'Quiz' : 'Poll'}
+                  {poll.type === 'ranking' ? 'Rank' : poll.type === 'quiz' ? 'Quiz' : 'Poll'}
                 </span>
-                {/* Status badge */}
-                <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
-                  poll.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-gray-600/30 text-gray-400'
-                }`}>
-                  {poll.status}
-                </span>
-                {/* Actions */}
-                <button onClick={(e) => { e.stopPropagation(); deletePoll(poll._id); }} className="p-1.5 hover:bg-red-500/20 rounded text-red-400">
-                  <Trash2 className="w-4 h-4" />
+                {/* Status badge - clickable toggle */}
+                <button 
+                  onClick={(e) => { e.stopPropagation(); toggleStatus(poll); }}
+                  className={`text-[9px] px-1.5 py-0.5 rounded font-bold transition-colors ${
+                    poll.status === 'active' ? 'bg-green-500/20 text-green-400 hover:bg-green-500/40' : 'bg-gray-600/30 text-gray-400 hover:bg-gray-500/40'
+                  }`}
+                >
+                  {poll.status === 'active' ? 'active' : 'inactive'}
+                </button>
+                {/* Edit button */}
+                <button onClick={(e) => { e.stopPropagation(); setEditingPoll(poll); }} className="p-1 hover:bg-blue-500/20 rounded text-blue-400">
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+                {/* Delete button */}
+                <button onClick={(e) => { e.stopPropagation(); deletePoll(poll._id); }} className="p-1 hover:bg-red-500/20 rounded text-red-400">
+                  <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
             ))}
@@ -545,44 +600,52 @@ export default function RankrollTab() {
               {/* LEFT COLUMN for Ranking / Single Column for others */}
               <div className={editingPoll.type === 'ranking' ? 'flex flex-col h-full overflow-hidden' : 'space-y-2'}>
 
-              {/* Fixed Header: Title + Subtitle */}
-              <div className="flex-shrink-0 space-y-2">
-                {/* Title */}
-                <div>
-                  <label className="block text-[10px] text-gray-400 mb-0.5">Title *</label>
+              {/* Compact Header: Thumbnail + Title/Subtitle + Timer in one row */}
+              <div className="flex-shrink-0 flex gap-3 items-start">
+                {/* Thumbnail for Rankroll (left side) */}
+                {editingPoll.type === 'ranking' && (
+                  <div 
+                    onClick={() => setShowRankrollImagePicker(true)}
+                    className="w-14 h-14 flex-shrink-0 rounded overflow-hidden bg-gray-600 border border-gray-500 cursor-pointer hover:border-[#D4873A] transition-colors"
+                  >
+                    {editingPoll.image ? (
+                      <img src={editingPoll.image} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 text-[9px]">
+                        <Upload className="w-3 h-3" />
+                        <span>Cover</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Title + Subtitle */}
+                <div className="flex-1 space-y-1">
                   <input
                     type="text"
                     value={editingPoll.title || ''}
                     onChange={(e) => setEditingPoll({ ...editingPoll, title: e.target.value })}
-                    placeholder="Top 10 Gen X Movies"
-                    className="w-full bg-gray-700 px-2 py-1.5 rounded text-sm"
+                    placeholder="Title *"
+                    className="w-full bg-gray-700 px-2 py-1 rounded text-sm font-medium"
                   />
-                </div>
-
-                {/* Subtitle - larger textarea */}
-                <div>
-                  <label className="block text-[10px] text-gray-400 mb-0.5">Subtitle / Description</label>
-                  <textarea
+                  <input
+                    type="text"
                     value={editingPoll.subtitle || ''}
                     onChange={(e) => setEditingPoll({ ...editingPoll, subtitle: e.target.value })}
-                    placeholder="Vote for your favorites from the 80s and 90s. Which movies defined Generation X?"
-                    rows={2}
-                    className="w-full bg-gray-700 px-2 py-1.5 rounded text-sm resize-none"
+                    placeholder="Subtitle / Description"
+                    className="w-full bg-gray-700 px-2 py-1 rounded text-xs text-gray-300"
                   />
                 </div>
-              </div>
 
-              {/* Countdown Timer (optional) - only for ranking type */}
-              {editingPoll.type === 'ranking' && (
-                <div className="bg-gray-700/50 rounded-lg p-2 flex-shrink-0 mt-2">
-                  <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-2 cursor-pointer">
+                {/* Countdown Timer - compact */}
+                {editingPoll.type === 'ranking' && (
+                  <div className="flex-shrink-0 flex items-center gap-2">
+                    <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-gray-400">
                       <input
                         type="checkbox"
                         checked={!!editingPoll.closesAt}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            // Default to 30 days from now
                             const defaultDate = new Date();
                             defaultDate.setDate(defaultDate.getDate() + 30);
                             setEditingPoll({ ...editingPoll, closesAt: defaultDate.toISOString().slice(0, 16) });
@@ -590,25 +653,21 @@ export default function RankrollTab() {
                             setEditingPoll({ ...editingPoll, closesAt: null });
                           }
                         }}
-                        className="w-4 h-4 rounded border-gray-500 text-[#D4873A] focus:ring-[#D4873A]"
+                        className="w-3 h-3 rounded border-gray-500 text-[#D4873A]"
                       />
-                      <span className="text-xs text-gray-300">Enable Countdown Timer</span>
+                      Timer
                     </label>
-                  </div>
-                  {editingPoll.closesAt && (
-                    <div className="mt-2">
-                      <label className="block text-[10px] text-gray-400 mb-0.5">Ends At</label>
+                    {editingPoll.closesAt && (
                       <input
                         type="datetime-local"
                         value={editingPoll.closesAt?.slice(0, 16) || ''}
                         onChange={(e) => setEditingPoll({ ...editingPoll, closesAt: e.target.value ? new Date(e.target.value).toISOString() : null })}
-                        className="w-full bg-gray-600 px-2 py-1.5 rounded text-sm"
+                        className="bg-gray-600 px-1.5 py-0.5 rounded text-[10px] w-36"
                       />
-                      <p className="text-[10px] text-gray-500 mt-1">Voting stays open after deadline. Timer shows users when the "official" ranking period ends.</p>
-                    </div>
-                  )}
-                </div>
-              )}
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* SIMPLE POLL: Options */}
               {editingPoll.type === 'simple' && (
@@ -667,103 +726,26 @@ export default function RankrollTab() {
 
               {/* RANKING LIST: Items */}
               {editingPoll.type === 'ranking' && (
-              <div className="flex flex-col flex-1 min-h-0 mt-2">
+              <div className="flex flex-col flex-1 min-h-0 mt-2 overflow-hidden">
                 <label className="block text-[10px] text-gray-400 mb-1 flex-shrink-0">Ranking Items *</label>
-                <div className="space-y-2 overflow-y-auto flex-1 pr-1" style={{ scrollbarWidth: 'thin', scrollbarColor: '#D4873A #374151' }}>
+                <div className="space-y-2 overflow-y-auto flex-1 pr-1 max-h-[calc(95vh-350px)]" style={{ scrollbarWidth: 'thin', scrollbarColor: '#D4873A #374151' }}>
                   {(editingPoll.items || []).map((item: any, i: number) => (
                     <div key={i} className="bg-gray-700/30 rounded-lg p-3 flex gap-3">
-                      {/* Image Preview - Clickable for menu */}
-                      <div className="relative">
-                        <div 
-                          onClick={() => setImageMenuIndex(imageMenuIndex === i ? null : i)}
-                          className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-gray-600 border border-gray-500 cursor-pointer hover:border-[#D4873A] hover:bg-gray-500 transition-colors"
-                        >
-                          {(uploadingItemIndex === i || searchingGifIndex === i) ? (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <Loader2 className="w-5 h-5 text-[#D4873A] animate-spin" />
-                            </div>
-                          ) : item.image ? (
-                            <img src={item.image} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 text-[10px] gap-0.5">
-                              <Upload className="w-4 h-4" />
-                              <span>Image</span>
-                            </div>
-                          )}
-                        </div>
-                        
-                        {/* Image Source Menu */}
-                        {imageMenuIndex === i && (
-                          <div className="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-600 rounded-lg shadow-xl z-50 w-40 overflow-hidden">
-                            <label className="flex items-center gap-2 px-3 py-2 hover:bg-gray-700 cursor-pointer text-sm text-gray-200">
-                              <Upload className="w-4 h-4 text-[#D4873A]" />
-                              <span>Upload File</span>
-                              <input
-                                type="file"
-                                accept="image/*,image/gif"
-                                className="hidden"
-                                onChange={(e) => {
-                                  handleItemImageUpload(e, i);
-                                  setImageMenuIndex(null);
-                                }}
-                              />
-                            </label>
-                            <button
-                              onClick={() => {
-                                setUrlInputIndex(i);
-                                setTempUrl(item.image || '');
-                                setImageMenuIndex(null);
-                              }}
-                              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-700 text-sm text-gray-200"
-                            >
-                              <Link className="w-4 h-4 text-[#D4873A]" />
-                              <span>URL / GIF Link</span>
-                            </button>
-                            <button
-                              onClick={() => searchGifForItem(i, item.title, item.image)}
-                              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-700 text-sm text-gray-200 border-t border-gray-600"
-                            >
-                              <Wand2 className="w-4 h-4 text-[#D4873A]" />
-                              <span>{item.image ? 'New GIF (Tenor)' : 'Auto GIF (Tenor)'}</span>
-                            </button>
+                      {/* Image Preview - Click to open ImagePickerModal */}
+                      <div 
+                        onClick={() => setImagePickerItemIndex(i)}
+                        className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-gray-600 border border-gray-500 cursor-pointer hover:border-[#D4873A] hover:bg-gray-500 transition-colors"
+                      >
+                        {(uploadingItemIndex === i || searchingGifIndex === i) ? (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Loader2 className="w-5 h-5 text-[#D4873A] animate-spin" />
                           </div>
-                        )}
-                        
-                        {/* URL Input Modal */}
-                        {urlInputIndex === i && (
-                          <div className="absolute top-full left-0 mt-1 bg-gray-800 border border-gray-600 rounded-lg shadow-xl z-50 w-64 p-3">
-                            <label className="block text-[10px] text-gray-400 mb-1">Image URL (Tenor, Giphy, etc.)</label>
-                            <input
-                              type="text"
-                              value={tempUrl}
-                              onChange={(e) => setTempUrl(e.target.value)}
-                              placeholder="https://media.tenor.com/..."
-                              className="w-full bg-gray-700 px-2 py-1.5 rounded text-xs mb-2"
-                              autoFocus
-                            />
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => {
-                                  const newItems = [...editingPoll.items];
-                                  newItems[i] = { ...newItems[i], image: tempUrl };
-                                  setEditingPoll({ ...editingPoll, items: newItems });
-                                  setUrlInputIndex(null);
-                                  setTempUrl('');
-                                }}
-                                className="flex-1 py-1.5 bg-[#D4873A] hover:bg-[#C4772A] text-white text-xs font-medium rounded"
-                              >
-                                Save
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setUrlInputIndex(null);
-                                  setTempUrl('');
-                                }}
-                                className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded"
-                              >
-                                Cancel
-                              </button>
-                            </div>
+                        ) : item.image ? (
+                          <img src={item.image} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 text-[10px] gap-0.5">
+                            <Upload className="w-4 h-4" />
+                            <span>Image</span>
                           </div>
                         )}
                       </div>
@@ -1218,19 +1200,19 @@ export default function RankrollTab() {
               <button
                 onClick={() => savePoll(false)}
                 disabled={!editingPoll.title || (editingPoll.type === 'simple' && !editingPoll.options?.some((o: any) => o.label)) || (editingPoll.type === 'ranking' && !editingPoll.items?.some((i: any) => i.title))}
-                className="px-2 py-1 bg-gray-600 rounded hover:bg-gray-500 disabled:opacity-50 flex items-center gap-1 text-xs"
+                className="px-2 py-1 bg-[#D4873A] rounded hover:bg-[#D4873A]/80 disabled:opacity-50 flex items-center gap-1 text-xs font-bold"
               >
                 <Save className="w-3 h-3" />
-                Save Only
+                Save Rankroll Only
               </button>
-              {editingPoll.type === 'ranking' && generatedArticle && (
+              {editingPoll.type === 'ranking' && (
                 <button
                   onClick={() => savePoll(true)}
                   disabled={!editingPoll.title || !editingPoll.items?.some((i: any) => i.title)}
                   className="px-3 py-1 bg-green-600 rounded hover:bg-green-500 disabled:opacity-50 flex items-center gap-1 text-xs font-bold"
                 >
                   <FileText className="w-3 h-3" />
-                  Publish with Article
+                  Save Rankroll + Article
                 </button>
               )}
             </div>
@@ -1238,7 +1220,20 @@ export default function RankrollTab() {
         </div>
       )}
 
-      {/* Image Picker Modal for Article Thumbnail */}
+      {/* Image Picker Modal for Rankroll Cover (left side) */}
+      <ImagePickerModal
+        isOpen={showRankrollImagePicker}
+        onClose={() => setShowRankrollImagePicker(false)}
+        onSelect={(url: string) => {
+          setEditingPoll({ ...editingPoll, image: url });
+          setShowRankrollImagePicker(false);
+        }}
+        searchTerm={editingPoll?.title || ''}
+        showAiGenerate={true}
+        aiPromptContext={`Cover image for ranking: ${editingPoll?.title}`}
+      />
+
+      {/* Image Picker Modal for Article Thumbnail (right side) */}
       <ImagePickerModal
         isOpen={showImagePicker}
         onClose={() => setShowImagePicker(false)}
@@ -1250,6 +1245,24 @@ export default function RankrollTab() {
         showAiGenerate={true}
         aiPromptContext={`Article thumbnail for: ${editingPoll?.title}`}
       />
+
+      {/* Image Picker Modal for Ranking Items */}
+      {imagePickerItemIndex !== null && editingPoll?.items?.[imagePickerItemIndex] && (
+        <ImagePickerModal
+          isOpen={true}
+          onClose={() => setImagePickerItemIndex(null)}
+          onSelect={async (url: string) => {
+            await updateItemImage(imagePickerItemIndex, url);
+            setImagePickerItemIndex(null);
+          }}
+          currentImage={editingPoll.items[imagePickerItemIndex]?.image}
+          searchTerm={editingPoll.items[imagePickerItemIndex]?.title || ''}
+          showAiGenerate={true}
+          aiPromptContext={`Image for ranking item: ${editingPoll.items[imagePickerItemIndex]?.title}`}
+          dimensions="200×200"
+          aspectRatio="1:1"
+        />
+      )}
     </>
   );
 }

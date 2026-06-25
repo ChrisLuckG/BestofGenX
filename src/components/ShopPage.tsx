@@ -88,7 +88,7 @@ export default function ShopPage({ coins = 0, onCoinsUsed }: ShopPageProps) {
   return (
     <div className="w-full h-full min-h-full flex flex-col overflow-hidden bg-cream">
       {/* Header - exactly like Rankings */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
         <div className="flex items-center gap-3">
           <ShoppingBag className="w-5 h-5 text-[#D4873A]" />
           <div>
@@ -249,11 +249,11 @@ export default function ShopPage({ coins = 0, onCoinsUsed }: ShopPageProps) {
                     </button>
 
                     {/* Product Image */}
-                    <div className="aspect-square relative bg-[#D4873A]/5">
+                    <div className="aspect-square relative bg-cream overflow-hidden">
                       <img 
                         src={product.image} 
                         alt={product.name}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover mix-blend-multiply"
                       />
                     </div>
 

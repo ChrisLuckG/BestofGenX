@@ -14,6 +14,8 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
 function getDateKey(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -57,6 +59,60 @@ async function generateArticleImage(title: string, subtitle: string, baseUrl: st
   return null;
 }
 
+// Search YouTube for a relevant video
+async function searchYouTubeVideo(query: string): Promise<string | null> {
+  try {
+    const apiKey = process.env.YOUTUBE_API_KEY;
+    if (!apiKey) return null;
+    
+    const searchQuery = encodeURIComponent(`${query} 80s 90s official`);
+    const response = await fetch(
+      `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${searchQuery}&type=video&maxResults=1&key=${apiKey}`
+    );
+    
+    if (!response.ok) return null;
+    
+    const data = await response.json();
+    if (data.items?.[0]?.id?.videoId) {
+      return `https://www.youtube.com/watch?v=${data.items[0].id.videoId}`;
+    }
+  } catch (err) {
+    console.error("YouTube search failed:", err);
+  }
+  return null;
+}
+
+// Search Wikimedia for an image
+async function searchWikimediaImage(query: string): Promise<string | null> {
+  try {
+    const searchQuery = encodeURIComponent(query);
+    const response = await fetch(
+      `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${searchQuery}&srnamespace=6&srlimit=1&format=json&origin=*`
+    );
+    
+    if (!response.ok) return null;
+    
+    const data = await response.json();
+    const title = data.query?.search?.[0]?.title;
+    if (!title) return null;
+    
+    // Get the actual image URL
+    const imageInfoResponse = await fetch(
+      `https://commons.wikimedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&prop=imageinfo&iiprop=url&format=json&origin=*`
+    );
+    
+    if (!imageInfoResponse.ok) return null;
+    
+    const imageData = await imageInfoResponse.json();
+    const pages = imageData.query?.pages;
+    const pageId = Object.keys(pages)[0];
+    return pages[pageId]?.imageinfo?.[0]?.url || null;
+  } catch (err) {
+    console.error("Wikimedia search failed:", err);
+  }
+  return null;
+}
+
 export async function GET(request: NextRequest) {
   try {
     // Verify cron secret for security (Vercel cron jobs send this)
@@ -76,7 +132,7 @@ export async function GET(request: NextRequest) {
 
     // Check if article already exists for today
     const existingArticle = await Article.findOne({
-      title: { $regex: `On This Day.*${MONTHS[now.getMonth()]} ${now.getDate()}`, $options: "i" },
+      title: { $regex: `${MONTHS[now.getMonth()]} ${now.getDate()}:`, $options: "i" },
       createdAt: { $gte: new Date(now.getFullYear(), now.getMonth(), now.getDate()) },
     });
 
@@ -132,28 +188,62 @@ export async function GET(request: NextRequest) {
     try {
       const parsed = JSON.parse(content);
       if (parsed.title && parsed.content) {
-        // Add video blocks after each section (after </p> that follows an <h2>)
         let processedContent = String(parsed.content).trim();
-        // Insert video embed block after each paragraph that follows an h2
-        // Pattern: </p> followed by either <h2> or end
+        
+        // Extract h2 titles to search for media
+        const h2Matches = processedContent.match(/<h2[^>]*>([^<]+)<\/h2>/gi) || [];
+        const sectionTitles = h2Matches.map(h2 => h2.replace(/<[^>]+>/g, '').trim());
+        
+        // Search for YouTube videos and images for each section
+        const mediaPromises = sectionTitles.map(async (title, index) => {
+          // Alternate between video and image, or try both
+          const videoUrl = await searchYouTubeVideo(title);
+          const imageUrl = !videoUrl ? await searchWikimediaImage(title) : null;
+          return { index, title, videoUrl, imageUrl };
+        });
+        
+        const mediaResults = await Promise.all(mediaPromises);
+        
+        // Insert media blocks after each section
+        // Find each </p> that comes after content related to an h2
+        let sectionIndex = 0;
         processedContent = processedContent.replace(
-          /(<\/p>)(\s*)(<h2>|$)/gi,
-          '$1$2<div data-type="video" data-url=""></div>$2$3'
+          /(<h2[^>]*>[^<]+<\/h2>)([\s\S]*?)(<\/p>)(\s*)(?=<h2|$)/gi,
+          (match, h2, content, closeP, whitespace) => {
+            const media = mediaResults[sectionIndex];
+            sectionIndex++;
+            
+            let mediaBlock = '';
+            if (media?.videoUrl) {
+              mediaBlock = `<div data-type="video" data-url="${media.videoUrl}"></div>`;
+            } else if (media?.imageUrl) {
+              mediaBlock = `<div data-type="image" data-url="${media.imageUrl}"></div>`;
+            } else {
+              // Fallback: empty video block for manual filling
+              mediaBlock = `<div data-type="video" data-url=""></div>`;
+            }
+            
+            return `${h2}${content}${closeP}${whitespace}${mediaBlock}${whitespace}`;
+          }
         );
-        // Also add one at the very end if not already there
-        if (!processedContent.endsWith('data-url=""></div>')) {
-          processedContent += '<div data-type="video" data-url=""></div>';
+        
+        // Title: "June 24: [AI-generated creative part]"
+        // If AI generated a title starting with the date, use it. Otherwise prepend the date.
+        let finalTitle = String(parsed.title || "").trim();
+        const datePrefix = `${MONTHS[new Date().getMonth()]} ${new Date().getDate()}:`;
+        if (!finalTitle.toLowerCase().startsWith(MONTHS[new Date().getMonth()].toLowerCase())) {
+          finalTitle = `${datePrefix} ${finalTitle}`;
         }
         
         articleData = {
-          title: String(parsed.title).trim(),
+          title: finalTitle,
           subtitle: String(parsed.subtitle || "").trim(),
           content: processedContent,
           imageKeywords: Array.isArray(parsed.imageKeywords) ? parsed.imageKeywords : [],
         };
       }
-    } catch {
-      console.error("Failed to parse article JSON:", content);
+    } catch (parseErr) {
+      console.error("Failed to parse article JSON:", content, parseErr);
       return NextResponse.json({ success: false, error: "Failed to parse AI response" });
     }
 
@@ -175,30 +265,22 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Calculate scheduled time: 10:00 AM today (Berlin time)
-    const scheduledAt = new Date();
-    scheduledAt.setHours(10, 0, 0, 0);
-
-    // If it's already past 10:00, schedule for tomorrow
-    if (now.getHours() >= 10) {
-      scheduledAt.setDate(scheduledAt.getDate() + 1);
-    }
-
     // Find or use a system author (first admin user)
     const User = (await import("@/models/User")).default;
     const systemUser = await User.findOne({ isAdmin: true }).select("_id").lean();
     const authorId = systemUser?._id?.toString() || null;
 
-    // Create the article as draft with scheduled time
+    // Create the article as published immediately
     const article = await Article.create({
       title: articleData.title,
       subtitle: articleData.subtitle,
       content: articleData.content,
       coverImage: coverImage,
       thumbnailUrl: coverImage,
-      category: "culture",
-      status: "draft",
-      scheduledAt: scheduledAt,
+      category: "history",
+      mainCategory: "articles",
+      status: "published",
+      publishedAt: now,
       author: authorId,
       authorName: "BOGX Team",
       views: 0,
@@ -213,7 +295,6 @@ export async function GET(request: NextRequest) {
       message: "Daily facts article created",
       articleId: article._id,
       title: articleData.title,
-      scheduledAt: scheduledAt.toISOString(),
       hasCoverImage: !!coverImage,
     });
   } catch (error: unknown) {

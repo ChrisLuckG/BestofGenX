@@ -8,6 +8,8 @@ export interface ISongRequest extends Document {
   song: string;
   link?: string; // Optional Spotify/YouTube link
   status: 'new' | 'in_progress' | 'added' | 'rejected';
+  votes: number;
+  votedBy: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -43,6 +45,14 @@ const SongRequestSchema = new Schema<ISongRequest>(
       type: String,
       enum: ['new', 'in_progress', 'added', 'rejected'],
       default: 'new',
+    },
+    votes: {
+      type: Number,
+      default: 0,
+    },
+    votedBy: {
+      type: [String],
+      default: [],
     },
   },
   { timestamps: true }

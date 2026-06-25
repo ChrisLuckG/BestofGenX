@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     
     const user = await User.findOneAndUpdate(
       { username },
-      { $inc: { points: amount } },
+      { $inc: { bogxCoins: amount } },
       { new: true }
     );
     
@@ -25,8 +25,8 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({ 
       success: true, 
-      message: `Added ${amount} coins to ${username}`,
-      newBalance: user.points
+      message: `Added ${amount} BOGX to ${username}`,
+      newBalance: user.bogxCoins
     });
   } catch (error: any) {
     console.error('Add coins error:', error);

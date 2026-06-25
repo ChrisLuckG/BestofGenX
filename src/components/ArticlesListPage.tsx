@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Search, FileText, Check, MessageCircle, Heart, Eye } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import CardMoodReactions from "@/components/CardMoodReactions";
 import { isVideoUrl } from "@/utils/media";
 
 interface Article {
@@ -44,14 +45,16 @@ const CATEGORY_LABELS: Record<string, string> = {
   'culture': 'Culture',
   'news': 'News',
   'lifestyle': 'Lifestyle',
+  'rip': 'RIP',
 };
 
 interface ArticlesListPageProps {
   onOpenArticle: (articleId: string) => void;
+  onShowLogin?: () => void;
 }
 
-export default function ArticlesListPage({ onOpenArticle }: ArticlesListPageProps) {
-  const { user } = useAuth();
+export default function ArticlesListPage({ onOpenArticle, onShowLogin }: ArticlesListPageProps) {
+  const { user, isLoggedIn } = useAuth();
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'unread' | 'commented' | 'liked' | 'read' | 'newest' | 'oldest'>('all');
@@ -201,13 +204,12 @@ export default function ArticlesListPage({ onOpenArticle }: ArticlesListPageProp
           sortedArticles.map((article) => {
             const isRead = readArticles.has(article._id);
             return (
-              <button
+              <div
                 key={article._id}
-                onClick={() => handleArticleClick(article._id)}
                 className="w-full text-left flex gap-3 p-3 border rounded-xl hover:border-[#D4873A]/30 hover:shadow-sm transition-all group bg-cream border-warm"
               >
-                {/* Thumbnail - 3:2 ratio like admin */}
-                <div className="relative w-24 flex-shrink-0 rounded-lg overflow-hidden" style={{ aspectRatio: '3/2' }}>
+                {/* Thumbnail - square */}
+                <div className="relative w-24 h-24 flex-shrink-0 overflow-hidden cursor-pointer" onClick={() => handleArticleClick(article._id)}>
                   {article.coverImage ? (
                     isVideoUrl(article.coverImage) ? (
                       <video
@@ -238,7 +240,7 @@ export default function ArticlesListPage({ onOpenArticle }: ArticlesListPageProp
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 flex flex-col justify-center min-w-0">
+                <div className="flex-1 flex flex-col justify-center min-w-0 cursor-pointer" onClick={() => handleArticleClick(article._id)}>
                   {/* Category Badge */}
                   <span className="text-[10px] font-semibold uppercase tracking-wider mb-0.5 text-[#D4873A]">
                     {CATEGORY_LABELS[article.category] || article.category}
@@ -249,7 +251,7 @@ export default function ArticlesListPage({ onOpenArticle }: ArticlesListPageProp
                     {article.title}
                   </h3>
 
-                  {/* Meta - Author & Date */}
+                  {/* Meta - Author & Date & Reactions */}
                   <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
                     {article.authorName && (
                       <span className="font-medium">{article.authorName}</span>
@@ -258,6 +260,10 @@ export default function ArticlesListPage({ onOpenArticle }: ArticlesListPageProp
                     {article.createdAt && (
                       <span>{formatDate(article.createdAt)}</span>
                     )}
+                    <span>·</span>
+                    <span onClick={(e) => e.stopPropagation()}>
+                      <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" />
+                    </span>
                   </div>
                 </div>
 
@@ -272,7 +278,7 @@ export default function ArticlesListPage({ onOpenArticle }: ArticlesListPageProp
                     0.05
                   </div>
                 </div>
-              </button>
+              </div>
             );
           })
         )}

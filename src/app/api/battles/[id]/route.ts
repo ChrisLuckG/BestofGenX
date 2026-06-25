@@ -5,12 +5,13 @@ import Battle from '@/models/Battle';
 // GET - Get a single battle by ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await dbConnect();
     
-    const battle = await Battle.findById(params.id)
+    const { id } = await params;
+    const battle = await Battle.findById(id)
       .populate('creator', 'username avatar country countryFlag points')
       .populate('opponent', 'username avatar country countryFlag points')
       .populate('winner', 'username');

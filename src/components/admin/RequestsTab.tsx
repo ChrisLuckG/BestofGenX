@@ -47,6 +47,7 @@ interface RequestsTabProps {
 
 export default function RequestsTab({ onArticleCreated, onStatusChange }: RequestsTabProps) {
   const [requests, setRequests] = useState<SongRequest[]>([]);
+  const [allAddedRequests, setAllAddedRequests] = useState<SongRequest[]>([]); // All "added" songs for article generation
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<SongRequest["status"] | "all">("new");
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -222,9 +223,8 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
   };
 
   const generateArticle = async () => {
-    const addedRequests = requests.filter(r => r.status === 'added');
-    if (addedRequests.length === 0) {
-      alert('No added songs to generate article from');
+    if (allAddedRequests.length === 0) {
+      alert('No added songs to generate article from. Mark songs as "Added" first.');
       return;
     }
 
@@ -235,14 +235,17 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
       const res = await fetch('/api/admin/generate-song-article', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requests: addedRequests, createArticle: true }),
+        body: JSON.stringify({ requests: allAddedRequests, createArticle: true }),
       });
       const data = await res.json();
       if (data.success) {
         setGeneratedArticle(data.article);
-        if (data.articleId && onArticleCreated) {
-          // Article was created, switch to Articles tab
-          onArticleCreated();
+        if (data.articleId) {
+          alert('✅ Monthly article created! Check the Articles tab to edit and publish.');
+          if (onArticleCreated) {
+            // Article was created, switch to Articles tab
+            onArticleCreated();
+          }
         }
       } else {
         alert('Failed to generate article: ' + (data.error || 'Unknown error'));
@@ -268,9 +271,21 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
     }
   }, [filter]);
 
+  // Load all "added" songs separately for article generation
+  const loadAddedSongs = useCallback(async () => {
+    try {
+      const res = await fetch('/api/song-request?status=added');
+      const data = await res.json();
+      if (data.success) setAllAddedRequests(data.requests);
+    } catch (e) {
+      console.error("Failed to load added songs:", e);
+    }
+  }, []);
+
   useEffect(() => {
     load();
-  }, [load]);
+    loadAddedSongs();
+  }, [load, loadAddedSongs]);
 
   const updateStatus = async (id: string, status: SongRequest["status"]) => {
     // Optimistic update - remove from list if status doesn't match current filter
@@ -600,7 +615,7 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
         <div className="mt-6 pt-4 border-t border-gray-700">
           <button
             onClick={generateArticle}
-            disabled={generating || requests.filter(r => r.status === 'added').length === 0}
+            disabled={generating || allAddedRequests.length === 0}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-[#D4873A] text-white hover:bg-[#C4772A]"
           >
             {generating ? (
@@ -611,7 +626,7 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
             {generating ? 'Generating...' : 'Generate Monthly Article'}
           </button>
           <p className="text-xs text-gray-500 mt-1">
-            Creates an article from all "Added" songs with user stories
+            Creates an article from all "Added" songs ({allAddedRequests.length} songs ready)
           </p>
 
           {/* Generated Article Preview */}

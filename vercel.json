@@ -43,6 +43,18 @@
     {
       "path": "/api/cron/daily-facts-article",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/archive-old-articles",
+      "schedule": "30 6 * * *"
+    },
+    {
+      "path": "/api/cron/bot-challenge-users",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/bot-challenge-users",
+      "schedule": "0 14 * * *"
     }
   ]
 }

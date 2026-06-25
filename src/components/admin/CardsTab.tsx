@@ -55,6 +55,18 @@ const emptyDifficultyCard: DifficultyCard = {
 
 const THEMES = ['MUSIC','MOVIES','TV SHOWS','SPORTS','GAMING','FASHION','TECHNOLOGY','CELEBRITIES'];
 
+// SubCategories per Theme for dropdown
+const SUBCATEGORIES: Record<string, string[]> = {
+  'SPORTS': ['Basketball', 'Soccer', 'American Football', 'Rugby', 'Tennis', 'Table Tennis', 'Boxing', 'Golf', 'Hockey', 'Baseball', 'Wrestling', 'Olympics', 'Racing', 'Cycling', 'Swimming', 'X-Games'],
+  'MUSIC': ['Rock', 'Pop', 'Hip Hop', 'R&B', 'Electronic', 'Metal', 'Punk', 'Alternative', 'Country', 'Soul', 'Grunge'],
+  'MOVIES': ['Action', 'Comedy', 'Horror', 'Sci-Fi', 'Drama', 'Thriller', 'Animation', 'Romance'],
+  'TV SHOWS': ['Sitcom', 'Drama', 'Sci-Fi', 'Animation', 'Reality', 'Talk Show', 'Crime'],
+  'GAMING': ['Nintendo', 'PlayStation', 'Sega', 'PC Gaming', 'Fighting', 'RPG', 'Arcade', 'Sports'],
+  'FASHION': ['Streetwear', 'Designer', 'Shoes', 'Accessories', 'Denim', 'Sportswear', 'Vintage'],
+  'TECHNOLOGY': ['Computers', 'Internet', 'Gaming', 'Audio', 'Mobile', 'Software', 'Hardware'],
+  'CELEBRITIES': ['Actors', 'Musicians', 'Athletes', 'TV Stars', 'Models', 'Directors'],
+};
+
 const topicPools: Record<string, string[]> = {
   'MUSIC': ['Nirvana','Oasis','Radiohead','Red Hot Chili Peppers','Green Day','Blink-182','Foo Fighters','Pearl Jam','Spice Girls','Backstreet Boys','NSYNC','Britney Spears','Eminem','Dr. Dre','Daft Punk','U2','Depeche Mode','The Cure'],
   'MOVIES': ['Titanic','The Matrix','Pulp Fiction','Forrest Gump','Jurassic Park','The Lion King','Fight Club','The Shawshank Redemption','Gladiator','The Sixth Sense','Terminator 2','Independence Day','Speed','Die Hard'],
@@ -1109,8 +1121,7 @@ export default function ArcadeTab() {
               <th className="px-2 py-2 text-left text-gray-300 w-8">#</th>
               <th className="px-2 py-2 text-left text-gray-300 w-12">Img</th>
               <th className="px-2 py-2 text-left text-gray-300">Theme</th>
-              <th className="px-2 py-2 text-left text-gray-300 text-[10px]">Sub</th>
-              <th className="px-2 py-2 text-left text-gray-300">Topic</th>
+              <th className="px-2 py-2 text-left text-gray-300">Sub</th>
               <th className="px-2 py-2 text-left text-gray-300 cursor-pointer hover:text-white" onClick={() => toggleSort('diff')}>
                 <span className="flex items-center gap-0.5">Diff {sortBy === 'diff' && (sortDir === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</span>
               </th>
@@ -1171,8 +1182,28 @@ export default function ArcadeTab() {
                         )}
                       </td>
                       <td className="px-2 py-1 font-medium text-gray-400">{card.theme}</td>
-                      <td className="px-2 py-1 text-gray-500 text-[10px] max-w-[80px] truncate" title={card.subCategory}>{card.subCategory || '-'}</td>
-                      <td className="px-2 py-1 text-gray-300 max-w-[100px] truncate" title={card.topic}>{card.topic}</td>
+                      <td className="px-2 py-1">
+                        <select
+                          value={card.subCategory || ''}
+                          onChange={async (e) => {
+                            const newSub = e.target.value;
+                            await fetch(`/api/cards/${card._id}`, { 
+                              method: 'PUT', 
+                              headers: { 'Content-Type': 'application/json' }, 
+                              body: JSON.stringify({ subCategory: newSub }) 
+                            });
+                            fetchCards();
+                          }}
+                          className={`px-1 py-0.5 rounded text-[10px] cursor-pointer bg-gray-700 border border-gray-600 ${
+                            card.subCategory ? 'text-gray-300' : 'text-red-400'
+                          }`}
+                        >
+                          <option value="">-- wählen --</option>
+                          {(SUBCATEGORIES[card.theme] || []).map(sub => (
+                            <option key={sub} value={sub}>{sub}</option>
+                          ))}
+                        </select>
+                      </td>
                       <td className="px-2 py-1">
                         <select 
                           value={q.difficulty} 

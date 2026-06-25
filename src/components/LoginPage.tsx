@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
-import { Mail, Lock, Eye, EyeOff, User, Globe, ChevronDown, ArrowRight, ArrowLeft, Check, Trophy, Gift, Star, PartyPopper, Shield } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, User, Globe, ChevronDown, ArrowRight, ArrowLeft, Check, Trophy, Gift, Star, PartyPopper, Shield, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { COUNTRIES } from "@/utils/countries";
 
@@ -216,13 +216,10 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
       <div className={`absolute inset-0 z-40 transition-all duration-300 ease-out bg-cream ${isOpen ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}`}>
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm">
-            <img src="/images/genxlogo1.png" alt="BOGX" className="h-8" />
-            {showBack && (
-              <button onClick={onClose} className="flex items-center gap-1 text-gray-600 text-sm">
-                <ArrowLeft className="w-4 h-4" /> Back
-              </button>
-            )}
+          <div className="flex items-center justify-end px-4 pt-14 pb-2">
+            <button onClick={onClose} className="p-2 rounded-full bg-red-500 hover:bg-red-600 transition-colors text-white">
+              <X className="w-5 h-5" />
+            </button>
           </div>
 
           {/* Content */}
@@ -333,9 +330,11 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
     <div className={`absolute inset-0 z-40 transition-all duration-300 ease-out bg-cream ${isOpen ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}`}>
       <div className="flex flex-col h-full">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm">
-          <img src="/images/genxlogo1.png" alt="BOGX" className="h-8" />
-          <span className="text-sm text-gray-500">Step <span className="text-[#D4873A] font-bold">{signupStep}</span> of 5</span>
+        <div className="flex items-center justify-between px-4 pt-14 pb-2">
+          <span className="text-sm text-gray-500 pl-2">Step <span className="text-[#D4873A] font-bold">{signupStep}</span> of 5</span>
+          <button onClick={onClose} className="p-2 rounded-full bg-red-500 hover:bg-red-600 transition-colors text-white">
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Content */}

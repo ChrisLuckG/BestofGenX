@@ -28,10 +28,10 @@ export async function POST(request: Request) {
     await user.save();
 
     // Now reward the referrer (if any) since email is verified
-    const REFERRAL_REWARD = 500;
+    const REFERRAL_REWARD = 5.00; // 5.00 BOGX
     if (user.referredBy) {
       await User.findByIdAndUpdate(user.referredBy, {
-        $inc: { points: REFERRAL_REWARD, referralCount: 1 },
+        $inc: { bogxCoins: REFERRAL_REWARD, referralCount: 1 },
       });
     }
 

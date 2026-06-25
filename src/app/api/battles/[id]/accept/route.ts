@@ -48,33 +48,33 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
     }
     
-    if (opponent.points < battle.wager) {
+    if ((opponent.bogxCoins || 0) < battle.wager) {
       return NextResponse.json({ 
         success: false, 
-        error: 'Not enough points',
+        error: 'Not enough coins',
         details: {
           required: battle.wager,
-          available: opponent.points
+          available: opponent.bogxCoins || 0
         }
       }, { status: 400 });
     }
     
     // Deduct wager from opponent (with atomic check to prevent negative)
     const updateResult = await User.findOneAndUpdate(
-      { _id: opponentId, points: { $gte: battle.wager } },
-      { $inc: { points: -battle.wager } },
+      { _id: opponentId, bogxCoins: { $gte: battle.wager } },
+      { $inc: { bogxCoins: -battle.wager } },
       { new: true }
     );
     
     if (!updateResult) {
-      // Race condition - points changed between check and update
+      // Race condition - coins changed between check and update
       const freshUser = await User.findById(opponentId);
       return NextResponse.json({ 
         success: false, 
-        error: 'Not enough points',
+        error: 'Not enough coins',
         details: {
           required: battle.wager,
-          available: freshUser?.points ?? 0
+          available: freshUser?.bogxCoins ?? 0
         }
       }, { status: 400 });
     }

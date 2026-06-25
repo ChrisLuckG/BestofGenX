@@ -101,6 +101,18 @@ interface WindsurfData {
   note?: string;
 }
 
+interface CloudinaryData {
+  success: boolean;
+  configured?: boolean;
+  error?: string;
+  plan?: string;
+  storage?: { usage: number; limit: number; used_percent: number };
+  bandwidth?: { usage: number; limit: number; used_percent: number };
+  resources?: number;
+  transformations?: { usage: number; limit: number; used_percent: number };
+  credits?: { usage: number; limit: number; used_percent: number };
+}
+
 interface AppUsageData {
   success: boolean;
   stats?: {
@@ -136,19 +148,21 @@ export default function CostsTab() {
   const [resend, setResend] = useState<ResendData | null>(null);
   const [stripe, setStripe] = useState<StripeData | null>(null);
   const [windsurf, setWindsurf] = useState<WindsurfData | null>(null);
+  const [cloudinaryData, setCloudinaryData] = useState<CloudinaryData | null>(null);
   const [appUsage, setAppUsage] = useState<AppUsageData | null>(null);
   const [loading, setLoading] = useState(false);
 
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [openaiRes, mongoRes, vercelRes, resendRes, stripeRes, windsurfRes, usageRes] = await Promise.all([
+      const [openaiRes, mongoRes, vercelRes, resendRes, stripeRes, windsurfRes, cloudinaryRes, usageRes] = await Promise.all([
         fetch('/api/admin/costs/openai').then(r => r.json()).catch(() => ({ success: false, error: 'Network error' })),
         fetch('/api/admin/costs/mongodb').then(r => r.json()).catch(() => ({ success: false, error: 'Network error' })),
         fetch('/api/admin/costs/vercel').then(r => r.json()).catch(() => ({ success: false, error: 'Network error' })),
         fetch('/api/admin/costs/resend').then(r => r.json()).catch(() => ({ success: false, error: 'Network error' })),
         fetch('/api/admin/costs/stripe').then(r => r.json()).catch(() => ({ success: false, error: 'Network error' })),
         fetch('/api/admin/costs/windsurf').then(r => r.json()).catch(() => ({ success: false, error: 'Network error' })),
+        fetch('/api/admin/costs/cloudinary').then(r => r.json()).catch(() => ({ success: false, error: 'Network error' })),
         fetch('/api/admin/costs/app-usage').then(r => r.json()).catch(() => ({ success: false })),
       ]);
       setOpenai(openaiRes);
@@ -157,6 +171,7 @@ export default function CostsTab() {
       setResend(resendRes);
       setStripe(stripeRes);
       setWindsurf(windsurfRes);
+      setCloudinaryData(cloudinaryRes);
       setAppUsage(usageRes);
     } finally {
       setLoading(false);
@@ -727,6 +742,58 @@ export default function CostsTab() {
             </a>
           </>
         )}
+      </ProviderCard>
+
+      {/* Cloudinary Card */}
+      <ProviderCard
+        icon={<ImageIcon className="w-4 h-4" />}
+        title="Cloudinary (Images & Videos)"
+        color="blue"
+        data={cloudinaryData}
+        loading={loading && !cloudinaryData}
+      >
+        {cloudinaryData?.success && (() => {
+          const stor = cloudinaryData.storage;
+          const bw = cloudinaryData.bandwidth;
+          const storPct = stor ? Math.min(stor.used_percent ?? (stor.usage / stor.limit * 100), 100) : 0;
+          const bwPct = bw ? Math.min(bw.used_percent ?? (bw.usage / bw.limit * 100), 100) : 0;
+          const barColor = (pct: number) => pct > 85 ? 'bg-red-500' : pct > 65 ? 'bg-amber-500' : 'bg-blue-500';
+          return (
+            <>
+              {cloudinaryData.plan && <CostRow label="Plan" value={cloudinaryData.plan} />}
+              {cloudinaryData.resources !== undefined && <CostRow label="Total Assets" value={cloudinaryData.resources.toLocaleString()} icon={<ImageIcon className="w-3 h-3" />} />}
+              {stor && (
+                <div className="mt-3 pt-3 border-t border-gray-700">
+                  <div className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-1.5">Storage</div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-white font-bold">{formatBytes(stor.usage)}</span>
+                    <span className="text-gray-400">of {formatBytes(stor.limit)}</span>
+                  </div>
+                  <div className="relative h-2 bg-gray-700 rounded-full overflow-hidden">
+                    <div className={`absolute inset-y-0 left-0 ${barColor(storPct)} transition-all`} style={{ width: `${storPct}%` }} />
+                  </div>
+                  <div className="text-[9px] text-gray-500 mt-1">{storPct.toFixed(1)}% used · {formatBytes(stor.limit - stor.usage)} free</div>
+                </div>
+              )}
+              {bw && (
+                <div className="mt-3 pt-3 border-t border-gray-700">
+                  <div className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-1.5">Bandwidth (this month)</div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-white font-bold">{formatBytes(bw.usage)}</span>
+                    <span className="text-gray-400">of {formatBytes(bw.limit)}</span>
+                  </div>
+                  <div className="relative h-2 bg-gray-700 rounded-full overflow-hidden">
+                    <div className={`absolute inset-y-0 left-0 ${barColor(bwPct)} transition-all`} style={{ width: `${bwPct}%` }} />
+                  </div>
+                  <div className="text-[9px] text-gray-500 mt-1">{bwPct.toFixed(1)}% used</div>
+                </div>
+              )}
+              <a href="https://cloudinary.com/console" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-3 text-[11px] text-[#D4873A] hover:underline">
+                Open Cloudinary Console <ExternalLink className="w-3 h-3" />
+              </a>
+            </>
+          );
+        })()}
       </ProviderCard>
 
       </div> {/* End Provider Cards Grid */}

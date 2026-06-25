@@ -397,7 +397,7 @@ export default function RewardDetailPage({ isOpen, reward, coins, onClose, onRed
             {canAfford ? (
               <>
                 {isShopReward ? <Shirt className="w-4 h-4" /> : <Gift className="w-4 h-4" />}
-                {isShopReward ? 'Order Now' : 'Redeem'} for {formatPoints(reward.cost)} Points
+                {isShopReward ? 'Order Now' : 'Redeem'} for {formatPoints(reward.cost)} Coins
               </>
             ) : (
               <>
@@ -409,7 +409,7 @@ export default function RewardDetailPage({ isOpen, reward, coins, onClose, onRed
         ) : (
           <div className="bg-gray-900  p-4 border border-[#D4873A]/50">
             <p className="text-white text-center mb-4">
-              {isShopReward ? 'Order' : 'Redeem'} <span className="font-bold text-[#D4873A]">{reward.name}</span> for <span className="font-bold text-yellow-400">{formatPoints(reward.cost)}</span> points?
+              {isShopReward ? 'Order' : 'Redeem'} <span className="font-bold text-[#D4873A]">{reward.name}</span> for <span className="font-bold text-yellow-400">{formatPoints(reward.cost)}</span> coins?
             </p>
             <div className="flex gap-3">
               <button

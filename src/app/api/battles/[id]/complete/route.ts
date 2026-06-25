@@ -3,7 +3,42 @@ import dbConnect from '@/lib/mongoose';
 import Battle from '@/models/Battle';
 import User from '@/models/User';
 import Notification from '@/models/Notification';
+import GameResult from '@/models/GameResult';
 import { sendPushNotification } from '@/lib/webpush';
+import { compareBattleResults } from '@/utils/battleWinner';
+
+// Helper: save battle result for ranking system
+async function saveBattleGameResult(userId: string, opponentName: string, pointsChange: number, won: boolean) {
+  try {
+    const user = await User.findById(userId).select('username bogxCoins');
+    if (!user) return;
+    const today = new Date().toLocaleString('en-CA', { 
+      timeZone: 'Europe/Berlin',
+      year: 'numeric',
+      month: '2-digit', 
+      day: '2-digit'
+    }).split(',')[0];
+    await GameResult.create({
+      userId,
+      username: user.username,
+      cardId: 'quizzbattle',
+      question: `QuizzBattle vs ${opponentName}`,
+      userAnswer: null,
+      correctAnswer: '-',
+      isCorrect: won,
+      pointsChange,
+      pointsBefore: (user.bogxCoins || 0) - pointsChange,
+      pointsAfter: user.bogxCoins || 0,
+      timeUsed: 0,
+      difficulty: 1,
+      skipped: false,
+      timedOut: false,
+      gameDate: today,
+    });
+  } catch (e) {
+    console.error('Failed to save battle GameResult:', e);
+  }
+}
 
 interface RoundResult {
   round: number;
@@ -57,9 +92,12 @@ export async function POST(
     }));
     battle.creatorTotalPoints = creatorTotalPoints;
     
-    // Determine winner
-    const opponentWon = opponentTotalPoints > creatorTotalPoints;
-    battle.winner = opponentWon ? battle.opponent : battle.creator;
+    // Determine winner: most correct answers wins; tie-break by fastest total time.
+    // IMPORTANT: on a true tie (equal correct AND equal time), winner stays null!
+    const cmp = compareBattleResults(battle.creatorResults || [], battle.opponentResults || []);
+    const isTie = cmp === 0;
+    const opponentWon = cmp < 0;
+    battle.winner = isTie ? undefined : (opponentWon ? battle.opponent : battle.creator);
     battle.status = 'completed';
     battle.completedAt = new Date();
     
@@ -72,7 +110,6 @@ export async function POST(
     // Winner gets BOTH wagers back (their own + opponent's = 2x wager)
     // Loser gets nothing (already lost their wager)
     // Tie: both get their wager back
-    const isTie = opponentTotalPoints === creatorTotalPoints;
     
     // Get both users for push notifications
     const creator = await User.findById(battle.creator);
@@ -81,11 +118,15 @@ export async function POST(
     if (isTie) {
       // Tie - both get their wager back
       await User.findByIdAndUpdate(battle.opponent, { 
-        $inc: { points: wager, gamesPlayed: 1 } 
+        $inc: { bogxCoins: wager, gamesPlayed: 1 } 
       });
       await User.findByIdAndUpdate(battle.creator, { 
-        $inc: { points: wager, gamesPlayed: 1 } 
+        $inc: { bogxCoins: wager, gamesPlayed: 1 } 
       });
+      
+      // Track for ranking (net change = 0, wager returned)
+      if (battle.opponent) await saveBattleGameResult(battle.opponent.toString(), creator?.username || 'opponent', 0, false);
+      await saveBattleGameResult(battle.creator.toString(), opponent?.username || 'opponent', 0, false);
       
       // Create In-App notifications for BOTH (always, regardless of push settings)
       await Notification.create({
@@ -127,11 +168,15 @@ export async function POST(
     } else if (opponentWon) {
       // Opponent (the user who accepted) won - gets both wagers
       await User.findByIdAndUpdate(battle.opponent, { 
-        $inc: { points: wager * 2, wins: 1, gamesPlayed: 1 } 
+        $inc: { bogxCoins: wager * 2, wins: 1, gamesPlayed: 1 } 
       });
       await User.findByIdAndUpdate(battle.creator, { 
         $inc: { gamesPlayed: 1 } // Loser already lost wager, no more deduction
       });
+      
+      // Track for ranking (winner: +wager net, loser: -wager)
+      if (battle.opponent) await saveBattleGameResult(battle.opponent.toString(), creator?.username || 'opponent', wager, true);
+      await saveBattleGameResult(battle.creator.toString(), opponent?.username || 'opponent', -wager, false);
       
       // Create In-App notifications for BOTH (always, regardless of push settings)
       await Notification.create({
@@ -173,11 +218,15 @@ export async function POST(
     } else {
       // Creator won - gets both wagers
       await User.findByIdAndUpdate(battle.creator, { 
-        $inc: { points: wager * 2, wins: 1, gamesPlayed: 1 } 
+        $inc: { bogxCoins: wager * 2, wins: 1, gamesPlayed: 1 } 
       });
       await User.findByIdAndUpdate(battle.opponent, { 
         $inc: { gamesPlayed: 1 } // Loser already lost wager, no more deduction
       });
+      
+      // Track for ranking (winner: +wager net, loser: -wager)
+      await saveBattleGameResult(battle.creator.toString(), opponent?.username || 'opponent', wager, true);
+      if (battle.opponent) await saveBattleGameResult(battle.opponent.toString(), creator?.username || 'opponent', -wager, false);
       
       // Create In-App notifications for BOTH (always, regardless of push settings)
       await Notification.create({

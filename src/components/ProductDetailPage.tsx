@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { ShoppingBag, ShoppingCart, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import PageTemplate from "@/components/PageTemplate";
 import GenXLoader from "./GenXLoader";
@@ -34,10 +34,49 @@ interface ProductDetailPageProps {
 export default function ProductDetailPage({ product, onBack }: ProductDetailPageProps) {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null);
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [addedToCart, setAddedToCart] = useState(false);
   const [showCart, setShowCart] = useState(false);
   const { addToCart, totalItems } = useCart();
+
+  const colors = useMemo(() => {
+    const seen = new Set<string>();
+    return (product.variants || []).reduce<string[]>((acc, v) => {
+      const color = v.title.includes(' / ') ? v.title.split(' / ')[0] : '__single__';
+      if (!seen.has(color)) { seen.add(color); acc.push(color); }
+      return acc;
+    }, []);
+  }, [product.variants]);
+
+  const hasColorChoice = colors.length > 1 && colors[0] !== '__single__';
+
+  const sizesForColor = useMemo(() => {
+    const colorKey = hasColorChoice ? selectedColor : colors[0];
+    if (!colorKey) return [];
+    return (product.variants || []).filter(v =>
+      colorKey === '__single__' ? true : v.title.startsWith(colorKey + ' / ')
+    );
+  }, [selectedColor, hasColorChoice, colors, product.variants]);
+
+  useEffect(() => {
+    if (!hasColorChoice && colors.length > 0) setSelectedColor(colors[0]);
+  }, [hasColorChoice, colors]);
+
+  useEffect(() => {
+    setSelectedSize(null);
+    setSelectedVariant(null);
+  }, [selectedColor]);
+
+  useEffect(() => {
+    if (!selectedSize) return;
+    const colorKey = hasColorChoice ? selectedColor : colors[0];
+    const match = (product.variants || []).find(v =>
+      colorKey === '__single__' ? v.title === selectedSize : v.title === `${colorKey} / ${selectedSize}`
+    );
+    setSelectedVariant(match || null);
+  }, [selectedSize, selectedColor, hasColorChoice, colors, product.variants]);
 
   const images = product.images || [product.image];
 
@@ -164,28 +203,64 @@ export default function ProductDetailPage({ product, onBack }: ProductDetailPage
         </div>
       </div>
 
-      {/* Variants (Sizes) */}
+      {/* Variants — 2-step Color → Size */}
       {product.variants && product.variants.length > 0 && (
-        <div className="mx-3 mt-4 p-4 bg-cream rounded-xl border border-warm">
-          <p className="text-gray-500 text-xs mb-3 uppercase tracking-wider font-medium">Select Size</p>
-          <div className="flex flex-wrap gap-2">
-            {product.variants.map((variant) => (
-              <button
-                key={variant.id}
-                onClick={() => setSelectedVariant(variant)}
-                disabled={!variant.available}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
-                  selectedVariant?.id === variant.id
-                    ? 'bg-[#D4873A] text-white border-[#D4873A]'
-                    : variant.available
-                      ? 'bg-cream text-gray-700 border-warm hover:bg-[#D4873A]/10'
-                      : 'bg-cream/50 text-gray-300 border-warm cursor-not-allowed line-through'
-                }`}
-              >
-                {variant.title}
-              </button>
-            ))}
-          </div>
+        <div className="mx-3 mt-4 p-4 bg-cream rounded-xl border border-warm space-y-4">
+
+          {/* Step 1: Color */}
+          {hasColorChoice && (
+            <div>
+              <p className="text-gray-500 text-xs mb-2 uppercase tracking-wider font-medium">
+                Color{selectedColor ? <span className="text-gray-900 normal-case tracking-normal ml-1">— {selectedColor}</span> : ''}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {colors.map(color => (
+                  <button
+                    key={color}
+                    onClick={() => setSelectedColor(color)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
+                      selectedColor === color
+                        ? 'bg-[#D4873A] text-white border-[#D4873A]'
+                        : 'bg-cream text-gray-700 border-warm hover:bg-[#D4873A]/10'
+                    }`}
+                  >
+                    {color}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: Size */}
+          {sizesForColor.length > 0 && (
+            <div>
+              <p className="text-gray-500 text-xs mb-2 uppercase tracking-wider font-medium">Size</p>
+              <div className="flex flex-wrap gap-2">
+                {sizesForColor.map(variant => {
+                  const sizeLabel = variant.title.includes(' / ')
+                    ? variant.title.split(' / ').slice(1).join(' / ')
+                    : variant.title;
+                  const isSelected = selectedSize === sizeLabel;
+                  return (
+                    <button
+                      key={variant.id}
+                      onClick={() => setSelectedSize(sizeLabel)}
+                      disabled={!variant.available}
+                      className={`w-14 py-2 rounded-lg text-sm font-bold transition-all border ${
+                        isSelected
+                          ? 'bg-[#D4873A] text-white border-[#D4873A]'
+                          : variant.available
+                            ? 'bg-cream text-gray-700 border-warm hover:bg-[#D4873A]/10'
+                            : 'bg-cream/50 text-gray-300 border-warm cursor-not-allowed line-through'
+                      }`}
+                    >
+                      {sizeLabel}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

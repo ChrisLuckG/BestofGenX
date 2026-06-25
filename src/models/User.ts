@@ -57,6 +57,8 @@ export interface IUser extends Document {
   passwordResetExpires?: Date; // Token expiry
   isDeleted?: boolean; // Soft delete flag
   deletedAt?: Date; // When user was deleted
+  lastBattleHeartbeat?: Date; // Last time user sent heartbeat from QuizzBattle page
+  battleScreen?: string; // Current screen in QuizzBattle ('setup', 'pool', 'quiz', etc.)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -253,6 +255,15 @@ const UserSchema = new Schema<IUser>(
       type: Date,
       default: null,
     },
+    // Battle presence tracking
+    lastBattleHeartbeat: {
+      type: Date,
+      default: null,
+    },
+    battleScreen: {
+      type: String,
+      default: null, // 'setup', 'pool', 'quiz', 'result', etc.
+    },
   },
   {
     timestamps: true,
@@ -261,5 +272,7 @@ const UserSchema = new Schema<IUser>(
 
 // Index for rankings
 UserSchema.index({ points: -1 });
+// Index for online battle players
+UserSchema.index({ lastBattleHeartbeat: -1 });
 
 export default mongoose.models.User || mongoose.model<IUser>('User', UserSchema);

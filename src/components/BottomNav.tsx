@@ -11,6 +11,7 @@ interface BottomNavProps {
   userAvatar?: string;
   profileHighlighted?: boolean;
   lockedToTab?: NavTab; // Lock navigation to this tab (e.g. during active battle)
+  battleAlertCount?: number; // Pending challenges + active battles
 }
 
 const tabs = [
@@ -21,12 +22,14 @@ const tabs = [
   { id: "shop" as NavTab, label: "Shop", icon: ShoppingBag },
 ];
 
-export default function BottomNav({ activeTab, onTabChange, userAvatar, profileHighlighted, lockedToTab }: BottomNavProps) {
+export default function BottomNav({ activeTab, onTabChange, userAvatar, profileHighlighted, lockedToTab, battleAlertCount = 0 }: BottomNavProps) {
   return (
     <div className="flex-shrink-0 flex items-center bg-cream border-t border-warm" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 8px)' }}>
       {tabs.map((tab, index) => {
         const Icon = tab.icon;
         const isActive = activeTab === tab.id;
+        const isArcade = tab.id === 'arcade';
+        const showBattleBadge = isArcade && battleAlertCount > 0 && !isActive;
         
         // Check if this tab is locked (disabled during active battle)
         const isLocked = lockedToTab && tab.id !== lockedToTab;
@@ -38,17 +41,24 @@ export default function BottomNav({ activeTab, onTabChange, userAvatar, profileH
             
             <button
               onClick={() => { if (isLocked) return; sounds.click(); onTabChange(tab.id); }}
-              className={`flex-1 flex flex-col items-center justify-center gap-1 py-2 transition-all ${
+              className={`flex-1 flex flex-col items-center justify-center gap-1 py-2 transition-all relative ${
                 isLocked ? "opacity-30 cursor-not-allowed" : ""
               }`}
             >
               {tab.image ? (
-                <img 
-                  src={isActive && tab.imageActive ? tab.imageActive : tab.image} 
-                  alt="" 
-                  className={`w-6 h-6 object-contain transition-all ${isActive ? '' : 'opacity-70'}`}
-                  style={{ filter: isActive ? 'none' : 'contrast(1.5)' }}
-                />
+                <div className="relative">
+                  <img 
+                    src={isActive && tab.imageActive ? tab.imageActive : tab.image} 
+                    alt="" 
+                    className={`w-6 h-6 object-contain transition-all ${isActive ? '' : 'opacity-70'}`}
+                    style={{ filter: isActive ? 'none' : 'contrast(1.5)' }}
+                  />
+                  {showBattleBadge && (
+                    <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 bg-red-500 rounded-full flex items-center justify-center text-white text-[9px] font-black shadow animate-pulse">
+                      {battleAlertCount > 9 ? '9+' : battleAlertCount}
+                    </span>
+                  )}
+                </div>
               ) : Icon ? (
                 <Icon className={`w-6 h-6 ${isActive ? 'text-[#D4873A]' : 'text-gray-700'}`} />
               ) : null}

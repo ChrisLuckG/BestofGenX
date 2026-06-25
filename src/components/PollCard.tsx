@@ -219,7 +219,7 @@ export default function PollCard({ poll, userId, visitorId, variant = 'full', on
                 <div className="relative flex items-center justify-between p-3">
                   <div className="flex items-center gap-2">
                     {option.emoji && <span className="text-xl">{option.emoji}</span>}
-                    <span className={`font-medium ${isSelected ? 'text-gray-900' : 'text-gray-900'}`}>
+                    <span className={`font-display text-sm uppercase ${isSelected ? 'text-gray-900' : 'text-gray-900'}`}>
                       {option.label}
                     </span>
                     {isSelected && <CheckCircle className="w-4 h-4 text-[#D4873A]" />}
@@ -236,7 +236,7 @@ export default function PollCard({ poll, userId, visitorId, variant = 'full', on
                 className="w-full flex items-center gap-2 p-3 rounded-lg border border-warm transition-all text-left hover:border-[#D4873A] hover:bg-[#D4873A]/5 cursor-pointer"
               >
                 {option.emoji && <span className="text-xl">{option.emoji}</span>}
-                <span className="font-medium text-gray-900">{option.label}</span>
+                <span className="font-display text-sm text-gray-900 uppercase">{option.label}</span>
               </button>
             );
           })}

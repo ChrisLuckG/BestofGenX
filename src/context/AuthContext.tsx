@@ -117,6 +117,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("sporttock_guest_games", guestGamesPlayed.toString());
   }, [guestGamesPlayed]);
 
+  // Global heartbeat - tell server user is online in the app
+  useEffect(() => {
+    const id = user?.id;
+    if (!id || id === 'guest' || user?.isGuest) return;
+    
+    const sendHeartbeat = () => {
+      fetch('/api/users/heartbeat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: id, screen: 'app' })
+      }).catch(() => {});
+    };
+    
+    sendHeartbeat();
+    const interval = setInterval(sendHeartbeat, 30000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
   const isLoggedIn = user !== null && !user.isGuest;
   const canPlayMore = isLoggedIn || guestGamesPlayed < 5;
 
@@ -187,6 +206,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
       setUser(newUser);
       setGuestGamesPlayed(0);
+      // Clear guest coin data - logged-in balance comes from server
+      localStorage.removeItem('bogx_guest_coins');
+      localStorage.removeItem('bogx_guest_read');
       return { success: true };
     } catch (error) {
       console.error('Login error:', error);
@@ -195,6 +217,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    // Clear welcome screen sessionStorage so it shows again on next login
+    if (user?.id) {
+      sessionStorage.removeItem(`welcome_shown_${user.id}_${new Date().toDateString()}`);
+    }
     setUser(null);
     localStorage.removeItem("sporttock_user");
   };
@@ -208,6 +234,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateUser = (updates: Partial<User>) => {
     if (user) {
       setUser({ ...user, ...updates });
+      // Notify leaderboards/rankings to refresh immediately when coins change
+      if (updates.bogxCoins !== undefined || updates.coins !== undefined) {
+        window.dispatchEvent(new CustomEvent('bogx-updated'));
+      }
     } else if (updates.wins !== undefined) {
       // For guests, track wins separately
       setGuestWins(prev => prev + 1);
@@ -230,13 +260,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (res.ok) {
         const data = await res.json();
-        // Update local user with DB values
+        // Update local user with DB values (bogxCoins is the single source of truth)
         setUser(prev => prev ? {
           ...prev,
-          coins: data.points,
+          coins: data.bogxCoins ?? data.points,
+          bogxCoins: data.bogxCoins ?? data.points,
           wins: data.wins,
           gamesPlayed: data.gamesPlayed,
         } : null);
+        // Notify the central coins hook (useBogxCoins) to re-sync from server
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('bogx-updated'));
+        }
       }
     } catch (error) {
       console.error('Sync points error:', error);

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
-import { put } from "@vercel/blob";
+import { v2 as cloudinary } from "cloudinary";
 import sharp from "sharp";
 
 export async function POST(request: NextRequest) {
@@ -13,9 +13,9 @@ export async function POST(request: NextRequest) {
 
     const openai = new OpenAI({ apiKey });
 
-    const { topic, theme, prompt, style } = await request.json();
+    const { topic, theme, prompt, style, allowText } = await request.json();
 
-    console.log("Generating image for topic:", topic, "theme:", theme, "prompt:", prompt);
+    console.log("Generating image for topic:", topic, "theme:", theme, "prompt:", prompt, "allowText:", allowText);
 
     // Theme-specific image prompts (no people/celebrities to avoid safety filters)
     const themePrompts: Record<string, string> = {
@@ -29,9 +29,14 @@ export async function POST(request: NextRequest) {
       'CELEBRITIES': 'Hollywood glamour aesthetic. Star walk of fame, paparazzi cameras, red carpet, spotlights, awards trophies, limousines. Golden hour lighting. NO people, NO faces.',
     };
 
-    // If direct prompt provided (for articles), use it
+    // If direct prompt provided (for articles), use it   // allowText=true uses the prompt as-is (for banners with slogans/text)
     let photoPrompt: string;
-    if (prompt) {
+    
+    if (prompt && allowText) {
+      // Banner mode: use prompt exactly as provided, no restrictions
+      photoPrompt = prompt;
+    } else if (prompt) {
+      // Article mode: add quality hints and NO TEXT restriction
       photoPrompt = `${prompt}. Photorealistic photography style, shot on professional camera, natural lighting, high resolution. NO people, NO faces, NO illustrations, NO cartoon, NO AI-looking art, NO TEXT, NO WORDS, NO LETTERS, NO WRITING.`;
     } else {
       const basePrompt = themePrompts[theme] || themePrompts['MUSIC'];
@@ -40,14 +45,13 @@ export async function POST(request: NextRequest) {
 
     console.log("Using prompt for theme:", theme);
 
-    // Generate image with GPT Image model
-    // Using 1024x1024 - supported size
+    // Use GPT Image 2 - state-of-the-art model (same as ChatGPT uses)
     const imageResponse = await openai.images.generate({
-      model: "gpt-image-1",
+      model: "gpt-image-2",
       prompt: photoPrompt,
       n: 1,
       size: "1024x1024",
-      quality: "low", // Faster generation
+      quality: "medium",
     });
 
     const b64 = imageResponse.data?.[0]?.b64_json;
@@ -72,12 +76,29 @@ export async function POST(request: NextRequest) {
         .webp({ quality: 80 })
         .toBuffer();
       
-      const filename = `ai-generated-${Date.now()}.webp`;
-      const blob = await put(`images/${filename}`, compressedBuffer, {
-        access: 'public',
-        contentType: 'image/webp',
+      // Upload to Cloudinary
+      cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
       });
-      imageUrl = blob.url;
+      
+      const publicId = `images/ai-generated-${Date.now()}`;
+      const uploadResult = await new Promise<any>((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            public_id: publicId,
+            resource_type: 'image',
+            folder: 'bestofgenx',
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        uploadStream.end(compressedBuffer);
+      });
+      imageUrl = uploadResult.secure_url;
       
       console.log(`Image compressed: ${originalBuffer.length} -> ${compressedBuffer.length} bytes (${Math.round(compressedBuffer.length / originalBuffer.length * 100)}%)`);
     } else {

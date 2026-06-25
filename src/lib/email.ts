@@ -21,7 +21,7 @@ interface EmailTemplateParams {
   footerLink?: { text: string; url: string };
 }
 
-function createBaseEmailTemplate(params: EmailTemplateParams): string {
+export function createBaseEmailTemplate(params: EmailTemplateParams): string {
   const {
     badgeIcon = '✉️',
     badgeText,

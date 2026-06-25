@@ -590,9 +590,9 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
 
       {/* Avatar Picker Modal */}
       {showAvatarPicker && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-cream rounded-2xl p-6 max-w-sm w-full shadow-xl">
-            <h2 className="text-xl font-bold text-gray-900 mb-4 text-center">Choose Avatar</h2>
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-2xl p-6 max-w-sm w-full shadow-xl border border-gray-700">
+            <h2 className="text-xl font-bold text-white mb-4 text-center">Choose Avatar</h2>
             
             {/* Upload your own */}
             <input
@@ -617,7 +617,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
               )}
             </button>
 
-            <p className="text-center text-gray-500 text-xs mb-3">Or choose from below</p>
+            <p className="text-center text-gray-400 text-xs mb-3">Or choose from below</p>
 
             <div className="grid grid-cols-4 gap-3 mb-4">
               {avatarOptions.map((avatar, index) => (
@@ -635,7 +635,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
 
             <button
               onClick={() => setShowAvatarPicker(false)}
-              className="w-full py-3 bg-cream text-gray-700 font-bold rounded-xl hover:bg-skeleton-light transition-colors"
+              className="w-full py-3 bg-gray-700 text-white font-bold rounded-xl hover:bg-gray-600 transition-colors"
             >
               Cancel
             </button>

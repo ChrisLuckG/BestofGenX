@@ -82,19 +82,40 @@ ${songList}`;
         return NextResponse.json({ success: true, article: fullArticle, error: 'No admin user found to set as author' });
       }
 
+      // Get month name for title (e.g., "May Melodies", "June Jams")
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      const monthTitles: Record<string, string> = {
+        'January': 'January Jams',
+        'February': 'February Feels',
+        'March': 'March Melodies',
+        'April': 'April Anthems',
+        'May': 'May Melodies',
+        'June': 'June Jams',
+        'July': 'July Jams',
+        'August': 'August Anthems',
+        'September': 'September Sounds',
+        'October': 'October Originals',
+        'November': 'November Notes',
+        'December': 'December Dreams',
+      };
+      const currentMonthName = monthNames[new Date().getMonth()];
+      const monthlyTitle = monthTitles[currentMonthName] || `${currentMonthName} Melodies`;
+
       const newArticle = await Article.create({
-        title,
-        subtitle: `Community Song Picks for ${currentMonth}`,
+        title: monthlyTitle,
+        subtitle: `Our monthly Spotify playlist – powered by the Gen X community.`,
         content,
+        coverImage: '/images/Hintergund/music.png', // Music banner as cover
         mainCategory: 'articles',
         category: 'music',
-        tags: ['playlist', 'community', 'music', currentMonth.toLowerCase().replace(' ', '-')],
+        tags: ['playlist', 'community', 'music', 'spotify', currentMonthName.toLowerCase()],
         author: adminUser._id,
         authorName: adminUser.username || 'Best of GenX Team',
         status: 'draft',
         layout: 'standard',
         featured: false,
         trending: false,
+        contentType: 'article',
       });
       articleId = newArticle._id.toString();
     }

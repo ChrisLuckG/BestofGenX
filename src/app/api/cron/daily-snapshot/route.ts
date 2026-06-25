@@ -24,10 +24,10 @@ async function saveSnapshotForDate(targetDate: Date): Promise<{ success: boolean
     return { success: true, dateString, message: 'Already exists' };
   }
   
-  // Get rankings
+  // Get rankings (lifetime wallet balance = bogxCoins)
   const users = await User.find({})
-    .select('username avatar country countryFlag points wins')
-    .sort({ points: -1 })
+    .select('username avatar country countryFlag bogxCoins wins')
+    .sort({ bogxCoins: -1 })
     .limit(100)
     .lean();
   
@@ -37,7 +37,7 @@ async function saveSnapshotForDate(targetDate: Date): Promise<{ success: boolean
     avatar: user.avatar || '',
     country: user.country || 'World',
     countryFlag: user.countryFlag || '🌍',
-    points: user.points,
+    points: user.bogxCoins || 0,
     wins: user.wins,
     rank: index + 1,
   }));

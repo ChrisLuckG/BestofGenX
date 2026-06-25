@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/AuthContext";
+
+const SITE_PASSWORD = process.env.NEXT_PUBLIC_SITE_PASSWORD || 'bogx2025';
+const STORAGE_KEY = 'bogx_site_access';
 
 interface DevLockScreenProps {
   children: React.ReactNode;
@@ -10,44 +12,19 @@ interface DevLockScreenProps {
 
 export default function DevLockScreen({ children }: DevLockScreenProps) {
   const router = useRouter();
-  const { isLoggedIn, user } = useAuth();
-  const [mounted, setMounted] = useState(false);
-  const [checkedAuth, setCheckedAuth] = useState(false);
+  const [granted, setGranted] = useState<boolean | null>(null);
 
-  // Wait for client-side mount
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Check auth after mount - give AuthContext time to load from localStorage
-  useEffect(() => {
-    if (!mounted) return;
-    
-    // Small delay to let AuthContext load from localStorage
-    const timer = setTimeout(() => {
-      setCheckedAuth(true);
-    }, 100);
-    
-    return () => clearTimeout(timer);
-  }, [mounted]);
-
-  // Redirect to login page if not logged in (only after auth check)
-  useEffect(() => {
-    if (checkedAuth && !isLoggedIn) {
+    const siteAccess = localStorage.getItem(STORAGE_KEY);
+    const user = localStorage.getItem('sporttock_user');
+    if (siteAccess === SITE_PASSWORD) {
+      setGranted(true);
+    } else {
       router.replace('/');
     }
-  }, [checkedAuth, isLoggedIn, router]);
+  }, [router]);
 
-  // Show nothing while mounting or checking auth
-  if (!mounted || !checkedAuth) {
-    return null;
-  }
+  if (!granted) return null;
 
-  // If not logged in after check, show nothing (redirecting)
-  if (!isLoggedIn) {
-    return null;
-  }
-
-  // User is logged in, show the app
   return <>{children}</>;
 }

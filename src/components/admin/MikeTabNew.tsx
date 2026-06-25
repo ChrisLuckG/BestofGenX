@@ -6,7 +6,7 @@ import {
   Server, Layout, CreditCard, Gamepad2, FileEdit, Settings, Brain, 
   Rocket, Send, Loader2, Trash2, Edit3, Save, X, RefreshCw,
   MessageCircle, User, Paperclip, Play, Plus, Filter, Clock,
-  CheckCircle2, Circle, ArrowRight, MoreHorizontal, Mic, MicOff
+  CheckCircle2, Circle, ArrowRight, MoreHorizontal, Mic, MicOff, Copy, Check
 } from "lucide-react";
 
 interface ChatMessage {
@@ -84,6 +84,7 @@ export default function MikeTabNew() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [cascadePromptCopied, setCascadePromptCopied] = useState(false);
   
   // Parse chatHistory - only show NEW chat (after "Here's the ticket")
   const parseHistory = (history: string): ChatMessage[] => {
@@ -492,6 +493,22 @@ export default function MikeTabNew() {
           </h1>
         </div>
         <div className="flex items-center gap-2 relative">
+          <button 
+            onClick={() => {
+              navigator.clipboard.writeText('Check Mike-Tickets und arbeite das nächste offene Ticket ab. Zeig mir zuerst was du vorhast.');
+              setCascadePromptCopied(true);
+              setTimeout(() => setCascadePromptCopied(false), 2000);
+            }}
+            className={`px-3 py-1.5 text-sm rounded-lg flex items-center gap-1 transition-colors ${
+              cascadePromptCopied 
+                ? 'bg-green-600 text-white' 
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            }`}
+            title="Copy Cascade prompt to clipboard"
+          >
+            {cascadePromptCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+            {cascadePromptCopied ? 'Copied!' : 'Cascade Prompt'}
+          </button>
           <button 
             onClick={() => setShowNewMenu(!showNewMenu)}
             className="px-3 py-1.5 bg-[#D4873A] text-white text-sm rounded-lg hover:bg-[#C4772A] flex items-center gap-1"

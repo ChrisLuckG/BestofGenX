@@ -13,12 +13,12 @@ export async function GET(request: Request) {
       return NextResponse.json({ rank: null });
     }
     
-    // Get all users sorted by points descending
+    // Get all users sorted by BOGX balance descending (single source of truth)
     const allUsers = await User.find({ 
       isAdmin: { $ne: true }
     })
-      .select('_id points')
-      .sort({ points: -1 })
+      .select('_id bogxCoins')
+      .sort({ bogxCoins: -1 })
       .lean();
     
     // Find user's position

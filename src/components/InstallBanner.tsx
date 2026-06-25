@@ -41,26 +41,54 @@ export default function InstallBanner() {
       return;
     }
 
-    // Check if already installed (standalone mode)
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
-                        (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+    // Check if already installed (standalone mode) - multiple detection methods
+    const standaloneMedia = window.matchMedia('(display-mode: standalone)');
+    const fullscreenMedia = window.matchMedia('(display-mode: fullscreen)');
+    const minimalUiMedia = window.matchMedia('(display-mode: minimal-ui)');
     
-    if (isStandalone) return;
+    const isStandalone = standaloneMedia.matches || 
+                        fullscreenMedia.matches ||
+                        minimalUiMedia.matches ||
+                        (window.navigator as Navigator & { standalone?: boolean }).standalone === true ||
+                        document.referrer.includes('android-app://');
+    
+    // Check if user has previously installed (localStorage flag set when install prompt accepted)
+    const wasInstalled = localStorage.getItem('bogx_app_installed') === 'true';
+    
+    if (isStandalone) {
+      // Running in standalone mode - mark as installed for future reference
+      localStorage.setItem('bogx_app_installed', 'true');
+      console.log('App is running in standalone mode');
+      return;
+    }
+
+    let justUninstalled = false;
+    if (wasInstalled) {
+      // Not in standalone mode but flag says installed → app was uninstalled
+      // Clear the stale flag so the install banner can show again
+      localStorage.removeItem('bogx_app_installed');
+      localStorage.removeItem(REFRESH_COUNT_KEY);
+      localStorage.removeItem(REFRESH_COUNT_KEY_IOS);
+      justUninstalled = true;
+      console.log('App was uninstalled — resetting install flags');
+    }
 
     // Check if iOS
     const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     setIsIOS(iOS);
 
-    // Count refreshes - iOS shows every 20th, others every 3rd
-    const countKey = iOS ? REFRESH_COUNT_KEY_IOS : REFRESH_COUNT_KEY;
-    const showInterval = iOS ? 20 : 3;
-    const currentCount = parseInt(localStorage.getItem(countKey) || '0', 10);
-    const newCount = currentCount + 1;
-    localStorage.setItem(countKey, newCount.toString());
+    // Show immediately after uninstall detection; otherwise every 3rd load (non-iOS) / 20th (iOS)
+    if (!justUninstalled) {
+      const countKey = iOS ? REFRESH_COUNT_KEY_IOS : REFRESH_COUNT_KEY;
+      const showInterval = iOS ? 20 : 3;
+      const currentCount = parseInt(localStorage.getItem(countKey) || '0', 10);
+      const newCount = currentCount + 1;
+      localStorage.setItem(countKey, newCount.toString());
 
-    const shouldShow = newCount % showInterval === 0;
-    if (!shouldShow) {
-      return;
+      const shouldShow = newCount % showInterval === 0;
+      if (!shouldShow) {
+        return;
+      }
     }
 
     // Decide which banner to show
@@ -111,6 +139,8 @@ export default function InstallBanner() {
       await deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') {
+        // Mark as installed so banner won't show again
+        localStorage.setItem('bogx_app_installed', 'true');
         handleDismiss();
       }
       setDeferredPrompt(null);

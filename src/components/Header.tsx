@@ -10,6 +10,7 @@ interface HeaderProps {
   username: string;
   userAvatar?: string;
   userRank?: number; // User's current ranking position
+  hasPendingWager?: boolean; // User has coins locked in an open/active battle
   rankingsOpen?: boolean; // Rankings overlay is open
   onCoinsClick?: () => void;
   onLogoClick?: () => void;
@@ -26,7 +27,7 @@ interface HeaderProps {
   coinAnimation?: { amount: number } | null; // Explicit animation trigger
 }
 
-export default function Header({ coins, userAvatar, userRank, rankingsOpen, onCoinsClick, onLogoClick, onNotificationClick, onProfileClick, onRadioClick, onTVClick, notificationOpen, profileOpen, radioOpen = false, tvOpen = false, notificationsEnabled, unreadCount = 0, coinAnimation }: HeaderProps) {
+export default function Header({ coins, userAvatar, userRank, hasPendingWager = false, rankingsOpen, onCoinsClick, onLogoClick, onNotificationClick, onProfileClick, onRadioClick, onTVClick, notificationOpen, profileOpen, radioOpen = false, tvOpen = false, notificationsEnabled, unreadCount = 0, coinAnimation }: HeaderProps) {
   const [displayCoins, setDisplayCoins] = useState(coins);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isNegative, setIsNegative] = useState(false);
@@ -189,6 +190,7 @@ export default function Header({ coins, userAvatar, userRank, rankingsOpen, onCo
               {formatCurrency(displayCoins)}
             </span>
           </div>
+          
           
           {/* Flying amount indicator */}
           {flyingAmount !== null && (

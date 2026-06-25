@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Plus, Edit2, Trash2, Save, X, Eye, EyeOff, Loader2, Sparkles, Upload, RefreshCw, MoreVertical, Copy, Archive, Calendar, MessageSquare, Link, Wand2 } from "lucide-react";
+import { Plus, Edit2, Trash2, Save, X, Eye, EyeOff, Loader2, Sparkles, Upload, RefreshCw, MoreVertical, Copy, Archive, Calendar, MessageSquare, Link, Wand2, Image as ImageIcon } from "lucide-react";
 import BlockEditor from "./BlockEditor";
+import ContainerBlock from "./ContainerBlock";
+import ImagePickerModal from "./ImagePickerModal";
 
 interface ArticleData {
   _id?: string;
@@ -64,6 +66,7 @@ const MAIN_CATEGORIES = [
 ];
 
 const SUB_CATEGORIES = [
+  { value: 'history', label: 'History' },
   { value: 'movies-tv', label: 'Movies & TV' },
   { value: 'music', label: 'Music' },
   { value: 'gaming', label: 'Gaming' },
@@ -73,10 +76,28 @@ const SUB_CATEGORIES = [
   { value: 'culture', label: 'Culture' },
   { value: 'news', label: 'News' },
   { value: 'lifestyle', label: 'Lifestyle' },
+  { value: 'rip', label: 'RIP' },
 ];
 
 interface ArticlesTabProps {
   userId?: string;
+}
+
+function getSectionAiPrompt(category?: string, _title?: string): string {
+  const cat = category?.toLowerCase() || '';
+  if (cat === 'rip' || cat === 'obituary' || cat === 'memorial')
+    return 'Atmospheric candlelight scene. Candles, roses, laurel wreath, vintage black-and-white photograph frames on dark velvet. Deep charcoal, purple and gold tones. Cinematic, emotional, timeless. NO people, NO faces, NO text.';
+  if (cat === 'history')
+    return 'Vintage sepia collage. Antique world map, old compass, parchment scroll, pocket watch, aged newspaper clippings. Warm amber tones, aged paper texture. NO people, NO faces, NO text.';
+  if (cat === 'arcade' || cat === 'gaming')
+    return 'Retro arcade scene. Glowing arcade cabinet screens, joystick, neon grid floor, pixel art patterns, cyberpunk purple and cyan lights. NO people, NO faces, NO text.';
+  if (cat === 'sports' || cat === 'sport')
+    return 'Retro sports atmosphere. Golden trophy, stadium floodlights at night, vintage leather football, running track, championship ribbon. Dramatic warm lighting. NO people, NO faces, NO text.';
+  if (cat === 'lifestyle' || cat === 'culture' || cat === 'movies-tv')
+    return 'Warm nostalgic flat lay. Vintage magazines, polaroid camera, cassette tape, vinyl record, retro sunglasses on cream surface. Golden hour warm light. NO people, NO faces, NO text.';
+  if (cat === 'music')
+    return 'Retro music studio. Vinyl record on turntable, cassette tapes, neon concert stage lights, vintage synthesizer, boombox. Vaporwave purple and pink glow. NO people, NO faces, NO text.';
+  return 'Nostalgic Gen X editorial photo. Vintage objects, warm cinematic lighting, film grain texture. NO people, NO faces, NO text.';
 }
 
 export default function ArticlesTab({ userId }: ArticlesTabProps) {
@@ -91,7 +112,29 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
   const [draggedArticle, setDraggedArticle] = useState<string | null>(null);
   const [orderChanged, setOrderChanged] = useState(false);
   const [savingOrder, setSavingOrder] = useState(false);
-  const [templateItems, setTemplateItems] = useState<{size: 1|2|3|4|5|6|7|8|9|10, articleId: string|null, articleId2?: string|null, sliderArticles?: string[], sliderTitle?: string, verticalArticles?: string[], verticalTitle?: string, adData?: {image: string, link: string, title: string}}[]>([]);
+  const [templateItems, setTemplateItems] = useState<{
+    size: 1|2|3|4|5|6|7|8|9|10|12,
+    articleId: string|null,
+    articleId2?: string|null,
+    sliderArticles?: string[],
+    sliderTitle?: string,
+    verticalArticles?: string[],
+    verticalTitle?: string,
+    adData?: {image: string, link: string, title: string},
+    containerName?: string,
+    containerTheme?: string,
+    containerBlocks?: {
+      type: 'MAIN' | '2H' | 'FIXED' | 'SLIDER' | 'VERTICAL' | 'SOCIAL';
+      articleId?: string | null;
+      articleId2?: string | null;
+      articles?: string[];
+      bannerImage?: string;
+      bannerLink?: string;
+      autoFill?: 'latest' | 'history' | 'category';
+      autoFillCategory?: string;
+      autoFillLimit?: number;
+    }[]
+  }[]>([]);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [loadingArticleId, setLoadingArticleId] = useState<string | null>(null);
@@ -102,6 +145,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
   const [showPreview, setShowPreview] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; articleId: string } | null>(null);
+  const [showEditImagePicker, setShowEditImagePicker] = useState(false);
   const [hoveredTemplateArticle, setHoveredTemplateArticle] = useState<string | null>(null);
   const [hoveredListArticle, setHoveredListArticle] = useState<string | null>(null);
   const [sortByTemplate, setSortByTemplate] = useState(false);
@@ -468,6 +512,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
           tags: data.tags?.length > 0 ? data.tags : (prev?.tags || []),
           category: data.suggestedCategory || prev?.category || 'culture',
           autoGenerated: true, // Mark as AI generated
+          status: 'published', // Auto-generated articles are published immediately
         }));
         // Keep the topic input so user can see what was generated
         // setArticleTopicInput(""); // Don't clear - user wants to keep it
@@ -526,9 +571,9 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
     }
   };
 
-  // Template functions
-  const addTemplateItem = (size: 1|2|3|4|5|6|7|8|9|10) => {
-    setTemplateItems([...templateItems, { size, articleId: null }]);
+  // Template functions - only Container (size 12) is used now
+  const addTemplateItem = (size: 12) => {
+    setTemplateItems([...templateItems, { size: 12, articleId: null, containerName: 'NEW SECTION', containerBlocks: [] }]);
   };
 
   const updateTemplateItem = (index: number, articleId: string | null) => {
@@ -539,6 +584,80 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
 
   const removeTemplateItem = (index: number) => {
     setTemplateItems(templateItems.filter((_, i) => i !== index));
+  };
+
+  // Container functions
+  const updateContainerName = (index: number, name: string) => {
+    const newItems = [...templateItems];
+    newItems[index] = { ...newItems[index], containerName: name };
+    setTemplateItems(newItems);
+  };
+
+  const updateContainerTheme = (index: number, theme: string) => {
+    const newItems = [...templateItems];
+    newItems[index] = { ...newItems[index], containerTheme: theme };
+    setTemplateItems(newItems);
+  };
+
+  const moveContainerUp = (index: number) => {
+    if (index === 0) return;
+    const newItems = [...templateItems];
+    [newItems[index - 1], newItems[index]] = [newItems[index], newItems[index - 1]];
+    setTemplateItems(newItems);
+  };
+
+  const moveContainerDown = (index: number) => {
+    if (index >= templateItems.length - 1) return;
+    const newItems = [...templateItems];
+    [newItems[index], newItems[index + 1]] = [newItems[index + 1], newItems[index]];
+    setTemplateItems(newItems);
+  };
+
+  const addBlockToContainer = (index: number, blockType: 'MAIN' | '2H' | 'FIXED' | 'SLIDER' | 'VERTICAL' | 'SOCIAL') => {
+    const newItems = [...templateItems];
+    const item = newItems[index];
+    const blocks = item.containerBlocks || [];
+    const newBlock: NonNullable<typeof item.containerBlocks>[0] = { type: blockType };
+    if (blockType === '2H') {
+      newBlock.articleId = null;
+      newBlock.articleId2 = null;
+    } else if (blockType === 'SLIDER' || blockType === 'VERTICAL') {
+      newBlock.articles = [];
+    } else if (blockType === 'FIXED') {
+      newBlock.bannerImage = '';
+      newBlock.bannerLink = '';
+    } else {
+      newBlock.articleId = null;
+    }
+    newItems[index] = { ...item, containerBlocks: [...blocks, newBlock] };
+    setTemplateItems(newItems);
+  };
+
+  const removeBlockFromContainer = (index: number, blockIndex: number) => {
+    const newItems = [...templateItems];
+    const item = newItems[index];
+    const blocks = item.containerBlocks || [];
+    newItems[index] = { ...item, containerBlocks: blocks.filter((_, i) => i !== blockIndex) };
+    setTemplateItems(newItems);
+  };
+
+  const updateBlockInContainer = (index: number, blockIndex: number, updates: Partial<NonNullable<typeof templateItems[0]['containerBlocks']>[0]>) => {
+    const newItems = [...templateItems];
+    const item = newItems[index];
+    const blocks = [...(item.containerBlocks || [])];
+    blocks[blockIndex] = { ...blocks[blockIndex], ...updates };
+    newItems[index] = { ...item, containerBlocks: blocks };
+    setTemplateItems(newItems);
+  };
+
+  const moveBlockInContainer = (index: number, blockIndex: number, direction: 'up' | 'down') => {
+    const newItems = [...templateItems];
+    const blocks = [...(newItems[index].containerBlocks || [])];
+    const targetIndex = direction === 'up' ? blockIndex - 1 : blockIndex + 1;
+    if (targetIndex < 0 || targetIndex >= blocks.length) return;
+    [blocks[blockIndex], blocks[targetIndex]] = [blocks[targetIndex], blocks[blockIndex]];
+    newItems[index] = { ...newItems[index], containerBlocks: blocks };
+    setTemplateItems(newItems);
   };
 
   // Helper to check if URL is a video
@@ -561,6 +680,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
   const saveTemplate = async () => {
     setSavingTemplate(true);
     try {
+      console.log('Saving template:', JSON.stringify(templateItems, null, 2));
       await fetch('/api/template', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -613,16 +733,10 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
           )}
         </div>
 
-        {/* Add Container Buttons - inline */}
+        {/* Add Container Button */}
         <div className="mb-3 flex items-center gap-2">
           <span className="text-[9px] text-gray-500 uppercase tracking-wider">Add:</span>
-          <button onClick={() => addTemplateItem(3)} className="px-2 py-0.5 bg-[#D4873A]/20 text-[#D4873A] rounded font-bold text-[9px] hover:bg-[#D4873A]/30 border border-[#D4873A]/30">Main</button>
-          <button onClick={() => addTemplateItem(10)} className="px-2 py-0.5 bg-pink-500/20 text-pink-400 rounded font-bold text-[9px] hover:bg-pink-500/30 border border-pink-500/30">2H</button>
-          <button onClick={() => addTemplateItem(6)} className="px-2 py-0.5 bg-cyan-500/20 text-cyan-400 rounded font-bold text-[9px] hover:bg-cyan-500/30 border border-cyan-500/30">Slider</button>
-          <button onClick={() => addTemplateItem(4)} className="px-2 py-0.5 bg-orange-500/20 text-orange-400 rounded font-bold text-[9px] hover:bg-orange-500/30 border border-orange-500/30">Full</button>
-          <button onClick={() => addTemplateItem(7)} className="px-2 py-0.5 bg-teal-500/20 text-teal-400 rounded font-bold text-[9px] hover:bg-teal-500/30 border border-teal-500/30">Social</button>
-          <button onClick={() => addTemplateItem(9)} className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 rounded font-bold text-[9px] hover:bg-indigo-500/30 border border-indigo-500/30">Vert</button>
-          <button onClick={() => addTemplateItem(8)} className="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 rounded font-bold text-[9px] hover:bg-yellow-500/30 border border-yellow-500/30">Ads</button>
+          <button onClick={() => addTemplateItem(12)} className="px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded font-bold text-[9px] hover:bg-amber-500/30 border border-amber-500/30 border-dashed">Container</button>
         </div>
 
         <div className="flex gap-8">
@@ -683,340 +797,34 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                     style={{ transform: `scale(${templateZoom / 100})`, width: `${10000 / templateZoom}%` }}
                   >
               {templateItems.map((item, index) => {
-                const colSpan = item.size === 10 ? 'col-span-6' : item.size === 9 ? 'col-span-6' : item.size === 8 ? 'col-span-6' : item.size === 7 ? 'col-span-6' : item.size === 6 ? 'col-span-6' : item.size === 5 ? 'col-span-3' : item.size === 4 ? 'col-span-6' : item.size === 3 ? 'col-span-6' : item.size === 2 ? 'col-span-4' : 'col-span-2';
-                // First MAIN item (index 0) gets bigger height for headline
-                const isFirstMain = index === 0 && item.size === 3;
-                const heightClass = item.size === 10 ? 'h-[140px]' : item.size === 9 ? 'min-h-[80px]' : item.size === 8 ? 'h-[80px]' : item.size === 7 ? 'h-[160px]' : item.size === 6 ? 'h-[60px]' : item.size === 5 ? 'h-[100px]' : item.size === 4 ? 'h-[40px]' : item.size === 3 ? (isFirstMain ? 'h-[120px]' : 'h-[80px]') : item.size === 2 ? 'h-[70px]' : 'h-[70px]';
-                const borderColor = item.size === 10 ? 'border-pink-500' : item.size === 9 ? 'border-indigo-500' : item.size === 8 ? 'border-yellow-500' : item.size === 7 ? 'border-teal-500' : item.size === 6 ? 'border-cyan-500' : item.size === 5 ? 'border-pink-500' : item.size === 4 ? 'border-orange-500' : item.size === 3 ? 'border-[#D4873A]' : item.size === 2 ? 'border-purple-500' : 'border-blue-500';
-                const bgHover = item.size === 10 ? 'hover:bg-pink-500/10' : item.size === 9 ? 'hover:bg-indigo-500/10' : item.size === 8 ? 'hover:bg-yellow-500/10' : item.size === 7 ? 'hover:bg-teal-500/10' : item.size === 6 ? 'hover:bg-cyan-500/10' : item.size === 5 ? 'hover:bg-pink-500/10' : item.size === 4 ? 'hover:bg-orange-500/10' : item.size === 3 ? 'hover:bg-[#D4873A]/10' : item.size === 2 ? 'hover:bg-purple-500/10' : 'hover:bg-blue-500/10';
-                const sizeLabel = item.size === 10 ? '2-HALF' : item.size === 9 ? 'VERT' : item.size === 8 ? 'AD' : item.size === 7 ? 'SOCIAL' : item.size === 6 ? 'SLIDER' : item.size === 5 ? 'HALF' : item.size === 4 ? 'FULL' : item.size === 3 ? 'MAIN' : item.size === 2 ? 'MED' : 'SM';
-                const labelColor = item.size === 10 ? '#EC4899' : item.size === 9 ? '#6366F1' : item.size === 8 ? '#EAB308' : item.size === 7 ? '#14B8A6' : item.size === 6 ? '#06B6D4' : item.size === 5 ? '#EC4899' : item.size === 4 ? '#F97316' : item.size === 3 ? '#D4873A' : item.size === 2 ? '#A855F7' : '#3B82F6';
-                
-                // Check if this template item contains the hovered list article
-                const containsHoveredArticle = hoveredListArticle && (
-                  item.articleId === hoveredListArticle ||
-                  item.articleId2 === hoveredListArticle ||
-                  (item.sliderArticles || []).includes(hoveredListArticle) ||
-                  (item.verticalArticles || []).includes(hoveredListArticle)
-                );
-                
-                return (
-                  <div 
-                    key={index}
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData('slotIndex', index.toString());
-                      e.dataTransfer.setData('isSlot', 'true');
-                    }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.currentTarget.classList.add('ring-2', 'ring-[#D4873A]', 'scale-105', 'bg-[#D4873A]/20');
-                    }}
-                    onDragLeave={(e) => {
-                      e.currentTarget.classList.remove('ring-2', 'ring-[#D4873A]', 'scale-105', 'bg-[#D4873A]/20');
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      e.currentTarget.classList.remove('ring-2', 'ring-[#D4873A]', 'scale-105', 'bg-[#D4873A]/20');
-                      
-                      const articleId = e.dataTransfer.getData('articleId');
-                      const isSlot = e.dataTransfer.getData('isSlot');
-                      const fromIndex = e.dataTransfer.getData('slotIndex');
-                      
-                      if (articleId) {
-                        const newItems = [...templateItems];
-                        if (item.size === 9) {
-                          // Vertical container - add to verticalArticles array
-                          const currentVerticalArticles = item.verticalArticles || [];
-                          if (!currentVerticalArticles.includes(articleId)) {
-                            newItems[index] = { ...item, verticalArticles: [...currentVerticalArticles, articleId] };
-                          }
-                        } else if (item.size === 6) {
-                          // Slider container - add to sliderArticles array
-                          const currentSliderArticles = item.sliderArticles || [];
-                          if (!currentSliderArticles.includes(articleId)) {
-                            newItems[index] = { ...item, sliderArticles: [...currentSliderArticles, articleId] };
-                          }
-                        } else {
-                          // Single article containers
-                          newItems[index] = { ...item, articleId };
-                        }
-                        setTemplateItems(newItems);
-                      } else if (isSlot && fromIndex) {
-                        const newItems = [...templateItems];
-                        const [moved] = newItems.splice(parseInt(fromIndex), 1);
-                        newItems.splice(index, 0, moved);
-                        setTemplateItems(newItems);
-                      }
-                    }}
-                    className={`${colSpan} ${heightClass} bg-gray-800 border-2 border-dashed ${containsHoveredArticle ? 'border-[#D4873A] bg-[#D4873A]/20 ring-2 ring-[#D4873A] scale-[1.02]' : borderColor} rounded-xl flex items-center justify-center relative group cursor-move transition-all ${bgHover}`}
-                    onMouseEnter={() => {
-                      // For dual slots (size 3), don't highlight from container - let inner elements handle it
-                      // For single slots, highlight the single article
-                      if (item.size !== 3 && item.articleId && !item.articleId2) {
-                        setHoveredTemplateArticle(item.articleId);
-                      }
-                      // For slider/vertical, highlight all
-                      if (item.sliderArticles?.length || item.verticalArticles?.length) {
-                        const ids: string[] = [];
-                        if (item.sliderArticles) ids.push(...item.sliderArticles);
-                        if (item.verticalArticles) ids.push(...item.verticalArticles);
-                        if (ids.length > 0) setHoveredTemplateArticle(ids.join(','));
-                      }
-                    }}
-                    onMouseLeave={() => setHoveredTemplateArticle(null)}
-                  >
-                    {/* Size toggle */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const sizes: (1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10)[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-                        const currentIdx = sizes.indexOf(item.size);
-                        const nextSize = sizes[(currentIdx + 1) % 10];
-                        const newItems = [...templateItems];
-                        newItems[index] = { ...item, size: nextSize };
-                        setTemplateItems(newItems);
-                      }}
-                      className="absolute top-2 left-2 text-xs font-bold px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors"
-                      style={{ color: labelColor }}
-                    >
-                      {sizeLabel}
-                    </button>
-                    
-                    {/* Delete button */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        setTemplateItems(templateItems.filter((_, i) => i !== index));
-                      }}
-                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-sm font-bold z-50 shadow-lg"
-                    >
-                      ×
-                    </button>
-                    
-                    {item.size === 8 ? (
-                      // Ad slot - show inputs for image/link/title + upload button
-                      <div className="flex items-center gap-2 px-2 w-full" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => { setCurrentAdIndex(index); adFileInputRef.current?.click(); }}
-                          disabled={uploadingAdIndex === index}
-                          className="p-1.5 bg-green-600 hover:bg-green-500 rounded disabled:opacity-50 flex-shrink-0"
-                          title="Upload image"
-                        >
-                          {uploadingAdIndex === index ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
-                        </button>
-                        <input
-                          type="text"
-                          value={item.adData?.image || ''}
-                          onChange={(e) => {
-                            const newItems = [...templateItems];
-                            newItems[index] = { ...item, adData: { ...item.adData || {image:'',link:'',title:''}, image: e.target.value } };
-                            setTemplateItems(newItems);
-                          }}
-                          placeholder="Image URL"
-                          className="flex-1 px-1.5 py-1 text-[9px] bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-500 min-w-0"
-                        />
-                        <input
-                          type="text"
-                          value={item.adData?.link || ''}
-                          onChange={(e) => {
-                            const newItems = [...templateItems];
-                            newItems[index] = { ...item, adData: { ...item.adData || {image:'',link:'',title:''}, link: e.target.value } };
-                            setTemplateItems(newItems);
-                          }}
-                          placeholder="Link"
-                          className="w-16 px-1.5 py-1 text-[9px] bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-500"
-                        />
-                        <input
-                          type="text"
-                          value={item.adData?.title || ''}
-                          onChange={(e) => {
-                            const newItems = [...templateItems];
-                            newItems[index] = { ...item, adData: { ...item.adData || {image:'',link:'',title:''}, title: e.target.value } };
-                            setTemplateItems(newItems);
-                          }}
-                          placeholder="Title"
-                          className="w-16 px-1.5 py-1 text-[9px] bg-gray-700 border border-gray-600 rounded text-white placeholder-gray-500"
-                        />
-                        {item.adData?.image && (
-                          <img src={item.adData.image} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0" />
-                        )}
-                      </div>
-                    ) : item.size === 10 ? (
-                      // 2 Halfer container - two drop zones side by side
-                      <div className="flex gap-2 w-full h-full p-2">
-                        {/* Left half */}
-                        <div 
-                          className="flex-1 bg-gray-700/50 rounded-lg flex items-center justify-center relative overflow-hidden hover:ring-2 hover:ring-[#D4873A]/50 transition-all"
-                          onMouseEnter={(e) => { e.stopPropagation(); if (item.articleId) setHoveredTemplateArticle(item.articleId); }}
-                          onMouseLeave={(e) => { e.stopPropagation(); setHoveredTemplateArticle(null); }}
-                          onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('ring-2', 'ring-pink-400'); }}
-                          onDragLeave={(e) => { e.currentTarget.classList.remove('ring-2', 'ring-pink-400'); }}
-                          onDrop={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            e.currentTarget.classList.remove('ring-2', 'ring-pink-400');
-                            const articleId = e.dataTransfer.getData('articleId');
-                            if (articleId) {
-                              const newItems = [...templateItems];
-                              newItems[index] = { ...item, articleId };
-                              setTemplateItems(newItems);
-                            }
-                          }}
-                        >
-                          {(() => {
-                            const art = articles.find(a => a._id === item.articleId);
-                            return item.articleId && art ? (
-                            <>
-                              {renderMediaPreview(art, "absolute inset-0 w-full h-full object-cover")}
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                              {art.category && <span className="absolute top-1 left-1 text-[6px] text-[#D4873A] font-bold uppercase z-10">{SUB_CATEGORIES.find(s => s.value === art.category)?.label}</span>}
-                              <span className="absolute bottom-1 left-1 right-1 text-[7px] text-white font-bold line-clamp-2 leading-tight z-10">{art.title}</span>
-                              <button onClick={(e) => { e.stopPropagation(); const newItems = [...templateItems]; newItems[index] = { ...item, articleId: null }; setTemplateItems(newItems); }} className="absolute top-1 right-1 w-4 h-4 bg-red-500 rounded-full text-white text-[10px] z-20 opacity-0 group-hover:opacity-100">×</button>
-                            </>
-                          ) : (
-                            <span className="text-gray-500 text-[9px]">Left</span>
-                          );
-                          })()}
-                        </div>
-                        {/* Right half */}
-                        <div 
-                          className="flex-1 bg-gray-700/50 rounded-lg flex items-center justify-center relative overflow-hidden hover:ring-2 hover:ring-[#D4873A]/50 transition-all"
-                          onMouseEnter={(e) => { e.stopPropagation(); if (item.articleId2) setHoveredTemplateArticle(item.articleId2); }}
-                          onMouseLeave={(e) => { e.stopPropagation(); setHoveredTemplateArticle(null); }}
-                          onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('ring-2', 'ring-pink-400'); }}
-                          onDragLeave={(e) => { e.currentTarget.classList.remove('ring-2', 'ring-pink-400'); }}
-                          onDrop={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            e.currentTarget.classList.remove('ring-2', 'ring-pink-400');
-                            const articleId = e.dataTransfer.getData('articleId');
-                            if (articleId) {
-                              const newItems = [...templateItems];
-                              newItems[index] = { ...item, articleId2: articleId };
-                              setTemplateItems(newItems);
-                            }
-                          }}
-                        >
-                          {(() => {
-                            const art = articles.find(a => a._id === item.articleId2);
-                            return item.articleId2 && art ? (
-                            <>
-                              {renderMediaPreview(art, "absolute inset-0 w-full h-full object-cover")}
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                              {art.category && <span className="absolute top-1 left-1 text-[6px] text-[#D4873A] font-bold uppercase z-10">{SUB_CATEGORIES.find(s => s.value === art.category)?.label}</span>}
-                              <span className="absolute bottom-1 left-1 right-1 text-[7px] text-white font-bold line-clamp-2 leading-tight z-10">{art.title}</span>
-                              <button onClick={(e) => { e.stopPropagation(); const newItems = [...templateItems]; newItems[index] = { ...item, articleId2: null }; setTemplateItems(newItems); }} className="absolute top-1 right-1 w-4 h-4 bg-red-500 rounded-full text-white text-[10px] z-20 opacity-0 group-hover:opacity-100">×</button>
-                            </>
-                          ) : (
-                            <span className="text-gray-500 text-[9px]">Right</span>
-                          );
-                          })()}
-                        </div>
-                      </div>
-                    ) : item.size === 9 ? (
-                      // Vertical container - shows ALL articles stacked
-                      <div className="flex flex-col gap-1 px-2 py-1 w-full">
-                        {(item.verticalArticles || []).length > 0 ? (
-                          <>
-                            {(item.verticalArticles || []).map((artId, i) => {
-                              const art = articles.find(a => a._id === artId);
-                              return (
-                                <div 
-                                  key={i} 
-                                  className="flex items-center gap-2 bg-gray-700/50 rounded px-2 py-1 relative group/thumb hover:bg-gray-600/50 transition-colors"
-                                  onMouseEnter={(e) => { e.stopPropagation(); setHoveredTemplateArticle(artId); }}
-                                  onMouseLeave={(e) => { e.stopPropagation(); setHoveredTemplateArticle(null); }}
-                                >
-                                  {art?.coverImage && <img src={art.coverImage} alt="" className="w-6 h-6 rounded object-cover" />}
-                                  <span className="text-[9px] text-white truncate flex-1">{art?.title || '?'}</span>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      const newItems = [...templateItems];
-                                      newItems[index] = { ...item, verticalArticles: (item.verticalArticles || []).filter(id => id !== artId) };
-                                      setTemplateItems(newItems);
-                                    }}
-                                    className="text-red-400 text-xs font-bold opacity-0 group-hover/thumb:opacity-100"
-                                  >×</button>
-                                </div>
-                              );
-                            })}
-                          </>
-                        ) : (
-                          <span className="text-gray-500 text-xs">Drop articles here ↓</span>
-                        )}
-                      </div>
-                    ) : item.size === 6 ? (
-                      // Slider container - shows articles horizontally
-                      <div className="flex items-center gap-1 px-2 overflow-hidden w-full">
-                        {(item.sliderArticles || []).length > 0 ? (
-                          <>
-                            {(item.sliderArticles || []).slice(0, 4).map((artId, i) => {
-                              const art = articles.find(a => a._id === artId);
-                              return art?.coverImage ? (
-                                <div 
-                                  key={i} 
-                                  className="w-10 h-10 rounded overflow-hidden flex-shrink-0 relative group/thumb ring-2 ring-transparent hover:ring-[#D4873A] transition-all"
-                                  onMouseEnter={(e) => { e.stopPropagation(); setHoveredTemplateArticle(artId); }}
-                                  onMouseLeave={(e) => { e.stopPropagation(); setHoveredTemplateArticle(null); }}
-                                >
-                                  <img src={art.coverImage} alt="" className="w-full h-full object-cover" />
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      const newItems = [...templateItems];
-                                      newItems[index] = { ...item, sliderArticles: (item.sliderArticles || []).filter(id => id !== artId) };
-                                      setTemplateItems(newItems);
-                                    }}
-                                    className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center text-red-400 text-xs font-bold"
-                                  >×</button>
-                                </div>
-                              ) : null;
-                            })}
-                            {(item.sliderArticles || []).length > 4 && (
-                              <span className="text-gray-400 text-xs">+{(item.sliderArticles || []).length - 4}</span>
-                            )}
-                          </>
-                        ) : (
-                          <span className="text-gray-500 text-xs">Drop articles here →</span>
-                        )}
-                      </div>
-                    ) : item.articleId ? (
-                      (() => {
-                        const art = articles.find(a => a._id === item.articleId);
-                        const typeInfo = CONTENT_TYPE_BADGES[art?.contentType || 'article'];
-                        const isHeadline = index === 0 && item.size === 3;
-                        return (
-                          <>
-                            {renderMediaPreview(art, "absolute inset-0 w-full h-full object-cover rounded-xl")}
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent rounded-xl" />
-                            {/* Type Badge */}
-                            {art?.contentType && art.contentType !== 'article' && (
-                              <span className={`absolute top-2 left-8 px-1.5 py-0.5 ${typeInfo?.color || 'bg-gray-500'} text-white text-[7px] font-bold rounded uppercase z-10`}>
-                                {typeInfo?.label || art.contentType}
-                              </span>
-                            )}
-                            <div className={`absolute ${isHeadline ? 'bottom-3 left-3 right-3' : 'bottom-2 left-2 right-2'} text-left z-10`}>
-                              {/* Category */}
-                              {art?.category && (
-                                <div className={`${isHeadline ? 'text-[8px]' : 'text-[7px]'} text-[#D4873A] font-bold uppercase mb-0.5`}>
-                                  {SUB_CATEGORIES.find(s => s.value === art.category)?.label || art.category}
-                                </div>
-                              )}
-                              <div className={`${isHeadline ? 'text-[13px]' : 'text-[10px]'} font-bold text-white line-clamp-2 leading-tight drop-shadow-lg`}>
-                                {art?.title || '?'}
-                              </div>
-                            </div>
-                          </>
-                        );
-                      })()
-                    ) : (
-                      <span className="text-gray-500 text-[10px]">Drop article</span>
-                    )}
-                  </div>
-                );
+                // Container (size 12) - use separate component
+                if (item.size === 12) {
+                  return (
+                    <ContainerBlock
+                      key={index}
+                      index={index}
+                      containerName={item.containerName || 'NEW SECTION'}
+                      containerTheme={(item.containerTheme as any) || 'cream'}
+                      containerBlocks={item.containerBlocks || []}
+                      articles={articles}
+                      onUpdateName={updateContainerName}
+                      onUpdateTheme={updateContainerTheme}
+                      onRemove={removeTemplateItem}
+                      onAddBlock={addBlockToContainer}
+                      onRemoveBlock={removeBlockFromContainer}
+                      onUpdateBlock={updateBlockInContainer}
+                      onMoveBlock={moveBlockInContainer}
+                      onAddContainer={() => addTemplateItem(12)}
+                      onMoveUp={moveContainerUp}
+                      onMoveDown={moveContainerDown}
+                      isFirst={index === 0}
+                      isLast={index === templateItems.length - 1}
+                    />
+                  );
+                }
+
+                // Legacy items (size 1-10) - skip rendering, only Container (12) is supported now
+                return null;
               })}
             </div>
             
@@ -1206,8 +1014,9 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
               /* LIST VIEW */
               <div className="space-y-0">
                 {/* Header */}
-                <div className="grid grid-cols-[28px_40px_90px_90px_1fr_45px_95px_60px_80px_60px_65px_105px] gap-4 px-4 py-2 text-[9px] text-gray-500 uppercase tracking-wider border-b border-gray-700 bg-gray-800/50">
+                <div className="grid grid-cols-[28px_75px_40px_90px_90px_1fr_45px_95px_60px_80px_60px_105px] gap-4 px-4 py-2 text-[9px] text-gray-500 uppercase tracking-wider border-b border-gray-700 bg-gray-800/50">
                   <div>#</div>
+                  <div>Date</div>
                   <div></div>
                   <div>Type</div>
                   <div>Cat</div>
@@ -1217,7 +1026,6 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                   <div className="text-center">Views</div>
                   <div className="text-center">Moods</div>
                   <div className="text-center">Comm.</div>
-                  <div>Date</div>
                   <div>Actions</div>
                 </div>
                 {filteredArticles.map((article, index) => (
@@ -1230,7 +1038,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                     }}
                     onDragOver={(e) => handleDragOver(e, article._id!)}
                     onDragEnd={handleDragEnd}
-                    className={`grid grid-cols-[28px_40px_90px_90px_1fr_45px_95px_60px_80px_60px_65px_105px] gap-4 items-center px-4 py-1 rounded cursor-move hover:bg-gray-700/50 transition-all ${
+                    className={`grid grid-cols-[28px_75px_40px_90px_90px_1fr_45px_95px_60px_80px_60px_105px] gap-4 items-center px-4 py-1 rounded cursor-move hover:bg-gray-700/50 transition-all ${
                       draggedArticle === article._id ? 'opacity-50' : ''
                     } ${hoveredTemplateArticle && hoveredTemplateArticle.split(',').includes(article._id!) ? 'bg-[#D4873A]/10 ring-1 ring-[#D4873A]/50' : ''}`}
                     onMouseEnter={() => setHoveredListArticle(article._id!)}
@@ -1238,10 +1046,19 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                   >
                     {/* Row Number */}
                     <div className="text-[10px] text-gray-500">{index + 1}</div>
+                    {/* Date - with time */}
+                    <div className="text-[9px] text-gray-400">
+                      {article.scheduledAt 
+                        ? new Date(article.scheduledAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) + ' ' + new Date(article.scheduledAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+                        : (article as any).createdAt 
+                          ? new Date((article as any).createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) + ' ' + new Date((article as any).createdAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+                          : '-'}
+                    </div>
                     {/* Thumbnail - Click opens Image Manager directly */}
                     <div>
                       <button 
-                        onClick={(e) => { e.stopPropagation(); setImageManagerArticle(article as ArticleData); }}
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setImageManagerArticle(article as ArticleData); }}
                         className="cursor-pointer"
                       >
                         {article.coverImage ? (
@@ -1488,14 +1305,6 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                     >
                       {(article as any).commentsCount || 0}
                     </button>
-                    {/* Date */}
-                    <div className="text-[9px] text-gray-500">
-                      {article.scheduledAt 
-                        ? new Date(article.scheduledAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
-                        : (article as any).createdAt 
-                          ? new Date((article as any).createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
-                          : '-'}
-                    </div>
                     {/* Actions */}
                     <div className="flex items-center gap-0.5">
                       <button
@@ -1807,70 +1616,36 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                   {/* Cover Image */}
                   <div>
                     <label className="block text-xs text-gray-400 mb-1">Cover Image</label>
-                    <div className="flex gap-1.5 items-center">
-                      <button onClick={generateArticleImage} disabled={isGeneratingArticleImage} className="px-2 py-1.5 bg-purple-600 hover:bg-purple-500 rounded disabled:opacity-50 flex items-center gap-1 text-xs flex-shrink-0" title="Generate with AI">
-                        {isGeneratingArticleImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}AI
-                      </button>
-                      <input ref={fileInputRef} type="file" accept="image/*,video/mp4" onChange={handleImageUpload} className="hidden" />
-                      <input ref={adFileInputRef} type="file" accept="image/*,video/mp4" onChange={handleAdImageUpload} className="hidden" />
-                      <button onClick={() => fileInputRef.current?.click()} disabled={isUploadingImage} className="px-2 py-1.5 bg-green-600 hover:bg-green-500 rounded disabled:opacity-50 flex items-center gap-1 text-xs flex-shrink-0" title="Upload from device">
-                        {isUploadingImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}Upload
-                      </button>
-                      <button 
-                        onClick={() => {
-                          const url = prompt('Enter image/video URL:');
-                          if (url && url.trim()) {
-                            setEditingArticle({ ...editingArticle, coverImage: url.trim() });
-                          }
-                        }} 
-                        className="px-2 py-1.5 bg-[#D4873A] hover:bg-[#C4772A] rounded flex items-center gap-1 text-xs flex-shrink-0" 
-                        title="Enter image/video URL"
-                      >
-                        <Link className="w-3.5 h-3.5" />URL
-                      </button>
-                      {editingArticle.coverImage && (
-                        <button onClick={() => setEditingArticle({ ...editingArticle, coverImage: '' })} className="p-1.5 bg-red-700 hover:bg-red-600 rounded flex-shrink-0" title="Remove image"><X className="w-3.5 h-3.5" /></button>
-                      )}
-                    </div>
-                    {editingArticle.coverImage ? (
-                      isVideoUrl(editingArticle.coverImage) ? (
-                        <video src={editingArticle.coverImage} className="mt-1.5 h-32 rounded object-cover w-full" controls muted autoPlay loop playsInline />
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); setShowEditImagePicker(true); }}
+                      className="w-full relative rounded overflow-hidden border border-gray-600 hover:border-[#D4873A] transition-colors group"
+                    >
+                      {editingArticle.coverImage ? (
+                        isVideoUrl(editingArticle.coverImage) ? (
+                          <video src={editingArticle.coverImage} className="w-full h-24 object-cover" muted autoPlay loop playsInline />
+                        ) : (
+                          <img src={editingArticle.coverImage} alt="" className="w-full h-24 object-cover" style={{ objectPosition: `${editingArticle.imagePosX ?? 50}% ${editingArticle.imagePosY ?? 50}%` }} />
+                        )
                       ) : (
-                        <img 
-                          src={editingArticle.coverImage} 
-                          alt="" 
-                          className="mt-1.5 h-32 rounded object-cover w-full" 
-                          style={{ objectPosition: `${editingArticle.imagePosX ?? 50}% ${editingArticle.imagePosY ?? 50}%` }}
-                        />
-                      )
-                    ) : (
-                      <div className="mt-1.5 h-32 rounded bg-gray-700 flex items-center justify-center text-gray-500 text-xs">No media selected</div>
-                    )}
-                    {/* Image Position Controls - X/Y sliders */}
+                        <div className="w-full h-24 bg-gray-700 flex items-center justify-center text-gray-400 text-xs gap-1.5">
+                          <ImageIcon className="w-4 h-4" /> Change Image
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                        <span className="text-white text-xs font-medium">Change Image</span>
+                      </div>
+                    </button>
                     {editingArticle.coverImage && !isVideoUrl(editingArticle.coverImage) && (
                       <div className="mt-2 space-y-1.5">
                         <div className="flex items-center gap-2">
                           <span className="text-[10px] text-gray-400 w-6">X:</span>
-                          <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            value={editingArticle.imagePosX ?? 50}
-                            onChange={(e) => setEditingArticle({ ...editingArticle, imagePosX: Number(e.target.value) })}
-                            className="flex-1 h-1.5 accent-[#D4873A]"
-                          />
+                          <input type="range" min="0" max="100" value={editingArticle.imagePosX ?? 50} onChange={(e) => setEditingArticle({ ...editingArticle, imagePosX: Number(e.target.value) })} className="flex-1 h-1.5 accent-[#D4873A]" />
                           <span className="text-[10px] text-gray-500 w-8">{editingArticle.imagePosX ?? 50}%</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-[10px] text-gray-400 w-6">Y:</span>
-                          <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            value={editingArticle.imagePosY ?? 50}
-                            onChange={(e) => setEditingArticle({ ...editingArticle, imagePosY: Number(e.target.value) })}
-                            className="flex-1 h-1.5 accent-[#D4873A]"
-                          />
+                          <input type="range" min="0" max="100" value={editingArticle.imagePosY ?? 50} onChange={(e) => setEditingArticle({ ...editingArticle, imagePosY: Number(e.target.value) })} className="flex-1 h-1.5 accent-[#D4873A]" />
                           <span className="text-[10px] text-gray-500 w-8">{editingArticle.imagePosY ?? 50}%</span>
                         </div>
                       </div>
@@ -2498,8 +2273,47 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
         </div>
       )}
 
-      {/* Image Manager Modal */}
-      {imageManagerArticle && (
+      {/* Global ImagePickerModal for Article Cover */}
+      <ImagePickerModal
+        isOpen={!!imageManagerArticle && !imageManagerType}
+        onClose={() => setImageManagerArticle(null)}
+        onSelect={async (url: string, position?: { x: number; y: number }) => {
+          if (imageManagerArticle) {
+            await fetch(`/api/articles/${imageManagerArticle._id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId, coverImage: url, ...(position ? { imagePosX: position.x, imagePosY: position.y } : {}) }),
+            });
+            setArticles(prev => prev.map(a => a._id === imageManagerArticle._id ? { ...a, coverImage: url, ...(position ? { imagePosX: position.x, imagePosY: position.y } : {}) } : a));
+            setImageManagerArticle(null);
+          }
+        }}
+        currentImage={imageManagerArticle?.coverImage}
+        currentPosition={imageManagerArticle ? { x: (imageManagerArticle as any).imagePosX ?? 50, y: (imageManagerArticle as any).imagePosY ?? 50 } : undefined}
+        searchTerm={imageManagerArticle?.title || ''}
+        showAiGenerate={true}
+        aiPromptContext={getSectionAiPrompt(imageManagerArticle?.category, imageManagerArticle?.title)}
+      />
+
+      {/* ImagePickerModal for Edit Article modal - updates editingArticle state only */}
+      <ImagePickerModal
+        isOpen={showEditImagePicker}
+        onClose={() => setShowEditImagePicker(false)}
+        onSelect={(url: string, position?: { x: number; y: number }) => {
+          if (editingArticle) {
+            setEditingArticle({ ...editingArticle, coverImage: url, ...(position ? { imagePosX: position.x, imagePosY: position.y } : {}) });
+          }
+          setShowEditImagePicker(false);
+        }}
+        currentImage={editingArticle?.coverImage}
+        currentPosition={editingArticle ? { x: editingArticle.imagePosX ?? 50, y: editingArticle.imagePosY ?? 50 } : undefined}
+        searchTerm={editingArticle?.title || ''}
+        showAiGenerate={true}
+        aiPromptContext={getSectionAiPrompt(editingArticle?.category, editingArticle?.title)}
+      />
+
+      {/* Legacy Image Manager Modal - only for detailed thumbnail editing */}
+      {imageManagerArticle && imageManagerType && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-800 rounded-xl border border-gray-700 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-4 border-b border-gray-700 flex items-center justify-between">
@@ -2509,46 +2323,8 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
               </button>
             </div>
             <div className="p-4">
-              {/* Image Type Selection */}
-              {!imageManagerType ? (
-                <div className="space-y-4">
-                  {/* Thumbnail - 3:2 ratio (300x200) */}
-                  <div 
-                    onClick={() => setImageManagerType('thumbnail')}
-                    className="bg-gray-700/50 rounded-xl p-4 cursor-pointer hover:bg-gray-700 transition-colors border-2 border-transparent hover:border-[#D4873A] flex gap-4 items-center"
-                  >
-                    <div className="bg-gray-900 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0" style={{ width: '120px', aspectRatio: '3/2' }}>
-                      {imageManagerArticle.thumbnailUrl || imageManagerArticle.coverImage ? (
-                        <img src={imageManagerArticle.thumbnailUrl || imageManagerArticle.coverImage} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-gray-600 text-2xl">+</span>
-                      )}
-                    </div>
-                    <div>
-                      <h4 className="text-white font-medium text-sm">Thumbnail</h4>
-                      <p className="text-gray-500 text-xs">300×200 (3:2) • List view</p>
-                    </div>
-                  </div>
-                  
-                  {/* Cover Image - ~2:1 ratio (1200x630) */}
-                  <div 
-                    onClick={() => setImageManagerType('cover')}
-                    className="bg-gray-700/50 rounded-xl p-4 cursor-pointer hover:bg-gray-700 transition-colors border-2 border-transparent hover:border-[#D4873A] flex gap-4 items-center"
-                  >
-                    <div className="bg-gray-900 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0" style={{ width: '190px', aspectRatio: '1200/630' }}>
-                      {imageManagerArticle.coverImage ? (
-                        <img src={imageManagerArticle.coverImage} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-gray-600 text-2xl">+</span>
-                      )}
-                    </div>
-                    <div>
-                      <h4 className="text-white font-medium text-sm">Cover Image</h4>
-                      <p className="text-gray-500 text-xs">1200×630 (≈2:1) • Article header</p>
-                    </div>
-                  </div>
-                </div>
-              ) : (
+              {/* Image Upload Options - imageManagerType is always set here */}
+              {imageManagerType && (
                 /* Image Upload Options */
                 <div>
                   <button onClick={() => setImageManagerType(null)} className="text-sm text-gray-400 hover:text-white mb-4 flex items-center gap-1">

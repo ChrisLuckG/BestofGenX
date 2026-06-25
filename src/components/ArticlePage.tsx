@@ -12,6 +12,7 @@ import RankingPollCard from "./RankingPollCard";
 import CommentSection from "./CommentSection";
 import { useAuth } from "@/context/AuthContext";
 import { isVideoUrl } from "@/utils/media";
+import MusicSongList from './games/MusicSongList';
 
 interface Article {
   _id: string;
@@ -19,6 +20,8 @@ interface Article {
   subtitle?: string;
   content: string;
   coverImage?: string;
+  thumbnailPosition?: { x: number; y: number };
+  coverPosition?: { x: number; y: number };
   imagePosX?: number;
   imagePosY?: number;
   mainCategory?: string;
@@ -34,7 +37,7 @@ interface Article {
   closesAt?: string;  // For voting/poll articles - when the poll closes
   commentsEnabled?: boolean;
   // Content type for special articles
-  contentType?: 'article' | 'rankroll' | 'tv' | 'radio' | 'arcade' | 'shop';
+  contentType?: 'article' | 'rankroll' | 'tv' | 'radio' | 'arcade' | 'shop' | 'music-community';
   linkedContentId?: string;
   // Styling options
   titleColor?: string;
@@ -50,6 +53,7 @@ interface ArticlePageProps {
   onOpenAuthor?: (authorName: string) => void;
   onOpenArticle?: (articleId: string) => void;
   onCoinAnimation?: (amount: number) => void;
+  onOpenRadio?: () => void;
   isDesktop?: boolean;
   readArticles?: Set<string>;
 }
@@ -64,6 +68,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   'culture': 'Culture',
   'news': 'News',
   'lifestyle': 'Lifestyle',
+  'rip': 'RIP',
 };
 
 const MAIN_CATEGORY_LABELS: Record<string, string> = {
@@ -138,15 +143,15 @@ function processArticleHtml(raw: string): string {
     }
   );
 
-  // 4. Wrap standalone images in the same card-style container
+  // 4. Wrap standalone images - full width, no max-width restriction
   html = html.replace(
     /<img([^>]*?)\/?>/gi,
     (_match, attrs) => {
       let cleanAttrs = String(attrs);
       // Strip inline style to use our own
       cleanAttrs = cleanAttrs.replace(/style="[^"]*"/gi, '');
-      return `<div class="article-image-card my-8 p-4 rounded-2xl shadow-xl flex justify-center" style="background:linear-gradient(135deg,#1A1A1A 0%,#2a2a2a 50%,#1A1A1A 100%);border:1px solid rgba(212,135,58,0.3);box-shadow:0 10px 30px rgba(0,0,0,0.25),0 0 0 1px rgba(212,135,58,0.1);">
-        <img${cleanAttrs} style="width:100%;max-width:480px;height:auto;border-radius:8px;display:block;box-shadow:0 4px 16px rgba(0,0,0,0.4);" />
+      return `<div class="article-image-card my-4 rounded-xl overflow-hidden" style="width:100%;">
+        <img${cleanAttrs} style="width:100%;height:auto;display:block;border-radius:12px;" />
       </div>`;
     }
   );
@@ -193,7 +198,7 @@ function processArticleHtml(raw: string): string {
   return html;
 }
 
-export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuthor, onOpenArticle, onCoinAnimation, isDesktop = false, readArticles = new Set() }: ArticlePageProps) {
+export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuthor, onOpenArticle, onCoinAnimation, onOpenRadio, isDesktop = false, readArticles = new Set() }: ArticlePageProps) {
   const { user, isLoggedIn } = useAuth();
   const [article, setArticle] = useState<Article | null>(null);
   const [loading, setLoading] = useState(true);
@@ -269,8 +274,18 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
           if (user?.id && data.pointsAwarded > 0) {
             console.log('Triggering coin animation for logged in user:', data.pointsAwarded);
             onCoinAnimation?.(data.pointsAwarded); // Already in BOGX
+          } else if (!user?.id) {
+            // Guest user: reward locally via localStorage
+            const GUEST_REWARD = 0.05; // Same as DEFAULT_CURRENCY_CONFIG.readArticle
+            const guestRead: string[] = JSON.parse(localStorage.getItem('bogx_guest_read') || '[]');
+            if (!guestRead.includes(articleId)) {
+              guestRead.push(articleId);
+              localStorage.setItem('bogx_guest_read', JSON.stringify(guestRead));
+              const guestCoins = parseFloat(localStorage.getItem('bogx_guest_coins') || '0');
+              localStorage.setItem('bogx_guest_coins', String(Math.round((guestCoins + GUEST_REWARD) * 100) / 100));
+              onCoinAnimation?.(GUEST_REWARD);
+            }
           }
-          // Guests don't get coins - they need to register
         }
       } catch (e) {
         console.error('Failed to fetch article:', e);
@@ -477,9 +492,9 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
         </div>
       )}
 
-      {/* Mobile Sticky Top Bar - Back, Share - stays visible while scrolling */}
+      {/* Mobile Sticky Top Bar - Back, Share - stays visible while scrolling. -mb collapses its layout space so the hero starts flush at the top. */}
       {!isDesktop && (
-        <div className="sticky top-0 left-0 right-0 z-50 flex items-center justify-between p-3 pointer-events-none" style={{ marginBottom: '-56px' }}>
+        <div className="sticky top-0 left-0 right-0 z-50 flex items-center justify-between p-3 pointer-events-none -mb-[68px]">
           <button 
             onClick={onBack} 
             className="pointer-events-auto p-2.5 bg-black/50 backdrop-blur-md rounded-full text-white hover:bg-black/70 transition-colors border border-white/20 shadow-lg"
@@ -496,31 +511,38 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
       )}
 
       {/* Hero Section - Cover Image/Video with Title Overlay */}
-      <div className={`relative w-full ${isDesktop ? 'aspect-[16/9]' : 'min-h-[60vh]'}`}>
+      <div
+        className={`relative w-full ${isDesktop ? (article.contentType === 'music-community' ? 'aspect-[3/1]' : 'aspect-[21/9]') : ''}`}
+        style={!isDesktop ? { minHeight: '300px' } : undefined}
+      >
         {/* Cover Image/Video */}
         {article.coverImage && (
           isVideoUrl(article.coverImage) ? (
             <video
               src={article.coverImage}
               className="absolute inset-0 w-full h-full object-cover z-0"
-              style={{ objectPosition: `${article.imagePosX ?? 50}% ${article.imagePosY ?? 50}%` }}
-              muted
-              autoPlay
-              loop
-              playsInline
+              style={{ objectPosition: `${article.coverPosition?.x ?? article.imagePosX ?? 50}% ${article.coverPosition?.y ?? article.imagePosY ?? 50}%` }}
+              muted autoPlay loop playsInline
             />
           ) : (
             <img
               src={article.coverImage}
               alt={article.title}
               className="absolute inset-0 w-full h-full object-cover z-0"
-              style={{ objectPosition: `${article.imagePosX ?? 50}% ${article.imagePosY ?? 50}%` }}
+              style={{ objectPosition: `${article.coverPosition?.x ?? article.imagePosX ?? 50}% ${article.coverPosition?.y ?? article.imagePosY ?? 50}%` }}
             />
           )
         )}
         
         {/* Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/30 z-[1]" />
+
+        {/* Mobile: Category Badge pinned just below the back button - fixed regardless of headline length */}
+        {!isDesktop && (
+          <div className="absolute top-16 left-4 z-20">
+            <CategoryBadge category={article.category} size="lg" />
+          </div>
+        )}
 
         {/* Desktop: Share Button on image - top right */}
         {isDesktop && (
@@ -538,7 +560,7 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
         <div className={`absolute bottom-0 left-0 right-0 z-10 ${isDesktop ? 'p-6' : 'p-4'}`}>
           {/* Category Badge + Read Time + Trending Badge */}
           <div className="flex items-center gap-2 mb-3 flex-wrap">
-            <CategoryBadge category={article.category} size="lg" />
+            {isDesktop && <CategoryBadge category={article.category} size="lg" />}
             {/* Countdown Timer Badge - if poll has endsAt */}
             {countdown && (
               <span
@@ -651,7 +673,7 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
       </div>
 
       {/* Article Content - relative z-10 to scroll over fixed image on mobile */}
-      <div className="px-5 py-8 bg-cream overflow-hidden relative z-10">
+      <div className="px-5 pt-4 pb-8 bg-cream overflow-hidden relative z-10">
         <div 
           className="article-prose prose prose-base max-w-none font-sans-lv
             prose-headings:font-display prose-headings:mt-10 prose-headings:mb-4 prose-headings:tracking-normal prose-headings:font-bold
@@ -665,6 +687,7 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
             prose-ul:my-5 prose-ol:my-5
             prose-blockquote:border-l-4 prose-blockquote:border-[#D4873A] prose-blockquote:not-italic prose-blockquote:pl-5 prose-blockquote:py-1 prose-blockquote:text-gray-700 prose-blockquote:font-medium prose-blockquote:my-6
             prose-img:rounded-xl prose-img:my-7 prose-img:shadow-md prose-img:max-w-full prose-img:w-full
+            [&_img[style*='width']]:w-auto [&_img[style*='width']]:my-0 [&_img[style*='width']]:rounded-none [&_img[style*='width']]:shadow-none
             prose-hr:my-12 prose-hr:border-t-2 prose-hr:border-gray-200
             [&_u]:underline [&_s]:line-through
             [&_.ql-align-center]:text-center [&_.ql-align-right]:text-right [&_.ql-align-justify]:text-justify
@@ -679,6 +702,13 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
             __html: processArticleHtml(article.content || '')
           }}
         />
+
+        {/* Music Community Song List - only for music-community articles */}
+        {article.contentType === 'music-community' && (
+          <div className="mt-6 border-t border-gray-100 pt-4">
+            <MusicSongList onOpenRadio={onOpenRadio} />
+          </div>
+        )}
 
         {/* Emoji Reactions - at end of article */}
         <div className="mt-8 mb-6 flex flex-col items-center">
@@ -740,6 +770,7 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
                         src={relatedArticle.coverImage} 
                         alt={relatedArticle.title} 
                         className="w-full h-full object-cover"
+                        style={{ objectPosition: `${relatedArticle.thumbnailPosition?.x ?? 50}% ${relatedArticle.thumbnailPosition?.y ?? 50}%` }}
                       />
                     </div>
                   )}

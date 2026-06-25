@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import User from '@/models/User';
 import crypto from 'crypto';
+import { awardBogx } from '@/lib/awardBogx';
 
 // GET - Get or create referral code for user
 export async function GET(request: NextRequest) {
@@ -75,10 +76,9 @@ export async function POST(request: NextRequest) {
     
     const REFERRAL_BONUS = 5.00; // 5.00 BOGX
     
-    // Update referrer
-    await User.findByIdAndUpdate(referrer._id, {
-      $inc: { points: REFERRAL_BONUS, referralCount: 1 }
-    });
+    // Update referrer - awardBogx credits coins + creates GameResult for rankings
+    await User.findByIdAndUpdate(referrer._id, { $inc: { referralCount: 1 } });
+    await awardBogx({ userId: referrer._id.toString(), amount: REFERRAL_BONUS, source: 'referral', description: 'Referral bonus' });
     
     // Update new user
     await User.findByIdAndUpdate(newUserId, {

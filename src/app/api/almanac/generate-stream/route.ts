@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
 
         await dbConnect();
         const openai = new OpenAI({ apiKey });
-        const { category, skipDuplicateCheck } = await request.json();
+        const { category, skipDuplicateCheck, profession, country, alive, targetCount: requestedCount } = await request.json();
 
         if (!category || !VALID_CATEGORIES.includes(category)) {
           send({ type: 'error', message: 'Invalid category' });
@@ -79,29 +79,72 @@ export async function POST(request: NextRequest) {
         }
 
         const forceCreate = skipDuplicateCheck === true;
+        
+        // Build filter description for status message
+        const filterParts = [];
+        if (profession) filterParts.push(profession);
+        if (country) filterParts.push(country);
+        if (alive === 'deceased') filterParts.push('Verstorben');
+        if (alive === 'alive') filterParts.push('Lebend');
+        const filterText = filterParts.length > 0 ? ` (${filterParts.join(', ')})` : '';
+        
         send({ type: 'status', message: '🔍 Lade existierende Einträge...' });
 
         // Get existing names
         let existingNames: string[] = [];
         if (category === 'people') {
-          const existing = await Person.find({}, { firstname: 1, lastname: 1 }).limit(100);
+          const existing = await Person.find({}, { firstname: 1, lastname: 1 }).limit(1000);
           existingNames = existing.map(p => `${p.firstname} ${p.lastname}`);
         } else {
-          const existing = await AlmanacItem.find({ category }, { 'data.title': 1, 'data.name': 1 }).limit(100);
+          const existing = await AlmanacItem.find({ category }, { 'data.title': 1, 'data.name': 1 }).limit(1000);
           existingNames = existing.map(i => i.data?.title || i.data?.name || '').filter(Boolean);
         }
 
         const avoidList = existingNames.length > 0 
-          ? `\n\nIMPORTANT: Do NOT include these (already in database): ${existingNames.slice(0, 30).join(', ')}. Generate DIFFERENT entries!`
+          ? `\n\nIMPORTANT: Do NOT include these (already in database): ${existingNames.slice(0, 200).join(', ')}. Generate DIFFERENT entries!`
           : '';
 
-        send({ type: 'status', message: '🤖 AI generiert 10 Einträge...' });
+        // Build filter instructions for AI
+        let filterInstructions = '';
+        if (category === 'people') {
+          // Get current month and day for birthday priority
+          const now = new Date();
+          const currentMonth = now.toLocaleString('en-US', { month: 'long' });
+          const currentDay = now.getDate();
+          
+          // Birthday priority instruction - ALWAYS added for people
+          const birthdayPriority = `\n\nBIRTHDAY PRIORITY: Today is ${currentMonth} ${currentDay}. PRIORITIZE people born in ${currentMonth}! At least 5 of the 10 entries should have birthdays in ${currentMonth}. The rest can be from any month.`;
+          
+          // Build filter parts
+          const filterConditions = [];
+          if (profession) filterConditions.push(`profession "${profession}"`);
+          if (country) filterConditions.push(`from ${country}`);
+          if (alive === 'deceased') filterConditions.push('who are DECEASED (died field must be set)');
+          if (alive === 'alive') filterConditions.push('who are still ALIVE (died field must be null/empty)');
+          
+          // CRITICAL: Always remind about GenX birth years
+          const genXReminder = '\n\nCRITICAL: ALL people MUST be born between 1960-1981 (Generation X)! NO Baby Boomers (before 1960), NO Millennials (after 1981). Double-check birth years!\nGenX artists were born in the 60s-70s and rose to fame in the late 80s/90s. Examples of the RIGHT era: Kurt Cobain (1967), Tupac (1971), Jay-Z (1969), Eminem (1972), Mariah Carey (1969), Trent Reznor (1969), Eddie Vedder (1964), Lenny Kravitz (1964). WRONG era (DO NOT generate): Madonna (1958), Prince (1958), Michael Jackson (1958) - they are Baby Boomers!';
+          
+          const diversityReminder = !country ? `\n\nCOUNTRY DIVERSITY: Do NOT generate only USA/UK people! Mix nationalities: include people from Japan, Germany, France, Brazil, Canada, Australia, Spain, Italy, Sweden, Mexico, etc. Max 3 people from USA, max 2 from UK.` : '';
+
+          if (filterConditions.length > 0) {
+            filterInstructions = `${birthdayPriority}${genXReminder}${diversityReminder}\n\nFILTER: Generate ONLY people ${filterConditions.join(' AND ')}! All entries MUST match these criteria.`;
+          } else {
+            filterInstructions = `${birthdayPriority}${genXReminder}${diversityReminder}`;
+          }
+        }
+
+        // Generate more entries than needed to account for duplicates
+        const targetCount = requestedCount || 10;
+        const generateCount = forceCreate ? targetCount : Math.min(targetCount * 3, 60); // Generate extra to replace duplicates and birth year rejects
+        
+        send({ type: 'status', message: `🤖 AI generiert ${targetCount} Einträge${filterText} (${generateCount} Vorschläge als Buffer)...` });
 
         const completion = await openai.chat.completions.create({
           model: "gpt-4o-mini",
           messages: [
             { role: "system", content: systemPrompt },
-            { role: "user", content: `Generate 10 ${category.toUpperCase()} entries for GenX Almanach.${avoidList}` }
+            { role: "user", content: `Generate ${generateCount} ${category.toUpperCase()} entries for GenX Almanach.${filterInstructions}${avoidList}${category === 'people' ? '\n\nREMINDER: Every single person MUST have born year between 1960 and 1981. Do NOT include anyone born before 1960 or after 1981. This is non-negotiable.' : ''}` }
           ],
           temperature: 0.95,
         });
@@ -134,12 +177,39 @@ export async function POST(request: NextRequest) {
         let savedCount = 0;
         let skippedCount = 0;
 
+        const VALID_PROFESSIONS = ['Music', 'Actor', 'Sport', 'Politik', 'Art', 'Tech', 'Comedy', 'Model', 'Other'];
+        const PROFESSION_MAP: Record<string, string> = {
+          musician: 'Music', singer: 'Music', rapper: 'Music', guitarist: 'Music', drummer: 'Music', bassist: 'Music', composer: 'Music', dj: 'Music',
+          actress: 'Actor', director: 'Actor', filmmaker: 'Actor',
+          athlete: 'Sport', footballer: 'Sport', basketball: 'Sport', soccer: 'Sport', tennis: 'Sport', boxer: 'Sport', swimmer: 'Sport',
+          politician: 'Politik', politics: 'Politik',
+          artist: 'Art', painter: 'Art', sculptor: 'Art', photographer: 'Art',
+          entrepreneur: 'Tech', programmer: 'Tech', engineer: 'Tech', scientist: 'Tech', inventor: 'Tech',
+          comedian: 'Comedy', humorist: 'Comedy',
+          supermodel: 'Model',
+        };
+
         if (category === 'people') {
-          for (let i = 0; i < items.length; i++) {
+          for (let i = 0; i < items.length && savedCount < targetCount; i++) {
             const item = items[i];
             const name = `${item.firstname} ${item.lastname}`;
             
-            send({ type: 'progress', current: i + 1, total: items.length, name, step: 'check' });
+            // Validate birth year is Gen X
+            const birthYear = item.born ? parseInt(item.born.substring(0, 4)) : 0;
+            if (birthYear < 1960 || birthYear > 1981) {
+              send({ type: 'skip', name, reason: `Geboren ${birthYear} - nicht Gen X (1960-1981)` });
+              skippedCount++;
+              continue;
+            }
+
+            // Normalize profession to valid enum value
+            const rawProf = (item.profession || '').trim();
+            if (!VALID_PROFESSIONS.includes(rawProf)) {
+              const mapped = PROFESSION_MAP[rawProf.toLowerCase()];
+              item.profession = mapped || 'Other';
+            }
+            
+            send({ type: 'progress', current: savedCount + 1, total: targetCount, name, step: 'check' });
 
             // Check duplicate
             if (!forceCreate) {
@@ -152,18 +222,22 @@ export async function POST(request: NextRequest) {
             }
 
             // Search image
-            send({ type: 'progress', current: i + 1, total: items.length, name, step: 'image' });
+            send({ type: 'progress', current: savedCount + 1, total: targetCount, name, step: 'image' });
             const imageUrl = await searchWikimediaImage(name);
             if (imageUrl) {
               item.image = imageUrl;
             }
 
-            // Save
-            send({ type: 'progress', current: i + 1, total: items.length, name, step: 'save' });
-            await Person.create(item);
-            savedCount++;
-            
-            send({ type: 'saved', name, image: imageUrl || null, index: savedCount });
+            // Save - individual try/catch so one bad entry doesn't kill the stream
+            send({ type: 'progress', current: savedCount + 1, total: targetCount, name, step: 'save' });
+            try {
+              await Person.create(item);
+              savedCount++;
+              send({ type: 'saved', name, image: imageUrl || null, index: savedCount });
+            } catch (saveErr: any) {
+              send({ type: 'skip', name, reason: `Save error: ${saveErr.message}` });
+              skippedCount++;
+            }
           }
         } else {
           const maxRankItem = await AlmanacItem.findOne({ category }).sort({ rank: -1 });

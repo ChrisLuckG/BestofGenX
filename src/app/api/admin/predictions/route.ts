@@ -158,7 +158,7 @@ export async function PATCH(request: NextRequest) {
         const userDoc = await User.findByIdAndUpdate(
           up.userId,
           correct
-            ? { $inc: { points: winAmount, gamesPlayed: 1, wins: 1 } }
+            ? { $inc: { bogxCoins: winAmount, gamesPlayed: 1, wins: 1 } }
             : { $inc: { gamesPlayed: 1 } },
           { new: true }
         ).select('pushSubscription notifyBattleResults');
