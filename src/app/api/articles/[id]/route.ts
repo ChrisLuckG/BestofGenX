@@ -168,11 +168,18 @@ export async function PUT(
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
     }
     
-    // If publishing for first time, set publishedAt
+    // If publishing for first time, set publishedAt + auto-place in template
     if (updates.status === 'published') {
-      const existing = await Article.findById(id).select('publishedAt').lean();
+      const existing = await Article.findById(id).select('publishedAt category').lean();
       if (!existing?.publishedAt) {
         updates.publishedAt = new Date();
+        // Fire-and-forget: auto-place in the right template section
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+        fetch(`${baseUrl}/api/editorial/auto-place`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ articleId: id, category: updates.category || existing?.category || 'culture', title: updates.title || '' }),
+        }).catch(() => {}); // silent fail — never block publishing
       }
     }
 

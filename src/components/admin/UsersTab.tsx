@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Loader2, Trash2, History, CheckCircle, XCircle, Clock, RefreshCw, Edit2, X, Upload, Shield, PenTool, Instagram, Facebook, Linkedin, Globe } from "lucide-react";
+import { Loader2, Trash2, History, CheckCircle, XCircle, Clock, RefreshCw, Edit2, X, Upload, Shield, PenTool, Instagram, Facebook, Linkedin, Globe, MessageSquare } from "lucide-react";
+import EditorialChatModal from "@/components/admin/EditorialChatModal";
+import EditorialConferenceModal from "@/components/admin/EditorialConferenceModal";
 
 interface UserData {
   _id: string;
@@ -13,6 +15,9 @@ interface UserData {
   isBot?: boolean;
   isAdmin?: boolean;
   isAuthor?: boolean;
+  isAIReporter?: boolean;
+  countryFlag?: string;
+  country?: string;
   avatar?: string;
   displayName?: string;
   bio?: string;
@@ -40,9 +45,11 @@ interface GameResultItem {
   cardTopic?: string;
 }
 
-export default function UsersTab() {
+export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGoToArticles?: () => void; userId?: string } = {}) {
   const [users, setUsers] = useState<UserData[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
+  const [editorialChatReporter, setEditorialChatReporter] = useState<any | null>(null);
+  const [reporterProfiles, setReporterProfiles] = useState<Record<string, any>>({});
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [isDeletingUsers, setIsDeletingUsers] = useState(false);
   const [isCreatingBots, setIsCreatingBots] = useState(false);
@@ -54,11 +61,36 @@ export default function UsersTab() {
   const [savingUser, setSavingUser] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [saveSuccessToast, setSaveSuccessToast] = useState<string | null>(null);
+  const [showConference, setShowConference] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchUsers();
+    initEditorialTeam();
   }, []);
+
+  const fetchReporterProfiles = async () => {
+    try {
+      const res = await fetch('/api/editorial/reporters');
+      const data = await res.json();
+      if (data.success) {
+        const map: Record<string, any> = {};
+        for (const r of data.reporters) {
+          if (r.user?._id) map[r.user._id] = r;
+        }
+        setReporterProfiles(map);
+      }
+    } catch { /* silent */ }
+  };
+
+  // Always seeds (idempotent), then loads profiles + refreshes user list
+  const initEditorialTeam = async () => {
+    try {
+      await fetch('/api/editorial/seed', { method: 'POST' });
+    } catch { /* silent on network error */ }
+    await fetchReporterProfiles();
+    fetchUsers();
+  };
 
   const fetchUsers = async () => {
     setUsersLoading(true);
@@ -254,6 +286,14 @@ export default function UsersTab() {
               {isCreatingBots ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : '🤖'}
               Create 20 Bots
             </button>
+            <button
+              onClick={() => setShowConference(true)}
+              className="flex items-center gap-1.5 bg-[#D4873A] hover:bg-[#c06a2a] px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-colors"
+              title="Open editorial conference room"
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              Conference
+            </button>
             {selectedUsers.size > 0 && (
               <button
                 onClick={deleteSelectedUsers}
@@ -316,7 +356,15 @@ export default function UsersTab() {
                         )}
                         <div className="flex flex-col leading-tight">
                           <span>{user.displayName || user.username}</span>
-                          {user.displayName && <span className="text-[9px] text-gray-500">@{user.username}</span>}
+                          {reporterProfiles[user._id] ? (
+                            <span className="text-[9px] text-blue-400">
+                              {reporterProfiles[user._id].specialty ||
+                               reporterProfiles[user._id].responsibilities?.split(',').slice(0, 2).join(' ·') ||
+                               reporterProfiles[user._id].role}
+                            </span>
+                          ) : user.displayName ? (
+                            <span className="text-[9px] text-gray-500">@{user.username}</span>
+                          ) : null}
                         </div>
                       </div>
                     </td>
@@ -334,8 +382,11 @@ export default function UsersTab() {
                         {user.isAdmin && (
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400" title="Admin">Admin</span>
                         )}
-                        {user.isAuthor && (
+                        {user.isAuthor && !reporterProfiles[user._id] && (
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#D4873A]/20 text-[#D4873A]" title="Author">Author</span>
+                        )}
+                        {reporterProfiles[user._id] && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 font-semibold" title="AI Reporter">AI</span>
                         )}
                       </div>
                     </td>
@@ -358,6 +409,15 @@ export default function UsersTab() {
                         >
                           <History className="w-3.5 h-3.5" />
                         </button>
+                        {reporterProfiles[user._id] && (
+                          <button
+                            onClick={() => setEditorialChatReporter(reporterProfiles[user._id])}
+                            className="p-1 hover:bg-gray-600 rounded text-[#D4873A] hover:text-[#D4873A]/80"
+                            title="Editorial Chat"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -659,6 +719,27 @@ export default function UsersTab() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Editorial Chat Modal */}
+      {editorialChatReporter && (
+        <EditorialChatModal
+          reporter={editorialChatReporter}
+          onClose={() => setEditorialChatReporter(null)}
+          onGoToArticles={onGoToArticles}
+        />
+      )}
+
+      {/* Editorial Conference Modal */}
+      {showConference && (
+        <EditorialConferenceModal
+          reporters={users.filter(u => u.isAIReporter)}
+          reporterProfiles={reporterProfiles}
+          userId={adminUserId || users.find(u => u.isAdmin)?._id || ''}
+          onClose={() => setShowConference(false)}
+          onGoToArticles={onGoToArticles}
+          onOpenReporterChat={(reporter) => setEditorialChatReporter(reporter)}
+        />
       )}
     </>
   );

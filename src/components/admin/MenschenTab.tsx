@@ -257,6 +257,9 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
       if (activeCategory === 'people' && countryFilter) {
         params.set('countryBorn', countryFilter);
       }
+      if (activeCategory === 'people' && aliveFilter) {
+        params.set('aliveStatus', aliveFilter);
+      }
       
       const res = await fetch(`/api/almanac?${params}`);
       const data = await res.json();
@@ -277,7 +280,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
 
   useEffect(() => {
     fetchData();
-  }, [activeCategory, professionFilter, countryFilter]);
+  }, [activeCategory, professionFilter, countryFilter, aliveFilter]);
 
   // Fetch article refs for people
   useEffect(() => {

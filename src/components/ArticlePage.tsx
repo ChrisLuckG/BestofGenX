@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { ArrowLeft, Clock, Eye, Share2, TrendingUp, Facebook, Linkedin, MessageCircle, Mail, Link2, Check } from "lucide-react";
 import EmojiReactions from "./EmojiReactions";
 import CategoryBadge from "./CategoryBadge";
@@ -408,6 +408,8 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
     }
   }, [article]);
 
+  const processedHtml = useMemo(() => processArticleHtml(article?.content || ''), [article?.content]);
+
   const handleLike = async () => {
     if (!isLoggedIn || !user?.id) {
       onShowLogin?.();
@@ -699,7 +701,7 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
             fontFamily: 'var(--font-sans-lv), "DM Sans", system-ui, sans-serif',
           } as React.CSSProperties}
           dangerouslySetInnerHTML={{ 
-            __html: processArticleHtml(article.content || '')
+            __html: processedHtml
           }}
         />
 

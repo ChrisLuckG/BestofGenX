@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
     const filter = searchParams.get('filter');
     const filterValue = searchParams.get('filterValue');
     const countryBorn = searchParams.get('countryBorn');
+    const aliveStatus = searchParams.get('aliveStatus');
     
     if (type === 'people') {
       const query: any = {};
@@ -27,6 +28,11 @@ export async function GET(request: NextRequest) {
       }
       if (countryBorn) {
         query.countryBorn = { $regex: `^${countryBorn}$`, $options: 'i' };
+      }
+      if (aliveStatus === 'alive') {
+        query.$and = [...(query.$and || []), { $or: [{ died: { $exists: false } }, { died: null }, { died: '' }] }];
+      } else if (aliveStatus === 'deceased') {
+        query.died = { $exists: true, $ne: null, $gt: '' };
       }
       
       const people = await Person.find(query).lean();

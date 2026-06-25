@@ -17,6 +17,19 @@ function getSystemPrompt(): string {
   }
 }
 
+// Fetch Tenor GIF for a search term
+async function getTenorGif(searchTerm: string): Promise<string | null> {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const res = await fetch(`${baseUrl}/api/tenor-search?q=${encodeURIComponent(searchTerm)}`);
+    const data = await res.json();
+    if (data.success && data.results?.length > 0) {
+      return data.results[0] || null;
+    }
+  } catch { /* silent */ }
+  return null;
+}
+
 // Fetch Wikipedia image for a search term
 async function getWikipediaImage(searchTerm: string): Promise<string | null> {
   try {
@@ -65,7 +78,7 @@ export async function POST(request: NextRequest) {
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Generate ranking list about ${topic}` }
+        { role: 'user', content: `Generate a ranking list about ${topic}. Include as many items as genuinely make sense for this topic — between 5 and 20. Do not pad with weak entries just to hit a number, and do not cut good ones just to stay short.` }
       ],
       response_format: { type: 'json_object' },
       temperature: 0.8,
@@ -86,18 +99,28 @@ export async function POST(request: NextRequest) {
       firstItem: ranking.items?.[0]
     });
 
-    // Fetch Wikipedia images for all items in parallel
+    // Fetch images for all items: Tenor GIF first, fallback Wikipedia, fallback topic GIF
     if (ranking.items && Array.isArray(ranking.items)) {
       const imagePromises = ranking.items.map(async (item: any) => {
-        if (item.wikiSearch) {
-          const image = await getWikipediaImage(item.wikiSearch);
-          return { ...item, image: image || '' };
+        const searchTerm = item.wikiSearch || item.title || topic;
+
+        // 1. Try Tenor for the specific item
+        let image = await getTenorGif(searchTerm);
+
+        // 2. Try Wikipedia
+        if (!image && item.wikiSearch) {
+          image = await getWikipediaImage(item.wikiSearch);
         }
-        return item;
+
+        // 3. Fall back to Tenor with the main topic (e.g. "Brad Pitt")
+        if (!image) {
+          image = await getTenorGif(topic);
+        }
+
+        return { ...item, image: image || '' };
       });
-      
+
       ranking.items = await Promise.all(imagePromises);
-      
       console.log('Fetched images:', ranking.items.filter((i: any) => i.image).length, '/', ranking.items.length);
     }
 

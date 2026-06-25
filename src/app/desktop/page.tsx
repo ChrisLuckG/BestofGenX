@@ -103,7 +103,33 @@ export default function DesktopPage() {
   const [welcomeCurrentRank, setWelcomeCurrentRank] = useState<number | null>(null);
   const [welcomeNotificationsEnabled, setWelcomeNotificationsEnabled] = useState(true);
   const [welcomeAI, setWelcomeAI] = useState<{ greeting: string; subtitle: string; fact: string; factReaction: string; callToAction: string } | null>(null);
+  const [pendingChallengeCount, setPendingChallengeCount] = useState(0);
+  const [activeBattleCount, setActiveBattleCount] = useState(0);
   
+  // Fetch pending battle counts on login
+  useEffect(() => {
+    if (!isLoggedIn || !user?.id) {
+      setPendingChallengeCount(0);
+      setActiveBattleCount(0);
+      return;
+    }
+    const badgeSeenKey = `arcade_badge_seen_${user.id}`;
+    const fetchBattleCounts = async () => {
+      if (sessionStorage.getItem(badgeSeenKey)) return;
+      try {
+        const res = await fetch(`/api/battles?userId=${user.id}&countOnly=true`);
+        const data = await res.json();
+        if (data.success) {
+          setPendingChallengeCount(data.pendingChallenges ?? 0);
+          setActiveBattleCount(data.activeBattles ?? 0);
+        }
+      } catch { /* silently fail */ }
+    };
+    fetchBattleCounts();
+    const interval = setInterval(fetchBattleCounts, 60000);
+    return () => clearInterval(interval);
+  }, [isLoggedIn, user?.id]);
+
   // Sidebar data with loading states
   const [rankings, setRankings] = useState<any[]>([]);
   const [rankingsLoading, setRankingsLoading] = useState(true);
@@ -950,10 +976,17 @@ export default function DesktopPage() {
           unreadCount={0}
           playedCount={0}
           totalCards={0}
+          pendingChallengeCount={pendingChallengeCount}
+          activeBattleCount={activeBattleCount}
           onPrimaryAction={() => setShowWelcomeBack(false)}
           onEnableNotifications={() => {
             setShowWelcomeBack(false);
             setActiveTab('notifications');
+          }}
+          onGoToBattles={() => {
+            setShowWelcomeBack(false);
+            setArcadeGame('quizzbattle');
+            setActiveTab('arcade');
           }}
         />
       )}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Plus, Edit2, Trash2, Save, X, Eye, EyeOff, Loader2, Sparkles, Upload, RefreshCw, MoreVertical, Copy, Archive, Calendar, MessageSquare, Link, Wand2, Image as ImageIcon } from "lucide-react";
+import { Plus, Edit2, Trash2, Save, X, Eye, EyeOff, Loader2, Sparkles, Upload, RefreshCw, MoreVertical, Copy, Archive, Calendar, MessageSquare, Link, Wand2, Image as ImageIcon, Star } from "lucide-react";
 import BlockEditor from "./BlockEditor";
 import ContainerBlock from "./ContainerBlock";
 import ImagePickerModal from "./ImagePickerModal";
@@ -149,6 +149,8 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
   const [hoveredTemplateArticle, setHoveredTemplateArticle] = useState<string | null>(null);
   const [hoveredListArticle, setHoveredListArticle] = useState<string | null>(null);
   const [sortByTemplate, setSortByTemplate] = useState(false);
+  const [selectedArticles, setSelectedArticles] = useState<Set<string>>(new Set());
+  const [bulkPublishing, setBulkPublishing] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('list');
   const [templateZoom, setTemplateZoom] = useState(100); // 50-150%
   const [viewsModal, setViewsModal] = useState<{ 
@@ -379,6 +381,42 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
       }
     } catch (error) {
       console.error('Error duplicating article:', error);
+    }
+  };
+
+  const bulkPublish = async (articleIds: string[]) => {
+    if (!articleIds.length || bulkPublishing) return;
+    setBulkPublishing(true);
+    let published = 0;
+    for (const id of articleIds) {
+      try {
+        await fetch(`/api/articles/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, status: 'published' }),
+        });
+        published++;
+      } catch { /* continue */ }
+    }
+    setArticles(prev => prev.map(a => articleIds.includes(a._id!) ? { ...a, status: 'published' } : a));
+    setSelectedArticles(new Set());
+    setBulkPublishing(false);
+    setToast({ message: `✅ ${published} article${published !== 1 ? 's' : ''} published`, articleId: '' });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const featureArticle = async (article: ArticleData) => {
+    if (!article._id || article.status !== 'published') return;
+    try {
+      await fetch('/api/editorial/auto-place', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ articleId: article._id, category: article.category, featured: true }),
+      });
+      setToast({ message: '⭐ Featured!', articleId: article._id });
+      setTimeout(() => setToast(null), 2000);
+    } catch (err) {
+      console.error('Feature error:', err);
     }
   };
 
@@ -1013,9 +1051,41 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
               ) : viewMode === 'list' ? (
               /* LIST VIEW */
               <div className="space-y-0">
+                {/* Bulk action bar */}
+                {selectedArticles.size > 0 && (
+                  <div className="flex items-center gap-3 px-4 py-2 bg-[#D4873A]/20 border border-[#D4873A]/40 rounded-lg mb-2">
+                    <span className="text-[11px] text-[#D4873A] font-bold">{selectedArticles.size} selected</span>
+                    <button
+                      onClick={() => bulkPublish(Array.from(selectedArticles))}
+                      disabled={bulkPublishing}
+                      className="flex items-center gap-1.5 px-3 py-1 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white text-[11px] font-bold rounded transition-colors"
+                    >
+                      {bulkPublishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />}
+                      Publish All
+                    </button>
+                    <button onClick={() => setSelectedArticles(new Set())} className="text-[10px] text-gray-400 hover:text-white ml-auto">
+                      Clear
+                    </button>
+                  </div>
+                )}
                 {/* Header */}
                 <div className="grid grid-cols-[28px_75px_40px_90px_90px_1fr_45px_95px_60px_80px_60px_105px] gap-4 px-4 py-2 text-[9px] text-gray-500 uppercase tracking-wider border-b border-gray-700 bg-gray-800/50">
-                  <div>#</div>
+                  <div>
+                    <input
+                      type="checkbox"
+                      className="w-3 h-3 accent-[#D4873A] cursor-pointer"
+                      title="Select all drafts"
+                      checked={filteredArticles.filter(a => a.status === 'draft').every(a => selectedArticles.has(a._id!)) && filteredArticles.some(a => a.status === 'draft')}
+                      onChange={(e) => {
+                        const draftIds = filteredArticles.filter(a => a.status === 'draft').map(a => a._id!);
+                        if (e.target.checked) {
+                          setSelectedArticles(prev => new Set(Array.from(prev).concat(draftIds)));
+                        } else {
+                          setSelectedArticles(prev => { const next = new Set(prev); draftIds.forEach(id => next.delete(id)); return next; });
+                        }
+                      }}
+                    />
+                  </div>
                   <div>Date</div>
                   <div></div>
                   <div>Type</div>
@@ -1044,8 +1114,21 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                     onMouseEnter={() => setHoveredListArticle(article._id!)}
                     onMouseLeave={() => setHoveredListArticle(null)}
                   >
-                    {/* Row Number */}
-                    <div className="text-[10px] text-gray-500">{index + 1}</div>
+                    {/* Checkbox */}
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        className="w-3 h-3 accent-[#D4873A] cursor-pointer"
+                        checked={selectedArticles.has(article._id!)}
+                        onChange={(e) => {
+                          setSelectedArticles(prev => {
+                            const next = new Set(prev);
+                            if (e.target.checked) next.add(article._id!); else next.delete(article._id!);
+                            return next;
+                          });
+                        }}
+                      />
+                    </div>
                     {/* Date - with time */}
                     <div className="text-[9px] text-gray-400">
                       {article.scheduledAt 
@@ -1333,6 +1416,11 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                       <button title="Archive" onClick={(e) => { e.stopPropagation(); archiveArticle(article._id!); }} className="p-1 text-gray-400 hover:text-white hover:bg-gray-600 rounded transition-colors">
                         <Archive className="w-3 h-3" />
                       </button>
+                      {article.status === 'published' && (
+                        <button title="Feature (promote to top)" onClick={(e) => { e.stopPropagation(); featureArticle(article); }} className="p-1 text-yellow-400/70 hover:text-yellow-400 hover:bg-yellow-900/30 rounded transition-colors">
+                          <Star className="w-3 h-3" />
+                        </button>
+                      )}
                       <button title="Delete" onClick={(e) => { e.stopPropagation(); deleteArticle(article._id!, article.title); }} className="p-1 text-red-400/70 hover:text-red-400 hover:bg-red-900/30 rounded transition-colors">
                         <Trash2 className="w-3 h-3" />
                       </button>

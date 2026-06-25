@@ -16,6 +16,7 @@ export interface IUser extends Document {
   gamesPlayed: number;
   isAdmin: boolean;
   isAuthor?: boolean;
+  isAIReporter?: boolean;
   displayName?: string;
   bio?: string;
   socialLinks?: {
@@ -150,6 +151,10 @@ const UserSchema = new Schema<IUser>(
       default: false,
     },
     isAuthor: {
+      type: Boolean,
+      default: false,
+    },
+    isAIReporter: {
       type: Boolean,
       default: false,
     },

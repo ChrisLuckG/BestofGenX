@@ -181,7 +181,7 @@ export default function AdminPage() {
         </div>
         {activeTab === 'arcade' && <ArcadeTab />}
         {activeTab === 'articles' && <ArticlesTab userId={user?.id} />}
-        {activeTab === 'users' && <UsersTab />}
+        {activeTab === 'users' && <UsersTab userId={user?.id} onGoToArticles={() => setActiveTab('articles')} />}
         {activeTab === 'rewards' && <RewardsTab />}
         {activeTab === 'rankroll' && <RankrollTab />}
         {activeTab === 'currency' && <CurrencyTab />}

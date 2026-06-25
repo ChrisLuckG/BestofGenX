@@ -22,13 +22,14 @@ export async function POST(request: NextRequest) {
     await dbConnect();
     const openai = new OpenAI({ apiKey });
 
-    const { category, skipDuplicateCheck } = await request.json();
+    const { category, skipDuplicateCheck, hint, count } = await request.json();
     
     if (!category || !VALID_CATEGORIES.includes(category)) {
       return NextResponse.json({ success: false, error: "Invalid category" }, { status: 400 });
     }
     
     const forceCreate = skipDuplicateCheck === true;
+    const generateCount = Math.min(Math.max(parseInt(count) || 10, 1), 30);
 
     console.log(`[Almanac] Generating 10 ${category} entries...`);
 
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
         },
         {
           role: "user",
-          content: `Generate 10 ${category.toUpperCase()} entries for GenX Almanach.${avoidList}`
+          content: `Generate ${generateCount} ${category.toUpperCase()} entries for GenX Almanach.${hint ? ` Focus on: ${hint}.` : ''}${avoidList}`
         }
       ],
       temperature: 0.95,

@@ -422,7 +422,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       }}
     >
       {/* Gradient overlay - only at bottom for text readability */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
+      <div className={`absolute inset-0 bg-gradient-to-t ${article.category === 'rip' ? 'from-white/80 via-white/20 to-transparent' : 'from-black via-black/30 to-transparent'}`} />
       
       {/* Category badge */}
       <div className="absolute top-3 left-3 z-20">
@@ -438,9 +438,12 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         </div>
       )}
       
+      {article.category === 'rip' && (
+        <div className="absolute bottom-16 right-4 z-20 text-white text-3xl leading-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]" style={{fontFamily:'Georgia,serif'}}>✝</div>
+      )}
       {/* Content - fixed at bottom */}
       <div className="absolute bottom-0 left-0 right-0 z-10 p-4">
-        <h2 className="font-display text-[28px] lg:text-[32px] tracking-wide text-white group-hover:text-[#D4873A] leading-tight mb-1.5 line-clamp-2 transition-colors">{article.title}</h2>
+        <h2 className={`font-display text-[28px] lg:text-[32px] tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} group-hover:text-[#D4873A] leading-tight mb-1.5 line-clamp-2 transition-colors`}>{article.title}</h2>
         <div className="flex items-center justify-between gap-2 text-[11px] text-white/70">
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-5 h-5 rounded-full overflow-hidden flex-shrink-0 border border-white/30">
@@ -531,14 +534,14 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           <div className="w-full h-full bg-gray-200" />
         )}
         {/* Dark gradient for text readability - only on desktop */}
-        {isDesktop && <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />}
+        {isDesktop && <div className={`absolute inset-0 bg-gradient-to-t ${article.category === 'rip' ? 'from-white/80 via-white/20 to-transparent' : 'from-black/70 via-black/20 to-transparent'}`} />}
         {/* Category badge - top left on mobile, bottom left on desktop */}
         <div className={`absolute ${isDesktop ? 'bottom-14 md:bottom-16' : 'top-3'} left-3 z-20 flex items-center gap-2`}>
           <CategoryBadge category={article.mainCategory} size="md" />
         </div>
         {/* Title ON the image - only on desktop */}
         {isDesktop && (
-          <h2 className="absolute bottom-3 left-3 right-3 font-display text-[26px] lg:text-3xl tracking-wide text-white group-hover:text-[#D4873A] leading-tight line-clamp-2 drop-shadow-lg transition-colors z-10">
+          <h2 className={`absolute bottom-3 left-3 right-3 font-display text-[26px] lg:text-3xl tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} group-hover:text-[#D4873A] leading-tight line-clamp-2 drop-shadow-lg transition-colors z-10`}>
             {article.title}
           </h2>
         )}
@@ -579,7 +582,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         )
       )}
       {/* Gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+      <div className={`absolute inset-0 bg-gradient-to-t ${article.category === 'rip' ? 'from-white/80 via-white/20 to-transparent' : 'from-black via-black/40 to-transparent'}`} />
       
       {/* Category badge - top left */}
       <div className="absolute top-2 left-2 z-20">
@@ -595,9 +598,12 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         </div>
       )}
       
+      {article.category === 'rip' && (
+        <div className="absolute bottom-8 right-2 z-20 text-white text-2xl leading-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]" style={{fontFamily:'Georgia,serif'}}>✝</div>
+      )}
       {/* Content - bottom */}
       <div className="absolute bottom-2 left-2 right-2 z-10">
-        <h3 className="font-display text-[18px] lg:text-xl tracking-wide text-white leading-tight mb-1 line-clamp-2">{article.title}</h3>
+        <h3 className={`font-display text-[18px] lg:text-xl tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} leading-tight mb-1 line-clamp-2`}>{article.title}</h3>
         <div className="flex items-center justify-end gap-1 text-[10px] text-white/70">
           {/* Moods & Comments inline */}
           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
@@ -628,7 +634,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         )
       )}
       {/* Gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
+      <div className={`absolute inset-0 bg-gradient-to-t ${article.category === 'rip' ? 'from-white/80 via-white/20 to-transparent' : 'from-black via-black/50 to-transparent'}`} />
       
       {/* Category badge - top left */}
       <div className="absolute top-2 left-2 z-20">
@@ -644,9 +650,12 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         </div>
       )}
       
+      {article.category === 'rip' && (
+        <div className="absolute bottom-10 right-3 z-20 text-white text-2xl leading-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]" style={{fontFamily:'Georgia,serif'}}>✝</div>
+      )}
       {/* Content - fixed at bottom */}
       <div className="absolute bottom-0 left-0 right-0 z-10 p-3">
-        <h3 className="font-display text-[19px] lg:text-xl tracking-wide text-white group-hover:text-[#D4873A] leading-tight mb-1 line-clamp-2 transition-colors">{article.title}</h3>
+        <h3 className={`font-display text-[19px] lg:text-xl tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} group-hover:text-[#D4873A] leading-tight mb-1 line-clamp-2 transition-colors`}>{article.title}</h3>
         <div className="flex items-center justify-between gap-2 text-[10px] text-white/70">
           <div className="flex items-center gap-2 min-w-0">
             <span className="truncate">{article.authorName}</span>
@@ -691,11 +700,14 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           ) : (
             <LazyImage src={article.coverImage} alt={article.title} className="w-full h-full object-cover" style={{ objectPosition: getImagePosition(article), transform: `scale(${(article.imageScale || 100) / 100})` }} />
           )}
+          {article.category === 'rip' && (
+            <div className="absolute bottom-1 right-1.5 z-20 text-white text-xl leading-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]" style={{fontFamily:'Georgia,serif'}}>✝</div>
+          )}
         </div>
       )}
       {/* Content - below image */}
       <div className="p-1.5">
-        <h3 onClick={() => onOpenArticle?.(article._id)} className={`font-display text-[20px] tracking-wide leading-tight line-clamp-2 transition-colors ${hasColorTheme ? 'text-white group-hover:text-gray-900' : 'text-white group-hover:text-gray-900'}`}>{article.title}</h3>
+        <h3 onClick={() => onOpenArticle?.(article._id)} className={`font-display text-[20px] tracking-wide leading-tight line-clamp-2 transition-colors ${article.category === 'rip' ? 'text-gray-900 group-hover:text-[#D4873A]' : hasColorTheme ? 'text-white group-hover:text-gray-900' : 'text-white group-hover:text-gray-900'}`}>{article.title}</h3>
         {/* Likes & Comments */}
         <div className={`flex items-center gap-2 mt-1 text-[8px] ${hasColorTheme ? 'text-gray-700' : 'text-gray-500'}`} onClick={(e) => e.stopPropagation()}>
           <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" />
@@ -855,10 +867,10 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
             />
           )}
           {/* Dark gradient for text readability - only on desktop */}
-          {isDesktop && <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />}
+          {isDesktop && <div className={`absolute inset-0 bg-gradient-to-t ${article.category === 'rip' ? 'from-white/80 via-white/20 to-transparent' : 'from-black/70 via-black/20 to-transparent'}`} />}
           {/* Title ON the image - only on desktop */}
           {isDesktop && (
-            <h3 className="absolute bottom-2 left-2 right-2 font-display text-lg lg:text-3xl tracking-wide text-white group-hover:text-[#D4873A] leading-tight line-clamp-3 drop-shadow-lg transition-colors">
+            <h3 className={`absolute bottom-2 left-2 right-2 font-display text-lg lg:text-3xl tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} group-hover:text-[#D4873A] leading-tight line-clamp-3 drop-shadow-lg transition-colors`}>
               {article.title}
             </h3>
           )}
