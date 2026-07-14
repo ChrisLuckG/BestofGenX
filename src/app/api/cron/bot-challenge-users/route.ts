@@ -11,7 +11,8 @@ const CHALLENGE_TARGETS = [
   { username: 'Bacon77', botUsername: 'ShadowHunter' },
 ];
 
-const TOPICS = ['sport', 'music', 'film', 'culture', 'tv'];
+// NOTE: culture removed - not enough DB questions for this theme yet
+const TOPICS = ['sport', 'music', 'film', 'tv'];
 const WAGER = 0.10;
 const ROUNDS = 3;
 

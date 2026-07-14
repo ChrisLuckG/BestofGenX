@@ -295,6 +295,25 @@ export const sounds = {
     tone(180, 0.28, 'sawtooth', 0.12, 0.12);
   },
 
+  // Loss - sad descending tones (money lost)
+  loss() {
+    tone(392, 0.15, 'sine', 0.18, 0);      // G4
+    tone(330, 0.15, 'sine', 0.16, 0.12);   // E4
+    tone(262, 0.25, 'sine', 0.14, 0.24);   // C4
+    tone(196, 0.35, 'sine', 0.12, 0.36);   // G3 - low end
+  },
+
+  // Timer tick - subtle tick for countdown pressure
+  tick() {
+    tone(800, 0.03, 'sine', 0.08);
+  },
+
+  // Timer warning - urgent beep when time is low
+  timerWarning() {
+    tone(880, 0.06, 'square', 0.12, 0);
+    tone(880, 0.06, 'square', 0.12, 0.1);
+  },
+
   setTrack(id: TrackId) {
     if (typeof window === 'undefined') return;
     // Stop current loop

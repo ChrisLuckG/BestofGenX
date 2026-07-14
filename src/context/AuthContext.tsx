@@ -40,7 +40,7 @@ interface AuthContextType {
   logout: () => void;
   incrementGuestGames: () => void;
   updateUser: (updates: Partial<User>) => void;
-  syncPointsToDb: (pointsChange: number, isWin: boolean) => Promise<void>;
+  syncPointsToDb: (pointsChange: number, isWin: boolean, skipGameResult?: boolean) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -244,7 +244,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const syncPointsToDb = async (pointsChange: number, isWin: boolean) => {
+  const syncPointsToDb = async (pointsChange: number, isWin: boolean, skipGameResult?: boolean) => {
     if (!user || user.isGuest) return;
     
     try {
@@ -255,6 +255,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           userId: user.id,
           pointsChange,
           isWin,
+          skipGameResult,
         }),
       });
       

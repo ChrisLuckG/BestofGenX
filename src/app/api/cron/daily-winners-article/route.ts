@@ -171,22 +171,43 @@ Return JSON with this structure:
 
 Keep it fun, GenX-flavored, energetic. Each player blurb should feel personal and different.`;
 
+    // Position-specific fallback blurbs (more varied than generic)
+    const fallbackBlurbs = [
+      (w: typeof top3[0]) => `${w.username} dominated the leaderboard from ${w.country}, crushing it with ${w.dailyPoints.toFixed(2)} BOGX! An absolute masterclass.`,
+      (w: typeof top3[0]) => `${w.username} from ${w.country} came in hot with ${w.dailyPoints.toFixed(2)} BOGX. So close to the crown!`,
+      (w: typeof top3[0]) => `${w.username} representing ${w.country} secured the bronze with ${w.dailyPoints.toFixed(2)} BOGX. Solid performance!`,
+    ];
+
     let aiContent: { intro: string; players: { blurb: string }[]; outro: string } = {
       intro: `Another fierce day of trivia battles is in the books! The competition was relentless and only the sharpest minds claimed the crown.`,
-      players: top3.map(w => ({ blurb: `${w.username} from ${w.country} played like a champion, racking up ${w.dailyPoints.toFixed(2)} BOGX.` })),
+      players: top3.map((w, i) => ({ blurb: fallbackBlurbs[i]?.(w) || `${w.username} from ${w.country} earned ${w.dailyPoints.toFixed(2)} BOGX.` })),
       outro: `Think you can do better? The arena opens again tomorrow at 10:00 AM!`
     };
     
     try {
+      console.log('[CRON] Generating AI content for daily winners...');
       const completion = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: aiPrompt }],
-        max_tokens: 400,
+        max_tokens: 500,
         temperature: 0.8,
         response_format: { type: 'json_object' },
       });
-      const parsed = JSON.parse(completion.choices[0]?.message?.content || '{}');
-      if (parsed.intro && parsed.players) aiContent = parsed;
+      const rawContent = completion.choices[0]?.message?.content || '{}';
+      console.log('[CRON] AI response:', rawContent.substring(0, 200));
+      const parsed = JSON.parse(rawContent);
+      
+      // Validate the response has all required fields
+      if (parsed.intro && Array.isArray(parsed.players) && parsed.players.length >= top3.length) {
+        aiContent = parsed;
+        console.log('[CRON] AI content accepted');
+      } else {
+        console.log('[CRON] AI response incomplete, using fallbacks. Got:', {
+          hasIntro: !!parsed.intro,
+          playersCount: parsed.players?.length || 0,
+          needed: top3.length
+        });
+      }
     } catch (aiError) {
       console.error('[CRON] AI generation failed, using fallback:', aiError);
     }
@@ -207,19 +228,19 @@ Keep it fun, GenX-flavored, energetic. Each player blurb should feel personal an
         : '';
       const color = rankColors[index];
       const bg = rankBg[index];
-      return `<div style="display:flex;align-items:stretch;background:${bg};border:1px solid ${color}30;border-left:4px solid ${color};border-radius:8px;margin:16px 0;overflow:hidden;">
-  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px 16px;min-width:56px;border-right:1px solid ${color}20;">
-    <span style="font-family:monospace;font-size:22px;font-weight:900;color:${color};line-height:1;">${rankNums[index]}</span>
-    <span style="font-size:9px;font-weight:700;letter-spacing:0.1em;color:${color}99;text-transform:uppercase;margin-top:2px;">${rankLabels[index]}</span>
-  </div>
-  <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;flex:1;">
-    <div style="width:44px;height:44px;min-width:44px;border-radius:50%;background-image:url('${avatarSrc}');background-size:cover;background-position:center;border:2px solid ${color};flex-shrink:0;"></div>
-    <div style="flex:1;min-width:0;">
-      <div style="font-size:13px;font-weight:800;letter-spacing:0.04em;color:#1a1a1a;text-transform:uppercase;margin-bottom:4px;">${player.username}</div>
-      <div style="display:flex;align-items:center;font-size:11px;color:#888;margin-bottom:6px;">${flagHtml}${player.country} &nbsp;·&nbsp; <strong style="color:${color};font-size:12px;">${player.dailyPoints.toFixed(2)} BOGX</strong></div>
-      <p style="margin:0;font-size:13px;color:#555;line-height:1.55;">${blurb}</p>
+      return `<div style="background:${bg};border:1px solid ${color}30;border-left:4px solid ${color};border-radius:8px;margin:16px 0;overflow:hidden;padding:12px 14px;">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:38px;flex-shrink:0;">
+      <span style="font-family:monospace;font-size:20px;font-weight:900;color:${color};line-height:1;">${rankNums[index]}</span>
+      <span style="font-size:8px;font-weight:700;letter-spacing:0.08em;color:${color}99;text-transform:uppercase;white-space:nowrap;">${rankLabels[index]}</span>
+    </div>
+    <div style="width:40px;height:40px;min-width:40px;border-radius:50%;background-image:url('${avatarSrc}');background-size:cover;background-position:center;border:2px solid ${color};flex-shrink:0;"></div>
+    <div style="flex:1;min-width:0;overflow:hidden;">
+      <div style="font-size:13px;font-weight:800;letter-spacing:0.04em;color:#1a1a1a;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${player.username}</div>
+      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;font-size:11px;color:#888;">${flagHtml}${player.country} &nbsp;·&nbsp; <strong style="color:${color};font-size:12px;">${player.dailyPoints.toFixed(2)} BOGX</strong></div>
     </div>
   </div>
+  <p style="margin:0;font-size:13px;color:#555;line-height:1.55;">${blurb}</p>
 </div>`;
     }).join('\n');
 

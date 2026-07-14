@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
-import fs from "fs";
-import path from "path";
 import dbConnect from "@/lib/mongoose";
 import DailyFact from "@/models/DailyFact";
 import Article from "@/models/Article";
+import { combinePrompts } from "@/lib/loadPrompt";
 
 // Cron job to generate daily "On This Day" article
 // Runs at 9:00 AM, creates article scheduled for 10:00 AM
@@ -23,13 +22,9 @@ function getDateKey(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+// Load modular prompts: core + daily-facts rules
 function getSystemPrompt(): string {
-  try {
-    const promptPath = path.join(process.cwd(), "src", "prompts", "system-prompt.txt");
-    return fs.readFileSync(promptPath, "utf-8");
-  } catch {
-    return "";
-  }
+  return combinePrompts(["core.txt", "daily-facts.txt"]);
 }
 
 // Generate image using the existing /api/generate-image endpoint

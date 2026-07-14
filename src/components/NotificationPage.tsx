@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bell, BellOff, Check, Zap, Clock, Trophy, Settings, Swords, Trash2, TrendingUp, Target, Music } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Bell, BellOff, Check, Zap, Clock, Trophy, Settings, Swords, Trash2, TrendingUp, Target, Music, X } from "lucide-react";
 import { sounds } from "@/utils/sounds";
 import { useAuth } from "@/context/AuthContext";
 import LogoLoader from "./LogoLoader";
@@ -188,6 +189,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
   const [selectedChallenge, setSelectedChallenge] = useState<any | null>(null);
   const [selectedPredictionResult, setSelectedPredictionResult] = useState<PredictionResultData | null>(null);
   const [loadingBattle, setLoadingBattle] = useState(false);
+  const [decliningChallenge, setDecliningChallenge] = useState(false);
   const [dismissedNotifications, setDismissedNotifications] = useState<Set<string>>(new Set());
   const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set());
   const [testPushLoading, setTestPushLoading] = useState(false);
@@ -377,6 +379,29 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
       console.error('Failed to load challenge:', error);
     } finally {
       setLoadingBattle(false);
+    }
+  };
+
+  // Decline a battle challenge - refunds the creator
+  const handleDeclineChallenge = async () => {
+    if (!selectedChallenge || !user?.id || decliningChallenge) return;
+    setDecliningChallenge(true);
+    try {
+      const res = await fetch(`/api/battles/${selectedChallenge.id}/decline`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oderId: user.id })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSelectedChallenge(null);
+      } else {
+        console.error('Failed to decline challenge:', data.error);
+      }
+    } catch (error) {
+      console.error('Failed to decline challenge:', error);
+    } finally {
+      setDecliningChallenge(false);
     }
   };
 
@@ -1139,11 +1164,17 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
         onPointsAwarded={onPointsAwarded}
       />
 
-      {/* Battle Result Modal */}
-      {(selectedBattle || loadingBattle) && (
+      {/* Battle Result / Challenge Modals - rendered via portal so they always
+          escape any ancestor stacking context (e.g. Desktop's <main> is capped
+          at z-0, which would otherwise trap a nested "fixed z-50" modal behind
+          the sticky header and make it invisible/unclickable). */}
+      {typeof document !== 'undefined' && createPortal(
+        <>
+      {/* Battle Result / Challenge Modal wrapper */}
+      {(selectedBattle || selectedChallenge || loadingBattle) && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          onClick={() => !loadingBattle && setSelectedBattle(null)}
+          className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+          onClick={() => !loadingBattle && (setSelectedBattle(null), setSelectedChallenge(null))}
         >
           {/* Blurry background - light theme */}
           <div className="absolute inset-0 bg-cream/90 backdrop-blur-md" />
@@ -1187,76 +1218,90 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
               className="relative z-10 w-full max-w-sm mx-4"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="bg-gradient-to-b from-zinc-900 to-black border border-[#D4873A]/30 rounded-2xl p-6">
+              <div className="bg-[#F5F0E8] border-2 border-[#E5DDD0] rounded-2xl shadow-2xl overflow-hidden">
                 {/* Header */}
-                <div className="text-center mb-6">
-                  <Swords className="w-10 h-10 text-[#D4873A] mx-auto mb-2" />
-                  <h3 className="text-xl font-bold text-white">Battle Challenge!</h3>
-                </div>
-                
-                {/* Challenger Info */}
-                <div className="flex items-center gap-4 mb-6 p-4 bg-cream rounded-xl">
-                  {selectedChallenge.challengerAvatar ? (
-                    <img src={selectedChallenge.challengerAvatar} alt="" className="w-14 h-14 rounded-full border-2 border-[#D4873A]" />
-                  ) : (
-                    <div className="w-14 h-14 rounded-full bg-[#D4873A]/20 flex items-center justify-center border-2 border-[#D4873A]">
-                      <span className="text-xl">👤</span>
-                    </div>
-                  )}
-                  <div>
-                    <p className="text-white font-bold text-lg">{selectedChallenge.challengerUsername}</p>
-                    <p className="text-white/50 text-sm">Rank #{selectedChallenge.challengerRank}</p>
-                    <p className="text-white/40 text-xs">{selectedChallenge.challengerWins} wins • {selectedChallenge.challengerGamesPlayed} games</p>
+                <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5DDD0]">
+                  <div className="flex items-center gap-2">
+                    <Swords className="w-5 h-5 text-[#D4873A]" />
+                    <h3 className="font-bold text-gray-900 text-lg">Battle Challenge!</h3>
                   </div>
-                </div>
-                
-                {/* Battle Details */}
-                <div className="space-y-3 mb-6">
-                  <div className="flex justify-between items-center py-2 border-b border-white/10">
-                    <span className="text-white/60">Topic</span>
-                    <span className="text-white font-semibold uppercase">{selectedChallenge.topic}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-white/10">
-                    <span className="text-white/60">Rounds</span>
-                    <span className="text-white font-semibold">{selectedChallenge.rounds}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-white/60">Wager</span>
-                    <span className="text-[#D4873A] font-bold text-lg flex items-center gap-1">
-                      {Number(selectedChallenge.wager).toFixed(2)}
-                      <img src="/images/bogxcoin.png" alt="BOGX" className="w-4 h-4" />
-                    </span>
-                  </div>
-                </div>
-                
-                {/* Action Buttons */}
-                <div className="space-y-2">
-                  <button
-                    onClick={() => {
-                      const battleId = selectedChallenge.id;
-                      setSelectedChallenge(null);
-                      if (onGoToBattle) {
-                        onGoToBattle(battleId);
-                      } else {
-                        window.location.href = `/mobile?tab=battles&battle=${battleId}`;
-                      }
-                    }}
-                    className="w-full py-3 bg-[#D4873A] text-white font-bold rounded-lg flex items-center justify-center gap-2"
-                  >
-                    <Swords className="w-5 h-5" />
-                    Accept & Play Now!
-                  </button>
-                  <button
+                  <button 
                     onClick={() => setSelectedChallenge(null)}
-                    className="w-full py-2 text-white/50 text-sm"
+                    className="w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-gray-600 transition-colors"
                   >
-                    Maybe Later
+                    <X className="w-4 h-4" />
                   </button>
+                </div>
+
+                <div className="p-5">
+                  {/* Challenger Info */}
+                  <div className="flex items-center gap-4 mb-5 p-4 bg-white rounded-xl border border-[#E5DDD0]">
+                    {selectedChallenge.challengerAvatar ? (
+                      <img src={selectedChallenge.challengerAvatar} alt="" className="w-14 h-14 rounded-full border-2 border-[#D4873A]" />
+                    ) : (
+                      <div className="w-14 h-14 rounded-full bg-[#D4873A]/10 flex items-center justify-center border-2 border-[#D4873A]">
+                        <span className="text-xl">👤</span>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-gray-900 font-bold text-lg">{selectedChallenge.challengerUsername}</p>
+                      <p className="text-gray-500 text-sm">Rank #{selectedChallenge.challengerRank}</p>
+                      <p className="text-gray-400 text-xs">{selectedChallenge.challengerWins} wins • {selectedChallenge.challengerGamesPlayed} games</p>
+                    </div>
+                  </div>
+                  
+                  {/* Battle Details */}
+                  <div className="space-y-1 mb-5">
+                    <div className="flex justify-between items-center py-2.5 border-b border-[#E5DDD0]">
+                      <span className="text-gray-500">Topic</span>
+                      <span className="text-gray-900 font-semibold uppercase">{selectedChallenge.topic}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2.5 border-b border-[#E5DDD0]">
+                      <span className="text-gray-500">Rounds</span>
+                      <span className="text-gray-900 font-semibold">{selectedChallenge.rounds}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2.5">
+                      <span className="text-gray-500">Wager</span>
+                      <span className="text-[#D4873A] font-bold text-lg flex items-center gap-1">
+                        {Number(selectedChallenge.wager).toFixed(2)}
+                        <img src="/images/bogxcoin.png" alt="BOGX" className="w-4 h-4" />
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* Action Buttons */}
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => {
+                        const battleId = selectedChallenge.id;
+                        setSelectedChallenge(null);
+                        if (onGoToBattle) {
+                          onGoToBattle(battleId);
+                        } else {
+                          window.location.href = `/mobile?tab=battles&battle=${battleId}`;
+                        }
+                      }}
+                      className="w-full py-3 bg-[#D4873A] hover:bg-[#c47830] text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-colors"
+                    >
+                      <Swords className="w-5 h-5" />
+                      Accept & Play Now!
+                    </button>
+                    <button
+                      onClick={handleDeclineChallenge}
+                      disabled={decliningChallenge}
+                      className="w-full py-2.5 text-red-500 hover:text-red-600 font-semibold text-sm transition-colors disabled:opacity-50"
+                    >
+                      {decliningChallenge ? 'Declining...' : 'Decline Challenge'}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           )}
         </div>
+      )}
+        </>,
+        document.body
       )}
 
       {/* Push Notification Explanation Modal - Bottom Sheet */}

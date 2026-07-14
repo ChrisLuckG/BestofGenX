@@ -40,6 +40,9 @@ export default function RankingPollCard({ poll, onPointsAwarded, onShowLogin, on
   const [userVotes, setUserVotes] = useState<Record<string, 'up' | 'down'>>({});
   const [votingItem, setVotingItem] = useState<string | null>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  // Guards against the race where a user can vote before we've confirmed
+  // whether they already voted (existing-vote check is async).
+  const [votesLoaded, setVotesLoaded] = useState(false);
 
   // Debug: log poll data
   useEffect(() => {
@@ -52,9 +55,13 @@ export default function RankingPollCard({ poll, onPointsAwarded, onShowLogin, on
 
   // Load existing votes
   useEffect(() => {
+    setVotesLoaded(false);
     const loadVotes = async () => {
       const visitorId = localStorage.getItem('bogx-visitor-id');
-      if (!user?.id && !visitorId) return;
+      if (!user?.id && !visitorId) {
+        setVotesLoaded(true);
+        return;
+      }
 
       try {
         const params = new URLSearchParams();
@@ -69,104 +76,118 @@ export default function RankingPollCard({ poll, onPointsAwarded, onShowLogin, on
         }
       } catch (e) {
         console.error('Failed to load votes:', e);
+      } finally {
+        setVotesLoaded(true);
       }
     };
     loadVotes();
   }, [poll._id, user?.id]);
 
   const handleVote = async (itemId: string, voteType: 'up' | 'down') => {
-    console.log('handleVote called:', { itemId, voteType, userId: user?.id, currentVotes: userVotes });
-    
+    // Block voting until we've confirmed whether the user already voted -
+    // prevents the race where a click during the initial load slips through.
+    if (!votesLoaded) return;
+
     // Require login - show modal
     if (!user?.id) {
-      console.log('No user, showing login modal');
       setShowLoginModal(true);
       return;
     }
 
     // Already voted on this item with same type? Do nothing
     if (userVotes[itemId] === voteType) {
-      console.log('Already voted same type, skipping');
       return;
     }
-    
-    // Already voted with different type? Allow changing vote (no extra coins)
-    const isChangingVote = !!userVotes[itemId];
 
-    setVotingItem(itemId);
+    const oldVoteType = userVotes[itemId];
+    const isNewVote = !oldVoteType;
 
-    const requestBody = {
-      userId: user.id,
-      optionId: itemId,
-      voteType,
-    };
-    console.log('Sending vote:', { pollId: poll._id, ...requestBody });
+    // OPTIMISTIC UPDATE: apply instantly so the UI + coin animation feel immediate.
+    // Rolled back below if the server call fails.
+    setLocalPoll(prev => ({
+      ...prev,
+      items: prev.items?.map(item => {
+        if (item.id !== itemId) return item;
+        if (oldVoteType) {
+          return {
+            ...item,
+            upvotes: oldVoteType === 'up' ? item.upvotes - 1 : (voteType === 'up' ? item.upvotes + 1 : item.upvotes),
+            downvotes: oldVoteType === 'down' ? item.downvotes - 1 : (voteType === 'down' ? item.downvotes + 1 : item.downvotes),
+          };
+        }
+        return {
+          ...item,
+          upvotes: voteType === 'up' ? item.upvotes + 1 : item.upvotes,
+          downvotes: voteType === 'down' ? item.downvotes + 1 : item.downvotes,
+        };
+      })
+    }));
+    setUserVotes(prev => ({ ...prev, [itemId]: voteType }));
+    if (isNewVote) {
+      onCoinAnimation?.(0.01);
+    }
 
     try {
       const res = await fetch(`/api/polls/${poll._id}/vote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({ userId: user.id, optionId: itemId, voteType }),
       });
 
       const data = await res.json();
-      console.log('Vote response:', data);
-      
-      if (data.success) {
-        const oldVoteType = userVotes[itemId];
-        
-        // Update vote counts locally but DON'T re-sort the list
-        setLocalPoll(prev => ({
-          ...prev,
-          items: prev.items?.map(item => {
-            if (item.id !== itemId) return item;
-            
-            // If changing vote, remove old and add new
-            if (oldVoteType) {
-              return {
-                ...item,
-                upvotes: oldVoteType === 'up' ? item.upvotes - 1 : (voteType === 'up' ? item.upvotes + 1 : item.upvotes),
-                downvotes: oldVoteType === 'down' ? item.downvotes - 1 : (voteType === 'down' ? item.downvotes + 1 : item.downvotes),
-              };
-            }
-            
-            // New vote
-            return { 
-              ...item, 
-              upvotes: voteType === 'up' ? item.upvotes + 1 : item.upvotes,
-              downvotes: voteType === 'down' ? item.downvotes + 1 : item.downvotes,
-            };
-          })
-        }));
-        
-        // Mark the vote locally
-        setUserVotes(prev => ({ ...prev, [itemId]: voteType }));
-        
-        // Award coins only for first vote (data.coinsAwarded will be 0 for vote changes)
-        if (data.coinsAwarded > 0) {
-          onCoinAnimation?.(data.coinsAwarded);
-        }
-      } else {
-        console.error('Vote failed:', data.error);
+
+      if (!data.success) {
+        console.error('Vote failed, rolling back:', data.error);
+        rollbackVote(itemId, voteType, oldVoteType);
       }
     } catch (e) {
-      console.error('Vote failed:', e);
-    } finally {
-      setVotingItem(null);
+      console.error('Vote failed, rolling back:', e);
+      rollbackVote(itemId, voteType, oldVoteType);
     }
+  };
+
+  // Revert an optimistic vote update if the server call fails
+  const rollbackVote = (itemId: string, appliedVoteType: 'up' | 'down', previousVoteType?: 'up' | 'down') => {
+    setLocalPoll(prev => ({
+      ...prev,
+      items: prev.items?.map(item => {
+        if (item.id !== itemId) return item;
+        const reverted = {
+          ...item,
+          upvotes: appliedVoteType === 'up' ? item.upvotes - 1 : item.upvotes,
+          downvotes: appliedVoteType === 'down' ? item.downvotes - 1 : item.downvotes,
+        };
+        if (previousVoteType) {
+          return {
+            ...reverted,
+            upvotes: previousVoteType === 'up' ? reverted.upvotes + 1 : reverted.upvotes,
+            downvotes: previousVoteType === 'down' ? reverted.downvotes + 1 : reverted.downvotes,
+          };
+        }
+        return reverted;
+      })
+    }));
+    setUserVotes(prev => {
+      const next = { ...prev };
+      if (previousVoteType) next[itemId] = previousVoteType;
+      else delete next[itemId];
+      return next;
+    });
   };
 
 
   return (
     <div className="bg-cream rounded-2xl border border-warm overflow-hidden">
-      {/* Vote count header - minimal */}
-      <div className="px-4 py-2 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent flex items-center justify-between">
-        <span className="text-xs text-gray-900">{localPoll.totalVotes} total votes</span>
-        {Object.keys(userVotes).length > 0 && (
-          <span className="text-xs text-[#D4873A] font-medium flex items-center gap-1">
-            ✓ You voted
-          </span>
-        )}
+      {/* Vote count header */}
+      <div className="px-4 py-2 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-gray-500">{localPoll.totalVotes} total votes</span>
+          {Object.keys(userVotes).length > 0 && (
+            <span className="text-xs text-[#D4873A] font-medium flex items-center gap-1">
+              ✓ You voted
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Items */}
@@ -177,7 +198,7 @@ export default function RankingPollCard({ poll, onPointsAwarded, onShowLogin, on
             item={item}
             rank={index + 1}
             userVote={userVotes[item.id]}
-            isVoting={votingItem === item.id}
+            isVoting={votingItem === item.id || !votesLoaded}
             isDesktop={isDesktop}
             onVote={handleVote}
           />

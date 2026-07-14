@@ -242,7 +242,7 @@ export default function MusicSongList({ playlist, onOpenRadio }: MusicSongListPr
 
         {/* Inline suggest form */}
         {showSuggest && isLoggedIn && (
-          <div className="mb-4 p-4 bg-white border border-warm rounded-xl shadow-sm">
+          <div className="mb-4 p-4 bg-cream border border-warm rounded-xl shadow-sm">
             {songSent ? (
               <div className="text-center py-3">
                 <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-green-100 flex items-center justify-center">
@@ -302,7 +302,7 @@ export default function MusicSongList({ playlist, onOpenRadio }: MusicSongListPr
           {sorted.map(song => {
             const voted = votedIds.has(song._id);
             return (
-              <div key={song._id} className="flex items-center gap-3 p-3 bg-white border border-warm rounded-xl hover:border-[#D4873A]/30 hover:shadow-sm transition-all">
+              <div key={song._id} className="flex items-center gap-3 p-3 bg-cream border border-warm rounded-xl hover:border-[#D4873A]/30 hover:shadow-sm transition-all">
                 <AlbumArt band={song.band} song={song.song} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-gray-900 truncate">{song.song}</p>

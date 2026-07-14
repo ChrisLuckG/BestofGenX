@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import Battle from '@/models/Battle';
 
-// GET - Check if the user has any coins locked in a pending wager.
-// A wager is "pending" when the user is the creator or opponent of a battle
-// that is still 'open' (waiting) or 'active' (in progress) and not yet completed.
+// GET - Get incoming challenges for a user (battles where they are challengedUser but haven't accepted yet)
+// Also returns pending wager amount for backwards compatibility
 export async function GET(request: NextRequest) {
   try {
     await dbConnect();
@@ -16,18 +15,30 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Missing userId' }, { status: 400 });
     }
 
-    const pendingBattles = await Battle.find({
+    // Find incoming challenges: open battles where user is the challengedUser (not creator)
+    const incomingChallenges = await Battle.find({
+      status: 'open',
+      challengedUser: userId,
+      creator: { $ne: userId }, // Not created by this user
+    })
+    .populate('creator', '_id username avatar')
+    .sort({ createdAt: -1 })
+    .lean();
+
+    // Also calculate pending wager amount (for backwards compatibility)
+    const allPendingBattles = await Battle.find({
       status: { $in: ['open', 'active'] },
       $or: [{ creator: userId }, { opponent: userId }],
     }).select('wager').lean();
 
-    const amount = pendingBattles.reduce((sum, b: any) => sum + (b.wager || 0), 0);
+    const amount = allPendingBattles.reduce((sum, b: any) => sum + (b.wager || 0), 0);
 
     return NextResponse.json(
       {
         success: true,
-        hasPending: pendingBattles.length > 0,
-        count: pendingBattles.length,
+        battles: incomingChallenges,
+        hasPending: allPendingBattles.length > 0,
+        count: incomingChallenges.length,
         amount: Math.round(amount * 100) / 100,
       },
       {
@@ -39,7 +50,7 @@ export async function GET(request: NextRequest) {
       }
     );
   } catch (error: any) {
-    console.error('Failed to check pending wager:', error);
+    console.error('Failed to check pending challenges:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

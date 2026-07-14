@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
-import { readFileSync } from "fs";
-import { join } from "path";
+import { combinePrompts } from "@/lib/loadPrompt";
 
-// Load the system prompt from the text file - NO FALLBACK
-const systemPromptPath = join(process.cwd(), "src/prompts/system-prompt.txt");
-const systemPrompt = readFileSync(systemPromptPath, "utf-8");
+// Load modular prompts: core + trivia rules
+const systemPrompt = combinePrompts(["core.txt", "trivia.txt"]);
 
 export async function POST(request: NextRequest) {
   try {

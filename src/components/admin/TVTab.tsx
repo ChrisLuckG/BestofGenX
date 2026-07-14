@@ -89,6 +89,17 @@ function SortableCategoryTab({
   );
 }
 
+const ytThumb = (youtubeId: string | undefined, stored: string) => stored || (youtubeId ? `https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg` : '');
+const ytThumbError = (e: React.SyntheticEvent<HTMLImageElement>, youtubeId: string | undefined) => {
+  const img = e.currentTarget;
+  const src = img.src;
+  if (youtubeId) {
+    if (src.includes('mqdefault')) { img.src = `https://img.youtube.com/vi/${youtubeId}/sddefault.jpg`; }
+    else if (src.includes('sddefault')) { img.src = `https://img.youtube.com/vi/${youtubeId}/default.jpg`; }
+    else if (src.includes('hqdefault')) { img.src = `https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg`; }
+  }
+};
+
 export default function TVTab() {
   const [videos, setVideos] = useState<TVVideo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -869,9 +880,10 @@ export default function TVTab() {
                     }}
                   >
                   <img
-                    src={video.thumbnail}
+                    src={ytThumb(video.youtubeId, video.thumbnail)}
                     alt={video.title}
                     className="w-full h-full object-cover"
+                    onError={(e) => ytThumbError(e, video.youtubeId)}
                   />
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <Play className="w-10 h-10 text-white fill-current" />
@@ -970,7 +982,7 @@ export default function TVTab() {
                   if (url) window.open(url, '_blank');
                 }}
               >
-                <img src={video.thumbnail} alt="" className="w-full h-full object-cover" />
+                <img src={ytThumb(video.youtubeId, video.thumbnail)} alt="" className="w-full h-full object-cover" onError={(e) => ytThumbError(e, video.youtubeId)} />
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <Play className="w-4 h-4 text-white fill-current" />
                 </div>

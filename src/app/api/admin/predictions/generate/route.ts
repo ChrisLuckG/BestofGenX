@@ -1,19 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import fs from 'fs';
-import path from 'path';
 import dbConnect from '@/lib/mongoose';
 import Prediction from '@/models/Prediction';
 import { berlinDateAt } from '@/lib/berlinTime';
+import { combinePrompts } from '@/lib/loadPrompt';
 
-// Load central system prompt
+// Load modular prompts: core + predictions rules
 function getSystemPrompt(): string {
-  try {
-    const promptPath = path.join(process.cwd(), 'src', 'prompts', 'system-prompt.txt');
-    return fs.readFileSync(promptPath, 'utf-8');
-  } catch {
-    return '';
-  }
+  return combinePrompts(['core.txt', 'predictions.txt']);
 }
 
 // POST - Bot generates prediction candidates (as drafts) for the next N days.
@@ -34,7 +28,7 @@ export async function POST(request: NextRequest) {
     const systemPrompt = getSystemPrompt();
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin' }).format(new Date());
 
-    // User prompt - rules are in system-prompt.txt AUFGABE 4
+    // User prompt - rules are in predictions.txt
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [

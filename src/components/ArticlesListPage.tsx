@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Search, FileText, Check, MessageCircle, Heart, Eye } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Search, FileText, Check, MessageCircle, Heart, Eye, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import CardMoodReactions from "@/components/CardMoodReactions";
 import { isVideoUrl } from "@/utils/media";
+
+const ARTICLES_PER_PAGE = 7;
 
 interface Article {
   _id: string;
@@ -12,6 +14,7 @@ interface Article {
   subtitle?: string;
   coverImage?: string;
   category: string;
+  contentType?: string;
   authorName?: string;
   readTime?: number;
   trending?: boolean;
@@ -46,6 +49,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   'news': 'News',
   'lifestyle': 'Lifestyle',
   'rip': 'RIP',
+  'eastercorn': 'Eastercorn',
 };
 
 interface ArticlesListPageProps {
@@ -57,18 +61,28 @@ export default function ArticlesListPage({ onOpenArticle, onShowLogin }: Article
   const { user, isLoggedIn } = useAuth();
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(1);
   const [filter, setFilter] = useState<'all' | 'unread' | 'commented' | 'liked' | 'read' | 'newest' | 'oldest'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [readArticles, setReadArticles] = useState<Set<string>>(new Set());
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  // Load articles
+  // Load initial articles
   useEffect(() => {
     const fetchArticles = async () => {
+      setLoading(true);
       try {
-        const res = await fetch('/api/articles?status=published&mainCategory=articles&limit=100');
+        const res = await fetch(`/api/articles?status=published&mainCategory=articles&limit=${ARTICLES_PER_PAGE}&page=1`);
         const data = await res.json();
         if (data.success) {
-          setArticles(data.articles);
+          const EXCLUDED_TYPES = ['arcade', 'rankroll', 'music-community', 'banner-page'];
+          const filtered = (data.articles || []).filter((a: Article) => !EXCLUDED_TYPES.includes(a.contentType || 'article'));
+          setArticles(filtered);
+          setHasMore(filtered.length === ARTICLES_PER_PAGE);
+          setPage(1);
         }
       } catch (error) {
         console.error('Error fetching articles:', error);
@@ -78,6 +92,48 @@ export default function ArticlesListPage({ onOpenArticle, onShowLogin }: Article
     };
     fetchArticles();
   }, []);
+
+  // Load more articles
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const nextPage = page + 1;
+      const res = await fetch(`/api/articles?status=published&mainCategory=articles&limit=${ARTICLES_PER_PAGE}&page=${nextPage}`);
+      const data = await res.json();
+      if (data.success) {
+        const EXCLUDED_TYPES = ['arcade', 'rankroll', 'music-community', 'banner-page'];
+        const filtered = (data.articles || []).filter((a: Article) => !EXCLUDED_TYPES.includes(a.contentType || 'article'));
+        if (filtered.length > 0) {
+          setArticles(prev => [...prev, ...filtered]);
+          setPage(prev => prev + 1);
+        }
+        setHasMore(filtered.length === ARTICLES_PER_PAGE);
+      }
+    } catch (error) {
+      console.error('Error loading more articles:', error);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [page, loadingMore, hasMore]);
+
+  // Intersection Observer for infinite scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
+          loadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [loadMore, hasMore, loadingMore, loading]);
 
   // Load read articles ONLY from DB (no localStorage)
   useEffect(() => {
@@ -151,7 +207,7 @@ export default function ArticlesListPage({ onOpenArticle, onShowLogin }: Article
       </div>
 
       {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
         {/* Filter Tabs */}
         <div className="px-4 pt-4 pb-3 flex gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
           {[
@@ -251,19 +307,19 @@ export default function ArticlesListPage({ onOpenArticle, onShowLogin }: Article
                     {article.title}
                   </h3>
 
-                  {/* Meta - Author & Date & Reactions */}
-                  <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
+                  {/* Meta - Author & Date */}
+                  <div className="text-[11px] text-gray-500">
                     {article.authorName && (
                       <span className="font-medium">{article.authorName}</span>
                     )}
-                    {article.authorName && article.createdAt && <span>·</span>}
+                    {article.authorName && article.createdAt && <span> · </span>}
                     {article.createdAt && (
                       <span>{formatDate(article.createdAt)}</span>
                     )}
-                    <span>·</span>
-                    <span onClick={(e) => e.stopPropagation()}>
-                      <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" />
-                    </span>
+                  </div>
+                  {/* Reactions on separate line */}
+                  <div className="mt-1" onClick={(e) => e.stopPropagation()}>
+                    <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" />
                   </div>
                 </div>
 
@@ -282,6 +338,27 @@ export default function ArticlesListPage({ onOpenArticle, onShowLogin }: Article
             );
           })
         )}
+        
+          {/* Load More Trigger */}
+          {!loading && hasMore && (
+            <div ref={loadMoreRef} className="flex justify-center py-4">
+              {loadingMore ? (
+                <div className="flex items-center gap-2 text-gray-500">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="text-xs">Loading more...</span>
+                </div>
+              ) : (
+                <div className="h-8" /> 
+              )}
+            </div>
+          )}
+          
+          {/* End of list */}
+          {!loading && !hasMore && articles.length > 0 && (
+            <div className="text-center py-4 text-xs text-gray-400">
+              No more articles
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { Film, Megaphone, Minus, Type, Trash2, GripVertical, ChevronUp, ChevronDown, Plus, X, Image as ImageIcon, Upload, Loader2, Headphones, Gamepad2, ShoppingBag, FileText, Tv, Sparkles, Music, Vote } from "lucide-react";
+import { Film, Megaphone, Minus, Type, Trash2, GripVertical, ChevronUp, ChevronDown, Plus, X, Image as ImageIcon, Upload, Loader2, Headphones, Gamepad2, ShoppingBag, FileText, Tv, Sparkles, Music, Vote, LayoutGrid } from "lucide-react";
 
 // List of available fonts (must match the CSS in globals.css)
 const AVAILABLE_FONTS = [
@@ -58,7 +58,7 @@ const ReactQuill = dynamic(
 ) as any;
 
 // Block types
-type BlockType = "text" | "video" | "ad" | "divider" | "image" | "radio-cta" | "arcade-cta" | "shop-cta" | "articles-cta" | "tv-cta" | "rankroll-cta" | "music-banner";
+type BlockType = "text" | "video" | "ad" | "divider" | "image" | "gallery" | "radio-cta" | "arcade-cta" | "shop-cta" | "articles-cta" | "tv-cta" | "rankroll-cta" | "music-banner";
 
 // CTA HTML constants - SVG icons for Android/Desktop, emoji fallback class for iOS (handled in CSS/JS)
 // iOS detection happens client-side in ArticlePage, swaps .cta-icon content
@@ -72,7 +72,7 @@ const ARTICLES_CTA_HTML = `<div class="cta-block articles-cta-banner" data-cta-t
 
 const TV_CTA_HTML = `<div class="cta-block tv-cta-banner" data-cta-type="tv" style="display:flex;flex-direction:column;gap:12px;padding:16px;background:linear-gradient(to right,rgba(59,130,246,0.15),rgba(59,130,246,0.05));border-radius:16px;border:1px solid rgba(59,130,246,0.2);margin:24px 0;cursor:pointer;"><div style="display:flex;align-items:center;gap:12px;"><div class="cta-icon" style="width:44px;height:44px;min-width:44px;background:#3B82F6;border-radius:50%;display:flex;align-items:center;justify-content:center;" data-emoji="📺"><svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 1.99-.9 1.99-2L23 5c0-1.1-.9-2-2-2zm0 14H3V5h18v12z"/></svg></div><div><div style="font-weight:700;color:#1a1a1a;font-size:14px;line-height:1.3;">Watch GenX TV</div><div style="font-size:12px;color:#666;line-height:1.4;">Classic videos and nostalgic content.</div></div></div><span style="display:block;text-align:center;padding:10px 18px;background:#3B82F6;color:white;border-radius:10px;font-weight:700;font-size:13px;">Go to TV →</span></div>`;
 
-const RANKROLL_CTA_HTML = `<div class="cta-block rankroll-cta-banner" data-cta-type="rankroll" data-rankroll-id="" style="display:flex;flex-direction:column;gap:12px;padding:16px;background:linear-gradient(to right,rgba(212,135,58,0.15),rgba(212,135,58,0.05));border-radius:16px;border:1px solid rgba(212,135,58,0.2);margin:24px 0;cursor:pointer;"><div style="display:flex;align-items:center;gap:12px;"><div class="cta-icon" style="width:44px;height:44px;min-width:44px;background:#D4873A;border-radius:50%;display:flex;align-items:center;justify-content:center;" data-emoji="🗳️"><svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M18 13h-.68l-2 2h1.91L19 17H5l1.78-2h2.05l-2-2H6l-3 3v4c0 1.1.89 2 1.99 2H19c1.1 0 2-.89 2-2v-4l-3-3zm-1-5.05l-4.95 4.95-3.54-3.54 4.95-4.95 3.54 3.54zm-4.24-5.66L6.39 8.66a.996.996 0 000 1.41l4.95 4.95c.39.39 1.02.39 1.41 0l6.36-6.36a.996.996 0 000-1.41l-4.95-4.95a.996.996 0 00-1.41 0z"/></svg></div><div><div style="font-weight:700;color:#1a1a1a;font-size:14px;line-height:1.3;">Vote Now!</div><div style="font-size:12px;color:#666;line-height:1.4;">Cast your vote and rank your favorites.</div></div></div><span style="display:block;text-align:center;padding:10px 18px;background:#D4873A;color:white;border-radius:10px;font-weight:700;font-size:13px;">Go to Rankroll →</span></div>`;
+const RANKROLL_CTA_HTML = `<div class="cta-block rankroll-cta-banner" data-cta-type="rankroll" data-rankroll-id="" data-rankroll-title="" style="display:flex;flex-direction:column;gap:12px;padding:16px;background:linear-gradient(to right,rgba(212,135,58,0.15),rgba(212,135,58,0.05));border-radius:16px;border:1px solid rgba(212,135,58,0.2);margin:24px 0;cursor:pointer;"><div style="display:flex;align-items:center;gap:12px;"><div class="cta-icon" style="width:44px;height:44px;min-width:44px;background:#D4873A;border-radius:50%;display:flex;align-items:center;justify-content:center;" data-emoji="🗳️"><svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M18 13h-.68l-2 2h1.91L19 17H5l1.78-2h2.05l-2-2H6l-3 3v4c0 1.1.89 2 1.99 2H19c1.1 0 2-.89 2-2v-4l-3-3zm-1-5.05l-4.95 4.95-3.54-3.54 4.95-4.95 3.54 3.54zm-4.24-5.66L6.39 8.66a.996.996 0 000 1.41l4.95 4.95c.39.39 1.02.39 1.41 0l6.36-6.36a.996.996 0 000-1.41l-4.95-4.95a.996.996 0 00-1.41 0z"/></svg></div><div><div class="rankroll-title" style="font-weight:700;color:#1a1a1a;font-size:14px;line-height:1.3;">Vote Now!</div><div style="font-size:12px;color:#666;line-height:1.4;">Vote & rank your favorites</div></div></div><span style="display:block;text-align:center;padding:10px 18px;background:#D4873A;color:white;border-radius:10px;font-weight:700;font-size:13px;">VOTE NOW</span></div>`;
 
 // Music Banner - dynamic monthly playlist banner (data fetched at render time)
 const MUSIC_BANNER_HTML = `<div class="music-banner-block" data-block-type="music-banner" style="position:relative;width:100%;border-radius:16px;overflow:hidden;margin:24px 0;cursor:pointer;aspect-ratio:1024/200;"><img src="/images/Hintergund/music.png" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" /><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding-left:35%;padding-right:15%;"><div style="text-align:center;"><h2 style="font-family:var(--font-display),Bebas Neue,sans-serif;font-size:clamp(24px,4vw,48px);color:#c8e6a0;text-shadow:2px 2px 4px rgba(0,0,0,0.5);font-style:italic;margin:0 0 8px 0;letter-spacing:0.05em;" data-dynamic="month-title">MONTHLY MELODIES</h2><div style="display:inline-block;padding:4px 16px;border-radius:6px;background:#9ae66e;color:#1a1a1a;font-size:12px;font-weight:700;letter-spacing:0.1em;margin-bottom:8px;">MONTHLY SPOTIFY PLAYLIST</div><p style="color:#c8e6a0;font-size:14px;margin:0 0 12px 0;">Our community picks of the month</p><div style="display:flex;align-items:center;justify-content:center;gap:16px;font-size:13px;color:#c8e6a0;"><span style="display:flex;align-items:center;gap:6px;"><img src="https://upload.wikimedia.org/wikipedia/commons/8/84/Spotify_icon.svg" alt="" style="width:18px;height:18px;" /><strong data-dynamic="song-count">0 SONGS</strong></span><span>•</span><span style="display:flex;align-items:center;gap:6px;">👥 <strong data-dynamic="vote-count">0 VOTES</strong></span></div></div></div></div>`;
@@ -86,6 +86,11 @@ interface Block {
 interface BlockEditorProps {
   value: string; // HTML content
   onChange: (html: string) => void;
+  articleContext?: {
+    title?: string;
+    subCategory?: string; // e.g. "History" for auto-generated history articles
+    tags?: string[];
+  };
 }
 
 const generateId = () => `block-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -185,6 +190,14 @@ function parseHtmlToBlocks(html: string): Block[] {
         return;
       }
       
+      // Gallery Slider Block
+      if (el.classList.contains("gallery-slider-block")) {
+        flushText();
+        const imagesStr = el.getAttribute("data-images") || "[]";
+        blocks.push({ id: generateId(), type: "gallery", content: imagesStr });
+        return;
+      }
+
       // Image (standalone)
       if (el.tagName === "IMG") {
         flushText();
@@ -257,6 +270,21 @@ function blocksToHtml(blocks: Block[]): string {
           return ARTICLES_CTA_HTML;
         case "rankroll-cta":
           return block.content || RANKROLL_CTA_HTML;
+        case "gallery": {
+          let imgs: string[] = [];
+          try { imgs = JSON.parse(block.content || '[]'); } catch { imgs = []; }
+          if (imgs.length === 0) return '';
+          const slides = imgs.map((url, i) =>
+            `<img src="${url}" data-gallery-index="${i}" style="height:240px;width:auto;flex-shrink:0;object-fit:cover;border-radius:12px;cursor:pointer;display:block;" alt="Photo ${i + 1}" />`
+          ).join('');
+          const arrowBase = `position:absolute;top:50%;transform:translateY(-50%);z-index:10;width:38px;height:38px;background:rgba(10,10,10,0.65);border:none;color:white;border-radius:50%;cursor:pointer;font-size:22px;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:0;line-height:1;`;
+          return `<div class="gallery-slider-block" data-images='${JSON.stringify(imgs)}' style="position:relative;margin:28px 0;">` +
+            `<button class="gsl-prev" style="${arrowBase}left:10px;">&#8249;</button>` +
+            `<div class="gsl-track" style="display:flex;align-items:center;gap:8px;overflow-x:auto;scroll-behavior:smooth;padding:14px;scrollbar-width:none;-ms-overflow-style:none;">${slides}</div>` +
+            `<button class="gsl-next" style="${arrowBase}right:10px;">&#8250;</button>` +
+            `<div style="text-align:right;font-size:11px;color:#999;padding:4px 14px 8px;">📸 ${imgs.length} photo${imgs.length !== 1 ? 's' : ''} · click to enlarge</div>` +
+            `</div>`;
+        }
         case "music-banner":
           return MUSIC_BANNER_HTML;
         default:
@@ -278,7 +306,13 @@ function toEmbedUrl(url: string): string | null {
   return null;
 }
 
-export default function BlockEditor({ value, onChange }: BlockEditorProps) {
+// Available rankings for dropdown
+interface AvailableRanking {
+  _id: string;
+  title: string;
+}
+
+export default function BlockEditor({ value, onChange, articleContext }: BlockEditorProps) {
   const [blocks, setBlocks] = useState<Block[]>(() => parseHtmlToBlocks(value));
   const [addMenuIndex, setAddMenuIndex] = useState<number | null>(null);
   const [videoUrlInput, setVideoUrlInput] = useState("");
@@ -293,6 +327,19 @@ export default function BlockEditor({ value, onChange }: BlockEditorProps) {
   const [rewritingBlockId, setRewritingBlockId] = useState<string | null>(null);
   const lastEmittedHtml = useRef<string>(blocksToHtml(blocks));
   const initializedRef = useRef(false);
+  const [availableRankings, setAvailableRankings] = useState<AvailableRanking[]>([]);
+  
+  // Load available rankings for dropdown
+  useEffect(() => {
+    fetch('/api/polls?type=ranking&status=active')
+      .then(res => res.json())
+      .then(data => {
+        if (data.polls) {
+          setAvailableRankings(data.polls.map((p: any) => ({ _id: p._id, title: p.title })));
+        }
+      })
+      .catch(err => console.error('Failed to load rankings:', err));
+  }, []);
 
   // Strip whitespace for comparison (handles HTML normalization differences)
   const normalizeForCompare = (html: string) => html.replace(/\s+/g, '').trim();
@@ -375,7 +422,11 @@ export default function BlockEditor({ value, onChange }: BlockEditorProps) {
       bodyText = htmlContent.replace(/<[^>]*>/g, '').trim();
     }
     
-    if (!headlineText && !bodyText) return;
+    // Check if block is empty - for History articles, generate new fact
+    const isEmpty = !headlineText && !bodyText;
+    const isHistoryArticle = articleContext?.subCategory?.toLowerCase() === 'history';
+    
+    if (isEmpty && !isHistoryArticle) return; // Only allow empty block AI for history articles
     
     setRewritingBlockId(blockId);
     
@@ -388,6 +439,9 @@ export default function BlockEditor({ value, onChange }: BlockEditorProps) {
           headlineText: headlineText,
           hasHeadline: hasHeadline,
           fullContext: allContent,
+          generateNew: isEmpty && isHistoryArticle,
+          articleTitle: articleContext?.title,
+          articleTags: articleContext?.tags,
         }),
       });
       
@@ -400,6 +454,9 @@ export default function BlockEditor({ value, onChange }: BlockEditorProps) {
         } else if (hasHeadline) {
           // Keep original headline, new body
           newContent = `<h2>${headlineText}</h2><p>${data.rewrittenText}</p>`;
+        } else if (data.rewrittenHeadline) {
+          // New fact with headline (generated)
+          newContent = `<h2>${data.rewrittenHeadline}</h2><p>${data.rewrittenText}</p>`;
         } else {
           // Just paragraph
           newContent = `<p>${data.rewrittenText}</p>`;
@@ -423,6 +480,7 @@ export default function BlockEditor({ value, onChange }: BlockEditorProps) {
     else if (type === "articles-cta") blockContent = ARTICLES_CTA_HTML;
     else if (type === "tv-cta") blockContent = TV_CTA_HTML;
     else if (type === "rankroll-cta") blockContent = RANKROLL_CTA_HTML;
+    else if (type === "gallery") blockContent = "[]";
     else if (type === "music-banner") blockContent = MUSIC_BANNER_HTML;
     
     const newBlock: Block = {
@@ -626,6 +684,7 @@ export default function BlockEditor({ value, onChange }: BlockEditorProps) {
                 block={block}
                 onChange={(content) => updateBlock(block.id, content)}
                 quillModules={quillModules}
+                availableRankings={availableRankings}
               />
             </div>
 
@@ -787,11 +846,128 @@ function BlockContent({
   block,
   onChange,
   quillModules,
+  availableRankings,
 }: {
   block: Block;
   onChange: (content: string) => void;
   quillModules: any;
+  availableRankings: AvailableRanking[];
 }) {
+  const [galleryUploading, setGalleryUploading] = useState(false);
+  const [galleryUrlInput, setGalleryUrlInput] = useState('');
+  const [showGalleryAdd, setShowGalleryAdd] = useState(false);
+  const galleryFileRef = useRef<HTMLInputElement>(null);
+
+  if (block.type === "gallery") {
+    let images: string[] = [];
+    try { images = JSON.parse(block.content || '[]'); } catch { images = []; }
+
+    const addImage = (url: string) => {
+      onChange(JSON.stringify([...images, url]));
+      setGalleryUrlInput('');
+      setShowGalleryAdd(false);
+    };
+
+    const removeImage = (i: number) => {
+      onChange(JSON.stringify(images.filter((_, idx) => idx !== i)));
+    };
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setGalleryUploading(true);
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.success && data.url) addImage(data.url);
+      } catch { /* ignore */ } finally {
+        setGalleryUploading(false);
+        if (galleryFileRef.current) galleryFileRef.current.value = '';
+      }
+    };
+
+    return (
+      <div className="p-3">
+        <div className="flex items-center gap-2 mb-3 text-xs text-gray-500">
+          <LayoutGrid className="w-4 h-4 text-[#D4873A]" />
+          <span className="font-medium text-gray-700">Gallery Slider</span>
+          <span className="text-gray-400">({images.length} image{images.length !== 1 ? 's' : ''})</span>
+        </div>
+
+        {images.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-thin">
+            {images.map((url, i) => (
+              <div key={i} className="relative flex-shrink-0 group/gimg">
+                <img src={url} alt="" className="h-20 w-auto rounded-lg object-cover border border-gray-200" />
+                <button
+                  type="button"
+                  onClick={() => removeImage(i)}
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover/gimg:opacity-100 transition-opacity shadow"
+                >
+                  <X className="w-3 h-3 text-white" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {showGalleryAdd ? (
+          <div className="border border-dashed border-[#D4873A]/40 rounded-lg p-3 space-y-2 bg-[#D4873A]/5">
+            <input
+              ref={galleryFileRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => galleryFileRef.current?.click()}
+              disabled={galleryUploading}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white text-xs font-medium rounded-lg transition-colors"
+            >
+              {galleryUploading ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Uploading…</> : <><Upload className="w-3.5 h-3.5" />Upload from device</>}
+            </button>
+            <div className="flex items-center gap-2 text-[10px] text-gray-400">
+              <div className="flex-1 h-px bg-gray-300" /><span>OR</span><div className="flex-1 h-px bg-gray-300" />
+            </div>
+            <div className="flex gap-1">
+              <input
+                type="url"
+                value={galleryUrlInput}
+                onChange={(e) => setGalleryUrlInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (galleryUrlInput.trim()) addImage(galleryUrlInput.trim()); } }}
+                placeholder="Paste image URL…"
+                className="flex-1 px-2 py-1.5 text-xs bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-[#D4873A]"
+              />
+              <button
+                type="button"
+                onClick={() => { if (galleryUrlInput.trim()) addImage(galleryUrlInput.trim()); }}
+                disabled={!galleryUrlInput.trim()}
+                className="px-3 py-1.5 bg-[#D4873A] hover:bg-[#c06a2a] disabled:opacity-40 text-white text-xs font-bold rounded-lg"
+              >Add</button>
+            </div>
+            <button type="button" onClick={() => setShowGalleryAdd(false)} className="w-full text-[10px] text-gray-400 hover:text-gray-600">Cancel</button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowGalleryAdd(true)}
+            className="flex items-center gap-2 px-3 py-2 bg-[#D4873A]/10 hover:bg-[#D4873A]/20 text-[#D4873A] rounded-lg text-xs font-medium transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add photo to gallery
+          </button>
+        )}
+        {images.length === 0 && !showGalleryAdd && (
+          <div className="text-[10px] text-gray-400 mt-1">Empty gallery — add photos above. They'll appear as a scrollable strip in the article.</div>
+        )}
+      </div>
+    );
+  }
+
   if (block.type === "text") {
     return (
       <div className="block-text-wrapper">
@@ -1040,6 +1216,7 @@ function BlockContent({
     // Extract rankroll ID from content
     const rankrollIdMatch = block.content.match(/data-rankroll-id="([^"]*)"/);
     const rankrollId = rankrollIdMatch?.[1] || "";
+    const selectedRanking = availableRankings.find(r => r._id === rankrollId);
     return (
       <div className="p-3 m-2 bg-gradient-to-r from-[#D4873A]/15 to-[#D4873A]/5 border border-[#D4873A]/20 rounded-xl">
         <div className="flex items-center justify-between">
@@ -1048,26 +1225,37 @@ function BlockContent({
               <Vote className="w-5 h-5 text-white" />
             </div>
             <div>
-              <div className="font-bold text-gray-900 text-sm">Vote Now!</div>
-              <div className="text-xs text-gray-600">Cast your vote and rank your favorites.</div>
+              <div className="font-bold text-gray-900 text-sm">{selectedRanking?.title || 'Vote Now!'}</div>
+              <div className="text-xs text-gray-600">Vote & rank your favorites</div>
             </div>
           </div>
           <div className="px-4 py-2 bg-[#D4873A] text-white rounded-lg font-bold text-sm">
-            Go to Rankroll →
+            VOTE NOW
           </div>
         </div>
         <div className="mt-2 flex items-center justify-between">
           <div className="text-[9px] text-[#D4873A] font-medium">RANKROLL CTA BLOCK</div>
-          <input
-            type="text"
+          <select
             value={rankrollId}
             onChange={(e) => {
-              const newContent = block.content.replace(/data-rankroll-id="[^"]*"/, `data-rankroll-id="${e.target.value}"`);
+              const selectedId = e.target.value;
+              const selectedRanking = availableRankings.find(r => r._id === selectedId);
+              const title = selectedRanking?.title || 'Vote Now!';
+              let newContent = block.content
+                .replace(/data-rankroll-id="[^"]*"/, `data-rankroll-id="${selectedId}"`)
+                .replace(/data-rankroll-title="[^"]*"/, `data-rankroll-title="${title}"`)
+                .replace(/<div class="rankroll-title"[^>]*>[^<]*<\/div>/, `<div class="rankroll-title" style="font-weight:700;color:#1a1a1a;font-size:14px;line-height:1.3;">${title}</div>`);
               onChange(newContent);
             }}
-            placeholder="Rankroll ID eingeben..."
-            className="text-[10px] px-2 py-1 bg-gray-100 border border-gray-300 rounded w-48 text-gray-700"
-          />
+            className="text-[10px] px-2 py-1 bg-gray-100 border border-gray-300 rounded w-56 text-gray-700"
+          >
+            <option value="">-- Ranking auswählen --</option>
+            {availableRankings.map((ranking) => (
+              <option key={ranking._id} value={ranking._id}>
+                {ranking.title}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
     );
@@ -1150,6 +1338,7 @@ function AddBlockMenu({
     { type: "tv-cta", label: "TV CTA", icon: Tv, description: "GenX TV call-to-action" },
     { type: "rankroll-cta", label: "Rankroll CTA", icon: Vote, description: "Link to a Rankroll voting" },
     { type: "music-banner", label: "Music Banner", icon: Music, description: "Monthly Spotify playlist banner" },
+    { type: "gallery", label: "Gallery Slider", icon: LayoutGrid, description: "Photo strip — click to enlarge" },
   ];
 
   return (

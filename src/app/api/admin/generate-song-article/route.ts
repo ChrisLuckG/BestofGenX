@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import fs from 'fs';
-import path from 'path';
 import dbConnect from '@/lib/mongoose';
 import Article from '@/models/Article';
 import User from '@/models/User';
+import { combinePrompts } from '@/lib/loadPrompt';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -33,9 +32,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'No requests provided' }, { status: 400 });
     }
 
-    // Load system prompt
-    const promptPath = path.join(process.cwd(), 'src', 'prompts', 'system-prompt.txt');
-    const systemPrompt = fs.readFileSync(promptPath, 'utf-8');
+    // Load modular prompts: core + song-article rules
+    const systemPrompt = combinePrompts(['core.txt', 'song-article.txt']);
 
     // Build the song list for the prompt
     const songList = requests.map((r, i) => 
@@ -44,7 +42,7 @@ export async function POST(request: NextRequest) {
 
     const currentMonth = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
-    // User prompt contains only DATA, instructions are in system-prompt.txt (AUFGABE 6)
+    // User prompt contains only DATA, instructions are in song-article.txt
     const userPrompt = `Generate monthly playlist article for ${currentMonth}.
 
 Song contributions this month:

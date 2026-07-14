@@ -6,6 +6,7 @@ import UserPrediction from '@/models/UserPrediction';
 import User from '@/models/User';
 import Notification from '@/models/Notification';
 import { sendPushNotification } from '@/lib/webpush';
+import { savePredictionGameResult } from '@/lib/predictionGameResult';
 
 // POST - Cron job to auto-resolve expired predictions using GPT-4o with web browsing
 // Call this via Vercel Cron or manually
@@ -160,6 +161,14 @@ ${optionLabels}`
               : { $inc: { gamesPlayed: 1 } },
             { new: true }
           ).select('pushSubscription notifyBattleResults');
+
+          // Track net wager effect for ranking ledger (win: +wager, loss: -wager)
+          await savePredictionGameResult(
+            String(up.userId),
+            prediction.question,
+            correct ? prediction.pointsReward : -prediction.pointsReward,
+            correct
+          );
 
           // Create in-app notification
           try {

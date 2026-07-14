@@ -1,20 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import fs from 'fs';
-import path from 'path';
+import { combinePrompts } from '@/lib/loadPrompt';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Load central system prompt
+// Load modular prompts: core + ranking rules
 function getSystemPrompt(): string {
-  try {
-    const promptPath = path.join(process.cwd(), 'src', 'prompts', 'system-prompt.txt');
-    return fs.readFileSync(promptPath, 'utf-8');
-  } catch {
-    return '';
-  }
+  return combinePrompts(['core.txt', 'ranking.txt']);
 }
 
 // Fetch Tenor GIF for a search term
@@ -78,7 +72,17 @@ export async function POST(request: NextRequest) {
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Generate a ranking list about ${topic}. Include as many items as genuinely make sense for this topic — between 5 and 20. Do not pad with weak entries just to hit a number, and do not cut good ones just to stay short.` }
+        { role: 'user', content: `Generate a ranking list about: ${topic}
+
+IMPORTANT: First determine what this subject is actually known for, then rank ONLY those things.
+- If the subject is an ACTOR → rank their most iconic MOVIES/ROLES
+- If the subject is a MUSICIAN/SINGER → rank their most iconic SONGS/ALBUMS
+- If the subject is a BOXER/ATHLETE → rank their most iconic FIGHTS/MATCHES
+- If the subject is a DIRECTOR → rank their most iconic FILMS
+- If the subject is a TV SHOW → rank its best EPISODES or SEASONS
+- Use common sense. NEVER assign a category that doesn't apply (e.g. do NOT rank songs for someone who is only an actor).
+
+Include as many items as genuinely make sense — between 5 and 20. Do not pad with weak entries and do not invent things that did not happen.` }
       ],
       response_format: { type: 'json_object' },
       temperature: 0.8,

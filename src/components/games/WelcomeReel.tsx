@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState, useRef, memo } from "react";
-import { Clock, Play, Share2, MoreHorizontal, MessageCircle, Check, Bookmark, Flag, ChevronLeft, ChevronRight, BookOpen, Music, Gamepad2, Trophy, Sparkles, Cross, Newspaper, Clapperboard } from "lucide-react";
+import { Clock, Play, Share2, MoreHorizontal, MessageCircle, Check, Bookmark, Flag, ChevronLeft, ChevronRight, BookOpen, Music, Gamepad2, Trophy, Sparkles, Cross, Newspaper, Clapperboard, PartyPopper } from "lucide-react";
 import PollCard from "@/components/PollCard";
 import QuizPollCard from "@/components/QuizPoll";
 import CardMoodReactions from "@/components/CardMoodReactions";
 import CategoryBadge from "@/components/CategoryBadge";
 import LazyImage from "@/components/LazyImage";
 import { useAuth } from "@/context/AuthContext";
+import { getAutoFillSlugs, getCategoryLabel as getSubCategoryLabel } from "@/lib/categories";
 
 interface Article {
   _id: string;
@@ -26,6 +27,7 @@ interface Article {
   authorAvatar?: string;
   readTime?: number;
   trending?: boolean;
+  featured?: boolean;
   layout?: 'featured' | 'trending' | 'standard';
   likes?: number;
   views?: number;
@@ -33,6 +35,7 @@ interface Article {
   status?: 'draft' | 'published' | 'archived';
   contentType?: string;
   createdAt?: string;
+  order?: number;  // Manual sort order (lower = higher); drives the Top Area order
   closesAt?: string;  // For voting/poll articles - when the poll closes
   // Styling options
   titleColor?: string;
@@ -101,11 +104,12 @@ interface LandingPageProps {
   readArticles?: Set<string>;
   isDesktop?: boolean;
   onShowLogin?: () => void;
+  onOpenStaticPage?: (slug: string) => void;
 }
 
 const EMPTY_SET = new Set<string>();
 
-function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop = false, onShowLogin }: LandingPageProps) {
+function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop = false, onShowLogin, onOpenStaticPage }: LandingPageProps) {
   const { user, isLoggedIn } = useAuth();
   const [articles, setArticles] = useState<Article[]>([]);
   const [polls, setPolls] = useState<any[]>([]);
@@ -121,6 +125,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
     // Container fields (size 12)
     containerName?: string,
     containerTheme?: string,
+    customColor?: string, // Custom hex color when containerTheme is 'custom'
     containerBlocks?: {
       type: 'MAIN' | '2H' | 'FIXED' | 'SLIDER' | 'VERTICAL' | 'SOCIAL';
       articleId?: string | null;
@@ -136,10 +141,20 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
   }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [toast, setToast] = useState<{ message: string; icon: 'check' | 'bookmark' | 'flag' } | null>(null);
+  const [loadingArticleId, setLoadingArticleId] = useState<string | null>(null);
 
   const showToast = (message: string, icon: 'check' | 'bookmark' | 'flag' = 'check') => {
     setToast({ message, icon });
     setTimeout(() => setToast(null), 2000);
+  };
+
+  // Handle article click with loading state
+  const handleArticleClick = (articleId: string) => {
+    if (loadingArticleId) return; // Prevent double-clicks
+    setLoadingArticleId(articleId);
+    onOpenArticle?.(articleId);
+    // Reset after a timeout in case navigation doesn't happen
+    setTimeout(() => setLoadingArticleId(null), 3000);
   };
 
   // Fetch articles, polls and template from database
@@ -167,39 +182,9 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         }
         
         if (templateData.success && templateData.template?.length > 0) {
-          console.log('Loaded template from DB:', templateData.template);
-          // Log container blocks specifically
-          templateData.template.forEach((item: any, i: number) => {
-            if (item.size === 12) {
-              console.log(`Container ${i}:`, item.containerName, 'blocks:', item.containerBlocks);
-            }
-          });
           setTemplateItems(templateData.template);
-        } else {
-          console.log('No template found in DB - using auto-generated fallback');
-          // FALLBACK: auto-generate feed from published articles so feed is never empty
-          const published = (articlesData.articles || []).filter((a: Article) => a.status !== 'draft');
-          if (published.length > 0) {
-            const fallback: typeof templateItems = [
-              // First article as featured
-              { size: 3, articleId: published[0]._id },
-            ];
-            // Pairs of half cards for next articles
-            for (let i = 1; i < Math.min(published.length, 7); i += 2) {
-              fallback.push({ 
-                size: 10, 
-                articleId: published[i]._id, 
-                articleId2: published[i + 1]?._id || null 
-              });
-            }
-            // Rest as vertical list
-            const rest = published.slice(7, 20).map((a: Article) => a._id);
-            if (rest.length > 0) {
-              fallback.push({ size: 9, articleId: null, verticalArticles: rest });
-            }
-            setTemplateItems(fallback);
-          }
         }
+        // No fallback — empty feed surfaces that the template needs to be configured
       } catch (e) {
         console.error('Failed to fetch data:', e);
       } finally {
@@ -408,25 +393,41 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
     return { border: 'border-2 border-white/80', hoverBorder: 'hover:border-white' };
   };
 
+  // Loading overlay for cards
+  const LoadingOverlay = ({ articleId }: { articleId: string }) => {
+    if (loadingArticleId !== articleId) return null;
+    return (
+      <div className="absolute inset-0 z-50 bg-black/40 flex items-center justify-center backdrop-blur-[1px]">
+        <div className="w-8 h-8 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+      </div>
+    );
+  };
+
   // Article Card Components
   const MainBox = ({ article, theme }: { article: Article; theme?: string }) => {
     const cardTheme = getCardThemeStyles(theme);
     return (
-    <button
-      onClick={() => onOpenArticle?.(article._id)}
-      className={`w-full h-[280px] md:h-[350px] lg:h-[400px] rounded-none overflow-hidden group text-left relative border ${cardTheme.border} hover:shadow-lg ${cardTheme.hoverBorder} transition-all duration-200`}
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => handleArticleClick(article._id)}
+      onKeyDown={(e) => e.key === 'Enter' && onOpenArticle?.(article._id)}
+      className={`w-full h-[280px] md:h-[350px] lg:h-[400px] rounded-none overflow-hidden group text-left relative border ${cardTheme.border} hover:shadow-lg ${cardTheme.hoverBorder} transition-all duration-200 cursor-pointer ${loadingArticleId === article._id ? 'pointer-events-none' : ''}`}
       style={{
         backgroundImage: article.coverImage ? `url(${article.coverImage})` : undefined,
         backgroundSize: 'cover',
         backgroundPosition: getImagePosition(article),
       }}
     >
+      {/* Loading overlay */}
+      <LoadingOverlay articleId={article._id} />
+      
       {/* Gradient overlay - only at bottom for text readability */}
       <div className={`absolute inset-0 bg-gradient-to-t ${article.category === 'rip' ? 'from-white/80 via-white/20 to-transparent' : 'from-black via-black/30 to-transparent'}`} />
       
       {/* Category badge */}
       <div className="absolute top-3 left-3 z-20">
-        <CategoryBadge category={article.mainCategory} size="md" />
+        <CategoryBadge category={article.category || article.mainCategory} size="md" />
       </div>
       
       {/* Read badge - only show green check when read */}
@@ -456,7 +457,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
               )}
             </div>
             <span className="truncate">{article.authorName}</span>
-                      </div>
+          </div>
           {/* Mood Reactions & Comments inline */}
           <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
             <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="sm" />
@@ -484,16 +485,20 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           </div>
         </div>
       </div>
-    </button>
+    </div>
   );
   };
 
   // MainSocial - Like MainBox but with social header (avatar, name, likes) like HalfCard
   const MainSocial = ({ article }: { article: Article }) => (
-    <button
-      onClick={() => onOpenArticle?.(article._id)}
-      className="w-full rounded-none overflow-hidden bg-cream border border-warm text-left shadow-md hover:shadow-lg hover:border-[#D4873A]/30 transition-all duration-200 group"
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => handleArticleClick(article._id)}
+      onKeyDown={(e) => e.key === 'Enter' && onOpenArticle?.(article._id)}
+      className={`w-full rounded-none overflow-hidden bg-cream border border-warm text-left shadow-md hover:shadow-lg hover:border-[#D4873A]/30 transition-all duration-200 group cursor-pointer relative ${loadingArticleId === article._id ? 'pointer-events-none' : ''}`}
     >
+      <LoadingOverlay articleId={article._id} />
       {/* Social Header: Avatar + Name + Time + Menu */}
       <div className="flex items-center gap-2 p-3 border-b border-warm/50">
         <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border border-warm">
@@ -509,7 +514,6 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           <div className="text-[14px] font-bold text-gray-900 truncate">{article.authorName || 'Author'}</div>
           <div className="text-[11px] text-gray-500">{article.createdAt ? new Date(article.createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}</div>
         </div>
-        <CardMenu article={article} />
       </div>
       
       {/* Large Image/Video - Full width, fixed height with cover + Title overlay */}
@@ -534,14 +538,14 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           <div className="w-full h-full bg-gray-200" />
         )}
         {/* Dark gradient for text readability - only on desktop */}
-        {isDesktop && <div className={`absolute inset-0 bg-gradient-to-t ${article.category === 'rip' ? 'from-white/80 via-white/20 to-transparent' : 'from-black/70 via-black/20 to-transparent'}`} />}
+        {isDesktop && <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />}
         {/* Category badge - top left on mobile, bottom left on desktop */}
         <div className={`absolute ${isDesktop ? 'bottom-14 md:bottom-16' : 'top-3'} left-3 z-20 flex items-center gap-2`}>
-          <CategoryBadge category={article.mainCategory} size="md" />
+          <CategoryBadge category={article.category || article.mainCategory} size="md" />
         </div>
         {/* Title ON the image - only on desktop */}
         {isDesktop && (
-          <h2 className={`absolute bottom-3 left-3 right-3 font-display text-[26px] lg:text-3xl tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} group-hover:text-[#D4873A] leading-tight line-clamp-2 drop-shadow-lg transition-colors z-10`}>
+          <h2 className="absolute bottom-3 left-3 right-3 font-display text-[26px] lg:text-3xl tracking-wide text-white group-hover:text-[#D4873A] leading-tight line-clamp-2 drop-shadow-lg transition-colors z-10">
             {article.title}
           </h2>
         )}
@@ -565,14 +569,18 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       <div className="px-3 pb-3 pt-2 border-t border-warm/50">
         <CardActions article={article} />
       </div>
-    </button>
+    </div>
   );
 
   const SmallBox = ({ article }: { article: Article }) => (
-    <button
-      onClick={() => onOpenArticle?.(article._id)}
-      className="w-full h-[180px] rounded-none overflow-hidden group text-left relative border border-white/10"
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => handleArticleClick(article._id)}
+      onKeyDown={(e) => e.key === 'Enter' && onOpenArticle?.(article._id)}
+      className={`w-full h-[180px] rounded-none overflow-hidden group text-left relative border border-white/10 cursor-pointer ${loadingArticleId === article._id ? 'pointer-events-none' : ''}`}
     >
+      <LoadingOverlay articleId={article._id} />
       {/* Full background image/video */}
       {article.coverImage && (
         isVideo(article.coverImage) ? (
@@ -586,7 +594,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       
       {/* Category badge - top left */}
       <div className="absolute top-2 left-2 z-20">
-        <CategoryBadge category={article.mainCategory} size="sm" />
+        <CategoryBadge category={article.category || article.mainCategory} size="sm" />
       </div>
       
       {/* Read badge - only show green check when read */}
@@ -617,14 +625,18 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           </div>
         </div>
       </div>
-    </button>
+    </div>
   );
 
   const MediumBox = ({ article }: { article: Article }) => (
-    <button
-      onClick={() => onOpenArticle?.(article._id)}
-      className="w-full h-[180px] rounded-none overflow-hidden group text-left relative border border-warm hover:shadow-lg hover:border-[#D4873A]/30 transition-all duration-200"
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => handleArticleClick(article._id)}
+      onKeyDown={(e) => e.key === 'Enter' && onOpenArticle?.(article._id)}
+      className={`w-full h-[180px] rounded-none overflow-hidden group text-left relative border border-warm hover:shadow-lg hover:border-[#D4873A]/30 transition-all duration-200 cursor-pointer ${loadingArticleId === article._id ? 'pointer-events-none' : ''}`}
     >
+      <LoadingOverlay articleId={article._id} />
       {/* Full background image/video */}
       {article.coverImage && (
         isVideo(article.coverImage) ? (
@@ -638,7 +650,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       
       {/* Category badge - top left */}
       <div className="absolute top-2 left-2 z-20">
-        <CategoryBadge category={article.mainCategory} size="sm" />
+        <CategoryBadge category={article.category || article.mainCategory} size="sm" />
       </div>
       
       {/* Read badge - only show green check when read */}
@@ -672,7 +684,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           </div>
         </div>
       </div>
-    </button>
+    </div>
   );
 
   // Slider Card - Vertical card with square image (same size as other cards)
@@ -694,7 +706,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       )}
       {/* Image/Video - shorter aspect ratio */}
       {article.coverImage && (
-        <div className="w-full aspect-[4/3] overflow-hidden relative" onClick={() => onOpenArticle?.(article._id)}>
+        <div className="w-full aspect-[4/3] overflow-hidden relative" onClick={() => handleArticleClick(article._id)}>
           {isVideo(article.coverImage) ? (
             <video src={article.coverImage} className="w-full h-full object-cover" style={{ objectPosition: getImagePosition(article), transform: `scale(${(article.imageScale || 100) / 100})` }} muted autoPlay loop playsInline />
           ) : (
@@ -707,7 +719,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       )}
       {/* Content - below image */}
       <div className="p-1.5">
-        <h3 onClick={() => onOpenArticle?.(article._id)} className={`font-display text-[20px] tracking-wide leading-tight line-clamp-2 transition-colors ${article.category === 'rip' ? 'text-gray-900 group-hover:text-[#D4873A]' : hasColorTheme ? 'text-white group-hover:text-gray-900' : 'text-white group-hover:text-gray-900'}`}>{article.title}</h3>
+        <h3 onClick={() => handleArticleClick(article._id)} className={`font-display text-[20px] tracking-wide leading-tight line-clamp-2 transition-colors ${hasColorTheme ? 'text-white group-hover:text-gray-900' : 'text-gray-900 group-hover:text-[#D4873A]'}`}>{article.title}</h3>
         {/* Likes & Comments */}
         <div className={`flex items-center gap-2 mt-1 text-[8px] ${hasColorTheme ? 'text-gray-700' : 'text-gray-500'}`} onClick={(e) => e.stopPropagation()}>
           <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" />
@@ -817,10 +829,14 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
     const hasColorTheme = theme && theme !== 'cream';
     const bgClass = hasColorTheme ? 'bg-white/20 backdrop-blur-sm' : 'bg-cream';
     return (
-    <button
-      onClick={() => onOpenArticle?.(article._id)}
-      className={`w-full rounded-none overflow-hidden ${bgClass} border ${cardTheme.border} text-left shadow-md hover:shadow-lg ${cardTheme.hoverBorder} transition-all duration-200 group`}
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => handleArticleClick(article._id)}
+      onKeyDown={(e) => e.key === 'Enter' && onOpenArticle?.(article._id)}
+      className={`w-full rounded-none overflow-hidden ${bgClass} border ${cardTheme.border} text-left shadow-md hover:shadow-lg ${cardTheme.hoverBorder} transition-all duration-200 group cursor-pointer relative ${loadingArticleId === article._id ? 'pointer-events-none' : ''}`}
     >
+      <LoadingOverlay articleId={article._id} />
       {/* Header: Avatar + Name + Time + Menu */}
       <div className="flex items-center gap-2 p-3 pb-2 md:border-b md:border-warm/50">
         <div className="w-9 h-9 md:w-10 md:h-10 rounded-full overflow-hidden flex-shrink-0 border border-warm">
@@ -836,7 +852,6 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           <div className="text-[13px] md:text-[14px] font-bold text-gray-900 truncate">{article.authorName || 'Author'}</div>
           <div className="text-[10px] md:text-[11px] text-gray-500">{article.createdAt ? new Date(article.createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}</div>
         </div>
-        <CardMenu article={article} />
       </div>
       
       {/* Image/Video with Title Overlay */}
@@ -868,6 +883,10 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           )}
           {/* Dark gradient for text readability - only on desktop */}
           {isDesktop && <div className={`absolute inset-0 bg-gradient-to-t ${article.category === 'rip' ? 'from-white/80 via-white/20 to-transparent' : 'from-black/70 via-black/20 to-transparent'}`} />}
+          {/* Category badge - top left */}
+          <div className="absolute top-2 left-2 z-20">
+            <CategoryBadge category={article.category || article.mainCategory} size="sm" />
+          </div>
           {/* Title ON the image - only on desktop */}
           {isDesktop && (
             <h3 className={`absolute bottom-2 left-2 right-2 font-display text-lg lg:text-3xl tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} group-hover:text-[#D4873A] leading-tight line-clamp-3 drop-shadow-lg transition-colors`}>
@@ -895,14 +914,14 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       <div className="px-3 pb-3">
         <CardActions article={article} size="small" />
       </div>
-    </button>
+    </div>
   );
   };
 
   // Fixed Banner - Full width image only, no overlay, no text - for recurring content like Monthly Music
   const FixedBanner = ({ article }: { article: Article }) => (
     <button
-      onClick={() => onOpenArticle?.(article._id)}
+      onClick={() => handleArticleClick(article._id)}
       className="w-full rounded-none overflow-hidden shadow-md hover:shadow-lg hover:border-[#D4873A]/30 transition-all duration-200 block bg-cream border border-warm p-2"
     >
       {article.coverImage && (
@@ -928,10 +947,14 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
 
   // Full Width Banner - Like "TRENDING ARTICLES" section - horizontal card with image left, text right
   const FullWidthBanner = ({ article }: { article: Article }) => (
-    <button
-      onClick={() => onOpenArticle?.(article._id)}
-      className="w-full flex items-center gap-3 p-2 bg-cream border border-warm rounded-none text-left shadow-md hover:shadow-lg hover:border-[#D4873A]/30 transition-all duration-200 relative group"
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => handleArticleClick(article._id)}
+      onKeyDown={(e) => e.key === 'Enter' && onOpenArticle?.(article._id)}
+      className={`w-full flex items-center gap-3 p-2 bg-cream border border-warm rounded-none text-left shadow-md hover:shadow-lg hover:border-[#D4873A]/30 transition-all duration-200 relative group cursor-pointer ${loadingArticleId === article._id ? 'pointer-events-none' : ''}`}
     >
+      <LoadingOverlay articleId={article._id} />
       {/* Read badge - only show green check when read */}
       {readArticles.has(article._id) && (
         <div className="absolute top-1.5 right-1.5 z-20">
@@ -961,16 +984,14 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           )}
         </div>
       )}
-      {/* Content */}
-      <div className="flex-1 min-w-0 flex flex-col justify-between h-20">
-        <div>
-          <div className="flex items-center gap-2 mb-0.5">
-            <span className="text-[#D4873A] text-[10px] font-bold uppercase">{getCategoryLabel(article.mainCategory)}</span>
-            <span className="text-gray-500 text-[10px]">• {article.createdAt ? new Date(article.createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}</span>
-          </div>
-          <h3 className={`font-display tracking-wide text-gray-900 group-hover:text-[#D4873A] leading-tight line-clamp-1 transition-colors ${isDesktop ? 'text-[20px]' : 'text-[20px]'}`}>{article.title}</h3>
+      {/* Content - vertically centered */}
+      <div className="flex-1 min-w-0 flex flex-col justify-center h-20">
+        <div className="flex items-center gap-2 mb-0.5">
+          <span className="text-[#D4873A] text-[10px] font-bold uppercase">{article.category ? getSubCategoryLabel(article.category) : getCategoryLabel(article.mainCategory)}</span>
+          <span className="text-gray-500 text-[10px]">• {article.createdAt ? new Date(article.createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}</span>
         </div>
-        <div className="flex items-center gap-3 text-[10px] text-gray-500" onClick={(e) => e.stopPropagation()}>
+        <h3 className={`font-display tracking-wide text-gray-900 group-hover:text-[#D4873A] leading-tight line-clamp-1 transition-colors ${isDesktop ? 'text-[20px]' : 'text-[20px]'}`}>{article.title}</h3>
+        <div className="flex items-center gap-3 text-[10px] text-gray-500 mt-0.5" onClick={(e) => e.stopPropagation()}>
           <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" />
           <span className="flex items-center gap-0.5">
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -980,7 +1001,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           </span>
         </div>
       </div>
-    </button>
+    </div>
   );
 
   // Get article by ID helper
@@ -988,6 +1009,8 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
     if (!id) return undefined;
     return articles.find(a => a._id === id);
   };
+
+  const getAutoFillCategories = getAutoFillSlugs;
 
   // Simple article getter - just return the assigned article
   const getFeaturedArticle = (id: string | null): Article | undefined => {
@@ -1097,6 +1120,55 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
     );
   }
 
+  // Running set of articles already shown — accumulates as containers render top→bottom.
+  // Waterfall = each article lives in exactly one place, never duplicated across containers.
+  // Only size:12 containers render now, so there are no legacy global-top slots to pre-exclude.
+  const usedArticleIds = new Set<string>();
+
+  // The first container is the global "latest" zone: its MAIN/SOCIAL + 2H pull the
+  // globally newest articles (any category). Older ones cascade into category containers.
+  let firstContainerSeen = false;
+
+  // A FIXED block defines a self-contained "banner area" (e.g. Arcade, History,
+  // Community Sound). Its content lives ONLY in that box (banner + slider) and must
+  // NOT auto-flow into the Top Area (MAIN/2H of the first container) — unless an editor
+  // explicitly stars an article (featured), in which case it joins the Top Area pool and
+  // sorts chronologically like everything else.
+  //
+  // Only the dedicated banner AREAS are excluded from the Top Area:
+  // - Date-based areas (Arcade → gaming/tech, History → history): the WHOLE category
+  //   belongs to the box, so the entire category is excluded from the Top Area.
+  // - Music is special: the FIXED banner is the permanent Community-Sound feature, so
+  //   only that one music-community article is excluded — regular music articles still flow.
+  // Every other category keeps the normal waterfall (newest flows up into the Top Area
+  // AND also shows in its own banner — this duplication is intended).
+  const DATE_BASED_AREAS = new Set(['gaming', 'history']);
+  const bannerCategories = new Set<string>();
+  const bannerArticleIds = new Set<string>();
+  templateItems
+    .filter(item => item.size === 12 && (item.containerBlocks || []).length > 0)
+    .forEach(item => {
+      (item.containerBlocks || []).forEach(block => {
+        if (block.type !== 'FIXED') return;
+        const cats = getAutoFillCategories(item.containerName, item.containerTheme);
+        if (cats.length === 0) return;
+        const autoCategory = cats[0];
+        if (autoCategory === 'music') {
+          // Only the dedicated Community-Sound feature is excluded. If it doesn't exist,
+          // do NOT fall back to excluding a regular music article — those flow normally.
+          const communityArticle = articles.find(a => a.contentType === 'music-community' && a.status === 'published');
+          if (communityArticle) bannerArticleIds.add(communityArticle._id);
+        } else if (DATE_BASED_AREAS.has(autoCategory)) {
+          cats.forEach(c => bannerCategories.add(c.toLowerCase()));
+        } else {
+          // Other banners (Eastercorn, Sport, TV/Cinema, Lifestyle) use a dedicated
+          // 'banner-page' general page — exclude that page from the feed (banner-only).
+          const pageArticle = articles.find(a => a.contentType === 'banner-page' && a.status === 'published' && cats.includes(a.category?.toLowerCase() || ''));
+          if (pageArticle) bannerArticleIds.add(pageArticle._id);
+        }
+      });
+    });
+
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-cream">
       {/* Header - exactly like Rankings */}
@@ -1116,22 +1188,31 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         <div className="grid grid-cols-6 gap-1.5 px-2 pb-4 pt-3">
             {templateItems
               .filter(item => {
-                // Container (size 12) - always show if has blocks
-                if (item.size === 12) return (item.containerBlocks || []).length > 0;
-                // Multi-article containers don't need articleId check
-                if (item.size === 6 || item.size === 9) return true;
-                // 2 Halfer needs at least one article
-                if (item.size === 10) return item.articleId || item.articleId2;
-                // Ad container needs adData
-                if (item.size === 8) return item.adData?.image;
-                // Single article containers need articleId
-                if (!item.articleId) return false;
-                return true;
+                // Only Container (size 12) is supported — matches admin editor exactly.
+                // Legacy items (size 1-10) are ignored so they can't create phantom cards.
+                return item.size === 12 && (item.containerBlocks || []).length > 0;
               })
               .map((item, index) => {
                 // Size 12 = Container (just a carrier with title)
                 if (item.size === 12) {
                   const blocks = item.containerBlocks || [];
+                  // Top container pulls globally newest (any category); others use their category
+                  const isTop = !firstContainerSeen;
+                  firstContainerSeen = true;
+                  const containerCats = getAutoFillCategories(item.containerName, item.containerTheme);
+                  // NOTE: Do NOT filter by usedArticleIds here - that's done live in each block
+                  // because usedArticleIds is mutated during rendering of earlier blocks
+                  const containerPool = (isTop
+                    ? articles.filter(a => a.status === 'published' && a.contentType !== 'rankroll' && a.contentType !== 'music-community' && a.contentType !== 'banner-page' && (a.featured || (!bannerCategories.has(a.category?.toLowerCase() || '') && !bannerArticleIds.has(a._id))))
+                    : articles.filter(a => a.status === 'published' && a.contentType !== 'rankroll' && a.contentType !== 'music-community' && a.contentType !== 'banner-page' && containerCats.includes(a.category?.toLowerCase() || ''))
+                  ).sort((a, b) => {
+                    // Top Area: manual drag order (lower = higher) wins, then newest first.
+                    if (isTop) {
+                      const ao = a.order ?? 0, bo = b.order ?? 0;
+                      if (ao !== bo) return ao - bo;
+                    }
+                    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+                  });
                   // Frontend theme styles - SAME as Admin (ContainerBlock.tsx)
                   const themeStyles: Record<string, { bg: string; border: string; titleColor: string }> = {
                     cream: { bg: 'bg-[#F5F0E8]', border: 'border-[#E5DDD0]', titleColor: 'text-[#D4873A]' },
@@ -1145,51 +1226,72 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                     gaming: { bg: 'bg-indigo-800', border: 'border-indigo-500', titleColor: 'text-white' },
                     retro: { bg: 'bg-teal-800', border: 'border-teal-500', titleColor: 'text-white' },
                   };
-                  const theme = themeStyles[item.containerTheme || 'cream'] || themeStyles.cream;
-                  const hasTheme = item.containerTheme && item.containerTheme !== 'cream';
+                  const isCustomTheme = item.containerTheme === 'custom' && item.customColor;
+                  const theme = isCustomTheme 
+                    ? { bg: '', border: '', titleColor: 'text-white' }
+                    : (themeStyles[item.containerTheme || 'cream'] || themeStyles.cream);
+                  const hasTheme = (item.containerTheme && item.containerTheme !== 'cream') || isCustomTheme;
                   
                   return (
                     <div key={index} className="col-span-6">
                       {/* Container Title — always outside the colored box */}
                       {item.containerName && (() => {
                         const n = item.containerName.toLowerCase();
-                        const Icon = n.includes('history') ? BookOpen
+                        const Icon = n.includes('birthday') || n.includes('happy') ? PartyPopper
+                          : n.includes('history') ? BookOpen
                           : n.includes('music') ? Music
                           : n.includes('arcade') || n.includes('gaming') ? Gamepad2
                           : n.includes('sport') ? Trophy
                           : n.includes('lifestyle') || n.includes('culture') ? Sparkles
                           : n.includes('rip') || n.includes('memorial') ? Cross
-                          : n.includes('movie') || n.includes('cinema') ? Clapperboard
+                          : n.includes('movie') || n.includes('cinema') || n.includes('tv') || n.includes('film') ? Clapperboard
                           : Newspaper;
-                        const accentColor = n.includes('history') ? '#92400e'
-                          : n.includes('music') ? '#c2410c'
-                          : n.includes('arcade') || n.includes('gaming') ? '#7c3aed'
-                          : n.includes('sport') ? '#15803d'
-                          : n.includes('lifestyle') || n.includes('culture') ? '#db2777'
-                          : n.includes('rip') || n.includes('memorial') ? '#4b5563'
-                          : n.includes('movie') || n.includes('cinema') ? '#1d4ed8'
+                        const accentColor = n.includes('birthday') || n.includes('happy') ? '#F4B400'
+                          : n.includes('history') ? '#D4873A'
+                          : n.includes('music') ? '#6db94c'
+                          : n.includes('arcade') || n.includes('gaming') ? '#7C3AED'
+                          : n.includes('sport') ? '#E53935'
+                          : n.includes('eastercorn') ? '#000000'
+                          : n.includes('lifestyle') || n.includes('culture') ? '#EC4899'
+                          : n.includes('rip') || n.includes('memorial') ? '#6B7280'
+                          : n.includes('movie') || n.includes('cinema') || n.includes('tv') || n.includes('film') ? '#F97316'
                           : '#374151';
                         return (
-                          <div className="flex items-center gap-2 mb-1.5 pl-2" style={{ borderLeft: `3px solid ${accentColor}` }}>
-                            <Icon className="w-3.5 h-3.5" style={{ color: accentColor }} />
-                            <span className="font-display text-sm font-bold uppercase tracking-widest text-[#2D1F14]">{item.containerName}</span>
+                          <div className="flex items-center gap-2.5 mb-2 pl-3 py-1.5" style={{ borderLeft: `4px solid ${accentColor}` }}>
+                            <Icon className="w-5 h-5" style={{ color: accentColor }} />
+                            <span className="font-display text-lg tracking-wider" style={{ color: accentColor }}>{item.containerName}</span>
                           </div>
                         );
                       })()}
                       {/* Colored container box */}
-                      <div className={`${hasTheme ? `${theme.bg} ${theme.border} border rounded-lg p-2` : ''}`}>
+                      <div 
+                        className={`${hasTheme ? `${isCustomTheme ? '' : `${theme.bg} ${theme.border}`} border rounded-lg p-2` : ''}`}
+                        style={isCustomTheme ? { backgroundColor: item.customColor, borderColor: item.customColor } : undefined}
+                      >
                       {/* Container Blocks */}
                       <div className="flex flex-col gap-2">
                       {blocks.map((block, blockIdx) => {
                         const containerTheme = item.containerTheme;
                         if (block.type === 'MAIN') {
-                          const mainArticle = block.articleId ? getArticleById(block.articleId) : null;
+                          // Auto-fill primary: newest from pool waterfalls to the top, pinned as fallback
+                          let mainArticle: Article | null = containerPool.find(a => !usedArticleIds.has(a._id)) || null;
+                          if (!mainArticle && block.articleId && !usedArticleIds.has(block.articleId)) mainArticle = getArticleById(block.articleId) ?? null;
                           if (!mainArticle) return null;
+                          usedArticleIds.add(mainArticle._id);
                           return <div key={blockIdx}><MainBox article={mainArticle} theme={containerTheme} /></div>;
                         }
                         if (block.type === '2H') {
-                          const leftArticle = block.articleId ? getArticleById(block.articleId) : null;
-                          const rightArticle = block.articleId2 ? getArticleById(block.articleId2) : null;
+                          let leftArticle: Article | null = null;
+                          let rightArticle: Article | null = null;
+                          // Auto-fill is primary — newest from pool (global for top, category otherwise)
+                          const pool = containerPool.filter(a => !usedArticleIds.has(a._id));
+                          leftArticle = pool[0] || null;
+                          rightArticle = pool[1] || null;
+                          // Fallback to pinned IDs only if auto-fill found nothing
+                          if (!leftArticle && block.articleId && !usedArticleIds.has(block.articleId)) leftArticle = getArticleById(block.articleId) ?? null;
+                          if (!rightArticle && block.articleId2 && !usedArticleIds.has(block.articleId2)) rightArticle = getArticleById(block.articleId2) ?? null;
+                          if (leftArticle) usedArticleIds.add(leftArticle._id);
+                          if (rightArticle) usedArticleIds.add(rightArticle._id);
                           if (!leftArticle && !rightArticle) return null;
                           return (
                             <div key={blockIdx} className="grid grid-cols-2 gap-1.5">
@@ -1199,45 +1301,60 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                           );
                         }
                         if (block.type === 'FIXED') {
-                          // Find latest article from this container's category
-                          const isMusicContainer = containerTheme === 'music'
-                            || item.containerName?.toLowerCase().includes('music')
-                            || item.containerName?.toLowerCase().includes('muci');
+                          const cats = getAutoFillCategories(item.containerName, item.containerTheme);
+                          if (cats.length === 0) return null;
+                          const autoCategory = cats[0];
                           let fixedArticle: Article | undefined;
-                          let autoCategory = '';
-                          if (isMusicContainer) {
-                            autoCategory = 'music';
-                            fixedArticle = articles.find(a => a.contentType === 'music-community')
-                              || articles.find(a => a.category === 'music' && a.status === 'published');
-                          } else {
-                            const sliderBlock = item.containerBlocks?.find(b => (b.type === 'SLIDER' || b.type === 'VERTICAL') && b.autoFillCategory);
-                            autoCategory = sliderBlock?.autoFillCategory?.toLowerCase() || containerTheme || '';
-                            if (!autoCategory) return null;
+                          if (autoCategory === 'music') {
+                            fixedArticle = articles.find(a => a.contentType === 'music-community' && a.status === 'published')
+                              || articles.filter(a => a.category === 'music' && a.status === 'published')
+                                .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0];
+                          } else if (DATE_BASED_AREAS.has(autoCategory)) {
+                            // Arcade / History: always the newest article of the category
                             fixedArticle = articles
-                              .filter(a => a.status === 'published' && (a.category?.toLowerCase() === autoCategory || a.mainCategory?.toLowerCase() === autoCategory))
+                              .filter(a => a.status === 'published' && cats.includes(a.category?.toLowerCase() || ''))
                               .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0];
+                          } else {
+                            // Other banners (Eastercorn, Sport, TV/Cinema, Lifestyle, RIP): prefer the
+                            // dedicated 'banner-page' general page; fall back to the newest article.
+                            // For RIP: use banner-page so clicking opens a memorial landing page, not the newest obituary.
+                            fixedArticle = articles.find(a => a.contentType === 'banner-page' && a.status === 'published' && cats.includes(a.category?.toLowerCase() || ''))
+                              || articles
+                                .filter(a => a.status === 'published' && a.contentType !== 'banner-page' && cats.includes(a.category?.toLowerCase() || ''))
+                                .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0];
                           }
-                          if (!fixedArticle) return null;
-                          // Prefer the dedicated banner image stored on the block — never use the article's own coverImage for the banner
-                          const fixedImg = (block as any).bannerImage || '';
+                          // Prefer the dedicated banner image stored on the block. For the
+                          // Community-Sound feature, fall back to the article's coverImage
+                          // (the permanent music banner picture) when no block image is set.
+                          const bannerLink = (block as any).bannerLink || '';
+                          const fixedImg = (block as any).bannerImage || ((autoCategory === 'music' || fixedArticle?.contentType === 'banner-page') ? (fixedArticle?.coverImage || '') : '');
+                          // Render the banner if we have EITHER a backing article OR a dedicated
+                          // banner image (e.g. an Eastercorn banner with a picture but no article yet).
+                          if (!fixedArticle && !fixedImg) return null;
                           return (
                             <button
                               key={blockIdx}
                               type="button"
-                              onClick={() => onOpenArticle?.(fixedArticle._id)}
+                              onClick={() => {
+                                if (fixedArticle) { onOpenArticle?.(fixedArticle._id); return; }
+                                if (bannerLink) {
+                                  if (/^https?:\/\//.test(bannerLink)) window.open(bannerLink, '_blank');
+                                  else onOpenStaticPage?.(bannerLink.replace(/^\//, ''));
+                                }
+                              }}
                               className="block w-full rounded-none overflow-hidden bg-[#F5F0E8] border border-[#E5DDD0] p-1 shadow-md hover:shadow-lg hover:border-[#D4873A]/30 transition-all cursor-pointer"
                             >
                               <div className="relative w-full aspect-[2/1] md:aspect-[2.5/1] lg:aspect-[2.7/1] overflow-hidden bg-gray-800">
                                 {fixedImg ? (
                                   fixedImg.match(/\.(mp4|webm|mov)($|\?)/i) || fixedImg.includes('/video/') ? (
-                                    <video src={fixedImg} className="w-full h-full object-cover" muted autoPlay loop playsInline style={{ objectPosition: `${(fixedArticle as any).imagePosX ?? 50}% ${(fixedArticle as any).imagePosY ?? 50}%` }} />
+                                    <video src={fixedImg} className="w-full h-full object-cover" muted autoPlay loop playsInline style={{ objectPosition: `${(fixedArticle as any)?.imagePosX ?? 50}% ${(fixedArticle as any)?.imagePosY ?? 50}%` }} />
                                   ) : (
-                                    <img src={fixedImg} alt="" className="w-full h-full object-cover" style={{ objectPosition: `${(fixedArticle as any).imagePosX ?? 50}% ${(fixedArticle as any).imagePosY ?? 50}%` }} />
+                                    <img src={fixedImg} alt="" className="w-full h-full object-cover" style={{ objectPosition: `${(fixedArticle as any)?.imagePosX ?? 50}% ${(fixedArticle as any)?.imagePosY ?? 50}%` }} />
                                   )
                                 ) : (
                                   <div className="w-full h-full bg-gradient-to-r from-gray-800 to-gray-700" />
                                 )}
-                                {(autoCategory === 'history' || autoCategory === 'arcade' || autoCategory === 'gaming') && (() => {
+                                {fixedArticle && (autoCategory === 'history' || autoCategory === 'arcade' || autoCategory === 'gaming') && (() => {
                                   const dateStr = fixedArticle.createdAt
                                     ? new Date(fixedArticle.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                                     : new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -1280,6 +1397,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                             const autoArticles = [...articles]
                               .filter(a => {
                                 if (a.status !== 'published') return false;
+                                if (a.contentType === 'music-community' || a.contentType === 'rankroll' || a.contentType === 'banner-page') return false;
                                 const artCat = a.category?.toLowerCase() || '';
                                 const artMain = a.mainCategory?.toLowerCase() || '';
                                 if (!( artCat === cat || artMain === cat || artCat.includes(cat) || artMain.includes(cat))) return false;
@@ -1309,42 +1427,65 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                           let vertArticles: Article[] = [];
                           
                           if (cat) {
-                            // Auto-fill: get latest articles from category
+                            // Auto-fill: get latest articles from category (newest first), skip already-used
                             vertArticles = articles
-                              .filter(a => a.category?.toLowerCase() === cat && a.status === 'published' && a.coverImage)
-                              .slice(0, block.autoFillLimit || 5);
+                              .filter(a => a.category?.toLowerCase() === cat && a.status === 'published' && a.contentType !== 'rankroll' && a.contentType !== 'music-community' && a.contentType !== 'banner-page' && a.coverImage && !usedArticleIds.has(a._id))
+                              .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+                              .slice(0, block.autoFillLimit || 3);
                           } else {
                             // Manual: use specified article IDs
                             vertArticles = (block.articles || []).map(id => getArticleById(id)).filter(Boolean) as Article[];
                           }
                           
                           if (vertArticles.length === 0) return null;
+                          vertArticles.forEach(a => usedArticleIds.add(a._id));
                           
                           // Category label for "See more" link
                           const categoryLabels: Record<string, string> = {
                             'history': 'History', 'movies-tv': 'Movies & TV', 'music': 'Music',
                             'gaming': 'Gaming', 'rewind': 'Rewind', 'sports': 'Sports',
                             'tech': 'Tech', 'culture': 'Culture', 'news': 'News', 'lifestyle': 'Lifestyle',
-                            'rip': 'RIP'
+                            'rip': 'RIP', 'eastercorn': 'Eastercorn'
                           };
+                          const catColor: Record<string, string> = {
+                            'music': '#22C55E', 'sports': '#E53935', 'history': '#D4873A',
+                            'movies-tv': '#F97316', 'gaming': '#7C3AED', 'lifestyle': '#EC4899',
+                            'culture': '#EC4899', 'rip': '#6B7280', 'eastercorn': '#1E3A8A',
+                          };
+                          const seeMoreColor = catColor[cat] || '#D4873A';
                           
                           return (
                             <div key={blockIdx} className="space-y-1.5">
-                              {vertArticles.slice(0, 5).map((art, i) => <FullWidthBanner key={i} article={art} />)}
+                              {vertArticles.slice(0, 3).map((art, i) => <FullWidthBanner key={i} article={art} />)}
                               {cat && (
-                                <button 
-                                  onClick={() => window.dispatchEvent(new Event('openArticles'))}
-                                  className="block w-full text-center py-2 text-[#D4873A] text-xs font-bold uppercase tracking-wider hover:underline"
-                                >
-                                  See more {categoryLabels[cat] || cat} →
-                                </button>
+                                <div className="pt-2 pb-4 mb-2 border-b border-warm">
+                                  <button 
+                                    onClick={() => window.dispatchEvent(new Event('openArticles'))}
+                                    className="flex items-center justify-center gap-1.5 w-full py-1.5 text-xs text-gray-400 uppercase tracking-wider hover:text-gray-600"
+                                  >
+                                    {cat === 'music' && <Music className="w-3.5 h-3.5" />}
+                                    {cat === 'movies-tv' && <Clapperboard className="w-3.5 h-3.5" />}
+                                    {cat === 'gaming' && <Gamepad2 className="w-3.5 h-3.5" />}
+                                    {cat === 'sports' && <Trophy className="w-3.5 h-3.5" />}
+                                    {cat === 'history' && <BookOpen className="w-3.5 h-3.5" />}
+                                    {cat === 'lifestyle' && <Sparkles className="w-3.5 h-3.5" />}
+                                    {cat === 'culture' && <Sparkles className="w-3.5 h-3.5" />}
+                                    {cat === 'rip' && <Cross className="w-3.5 h-3.5" />}
+                                    {cat === 'eastercorn' && <Newspaper className="w-3.5 h-3.5" />}
+                                    See more {categoryLabels[cat] || cat}
+                                    <ChevronRight className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               )}
                             </div>
                           );
                         }
                         if (block.type === 'SOCIAL') {
-                          const socialArticle = block.articleId ? getArticleById(block.articleId) : null;
+                          // Auto-fill primary: newest from pool waterfalls to the top, pinned as fallback
+                          let socialArticle: Article | null = containerPool.find(a => !usedArticleIds.has(a._id)) || null;
+                          if (!socialArticle && block.articleId && !usedArticleIds.has(block.articleId)) socialArticle = getArticleById(block.articleId) ?? null;
                           if (!socialArticle) return null;
+                          usedArticleIds.add(socialArticle._id);
                           return <div key={blockIdx}><MainSocial article={socialArticle} /></div>;
                         }
                         return null;
@@ -1376,7 +1517,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                     <div key={index} className="col-span-6 space-y-2">
                       {/* Title */}
                       <span className="text-xs font-bold text-[#D4873A] uppercase tracking-wider">More Articles</span>
-                      {vertArticles.map((art, i) => (
+                      {vertArticles.slice(0, 3).map((art, i) => (
                         <FullWidthBanner key={i} article={art} />
                       ))}
                     </div>
@@ -1425,7 +1566,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                 if (item.size === 2) return <div key={index} className="col-span-4"><MediumBox article={article} /></div>;
                 return <div key={index} className="col-span-2"><SmallBox article={article} /></div>;
               })}
-          </div>
+        </div>
           
           {/* Mobile Footer - only show on mobile, desktop has its own footer */}
           <footer className="lg:hidden px-4 py-8 mt-6 border-t border-warm">
@@ -1438,10 +1579,10 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
             
             {/* Links */}
             <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-gray-500 mb-4">
-              <a href="/impressum" className="hover:text-[#D4873A] transition-colors">Impressum</a>
-              <a href="/datenschutz" className="hover:text-[#D4873A] transition-colors">Datenschutz</a>
-              <a href="/agb" className="hover:text-[#D4873A] transition-colors">AGB</a>
-              <a href="/kontakt" className="hover:text-[#D4873A] transition-colors">Kontakt</a>
+              <button onClick={() => onOpenStaticPage?.('impressum')} className="hover:text-[#D4873A] transition-colors">Impressum</button>
+              <button onClick={() => onOpenStaticPage?.('datenschutz')} className="hover:text-[#D4873A] transition-colors">Datenschutz</button>
+              <button onClick={() => onOpenStaticPage?.('agb')} className="hover:text-[#D4873A] transition-colors">AGB</button>
+              <button onClick={() => onOpenStaticPage?.('kontakt')} className="hover:text-[#D4873A] transition-colors">Kontakt</button>
             </div>
             
             {/* Social Links */}

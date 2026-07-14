@@ -1,9 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
+import clientPromise from '@/lib/mongodb';
 import Article from '@/models/Article';
 import User from '@/models/User';
 import Comment from '@/models/Comment';
+import { getAutoFillSlugs } from '@/lib/categories';
 import mongoose from 'mongoose';
+
+// Build a map of category-slug -> FIXED-block bannerImage from the saved template, so that
+// dedicated banner-pages can display their banner image as a fallback thumbnail/cover.
+async function getBannerImageByCategory(): Promise<Record<string, string>> {
+  try {
+    const client = await clientPromise;
+    const db = client.db('sporttock');
+    const tmpl = await db.collection('settings').findOne({ key: 'articleTemplate' });
+    const items: any[] = tmpl?.items || [];
+    const map: Record<string, string> = {};
+    for (const item of items) {
+      if (item.size !== 12 || !Array.isArray(item.containerBlocks)) continue;
+      const fixed = item.containerBlocks.find((b: any) => b.type === 'FIXED' && b.bannerImage);
+      if (!fixed?.bannerImage) continue;
+      getAutoFillSlugs(item.containerName, item.containerTheme).forEach((c: string) => {
+        if (!map[c.toLowerCase()]) map[c.toLowerCase()] = fixed.bannerImage;
+      });
+    }
+    return map;
+  } catch {
+    return {};
+  }
+}
 
 // Reaction model (same as in react/route.ts)
 const ReactionSchema = new mongoose.Schema({
@@ -131,17 +156,25 @@ export async function GET(request: NextRequest) {
       avatarMap = new Map(users.map((u: any) => [u._id.toString(), u.avatar || '']));
     }
 
+    // Banner-pages and the Community-Sound page with no own image inherit the FIXED block's
+    // banner image (fallback).
+    const BANNER_FALLBACK_TYPES = new Set(['banner-page', 'music-community']);
+    const hasBannerPage = articles.some((a: any) => BANNER_FALLBACK_TYPES.has(a.contentType));
+    const bannerImageByCat = hasBannerPage ? await getBannerImageByCategory() : {};
+
     // Ensure order field exists; use thumbnailUrl for listings (coverImage excluded from query)
     const articlesWithOrder = articles.map((a: any, i: number) => {
       const reactions = reactionsMap.get(a._id.toString()) || {};
       const totalReactions = Object.values(reactions).reduce((sum: number, count) => sum + (count as number), 0);
+      const ownCover = includeContent ? a.coverImage : a.thumbnailUrl;
+      const cover = ownCover || (BANNER_FALLBACK_TYPES.has(a.contentType) ? bannerImageByCat[(a.category || '').toLowerCase()] : undefined) || undefined;
       return {
         ...a,
         order: a.order ?? i,
         commentsCount: commentCountMap.get(a._id.toString()) || 0,
         authorAvatar: avatarMap.get(a.author?.toString()) || '',
-        // thumbnailUrl is always a small URL, safe to use
-        coverImage: includeContent ? a.coverImage : (a.thumbnailUrl || undefined),
+        // thumbnailUrl is always a small URL, safe to use; banner-pages fall back to banner image
+        coverImage: cover,
         // Reaction data
         reactions,
         totalReactions,
@@ -171,8 +204,17 @@ export async function POST(request: NextRequest) {
     await dbConnect();
     
     const body = await request.json();
-    const { userId, title, subtitle, content, coverImage, category, tags, status, featured, trending } = body;
-    
+    const { userId, title, subtitle, content, coverImage, category, tags, status, featured, trending, mainCategory } = body;
+    let { contentType } = body;
+
+    // Arcade content = gaming/tech sub-categories. Auto-tag them as 'arcade' (like rankrolls
+    // carry 'rankroll'), unless an explicit non-article contentType was provided.
+    const ARCADE_CATEGORIES = ['gaming', 'tech'];
+    const resolvedCategory = category || 'culture';
+    if ((!contentType || contentType === 'article') && ARCADE_CATEGORIES.includes(resolvedCategory)) {
+      contentType = 'arcade';
+    }
+
     if (!userId || !title || !content) {
       return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 });
     }
@@ -184,11 +226,32 @@ export async function POST(request: NextRequest) {
     let authorName = 'BOGX Team';
     let authorAvatar = '';
     
+    // Check if a specific author is provided (for bot-generated articles)
+    // Support both 'authorId' and 'author' for backwards compatibility
+    const specificAuthorId = body.authorId || body.author;
+    
     if (isSystemUser) {
       // System-generated content - no user verification needed
       authorId = null;
       authorName = 'BOGX Team';
       authorAvatar = '';
+    } else if (specificAuthorId) {
+      // Specific author provided (e.g., AI reporter) - verify caller is admin
+      const caller = await User.findById(userId).select('isAdmin').lean<any>();
+      if (!caller?.isAdmin) {
+        return NextResponse.json({ success: false, error: 'Unauthorized - admin required to set custom author' }, { status: 403 });
+      }
+      // Load the specific author's info
+      const authorUser = await User.findById(specificAuthorId).select('username displayName avatar').lean<any>();
+      if (authorUser) {
+        authorId = specificAuthorId;
+        authorName = authorUser.displayName || authorUser.username || 'BOGX Team';
+        authorAvatar = authorUser.avatar || '';
+      } else {
+        authorId = specificAuthorId;
+        authorName = body.authorName || 'BOGX Team';
+        authorAvatar = body.authorAvatar || '';
+      }
     } else {
       // Verify user is admin OR author
       user = await User.findById(userId).select('isAdmin isAuthor username displayName avatar').lean<any>();
@@ -209,7 +272,9 @@ export async function POST(request: NextRequest) {
       content,
       coverImage: coverImage || '',
       thumbnailUrl,
-      category: category || 'culture',
+      category: resolvedCategory,
+      contentType: contentType || 'article',
+      mainCategory: mainCategory || 'articles',
       tags: tags || [],
       author: authorId || undefined,
       authorName,

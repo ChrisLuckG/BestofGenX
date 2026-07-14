@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Camera, Edit2, Trophy, Coins, Target, LogOut, Lock, ChevronRight, User, Eye, EyeOff, X, Globe, FileText, Shield, HelpCircle, Phone, Check, Mail, Building, Bell, Share2, Upload } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import PushNotifications from "./PushNotifications";
@@ -285,7 +286,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
       <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
         
         {/* Hero Card - Profile Header */}
-        <div className="mx-4 mt-4 bg-white rounded-2xl shadow-sm border border-warm overflow-hidden">
+        <div className="mx-4 mt-4 bg-cream rounded-2xl shadow-sm border border-warm overflow-hidden">
           {/* Background gradient header */}
           <div className="h-16 bg-gradient-to-br from-[#D4873A]/20 via-[#D4873A]/10 to-transparent" />
           
@@ -293,7 +294,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
             {/* Edit Button */}
             <button 
               onClick={() => setIsEditing(true)}
-              className="absolute top-3 right-3 w-8 h-8 bg-white border border-warm rounded-full flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-cream shadow-sm"
+              className="absolute top-3 right-3 w-8 h-8 bg-cream border border-warm rounded-full flex items-center justify-center text-gray-500 hover:text-gray-700 shadow-sm"
             >
               <Edit2 className="w-4 h-4" />
             </button>
@@ -348,7 +349,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
         </div>
 
         {/* Stats Card */}
-        <div className="mx-4 mt-3 bg-white rounded-2xl shadow-sm border border-warm overflow-hidden">
+        <div className="mx-4 mt-3 bg-cream rounded-2xl shadow-sm border border-warm overflow-hidden">
           <div className={`grid ${(user?.isAuthor || user?.isAdmin) ? 'grid-cols-5' : 'grid-cols-4'} divide-x divide-warm`}>
             <div className="p-3 text-center">
               <div className="flex items-center justify-center gap-1">
@@ -382,7 +383,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
         </div>
 
         {/* Winner Badges Card */}
-        <div className="mx-4 mt-3 bg-white rounded-2xl shadow-sm border border-warm p-4">
+        <div className="mx-4 mt-3 bg-cream rounded-2xl shadow-sm border border-warm p-4">
           <div className="text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-3 flex items-center gap-1.5">
             <Trophy className="w-3 h-3" /> Winner Badges
           </div>
@@ -395,7 +396,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
         </div>
 
         {/* Category Strengths Card */}
-        <div className="mx-4 mt-3 bg-white rounded-2xl shadow-sm border border-warm p-4">
+        <div className="mx-4 mt-3 bg-cream rounded-2xl shadow-sm border border-warm p-4">
           <div className="text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-3 flex items-center gap-1.5">
             <Target className="w-3 h-3" /> Category Strengths
           </div>
@@ -413,7 +414,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
         </div>
 
         {/* Settings Card */}
-        <div className="mx-4 mt-3 bg-white rounded-2xl shadow-sm border border-warm overflow-hidden">
+        <div className="mx-4 mt-3 bg-cream rounded-2xl shadow-sm border border-warm overflow-hidden">
           <div className="px-4 py-3 border-b border-warm/60">
             <div className="text-[10px] font-bold tracking-widest uppercase text-gray-500">Settings</div>
           </div>
@@ -478,7 +479,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
           <div className="mx-4 mt-3">
             <a 
               href="/admin"
-              className="w-full flex items-center justify-center gap-2 p-3 bg-white border border-[#D4873A]/40 rounded-2xl shadow-sm hover:bg-[#D4873A]/5 transition-colors"
+              className="w-full flex items-center justify-center gap-2 p-3 bg-cream border border-[#D4873A]/40 rounded-2xl shadow-sm hover:bg-[#D4873A]/5 transition-colors"
             >
               <Shield className="w-4 h-4 text-[#D4873A]" />
               <span className="text-[#D4873A] text-sm font-bold">Admin Panel</span>
@@ -490,7 +491,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
         <div className="mx-4 mt-3">
           <button
             onClick={() => setShowInviteModal(true)}
-            className="w-full flex items-center justify-center gap-2 p-3.5 bg-white border border-warm rounded-2xl shadow-sm hover:bg-[#D4873A]/5 transition-colors"
+            className="w-full flex items-center justify-center gap-2 p-3.5 bg-cream border border-warm rounded-2xl shadow-sm hover:bg-[#D4873A]/5 transition-colors"
           >
             <Share2 className="w-4 h-4 text-[#D4873A]" />
             <span className="text-[#D4873A] text-sm font-bold">Invite friends &middot; +5.00 BOGX each</span>
@@ -501,7 +502,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
         <div className="mx-4 mt-3">
           <button 
             onClick={() => setShowLogoutModal(true)}
-            className="w-full flex items-center justify-center gap-2 p-3.5 bg-white border border-red-200 rounded-2xl shadow-sm hover:bg-red-50 transition-colors"
+            className="w-full flex items-center justify-center gap-2 p-3.5 bg-cream border border-red-200 rounded-2xl shadow-sm hover:bg-red-50 transition-colors"
           >
             <LogOut className="w-4 h-4 text-red-500" />
             <span className="text-red-500 text-sm font-bold">Log out</span>
@@ -520,9 +521,9 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
         username={user.username}
       />
 
-      {/* Logout "See you soon" Modal */}
-      {showLogoutModal && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-5">
+      {/* Logout "See you soon" Modal - rendered via portal to escape stacking contexts */}
+      {showLogoutModal && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-5">
           <div
             className="absolute inset-0 bg-black/40 backdrop-blur-md"
             onClick={() => setShowLogoutModal(false)}
@@ -585,7 +586,8 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Avatar Picker Modal */}

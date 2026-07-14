@@ -18,6 +18,7 @@ import InviteFlowModal from "@/components/battles/InviteFlowModal";
 import { formatCurrency, getCurrencySymbol } from "@/utils/currency";
 import { sounds } from "@/utils/sounds";
 import { compareBattleResults } from "@/utils/battleWinner";
+import OpenBattlesModal from "@/components/OpenBattlesModal";
 
 // Types
 interface BattleUser {
@@ -123,6 +124,7 @@ interface BattlePageProps {
   embedded?: boolean; // If true, render modals inline (for desktop)
   onGoToTrivia?: () => void; // Navigate to solo trivia
   onGoToArticles?: () => void; // Navigate to articles
+  isDesktop?: boolean; // If true, desktop layout
 }
 
 // Check if game is on break (9:00-10:00 CET - daily reset period)
@@ -133,7 +135,7 @@ const isGameOnBreak = () => {
   return hour >= 9 && hour < 10;
 };
 
-export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattleId, onBattleViewed, onShowLogin, onBattleActiveChange, pendingBattleId, onPendingBattleHandled, onBack, embedded = false, onGoToTrivia, onGoToArticles }: BattlePageProps) {
+export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattleId, onBattleViewed, onShowLogin, onBattleActiveChange, pendingBattleId, onPendingBattleHandled, onBack, embedded = false, isDesktop = false, onGoToTrivia, onGoToArticles }: BattlePageProps) {
   const { user, isLoggedIn } = useAuth();
   
   // Check if game is on break (9:00-10:00)
@@ -161,6 +163,27 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   
   // Challenge modal
   const [showChallengeModal, setShowChallengeModal] = useState(false);
+
+  // Open Battles modal (same as ArcadePage)
+  const [showOpenBattles, setShowOpenBattles] = useState(false);
+  const [liveBattleCount, setLiveBattleCount] = useState(0);
+
+  // Refresh battle count for Open Battles badge
+  const refreshBattleCount = () => {
+    if (!user?.id) return;
+    fetch(`/api/battles?userId=${user.id}&countOnly=true`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          setLiveBattleCount((data.pendingChallenges ?? 0) + (data.activeBattles ?? 0) + (data.myOpenBattles ?? 0));
+        }
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    refreshBattleCount();
+  }, [user?.id]);
 
   // Game intro modal removed - now using setup screen like Solo Trivia
   
@@ -1123,29 +1146,31 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
 
   const renderSetupScreen = () => (
     <div className="flex flex-col h-full min-h-full flex-1" style={{ backgroundColor: '#F5F0E8' }}>
-      {/* Header with Online Players */}
-      <div className="px-4 pt-4 pb-3 border-b border-warm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {onBack && <BackButton onClick={onBack} className="-ml-1" />}
-            <div>
-              <span className="font-display text-lg tracking-wider text-gray-900">QUIZZBATTLE</span>
-              <p className="text-[10px] text-gray-500 -mt-0.5">Challenge players, win their wager.</p>
-            </div>
+      {/* Header - exact copy from ArcadePage */}
+      <div className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#A855F7]/5 to-transparent">
+        <div className="flex items-center gap-3">
+          {onBack && (
+            <button onClick={onBack} className="p-1 hover:bg-[#A855F7]/10 rounded transition-colors">
+              <ChevronLeft className="w-5 h-5 text-gray-600" />
+            </button>
+          )}
+          <div>
+            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">QuizzBattle</span>
+            <span className="text-[10px] text-gray-500 -mt-0.5 block">Challenge players, win their wager.</span>
           </div>
-          {/* Online Players Indicator */}
-          <div className="flex items-center gap-2 bg-cream border border-warm px-3 py-1.5 rounded-full">
-            <div className="relative">
-              <img src={user?.avatar || '/images/default-avatar.png'} alt="" className="w-6 h-6 rounded-full border-2 border-white" />
-              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white" />
-            </div>
-            {onlineLoading ? (
-              <div className="w-6 h-4 bg-gray-300 rounded animate-pulse" />
-            ) : (
-              <span className="text-xs font-bold text-gray-700">{onlinePlayers.toLocaleString()}</span>
+          {/* Open battles button - purple, opens modal like ArcadePage */}
+          <button
+            onClick={() => user?.id ? setShowOpenBattles(true) : onShowLogin?.()}
+            className="battle-header-btn ml-auto relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#A855F7]/40 bg-[#A855F7]/10 hover:bg-[#A855F7]/20 transition-colors"
+          >
+            <Swords className="w-4 h-4 text-[#A855F7]" />
+            <span className="text-xs font-bold text-[#A855F7]">Open Battles</span>
+            {liveBattleCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 bg-red-500 rounded-full flex items-center justify-center text-white text-[9px] font-black shadow animate-pulse">
+                {liveBattleCount > 9 ? '9+' : liveBattleCount}
+              </span>
             )}
-            <span className="text-[10px] text-gray-500 uppercase">Online</span>
-          </div>
+          </button>
         </div>
       </div>
 
@@ -1156,6 +1181,19 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
           style={{ backgroundImage: "url('/images/Hintergund/battle.png')", minHeight: '240px' }}
         >
           <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent" />
+          {/* Online Players Badge - top right of banner */}
+          <div className="absolute top-4 right-4 flex items-center gap-2 bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full">
+            <div className="relative">
+              <img src={user?.avatar || '/images/default-avatar.png'} alt="" className="w-5 h-5 rounded-full border-2 border-white" />
+              <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full border border-white" />
+            </div>
+            {onlineLoading ? (
+              <div className="w-4 h-3 bg-white/30 rounded animate-pulse" />
+            ) : (
+              <span className="text-xs font-bold text-white">{onlinePlayers.toLocaleString()}</span>
+            )}
+            <span className="text-[10px] text-white/80 uppercase">Online</span>
+          </div>
           <div className="relative px-6 py-8">
             <span className="inline-block px-3 py-1 bg-[#A855F7] text-white font-bold uppercase tracking-wider rounded-full mb-4 text-[10px]">
               Multiplayer
@@ -1265,30 +1303,20 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   // ═══════════════════════════════════════════════════════════════
   const renderPoolScreen = () => (
     <div className="relative flex flex-col h-full min-h-full" style={{ backgroundColor: '#F5F0E8' }}>
-      {/* Header: Back + Battle left, Create/Invite right */}
-      <div className="flex items-center justify-between px-3 pt-4 pb-3 border-b border-warm">
-        <div className="flex items-center gap-2">
+      {/* Header - same style as Setup Screen */}
+      <div className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#A855F7]/5 to-transparent">
+        <div className="flex items-center gap-3">
           {onBack && (
-            <BackButton onClick={onBack} className="-ml-1" />
+            <button onClick={onBack} className="p-1 hover:bg-[#A855F7]/10 rounded transition-colors">
+              <ChevronLeft className="w-5 h-5 text-gray-600" />
+            </button>
           )}
-          <img src="/images/Icon/trivia1.png" alt="" className="w-5 h-5 object-contain" />
           <div>
-            <span className="font-display text-lg tracking-wider text-gray-900">QuizzBattle</span>
-            <p className="text-[10px] text-gray-900 -mt-0.5 whitespace-nowrap">Challenge others, win coins.</p>
+            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">QuizzBattle</span>
+            <span className="text-[10px] text-gray-500 -mt-0.5 block">Challenge others, win coins.</span>
           </div>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Wager Filter */}
-          <select
-            value={wagerFilter}
-            onChange={(e) => setWagerFilter(e.target.value === 'all' ? 'all' : parseFloat(e.target.value))}
-            className="w-20 px-1 py-2 border border-gray-300 rounded-lg text-[10px] font-semibold text-gray-600 bg-white hover:border-[#D4873A] transition-colors cursor-pointer"
-          >
-            <option value="all">All</option>
-            {WAGERS.map(w => (
-              <option key={w.amount} value={w.amount}>{formatCurrency(w.amount)} BOGX</option>
-            ))}
-          </select>
+          {/* Right side buttons */}
+          <div className="ml-auto flex items-center gap-2">
           <button
             onClick={() => {
               if (isOnBreak) {
@@ -1308,7 +1336,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
             className={`flex flex-col items-center px-2 py-1.5 border rounded-lg text-[10px] font-semibold tracking-wider transition-colors ${
               isOnBreak
                 ? 'border-warm text-gray-300 cursor-not-allowed'
-                : 'border-gray-300 text-gray-600 hover:border-[#D4873A] hover:text-[#D4873A]'
+                : 'border-gray-300 text-gray-600 hover:border-[#A855F7] hover:text-[#A855F7]'
             }`}
           >
             <Swords className="w-3.5 h-3.5" />
@@ -1333,25 +1361,18 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
             className={`flex flex-col items-center px-2 py-1.5 rounded-lg text-[10px] font-semibold tracking-wider transition-colors ${
               isOnBreak
                 ? 'bg-skeleton-light text-gray-600 cursor-not-allowed'
-                : 'bg-[#D4873A] text-white hover:bg-[#c06a2a]'
+                : 'bg-[#A855F7] text-white hover:bg-[#9333EA]'
             }`}
           >
             <Plus className="w-3.5 h-3.5" />
             <span>CREATE</span>
           </button>
+          </div>
         </div>
       </div>
 
-      {/* Topic Filter with Scroll Arrows */}
+      {/* Topic Filter */}
       <div className="flex items-center gap-1 px-2 py-3 border-b border-warm">
-        {/* Left Arrow */}
-        <button
-          onClick={() => topicScrollRef.current?.scrollBy({ left: -150, behavior: 'smooth' })}
-          className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-white border border-gray-200 text-gray-500 hover:border-[#D4873A] hover:text-[#D4873A] transition-colors shadow-sm"
-        >
-          <ChevronLeft className="w-4 h-4" />
-        </button>
-        
         {/* Scrollable Topics */}
         <div 
           ref={topicScrollRef}
@@ -1361,7 +1382,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
           <button
             onClick={() => setTopicFilter('all')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-all border ${
-              topicFilter === 'all' ? 'bg-[#D4873A] text-white border-[#D4873A]' : 'bg-cream text-gray-700 hover:bg-[#D4873A]/10 border-warm'
+              topicFilter === 'all' ? 'bg-[#A855F7] text-white border-[#A855F7]' : 'bg-cream text-gray-700 hover:bg-[#A855F7]/10 border-warm'
             }`}
           >
             <LayoutGrid className="w-4 h-4" />
@@ -1374,7 +1395,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                 key={t.id}
                 onClick={() => setTopicFilter(t.id)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-all border ${
-                  topicFilter === t.id ? 'bg-[#D4873A] text-white border-[#D4873A]' : 'bg-cream text-gray-700 hover:bg-[#D4873A]/10 border-warm'
+                  topicFilter === t.id ? 'bg-[#A855F7] text-white border-[#A855F7]' : 'bg-cream text-gray-700 hover:bg-[#A855F7]/10 border-warm'
                 }`}
               >
                 <Icon className="w-4 h-4" />
@@ -1383,14 +1404,31 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
             );
           })}
         </div>
-        
-        {/* Right Arrow */}
+      </div>
+
+      {/* Wager Filter Buttons */}
+      <div className="flex gap-2 px-3 py-2 border-b border-warm overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
         <button
-          onClick={() => topicScrollRef.current?.scrollBy({ left: 150, behavior: 'smooth' })}
-          className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-white border border-gray-200 text-gray-500 hover:border-[#D4873A] hover:text-[#D4873A] transition-colors shadow-sm"
+          onClick={() => setWagerFilter('all')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border ${
+            wagerFilter === 'all' ? 'bg-[#A855F7] text-white border-[#A855F7]' : 'bg-cream text-gray-700 hover:bg-[#A855F7]/10 border-warm'
+          }`}
         >
-          <ChevronRight className="w-4 h-4" />
+          <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
+          All
         </button>
+        {WAGERS.map(w => (
+          <button
+            key={w.amount}
+            onClick={() => setWagerFilter(w.amount)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border ${
+              wagerFilter === w.amount ? 'bg-[#A855F7] text-white border-[#A855F7]' : 'bg-cream text-gray-700 hover:bg-[#A855F7]/10 border-warm'
+            }`}
+          >
+            <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
+            {formatCurrency(w.amount)}
+          </button>
+        ))}
       </div>
       
       {/* Create Battle Fullscreen */}
@@ -1423,8 +1461,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
             {/* Step 1: Wager */}
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-3">
-                <span className="w-6 h-6 bg-[#D4873A] rounded text-white text-xs font-bold flex items-center justify-center">1</span>
-                <span className="text-sm font-semibold tracking-wider text-[#D4873A] uppercase">Choose Wager</span>
+                <span className="w-6 h-6 bg-[#A855F7] rounded text-white text-xs font-bold flex items-center justify-center">1</span>
+                <span className="text-sm font-semibold tracking-wider text-[#A855F7] uppercase">Choose Wager</span>
               </div>
               <div className="grid grid-cols-5 gap-2">
                 {WAGERS.map(w => (
@@ -1433,7 +1471,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                     onClick={() => setCreateWager(w.amount)}
                     className={`py-3 text-center rounded-xl transition-colors ${
                       createWager === w.amount
-                        ? 'bg-[#D4873A] text-white'
+                        ? 'bg-[#A855F7] text-white'
                         : 'bg-cream border border-warm text-gray-600'
                     }`}
                   >
@@ -1447,8 +1485,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
             {/* Step 2: Topic */}
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-3">
-                <span className="w-6 h-6 bg-[#D4873A] rounded text-white text-xs font-bold flex items-center justify-center">2</span>
-                <span className="text-sm font-semibold tracking-wider text-[#D4873A] uppercase">Choose Topic</span>
+                <span className="w-6 h-6 bg-[#A855F7] rounded text-white text-xs font-bold flex items-center justify-center">2</span>
+                <span className="text-sm font-semibold tracking-wider text-[#A855F7] uppercase">Choose Topic</span>
               </div>
               <div className="grid grid-cols-3 gap-2">
                 {TOPICS.map(t => (
@@ -1457,7 +1495,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                     onClick={() => setCreateTopic(t.id)}
                     className={`py-3 text-sm font-semibold tracking-wider rounded-xl transition-colors flex items-center justify-center gap-2 ${
                       createTopic === t.id
-                        ? 'bg-[#D4873A] text-white'
+                        ? 'bg-[#A855F7] text-white'
                         : 'bg-cream border border-warm text-gray-600'
                     }`}
                   >
@@ -1470,16 +1508,16 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
             {/* Step 3: Battle Type */}
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-3">
-                <span className="w-6 h-6 bg-[#D4873A] rounded text-white text-xs font-bold flex items-center justify-center">3</span>
-                <span className="text-sm font-semibold tracking-wider text-[#D4873A] uppercase">Start Battle</span>
+                <span className="w-6 h-6 bg-[#A855F7] rounded text-white text-xs font-bold flex items-center justify-center">3</span>
+                <span className="text-sm font-semibold tracking-wider text-[#A855F7] uppercase">Start Battle</span>
               </div>
               <button
                 onClick={() => handleCreateBattle(false)}
                 disabled={isGenerating}
                 className={`w-full py-4 rounded-xl font-display text-base tracking-widest flex items-center justify-center gap-2 ${
                   isGenerating 
-                    ? 'bg-[#D4873A]/50 text-white/50 cursor-wait' 
-                    : 'bg-[#D4873A] text-white'
+                    ? 'bg-[#A855F7]/50 text-white/50 cursor-wait' 
+                    : 'bg-[#A855F7] text-white'
                 }`}
               >
                 {isGenerating ? (
@@ -1528,14 +1566,14 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
             <div className="flex items-center gap-3 mb-6">
               <img src="/images/coffee-break.svg" alt="" className="w-10 h-10" />
               <div>
-                <p className="font-display text-xl tracking-wider text-[#D4873A]">DAILY BREAK</p>
+                <p className="font-display text-xl tracking-wider text-[#A855F7]">DAILY BREAK</p>
                 <p className="text-gray-500 text-xs">9:00 - 10:00 AM</p>
               </div>
             </div>
             
             <p className="text-gray-600 text-sm mb-4">Relax! We're preparing the next round.</p>
             
-            <div className="flex items-center gap-2 text-[#D4873A] text-sm animate-pulse">
+            <div className="flex items-center gap-2 text-[#A855F7] text-sm animate-pulse">
               <span>⚡</span>
               <span>Back at 10:00 AM</span>
             </div>
@@ -1565,7 +1603,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                     }
                     setShowChallengeModal(true);
                   }}
-                  className="px-3 py-2 border border-gray-300 text-gray-700 text-sm font-semibold hover:border-[#D4873A] hover:text-[#D4873A] transition-colors rounded-lg"
+                  className="px-3 py-2 border border-gray-300 text-gray-700 text-sm font-semibold hover:border-[#A855F7] hover:text-[#A855F7] transition-colors rounded-lg"
                 >
                   ⚔️ Invite
                 </button>
@@ -1580,7 +1618,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                     }
                     setShowCreate(true);
                   }}
-                  className="px-3 py-2 bg-[#D4873A] text-white text-sm font-semibold hover:bg-[#c5e000] transition-colors flex items-center gap-1"
+                  className="px-3 py-2 bg-[#A855F7] text-white text-sm font-semibold hover:bg-[#9333EA] transition-colors flex items-center gap-1 rounded-lg"
                 >
                   <Plus className="w-4 h-4" />
                   Create
@@ -1599,14 +1637,14 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                 onClick={() => isMyBattle ? setSelectedOwnBattle(battle) : showBattleIntro(battle)}
                 className={`p-4 border-2 rounded-2xl transition-all cursor-pointer ${
                   isMyBattle 
-                    ? 'border-[#D4873A]/40 bg-[#D4873A]/5 hover:bg-[#D4873A]/10' 
-                    : 'border-warm bg-cream hover:border-[#D4873A]/30 hover:shadow-md'
+                    ? 'border-[#A855F7]/40 bg-[#A855F7]/5 hover:bg-[#A855F7]/10' 
+                    : 'border-warm bg-cream hover:border-[#A855F7]/30 hover:shadow-md'
                 }`}
               >
                 <div className="flex items-center gap-3">
                   {/* Avatar with online indicator - height matches text block */}
                   <div className="relative flex-shrink-0">
-                    <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-[#D4873A]/30">
+                    <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-[#A855F7]/30">
                       <img src={battle.creator.avatar} alt="" className="w-full h-full object-cover" />
                     </div>
                     {/* Online indicator */}
@@ -1635,7 +1673,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                   
                   {/* Wager + Arrow */}
                   <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <span className="font-display text-xl text-[#D4873A]">{formatCurrency(toBOGX(battle.wager))}</span>
+                    <span className="font-display text-xl text-[#A855F7]">{formatCurrency(toBOGX(battle.wager))}</span>
                     <img src="/images/bogxcoin.png" alt="BOGX" className="w-5 h-5" />
                     <ChevronRight className="w-5 h-5 text-gray-300" />
                   </div>
@@ -1643,13 +1681,13 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                 
                 {/* Own battle badge */}
                 {isMyBattle && (
-                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[#D4873A]/20">
+                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[#A855F7]/20">
                     {battle.isPrivate && (
                       <span className="text-[10px] font-bold tracking-wider text-purple-600 bg-purple-100 px-2 py-1 rounded-lg flex items-center gap-1">
                         <Lock className="w-3 h-3" /> PRIVATE
                       </span>
                     )}
-                    <span className="text-[10px] font-bold tracking-wider text-[#D4873A] bg-[#D4873A]/10 px-2 py-1 rounded-lg">
+                    <span className="text-[10px] font-bold tracking-wider text-[#A855F7] bg-[#A855F7]/10 px-2 py-1 rounded-lg">
                       YOUR BATTLE
                     </span>
                   </div>
@@ -1672,22 +1710,26 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     
     return (
       <div className="flex flex-col h-full bg-cream">
-        {/* Header - separate from background image */}
-        <div className="px-3 pt-4 pb-3 border-b border-warm">
-          <div className="flex items-center gap-2">
-            <BackButton onClick={backToPool} className="-ml-1" />
+        {/* Header - same style as Pool Screen */}
+        <div className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#A855F7]/5 to-transparent">
+          <div className="flex items-center gap-3">
+            <button onClick={backToPool} className="p-1 hover:bg-[#A855F7]/10 rounded transition-colors">
+              <ChevronLeft className="w-5 h-5 text-gray-600" />
+            </button>
             <div>
-              <span className="font-display text-lg tracking-wider text-gray-900">QuizzBattle</span>
-              <p className="text-[10px] text-gray-500 -mt-0.5">Challenge players, win their wager.</p>
+              <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">QuizzBattle</span>
+              <span className="text-[10px] text-gray-500 -mt-0.5 block">Challenge players, win their wager.</span>
             </div>
           </div>
         </div>
 
-        {/* Battle Background Image */}
+        {/* Battle Background Image - same as Setup Screen */}
         <div 
-          className="relative bg-cover bg-center"
-          style={{ backgroundImage: "url('/images/battle.png')" }}
+          className="relative bg-cover bg-center battle-vs-banner"
+          style={{ backgroundImage: "url('/images/Hintergund/battle.png')" }}
         >
+          {/* Dark overlay for better text contrast */}
+          <div className="absolute inset-0 bg-black/40" />
           {/* VS Section */}
           <div className="relative px-4 py-4">
             {/* VS Row */}
@@ -1695,38 +1737,41 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
               {/* You */}
               <div className="flex flex-col items-center">
                 <div className="relative mb-1">
-                  <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-[#D4873A] shadow-lg">
+                  <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-white shadow-lg battle-vs-avatar">
                     <img src={user?.avatar || 'https://i.pravatar.cc/80?img=47'} alt="" className="w-full h-full object-cover" />
                   </div>
                   <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 drop-shadow-lg"><CountryFlag flag={user?.countryFlag || 'DE'} className="w-6 h-5 rounded-sm" /></div>
                 </div>
-                <div className="font-display text-base tracking-wider uppercase text-white">You</div>
-                <div className="px-2 py-0.5 bg-[#D4873A] rounded text-[10px] text-white font-bold">RANK #22</div>
+                <div className="font-display text-base tracking-wider uppercase text-white battle-vs-name">You</div>
+                <div className="px-2 py-0.5 bg-white/30 backdrop-blur-sm rounded text-[10px] text-white font-bold battle-vs-rank">RANK #22</div>
               </div>
 
               {/* VS + POT in center */}
-              <div className="flex flex-col items-center">
-                <div className="text-white/70 text-[10px] uppercase tracking-wider">POT</div>
-                <div className="flex items-center gap-1">
-                  <span className="font-display text-3xl text-white">{formatCurrency(potAmount)}</span>
-                  <img src="/images/bogxcoin.png" alt="BOGX" className="w-5 h-5" />
+              <div className="flex flex-col items-center justify-center">
+                <div className="text-white/80 text-xs uppercase tracking-widest font-semibold mb-1">WIN THE POT</div>
+                <div className="flex items-center gap-2 mb-1">
+                  <img src="/images/bogxcoin.png" alt="BOGX" className="w-8 h-8" />
+                  <span className="font-display text-4xl text-white battle-vs-pot drop-shadow-lg">{formatCurrency(potAmount)}</span>
                 </div>
-                <div className="text-white/60 text-xs uppercase">BOGX</div>
-                <div className="text-[#D4873A] text-[10px] mt-1 font-semibold">
-                  {formatCurrency(toBOGX(currentBattle.wager))} from you • {formatCurrency(toBOGX(currentBattle.wager))} from opponent
+                <div className="bg-white/20 backdrop-blur-sm rounded-full px-4 py-1.5 mt-2">
+                  <div className="text-white text-xs font-semibold flex items-center gap-3">
+                    <span>{formatCurrency(toBOGX(currentBattle.wager))} from you</span>
+                    <span className="text-white/50">+</span>
+                    <span>{formatCurrency(toBOGX(currentBattle.wager))} from opponent</span>
+                  </div>
                 </div>
               </div>
 
               {/* Opponent */}
               <div className="flex flex-col items-center">
                 <div className="relative mb-1">
-                  <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-white/50 shadow-lg">
+                  <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-white/50 shadow-lg battle-vs-avatar">
                     <img src={currentBattle.creator.avatar} alt="" className="w-full h-full object-cover" />
                   </div>
                   <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 drop-shadow-lg"><CountryFlag flag={currentBattle.creator.countryFlag} className="w-6 h-5 rounded-sm" /></div>
                 </div>
-                <div className="font-display text-base tracking-wider uppercase text-white">{currentBattle.creator.username}</div>
-                <div className="px-2 py-0.5 bg-white/20 rounded text-[10px] text-white font-bold">RANK #5</div>
+                <div className="font-display text-base tracking-wider uppercase text-white battle-vs-name">{currentBattle.creator.username}</div>
+                <div className="px-2 py-0.5 bg-white/20 rounded text-[10px] text-white font-bold battle-vs-rank">RANK #5</div>
               </div>
             </div>
           </div>
@@ -1735,34 +1780,33 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         {/* Content */}
         <div className="px-4 pt-3">
           {/* Topic Banner */}
-          <div className="flex items-center gap-3 bg-cream border border-warm rounded-xl p-3 mb-3 shadow-sm">
-            <div className="w-20 h-16 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
-              <img src={`/images/${currentBattle.topic}.png`} alt="" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+          <div className="flex items-center gap-3 bg-cream border border-warm rounded-xl p-3 mb-3 shadow-sm battle-topic-banner">
+            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-[#A855F7] to-[#7C3AED] flex items-center justify-center flex-shrink-0 battle-topic-image">
+              <topic.icon className="w-8 h-8 text-white" />
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-1.5 mb-1">
-                <topic.icon className="w-5 h-5 text-[#D4873A]" />
                 <span className="font-display text-lg tracking-wider text-gray-900 uppercase">{topic.label} Trivia</span>
               </div>
               <div className="flex items-center gap-4 text-xs text-gray-500">
                 <span className="flex items-center gap-1"><HelpCircle className="w-3.5 h-3.5" /> <span className="font-bold text-gray-900">{currentBattle.rounds}</span> Rounds</span>
-                <span className="flex items-center gap-1"><Coins className="w-3.5 h-3.5" /> <span className="font-bold text-[#D4873A]">{formatCurrency(potAmount)}</span> Pot</span>
+                <span className="flex items-center gap-1"><Coins className="w-3.5 h-3.5" /> <span className="font-bold text-[#A855F7]">{formatCurrency(potAmount)}</span> Pot</span>
                 <span className="flex items-center gap-1"><Trophy className="w-3.5 h-3.5" /> Rank <span className="font-bold text-gray-900">#5</span></span>
               </div>
             </div>
           </div>
 
           {/* Rules */}
-          <div className="bg-[#D4873A]/5 border border-[#D4873A]/10 rounded-xl p-3 mb-3">
+          <div className="bg-[#A855F7]/5 border border-[#A855F7]/10 rounded-xl p-3 mb-3">
             <div className="flex items-center gap-2 text-gray-700 text-sm mb-2">
-              <div className="w-6 h-6 bg-[#D4873A]/20 rounded flex items-center justify-center">
-                <Coins className="w-3.5 h-3.5 text-[#D4873A]" />
+              <div className="w-6 h-6 bg-[#A855F7]/20 rounded flex items-center justify-center">
+                <Coins className="w-3.5 h-3.5 text-[#A855F7]" />
               </div>
               <span>Your wager is <span className="font-bold">locked</span> until the battle ends.</span>
             </div>
             <div className="flex items-center gap-2 text-gray-700 text-sm">
-              <div className="w-6 h-6 bg-[#D4873A]/20 rounded flex items-center justify-center">
-                <Trophy className="w-3.5 h-3.5 text-[#D4873A]" />
+              <div className="w-6 h-6 bg-[#A855F7]/20 rounded flex items-center justify-center">
+                <Trophy className="w-3.5 h-3.5 text-[#A855F7]" />
               </div>
               <span className="font-bold">Winner takes the full pot.</span>
             </div>
@@ -1777,7 +1821,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
               }
               startBattle();
             }}
-            className="w-full py-3 bg-[#D4873A] hover:bg-[#C4772A] text-white font-display text-sm tracking-widest flex flex-col items-center justify-center rounded-xl shadow-lg transition-colors"
+            className="w-full py-3 bg-[#A855F7] hover:bg-[#9333EA] text-white font-display text-sm tracking-widest flex flex-col items-center justify-center rounded-xl shadow-lg transition-colors"
           >
             <div className="flex items-center gap-2">
               <Swords className="w-4 h-4" />
@@ -2397,11 +2441,16 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
       <InviteFlowModal
         isOpen={showChallengeModal}
         onClose={() => setShowChallengeModal(false)}
-        onSendChallenge={(targetUser, wager, topic) => {
+        onSendChallenge={async (targetUser, wager, topic) => {
           // Use the selected wager and topic from the modal
           setCreateWager(wager);
           setCreateTopic(topic);
           handleChallengeUser(targetUser);
+          return { success: true };
+        }}
+        onChallengeStarted={(battle) => {
+          // Handle when challenge battle starts
+          setShowChallengeModal(false);
         }}
         currentUserId={user?.id}
         currentUserCountry={user?.country}
@@ -2453,6 +2502,18 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
             </div>
           </div>
         </div>
+      )}
+
+      {/* Open Battles Modal - purple for BattlesPage */}
+      {user?.id && (
+        <OpenBattlesModal
+          isOpen={showOpenBattles}
+          onClose={() => { setShowOpenBattles(false); refreshBattleCount(); }}
+          userId={user.id}
+          onPlayBattle={(battleId) => { setShowOpenBattles(false); loadBattles(); }}
+          onCoinsChange={(amount) => setCoins(prev => prev + amount)}
+          accentColor="purple"
+        />
       )}
 
     </div>

@@ -204,7 +204,11 @@ export default function InstallBanner() {
               <>
                 <p className="text-white font-bold text-base drop-shadow-sm">Install Best of GenX</p>
                 <p className="text-white/80 text-xs font-medium">
-                  {isIOS ? 'Tap Share → Add to Home Screen' : 'Add to your home screen for the best experience'}
+                  {isIOS
+                    ? 'Tap Share → Add to Home Screen'
+                    : deferredPrompt
+                      ? 'Add to your home screen for the best experience'
+                      : 'Tap ⋮ menu → Install app / Add to Home screen'}
                 </p>
                 <div className="flex items-center gap-3 mt-1.5 text-[10px] text-white/70 font-semibold">
                   <span className="flex items-center gap-1">

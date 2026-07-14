@@ -1,12 +1,11 @@
 import { NextRequest } from "next/server";
 import OpenAI from "openai";
-import { readFileSync } from "fs";
-import { join } from "path";
 import dbConnect from "@/lib/mongoose";
 import { Person, AlmanacItem } from "@/models/Almanac";
+import { combinePrompts } from "@/lib/loadPrompt";
 
-const systemPromptPath = join(process.cwd(), "src/prompts/system-prompt.txt");
-const systemPrompt = readFileSync(systemPromptPath, "utf-8");
+// Load modular prompts: core + almanac rules
+const systemPrompt = combinePrompts(["core.txt", "almanac.txt"]);
 
 const VALID_CATEGORIES = ['people', 'games', 'movies', 'bands', 'albums', 'tvseries', 'food', 'cars', 'fashion', 'gadgets', 'toys', 'slang'];
 

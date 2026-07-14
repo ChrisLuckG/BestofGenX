@@ -214,19 +214,23 @@ export default function RankingListCard({ poll, onOpenArticle, onOpenRankroll, o
       
       {/* Countdown Timer Bar - at bottom, after Top 3 */}
       {countdown && (
-        <div className="px-3 py-2 flex items-center justify-between bg-[#D4873A]/10 border-t border-[#D4873A]/20">
+        <div className="px-3 py-2.5 flex items-center justify-between bg-[#D4873A]/10 border-t border-[#D4873A]/20">
           {/* Left: Clock + ENDS IN + Time */}
           <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-[#D4873A]/60" />
+            <div className="relative flex-shrink-0">
+              {!countdown.expired && (
+                <span className="absolute inset-0 rounded-full bg-[#D4873A]/40 animate-ping" />
+              )}
+              <Clock className={`relative w-4 h-4 text-[#D4873A] ${!countdown.expired ? 'animate-pulse' : ''}`} />
+            </div>
             <div>
-              <span className="text-[7px] font-medium text-gray-900 uppercase block">ENDS IN</span>
-              <span className="text-xl text-[#D4873A] font-bold">
-                {countdown.expired ? 'Ended' : (
+              <span className="text-[8px] font-semibold text-gray-600 uppercase tracking-wider block">ENDS IN</span>
+              <span className="font-display text-xl text-[#D4873A] tracking-wider tabular-nums">
+                {countdown.expired ? 'ENDED' : (
                   <>
-                    {countdown.days > 0 && <><span className="font-display">{countdown.days}</span><span className="font-sans-lv">d </span></>}
-                    <span className="font-display">{countdown.hours.toString().padStart(2, '0')}</span><span className="font-sans-lv">h </span>
-                    <span className="font-display">{countdown.minutes.toString().padStart(2, '0')}</span><span className="font-sans-lv">m </span>
-                    <span className="font-display">{countdown.seconds.toString().padStart(2, '0')}</span><span className="font-sans-lv">s</span>
+                    {countdown.days > 0 && <>{countdown.days}d </>}
+                    {countdown.hours.toString().padStart(2, '0')}h {countdown.minutes.toString().padStart(2, '0')}m{' '}
+                    <span className="inline-block animate-pulse text-[#C4772A]">{countdown.seconds.toString().padStart(2, '0')}s</span>
                   </>
                 )}
               </span>
@@ -235,8 +239,8 @@ export default function RankingListCard({ poll, onOpenArticle, onOpenRankroll, o
           
           {/* Right: Info + Text */}
           <div className="flex items-center gap-1.5">
-            <Info className="w-3.5 h-3.5 text-gray-700 flex-shrink-0" />
-            <span className="text-[8px] text-gray-700 leading-tight max-w-[120px]">
+            <Info className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+            <span className="text-[8px] text-gray-500 leading-tight max-w-[120px]">
               After the deadline, voting remains open and rankings continue to evolve.
             </span>
           </div>

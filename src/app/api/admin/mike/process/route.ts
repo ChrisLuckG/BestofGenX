@@ -1,20 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import fs from 'fs';
-import path from 'path';
+import { combinePrompts } from '@/lib/loadPrompt';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Load the system prompt
+// Load modular prompts: core + mike rules
 function loadSystemPrompt(): string {
-  try {
-    const promptPath = path.join(process.cwd(), 'src', 'prompts', 'system-prompt.txt');
-    return fs.readFileSync(promptPath, 'utf-8');
-  } catch {
-    return '';
-  }
+  return combinePrompts(['core.txt', 'mike.txt']);
 }
 
 export async function POST(request: NextRequest) {

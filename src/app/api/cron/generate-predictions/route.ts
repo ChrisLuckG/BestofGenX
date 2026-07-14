@@ -1,21 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import fs from 'fs';
-import path from 'path';
 import dbConnect from '@/lib/mongoose';
 import Prediction from '@/models/Prediction';
 import User from '@/models/User';
 import { berlinDateAt } from '@/lib/berlinTime';
 import { sendPushNotification } from '@/lib/webpush';
+import { combinePrompts } from '@/lib/loadPrompt';
 
-// Load central system prompt
+// Load modular prompts: core + predictions rules
 function getSystemPrompt(): string {
-  try {
-    const promptPath = path.join(process.cwd(), 'src', 'prompts', 'system-prompt.txt');
-    return fs.readFileSync(promptPath, 'utf-8');
-  } catch {
-    return '';
-  }
+  return combinePrompts(['core.txt', 'predictions.txt']);
 }
 
 // Fetch Bitcoin price (CoinGecko - free, reliable)

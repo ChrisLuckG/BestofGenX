@@ -28,6 +28,7 @@ interface ArticleCardProps {
 
 const CATEGORY_LABELS: Record<string, string> = {
   'movies-tv': 'Movies & TV',
+  'eastercorn': 'Eastercorn',
   'music': 'Music',
   'gaming': 'Gaming',
   'rewind': 'Rewind',

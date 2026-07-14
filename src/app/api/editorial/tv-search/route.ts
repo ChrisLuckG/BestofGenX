@@ -67,7 +67,7 @@ Rules:
       if (!v.youtubeId) continue;
 
       const youtubeId = v.youtubeId.trim();
-      const thumbnail = `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`;
+      const thumbnail = `https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg`;
       const youtubeUrl = `https://www.youtube.com/watch?v=${youtubeId}`;
       const pos = featuredStart + i;
 
@@ -92,6 +92,9 @@ Rules:
 
       saved.push(video);
     }
+
+    // Purge any stale positions above 3 (e.g. old pos 4 & 5 from before the cap)
+    await TVVideo.deleteMany({ featuredPosition: { $gt: 3 } });
 
     return NextResponse.json({ success: true, saved: saved.length, videos: saved });
   } catch (error: any) {

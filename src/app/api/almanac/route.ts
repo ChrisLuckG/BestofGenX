@@ -14,9 +14,16 @@ export async function GET(request: NextRequest) {
     const filterValue = searchParams.get('filterValue');
     const countryBorn = searchParams.get('countryBorn');
     const aliveStatus = searchParams.get('aliveStatus');
+    const birthdayToday = searchParams.get('birthdayToday');
     
     if (type === 'people') {
       const query: any = {};
+      if (birthdayToday === 'true') {
+        const now = new Date();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        query.born = { $regex: `-${mm}-${dd}$` };
+      }
       if (search) {
         query.$or = [
           { firstname: { $regex: search, $options: 'i' } },

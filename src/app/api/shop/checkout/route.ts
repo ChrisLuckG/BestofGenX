@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import dbConnect from '@/lib/mongoose';
 import User from '@/models/User';
+import GameResult from '@/models/GameResult';
 
 // Debug: Log which key is being used
 const secretKey = process.env.STRIPE_SECRET_KEY!;
@@ -47,6 +48,33 @@ export async function POST(request: Request) {
           success: false, 
           error: 'Not enough BOGX' 
         }, { status: 400 });
+      }
+
+      // Record ledger entry so ranking scores stay in sync with the wallet
+      try {
+        const today = new Date().toLocaleString('en-CA', {
+          timeZone: 'Europe/Berlin',
+          year: 'numeric', month: '2-digit', day: '2-digit'
+        }).split(',')[0];
+        await GameResult.create({
+          userId: user._id,
+          username: user.username,
+          cardId: 'shop-checkout',
+          question: 'Shop purchase (points payment)',
+          userAnswer: null,
+          correctAnswer: '-',
+          isCorrect: false,
+          pointsChange: -pointsToDeduct,
+          pointsBefore: (user.bogxCoins || 0) + pointsToDeduct,
+          pointsAfter: user.bogxCoins,
+          timeUsed: 0,
+          difficulty: 1,
+          skipped: false,
+          timedOut: false,
+          gameDate: today,
+        });
+      } catch (e) {
+        console.error('shop/checkout: failed to create GameResult:', e);
       }
       
       // TODO: Create order in Printful (you'll pay for it manually)

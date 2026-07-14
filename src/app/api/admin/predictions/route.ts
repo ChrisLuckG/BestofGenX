@@ -5,6 +5,7 @@ import UserPrediction from '@/models/UserPrediction';
 import User from '@/models/User';
 import Notification from '@/models/Notification';
 import { sendPushNotification } from '@/lib/webpush';
+import { savePredictionGameResult } from '@/lib/predictionGameResult';
 
 // GET - List predictions for admin (optionally filtered by status)
 export async function GET(request: NextRequest) {
@@ -164,6 +165,14 @@ export async function PATCH(request: NextRequest) {
         ).select('pushSubscription notifyBattleResults');
 
         if (correct) awarded++;
+
+        // Track net wager effect for ranking ledger (win: +wager, loss: -wager)
+        await savePredictionGameResult(
+          String(up.userId),
+          prediction.question,
+          correct ? prediction.pointsReward : -prediction.pointsReward,
+          correct
+        );
 
         // Create in-app notification
         try {

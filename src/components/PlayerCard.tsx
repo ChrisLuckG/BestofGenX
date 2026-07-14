@@ -80,7 +80,7 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
     <div 
       className={isDesktop 
         ? "w-full h-full flex flex-col bg-[#F5F0E8]" 
-        : "fixed inset-0 z-[100] flex flex-col bg-cream animate-slide-in-right"
+        : "absolute inset-0 z-20 flex flex-col bg-cream animate-slide-in-right"
       }
     >
       {/* Header - consistent style like other pages */}

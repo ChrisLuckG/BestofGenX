@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { FileText, Search, ChevronRight, Check, Heart, MessageCircle, Eye, Clock } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { FileText, Search, ChevronRight, Check, Heart, MessageCircle, Eye, Clock, Loader2 } from "lucide-react";
 import { FeedSkeleton } from "./DesktopSkeletons";
 import CardMoodReactions from "@/components/CardMoodReactions";
 import { useAuth } from "@/context/AuthContext";
 import { isVideoUrl } from "@/utils/media";
+
+const ARTICLES_PER_PAGE = 7;
 
 interface Article {
   _id: string;
@@ -15,8 +17,10 @@ interface Article {
   thumbnailPosition?: { x: number; y: number };
   coverPosition?: { x: number; y: number };
   category: string;
+  contentType?: string;
   authorName?: string;
   authorAvatar?: string;
+  authorEmoji?: string;
   readTime?: number;
   trending?: boolean;
   views?: number;
@@ -48,6 +52,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   'news': 'News',
   'lifestyle': 'Lifestyle',
   'rip': 'RIP',
+  'eastercorn': 'Eastercorn',
 };
 
 interface DesktopArticlesPageProps {
@@ -61,18 +66,27 @@ export default function DesktopArticlesPage({ onOpenArticle, onShowLogin }: Desk
   const { user, isLoggedIn } = useAuth();
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(1);
   const [filter, setFilter] = useState<FilterType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [readArticles, setReadArticles] = useState<Set<string>>(new Set());
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  // Load articles
+  // Load initial articles
   useEffect(() => {
     const load = async () => {
+      setLoading(true);
       try {
-        const res = await fetch('/api/articles?status=published&mainCategory=articles');
+        const res = await fetch(`/api/articles?status=published&mainCategory=articles&limit=${ARTICLES_PER_PAGE}&page=1`);
         const data = await res.json();
         if (data.success) {
-          setArticles(data.articles || []);
+          const EXCLUDED_TYPES = ['arcade', 'rankroll', 'music-community', 'banner-page'];
+          const arts = (data.articles || []).filter((a: Article) => !EXCLUDED_TYPES.includes(a.contentType || 'article'));
+          setArticles(arts);
+          setHasMore(arts.length === ARTICLES_PER_PAGE);
+          setPage(1);
         }
       } catch (e) {
         console.error('Failed to load articles:', e);
@@ -82,6 +96,48 @@ export default function DesktopArticlesPage({ onOpenArticle, onShowLogin }: Desk
     };
     load();
   }, []);
+
+  // Load more articles
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const nextPage = page + 1;
+      const res = await fetch(`/api/articles?status=published&mainCategory=articles&limit=${ARTICLES_PER_PAGE}&page=${nextPage}`);
+      const data = await res.json();
+      if (data.success) {
+        const EXCLUDED_TYPES = ['arcade', 'rankroll', 'music-community', 'banner-page'];
+        const filtered = (data.articles || []).filter((a: Article) => !EXCLUDED_TYPES.includes(a.contentType || 'article'));
+        if (filtered.length > 0) {
+          setArticles(prev => [...prev, ...filtered]);
+          setPage(prev => prev + 1);
+        }
+        setHasMore(filtered.length === ARTICLES_PER_PAGE);
+      }
+    } catch (e) {
+      console.error('Failed to load more articles:', e);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [page, loadingMore, hasMore]);
+
+  // Intersection Observer for infinite scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
+          loadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [loadMore, hasMore, loadingMore, loading]);
 
   // Load read articles ONLY from DB (no localStorage)
   useEffect(() => {
@@ -232,15 +288,16 @@ export default function DesktopArticlesPage({ onOpenArticle, onShowLogin }: Desk
                           {CATEGORY_LABELS[article.category] || article.category}
                         </span>
                         <h4 className="font-display text-xl tracking-wide text-gray-900 group-hover:text-[#D4873A] transition-colors line-clamp-2 uppercase">{article.title}</h4>
-                        <div className="flex items-center gap-3 text-xs text-gray-400 mt-1">
-                          <span>{article.authorName || 'BOGX Team'} · {formatDate(article.createdAt)}</span>
+                        <div className="text-xs text-gray-400 mt-1 truncate">
+                          {article.authorName || 'BOGX Team'} · {formatDate(article.createdAt)}
                         </div>
-                      </div>
-                      {/* Moods + Coin Badge */}
-                      <div className="flex items-center gap-3 flex-shrink-0">
-                        <div onClick={(e) => e.stopPropagation()}>
+                        {/* Reactions on separate line */}
+                        <div className="mt-1" onClick={(e) => e.stopPropagation()}>
                           <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" />
                         </div>
+                      </div>
+                      {/* Coin Badge only */}
+                      <div className="flex items-center flex-shrink-0">
                         <div className={`px-2 py-1 rounded-lg border-2 font-display text-sm flex items-center gap-1 ${
                           isRead ? 'border-green-500 text-green-600' : 'border-[#D4873A] text-[#D4873A]'
                         }`}>
@@ -252,6 +309,27 @@ export default function DesktopArticlesPage({ onOpenArticle, onShowLogin }: Desk
                   </div>
                 );
               })}
+              
+              {/* Load More Trigger */}
+              {!loading && hasMore && (
+                <div ref={loadMoreRef} className="flex justify-center py-6">
+                  {loadingMore ? (
+                    <div className="flex items-center gap-2 text-gray-500">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span className="text-sm">Loading more articles...</span>
+                    </div>
+                  ) : (
+                    <div className="h-8" />
+                  )}
+                </div>
+              )}
+              
+              {/* End of list */}
+              {!loading && !hasMore && articles.length > 0 && (
+                <div className="text-center py-6 text-sm text-gray-400">
+                  You've reached the end
+                </div>
+              )}
             </div>
           </>
         )}

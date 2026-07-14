@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, memo } from "react";
+import { createPortal } from "react-dom";
 import { GENX_MOODS, DEFAULT_MOOD, getMoodById } from "@/config/moods";
 
 interface CardMoodReactionsProps {
@@ -197,15 +198,15 @@ function CardMoodReactionsInner({
         <span className={`font-medium ${textSize}`}>{totalReactions}</span>
       </button>
 
-      {/* Picker popup - fixed position above the button */}
-      {showPicker && (
+      {/* Picker popup - rendered via portal at body level */}
+      {showPicker && typeof document !== 'undefined' && createPortal(
         <>
           <div 
             className="fixed inset-0 z-[9999] bg-black/10" 
             onClick={closePicker}
           />
           <div 
-            className="fixed z-[10000] px-3 py-2 bg-cream border border-warm shadow-xl rounded-xl flex items-center gap-3 -translate-x-1/2"
+            className="fixed z-[10000] px-3 py-2 bg-[#F5F0E8] border border-[#E5DDD0] shadow-xl rounded-xl flex items-center gap-3 -translate-x-1/2"
             style={{ top: pickerPosition.top, left: pickerPosition.left }}
           >
             {GENX_MOODS.map((mood) => (
@@ -226,7 +227,8 @@ function CardMoodReactionsInner({
               </button>
             ))}
           </div>
-        </>
+        </>,
+        document.body
       )}
     </>
   );

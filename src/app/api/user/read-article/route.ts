@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import User from '@/models/User';
 import { DEFAULT_CURRENCY_CONFIG } from '@/models/CurrencyConfig';
+import { awardBogx } from '@/lib/awardBogx';
 
 const READ_ARTICLE_REWARD = DEFAULT_CURRENCY_CONFIG.readArticle; // 0.05 BOGX
 
@@ -24,14 +25,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, rewarded: false, alreadyRead: true });
     }
 
-    // Add article to readArticles array AND give BOGX
-    await User.findByIdAndUpdate(
-      userId,
-      { 
-        $addToSet: { readArticles: articleId },
-        $inc: { bogxCoins: READ_ARTICLE_REWARD }
-      }
-    );
+    // Mark article as read
+    await User.findByIdAndUpdate(userId, { $addToSet: { readArticles: articleId } });
+
+    // Award BOGX via the central helper: credits the wallet AND creates a
+    // GameResult entry so this counts in the day/month/year rankings.
+    await awardBogx({ userId, amount: READ_ARTICLE_REWARD, source: 'article', description: 'Read article' });
 
     return NextResponse.json({ 
       success: true, 

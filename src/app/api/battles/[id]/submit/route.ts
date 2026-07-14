@@ -332,7 +332,7 @@ export async function POST(
             userId: battle.challengedUser,
             type: 'battle_challenge',
             title: '⚔️ Battle Challenge!',
-            message: `${creatorName} challenges you to a ${battle.topic.toUpperCase()} battle for ${battle.wager} BOGX!`,
+            message: `${creatorName} challenges you to a ${battle.topic.toUpperCase()} battle for ${battle.wager.toFixed(2)} BOGX!`,
             avatar: creator?.avatar,
             data: { battleId: battle._id.toString(), url: '/battles' }
           });
@@ -342,7 +342,7 @@ export async function POST(
           if (challengedUser?.pushSubscription) {
             await sendPushNotification(challengedUser.pushSubscription, {
               title: '⚔️ Battle Challenge!',
-              body: `${creatorName} challenges you to a ${battle.topic.toUpperCase()} battle for ${battle.wager} coins!`,
+              body: `${creatorName} challenges you to a ${battle.topic.toUpperCase()} battle for ${battle.wager.toFixed(2)} BOGX!`,
               tag: `battle-challenge-${battle._id}`,
               // Deep-link straight to the battle so the opponent can start it immediately
               url: `/mobile?battle=${battle._id.toString()}`,

@@ -1,28 +1,12 @@
 "use client";
 
-import { ArrowLeft, Mail, MessageCircle, Clock, MapPin } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { Mail, MessageCircle, Clock } from "lucide-react";
+import StaticPageLayout from "@/components/StaticPageLayout";
 
 export default function KontaktPage() {
-  const router = useRouter();
-
   return (
-    <div className="min-h-screen bg-cream">
-      {/* Header */}
-      <div className="sticky top-0 z-50 bg-cream border-b border-warm px-4 py-3">
-        <div className="max-w-2xl mx-auto flex items-center gap-3">
-          <button
-            onClick={() => router.back()}
-            className="p-2 rounded-full hover:bg-[#D4873A]/10 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-700" />
-          </button>
-          <h1 className="text-lg font-bold text-gray-900">Kontakt</h1>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="max-w-2xl mx-auto px-4 py-8">
+    <StaticPageLayout title="Kontakt">
+      <div>
         {/* Hero */}
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Wir freuen uns auf deine Nachricht!</h2>
@@ -95,10 +79,7 @@ export default function KontaktPage() {
           </div>
         </div>
 
-        <p className="text-xs text-gray-500 text-center mt-8">
-          Best of GenX · For Generation X
-        </p>
       </div>
-    </div>
+    </StaticPageLayout>
   );
 }

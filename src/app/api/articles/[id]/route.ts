@@ -1,10 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
+import clientPromise from '@/lib/mongodb';
 import Article from '@/models/Article';
 import User from '@/models/User';
 import ArticleView from '@/models/ArticleView';
 import { awardBogx } from '@/lib/awardBogx';
+import { getAutoFillSlugs } from '@/lib/categories';
 import crypto from 'crypto';
+
+// For a dedicated banner-page / Community-Sound page without its own coverImage, inherit the
+// banner image set on the template's FIXED block of its category. The page shows that image
+// until an editor sets a coverImage on the article itself (which then takes precedence).
+const BANNER_FALLBACK_TYPES = new Set(['banner-page', 'music-community']);
+async function applyBannerImageFallback(article: any) {
+  if (!article || article.coverImage || !BANNER_FALLBACK_TYPES.has(article.contentType)) return;
+  try {
+    const client = await clientPromise;
+    const db = client.db('sporttock');
+    const tmpl = await db.collection('settings').findOne({ key: 'articleTemplate' });
+    const items: any[] = tmpl?.items || [];
+    const cat = (article.category || '').toLowerCase();
+    for (const item of items) {
+      if (item.size !== 12 || !Array.isArray(item.containerBlocks)) continue;
+      const cats = getAutoFillSlugs(item.containerName, item.containerTheme).map((c: string) => c.toLowerCase());
+      if (!cats.includes(cat)) continue;
+      const fixed = item.containerBlocks.find((b: any) => b.type === 'FIXED' && b.bannerImage);
+      if (fixed?.bannerImage) { article.coverImage = fixed.bannerImage; break; }
+    }
+  } catch (e) {
+    console.error('banner-page cover fallback failed:', e);
+  }
+}
 
 // Helper to parse user agent
 function parseUserAgent(ua: string) {
@@ -138,6 +164,8 @@ export async function GET(
       }
     }
     
+    await applyBannerImageFallback(article);
+
     return NextResponse.json({ success: true, article, pointsAwarded });
   } catch (error: unknown) {
     console.error('Failed to fetch article:', error);
@@ -157,6 +185,12 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
     const { userId, ...updates } = body;
+
+    // Keep arcade tagging in sync: when an article's category becomes gaming/tech,
+    // auto-tag it as contentType 'arcade' (unless an explicit contentType was sent).
+    if (updates.category && updates.contentType === undefined && ['gaming', 'tech'].includes(updates.category)) {
+      updates.contentType = 'arcade';
+    }
     
     if (!userId) {
       return NextResponse.json({ success: false, error: 'Missing userId' }, { status: 400 });

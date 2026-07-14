@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Check, X, HelpCircle, Clock, Trophy, Dumbbell, Music, Film, Landmark, Gamepad2, Tv, Timer, Play } from "lucide-react";
+import { Check, X, HelpCircle, Clock, Trophy, Dumbbell, Music, Film, Landmark, Gamepad2, Tv, Timer, Play, ChevronLeft } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import GenXLoader from "@/components/GenXLoader";
@@ -470,29 +470,18 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
 
   const currentQuestion = questions[currentIndex];
 
-  // Unified Header Component - same on all phases
+  // Unified Header Component - same as QuizzBattle (no online indicator for single player)
   const GameHeader = ({ showBack = true }: { showBack?: boolean }) => (
-    <div className="px-3 pt-4 pb-3 border-b border-warm">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {showBack && <BackButton onClick={onBack} className="-ml-1" />}
-          <div>
-            <span className="font-display text-lg tracking-wider text-gray-900">Solo Trivia</span>
-            <p className="text-[10px] text-gray-500 -mt-0.5">Answer fast, earn coins.</p>
-          </div>
-        </div>
-        {/* Online Players Indicator */}
-        <div className="flex items-center gap-2 bg-cream border border-warm px-3 py-1.5 rounded-full">
-          <div className="relative">
-            <img src={user?.avatar || '/images/default-avatar.png'} alt="" className="w-6 h-6 rounded-full border-2 border-white" />
-            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white" />
-          </div>
-          {onlineLoading ? (
-            <div className="w-6 h-4 bg-gray-300 rounded animate-pulse" />
-          ) : (
-            <span className="text-xs font-bold text-gray-700">{onlinePlayers.toLocaleString()}</span>
-          )}
-          <span className="text-[10px] text-gray-500 uppercase">Online</span>
+    <div className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
+      <div className="flex items-center gap-3">
+        {showBack && (
+          <button onClick={onBack} className="p-1 hover:bg-[#D4873A]/10 rounded transition-colors">
+            <ChevronLeft className="w-5 h-5 text-gray-600" />
+          </button>
+        )}
+        <div>
+          <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Solo Trivia</span>
+          <span className="text-[10px] text-gray-500 -mt-0.5 block">Answer fast, earn coins.</span>
         </div>
       </div>
     </div>

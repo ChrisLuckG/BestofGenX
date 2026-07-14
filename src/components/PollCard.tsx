@@ -120,7 +120,6 @@ export default function PollCard({ poll, userId, visitorId, variant = 'full', on
           <div className="flex-1 min-w-0">
             <span className="text-[10px] font-bold text-[#D4873A] uppercase tracking-wider">RANKROLL</span>
             <h3 className="font-display text-lg text-gray-900 uppercase">{poll.title}</h3>
-            {poll.subtitle && <p className="text-sm text-gray-700 line-clamp-1">{poll.subtitle}</p>}
             <div className="flex items-center gap-2 mt-0.5">
               <p className="text-xs text-gray-500">{poll.options.length} options · {localPoll.totalVotes} votes</p>
               {poll.linkedArticleId && onOpenArticle && (

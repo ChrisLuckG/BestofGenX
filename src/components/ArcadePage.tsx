@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, User, HelpCircle, Trophy, BarChart3, Coins, Zap, Play, Radio, Clock, Target, Eye, Lightbulb, Swords } from "lucide-react";
+import { Users, User, HelpCircle, Trophy, BarChart3, Coins, Zap, Play, Radio, Clock, Target, Eye, Lightbulb, Swords, Crosshair } from "lucide-react";
 import OpenBattlesModal from "./OpenBattlesModal";
 
 interface ArcadePageProps {
-  onSelectGame: (game: 'quizzbattle' | 'trivia' | 'spacegenx' | 'memory' | 'prediction' | 'genxmen' | 'nextplay' | 'faceblur') => void;
+  onSelectGame: (game: 'quizzbattle' | 'trivia' | 'spacegenx' | 'memory' | 'prediction' | 'genxmen' | 'nextplay' | 'faceblur' | 'bogxinvaders') => void;
   onShowRankings?: () => void;
   onShowBattles?: () => void;
   battleAlertCount?: number;
@@ -19,16 +19,20 @@ export default function ArcadePage({ onSelectGame, onShowRankings, onShowBattles
   const [liveBattleCount, setLiveBattleCount] = useState(battleAlertCount);
 
   // Fetch live battle count every time arcade is shown — independent of bottom nav badge
-  useEffect(() => {
+  const refreshBattleCount = () => {
     if (!userId) return;
     fetch(`/api/battles?userId=${userId}&countOnly=true`)
       .then(r => r.json())
       .then(data => {
         if (data.success) {
-          setLiveBattleCount((data.pendingChallenges ?? 0) + (data.activeBattles ?? 0));
+          setLiveBattleCount((data.pendingChallenges ?? 0) + (data.activeBattles ?? 0) + (data.myOpenBattles ?? 0));
         }
       })
       .catch(() => {});
+  };
+
+  useEffect(() => {
+    refreshBattleCount();
   }, [userId]);
 
   return (
@@ -61,7 +65,7 @@ export default function ArcadePage({ onSelectGame, onShowRankings, onShowBattles
       {userId && (
         <OpenBattlesModal
           isOpen={showOpenBattles}
-          onClose={() => setShowOpenBattles(false)}
+          onClose={() => { setShowOpenBattles(false); refreshBattleCount(); }}
           userId={userId}
           onPlayBattle={(battleId) => { setShowOpenBattles(false); onPlaySpecificBattle?.(battleId) || onSelectGame('quizzbattle'); }}
           onCoinsChange={onCoinsChange}
@@ -173,6 +177,59 @@ export default function ArcadePage({ onSelectGame, onShowRankings, onShowBattles
 
             {/* Play Now */}
             <div className="flex items-center gap-2 mt-3 bg-[#D4873A] px-4 py-1.5 rounded-lg">
+              <span className="text-white text-[11px] font-bold">PLAY NOW</span>
+              <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center">
+                <Play className="w-2 h-2 text-white fill-white ml-0.5" />
+              </span>
+            </div>
+          </div>
+        </button>
+
+        {/* BOGX Invaders - Arcade Shooter */}
+        <button
+          onClick={() => onSelectGame('bogxinvaders')}
+          className="w-full relative overflow-hidden rounded-2xl shadow-md transition-all hover:scale-[1.02] active:scale-[0.98] bg-cover bg-center aspect-[2/1]"
+          style={{ backgroundImage: "url('/images/Hintergund/hamster.png')" }}
+        >
+
+          {/* Badge - top right */}
+          <div className="absolute top-2 right-2 inline-flex items-center gap-1 bg-black/50 backdrop-blur-sm border border-white/20 text-white text-[7px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider z-10">
+            <User className="w-2.5 h-2.5" />
+            Single Player
+          </div>
+
+          <div className="relative h-full flex flex-col justify-center items-start text-left px-4 py-3 max-w-[70%]">
+            {/* Title */}
+            <h3 className="font-display text-[30px] leading-none tracking-wide mt-2">
+              <span className="text-white">BOGX</span> <span className="text-[#760b79]">INVADERS</span>
+            </h3>
+
+            {/* Subtitle */}
+            <p className="text-white text-[12px] font-semibold leading-tight mt-1.5">
+              Shoot the hamster wheels!<br />
+              <span className="text-[#760b79]">+0.01 BOGX per kill.</span>
+            </p>
+
+            {/* Features */}
+            <div className="flex items-center gap-3 mt-2.5">
+              <div className="flex items-center gap-1">
+                <Crosshair className="w-3.5 h-3.5 text-[#760b79] flex-shrink-0" />
+                <span className="text-white/90 text-[10px] font-medium leading-tight">Arcade<br/>Shooter</span>
+              </div>
+              <div className="w-px h-6 bg-white/25 flex-shrink-0" />
+              <div className="flex items-center gap-1">
+                <Coins className="w-3.5 h-3.5 text-[#760b79] flex-shrink-0" />
+                <span className="text-white/90 text-[10px] font-medium">Real-time<br/>Rewards</span>
+              </div>
+              <div className="w-px h-6 bg-white/25 flex-shrink-0" />
+              <div className="flex items-center gap-1">
+                <Trophy className="w-3.5 h-3.5 text-[#760b79] flex-shrink-0" />
+                <span className="text-white/90 text-[10px] font-medium leading-tight">Beat the<br/>Boss</span>
+              </div>
+            </div>
+
+            {/* Play Now */}
+            <div className="flex items-center gap-2 mt-3 bg-[#760b79] px-4 py-1.5 rounded-lg">
               <span className="text-white text-[11px] font-bold">PLAY NOW</span>
               <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center">
                 <Play className="w-2 h-2 text-white fill-white ml-0.5" />

@@ -1,9 +1,48 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Loader2, Trash2, History, CheckCircle, XCircle, Clock, RefreshCw, Edit2, X, Upload, Shield, PenTool, Instagram, Facebook, Linkedin, Globe, MessageSquare } from "lucide-react";
+import { Loader2, Trash2, History, CheckCircle, XCircle, Clock, RefreshCw, Edit2, X, Upload, Shield, PenTool, Instagram, Facebook, Linkedin, Globe, MessageSquare, UserPlus, ChevronDown, Check } from "lucide-react";
 import EditorialChatModal from "@/components/admin/EditorialChatModal";
-import EditorialConferenceModal from "@/components/admin/EditorialConferenceModal";
+
+const COUNTRIES = [
+  { name: 'American', flag: '🇺🇸' }, { name: 'British', flag: '🇬🇧' }, { name: 'German', flag: '🇩🇪' },
+  { name: 'French', flag: '🇫🇷' }, { name: 'Spanish', flag: '🇪🇸' }, { name: 'Italian', flag: '🇮🇹' },
+  { name: 'Australian', flag: '🇦🇺' }, { name: 'Canadian', flag: '🇨🇦' }, { name: 'Brazilian', flag: '🇧🇷' },
+  { name: 'Japanese', flag: '🇯🇵' }, { name: 'Mexican', flag: '🇲🇽' }, { name: 'Dutch', flag: '🇳🇱' },
+  { name: 'Swedish', flag: '🇸🇪' }, { name: 'Norwegian', flag: '🇳🇴' }, { name: 'Polish', flag: '🇵🇱' },
+  { name: 'Portuguese', flag: '🇵🇹' }, { name: 'Argentine', flag: '🇦🇷' }, { name: 'Uruguayan', flag: '🇺🇾' },
+  { name: 'Irish', flag: '🇮🇪' }, { name: 'Scottish', flag: '🏴󠁧󠁢󠁳󠁣󠁴󠁿' }, { name: 'Welsh', flag: '🏴󠁧󠁢󠁷󠁬󠁳󠁿' },
+  { name: 'South Korean', flag: '🇰🇷' }, { name: 'Chinese', flag: '🇨🇳' }, { name: 'Indian', flag: '🇮🇳' },
+  { name: 'South African', flag: '🇿🇦' }, { name: 'Russian', flag: '🇷🇺' }, { name: 'Ukrainian', flag: '🇺🇦' },
+  { name: 'Greek', flag: '🇬🇷' }, { name: 'Turkish', flag: '🇹🇷' }, { name: 'Swiss', flag: '🇨🇭' },
+  { name: 'Austrian', flag: '🇦🇹' }, { name: 'Belgian', flag: '🇧🇪' }, { name: 'Danish', flag: '🇩🇰' },
+  { name: 'Finnish', flag: '🇫🇮' }, { name: 'Czech', flag: '🇨🇿' }, { name: 'Hungarian', flag: '🇭🇺' },
+  { name: 'Jamaican', flag: '🇯🇲' }, { name: 'Nigerian', flag: '🇳🇬' }, { name: 'Egyptian', flag: '🇪🇬' },
+  { name: 'New Zealander', flag: '🇳🇿' }, { name: 'Colombian', flag: '🇨🇴' }, { name: 'Chilean', flag: '🇨🇱' },
+];
+const ROLES = [
+  'Senior Sports Reporter', 'Entertainment Reporter', 'Music Journalist', 'Technology Writer',
+  'Culture Editor', 'Lifestyle Reporter', 'Politics Correspondent', 'Gaming Editor',
+  'Celebrity Reporter', 'Film & TV Critic', 'Food & Travel Writer', 'History Writer',
+  'Fashion Editor', 'Science Reporter', 'Investigative Journalist', 'Photo Editor',
+];
+const RESPONSIBILITY_OPTIONS = [
+  '⚽ Sports', '🥊 Boxing', '🎾 Tennis', '🏀 Basketball', '🏎️ Formula 1', '🏈 American Football',
+  '🎵 Music', '🎸 Rock & Metal', '🎤 Pop', '🎧 Hip-Hop & R&B', '🎼 Indie & Alternative',
+  '🎬 Movies', '📺 TV Shows', '🎮 Gaming', '💻 Tech', '👗 Fashion',
+  '🎭 Culture & Art', '📜 History', '⭐ Celebrities', '🕯️ RIP / Obituaries',
+  '🍔 Food', '✈️ Travel', '🌿 Lifestyle', '🏛️ Politics', '📡 Science',
+  '🕹️ Anime & Manga', '🏆 GenX Icons',
+];
+const WRITING_STYLES = [
+  'Punchy & Direct', 'Humorous & Witty', 'Analytical & Deep', 'Storytelling & Narrative',
+  'Provocative & Bold', 'Nostalgic & Warm', 'Dry & Sardonic', 'Passionate & Enthusiastic',
+  'Academic & Formal', 'Conversational & Casual',
+];
+const PERSONALITIES = [
+  'Curious & Open', 'Dry Wit', 'Passionate', 'Sarcastic', 'Warm & Empathetic',
+  'Rebellious', 'Intellectual', 'Adventurous', 'Calm & Measured', 'Edgy & Provocative',
+];
 
 interface UserData {
   _id: string;
@@ -61,7 +100,10 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
   const [savingUser, setSavingUser] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [saveSuccessToast, setSaveSuccessToast] = useState<string | null>(null);
-  const [showConference, setShowConference] = useState(false);
+  const [showCreateEmployee, setShowCreateEmployee] = useState(false);
+  const [newEmployee, setNewEmployee] = useState({ name: '', role: '', nationality: '', responsibilities: [] as string[], writingStyle: '', personality: '' });
+  const [creatingEmployee, setCreatingEmployee] = useState(false);
+  const [showRespDropdown, setShowRespDropdown] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -81,6 +123,38 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
         setReporterProfiles(map);
       }
     } catch { /* silent */ }
+  };
+
+  const createEmployee = async () => {
+    if (!newEmployee.name.trim() || !newEmployee.role.trim() || !newEmployee.responsibilities.length) {
+      alert('Name, Role and at least one Responsibility are required');
+      return;
+    }
+    setCreatingEmployee(true);
+    try {
+      const payload = { ...newEmployee, responsibilities: newEmployee.responsibilities.join(', ') };
+      const res = await fetch('/api/editorial/reporters', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShowCreateEmployee(false);
+        setNewEmployee({ name: '', role: '', nationality: '', responsibilities: [], writingStyle: '', personality: '' });
+        setShowRespDropdown(false);
+        setSaveSuccessToast(`Employee "${newEmployee.name}" created!`);
+        setTimeout(() => setSaveSuccessToast(null), 3000);
+        await fetchReporterProfiles();
+        fetchUsers();
+      } else {
+        alert(data.error || 'Failed to create employee');
+      }
+    } catch {
+      alert('Network error');
+    } finally {
+      setCreatingEmployee(false);
+    }
   };
 
   // Always seeds (idempotent), then loads profiles + refreshes user list
@@ -140,10 +214,11 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
   };
 
   const toggleAllUsers = () => {
-    if (selectedUsers.size === users.length) {
+    const displayUsersFiltered = users.filter(u => !u.isAIReporter);
+    if (selectedUsers.size === displayUsersFiltered.length) {
       setSelectedUsers(new Set());
     } else {
-      setSelectedUsers(new Set(users.map(u => u._id)));
+      setSelectedUsers(new Set(displayUsersFiltered.map(u => u._id)));
     }
   };
 
@@ -183,6 +258,30 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
   const openHistoryModal = (userId: string, username: string) => {
     setHistoryModal({ userId, username });
     fetchUserHistory(userId, historyDate);
+  };
+
+  const deleteEditingUser = async () => {
+    if (!editingUser) return;
+    if (editingUser.isAdmin) return; // Never delete admin
+    if (!confirm(`Permanently delete user "${editingUser.username}"? This cannot be undone!`)) return;
+    setSavingUser(true);
+    try {
+      const res = await fetch(`/api/users/${editingUser._id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setEditingUser(null);
+        setSaveSuccessToast(`${editingUser.username} deleted`);
+        setTimeout(() => setSaveSuccessToast(null), 3000);
+        fetchUsers();
+      } else {
+        alert('Delete failed: ' + (data.error || 'Unknown error'));
+      }
+    } catch (e) {
+      console.error('Delete user error:', e);
+      alert('Delete failed');
+    } finally {
+      setSavingUser(false);
+    }
   };
 
   const saveUserChanges = async () => {
@@ -246,11 +345,14 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
     }
   };
 
-  const totalCoins = users.reduce((sum, u) => sum + (u.coins || 0), 0);
-  const totalWins = users.reduce((sum, u) => sum + (u.wins || 0), 0);
-  const totalGames = users.reduce((sum, u) => sum + (u.gamesPlayed || 0), 0);
-  const botCount = users.filter(u => u.isBot).length;
-  const realUserCount = users.length - botCount;
+  // Filter out AI reporters - they are managed in the Conference tab
+  const displayUsers = users.filter(u => !u.isAIReporter);
+  
+  const totalCoins = displayUsers.reduce((sum, u) => sum + (u.coins || 0), 0);
+  const totalWins = displayUsers.reduce((sum, u) => sum + (u.wins || 0), 0);
+  const totalGames = displayUsers.reduce((sum, u) => sum + (u.gamesPlayed || 0), 0);
+  const botCount = displayUsers.filter(u => u.isBot).length;
+  const realUserCount = displayUsers.length - botCount;
 
   return (
     <>
@@ -265,7 +367,7 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
       <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-sm font-bold">Users ({users.length})</h2>
+            <h2 className="text-sm font-bold">Users ({displayUsers.length})</h2>
             <p className="text-[11px] text-gray-400">
               {realUserCount} real · {botCount} bots · {totalCoins.toLocaleString()} total coins · {totalWins} wins · {totalGames} games
             </p>
@@ -285,14 +387,6 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
             >
               {isCreatingBots ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : '🤖'}
               Create 20 Bots
-            </button>
-            <button
-              onClick={() => setShowConference(true)}
-              className="flex items-center gap-1.5 bg-[#D4873A] hover:bg-[#c06a2a] px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-colors"
-              title="Open editorial conference room"
-            >
-              <MessageSquare className="w-3.5 h-3.5" />
-              Conference
             </button>
             {selectedUsers.size > 0 && (
               <button
@@ -335,7 +429,7 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                 </tr>
               </thead>
               <tbody>
-                {users.map((user) => (
+                {displayUsers.map((user) => (
                   <tr key={user._id} className="border-b border-gray-700/50 hover:bg-gray-700/30">
                     <td className="py-2 pr-3">
                       <input
@@ -700,22 +794,36 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
             </div>
 
             {/* Footer */}
-            <div className="sticky bottom-0 bg-gray-800 p-4 border-t border-gray-700 flex justify-end gap-3">
-              <button
-                onClick={() => setEditingUser(null)}
-                disabled={savingUser}
-                className="px-5 py-2.5 bg-gray-600 hover:bg-gray-500 disabled:opacity-50 text-white font-medium text-sm rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={saveUserChanges}
-                disabled={savingUser || uploadingAvatar}
-                className="px-5 py-2.5 bg-[#D4873A] hover:bg-[#c06a2a] disabled:opacity-50 text-white font-bold text-sm rounded-lg inline-flex items-center gap-2"
-              >
-                {savingUser && <Loader2 className="w-4 h-4 animate-spin" />}
-                Save Changes
-              </button>
+            <div className="sticky bottom-0 bg-gray-800 p-4 border-t border-gray-700 flex justify-between gap-3">
+              <div>
+                {!editingUser.isAdmin && (
+                  <button
+                    onClick={deleteEditingUser}
+                    disabled={savingUser}
+                    className="px-4 py-2.5 bg-red-700 hover:bg-red-600 disabled:opacity-50 text-white font-medium text-sm rounded-lg inline-flex items-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Remove User
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setEditingUser(null)}
+                  disabled={savingUser}
+                  className="px-5 py-2.5 bg-gray-600 hover:bg-gray-500 disabled:opacity-50 text-white font-medium text-sm rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveUserChanges}
+                  disabled={savingUser || uploadingAvatar}
+                  className="px-5 py-2.5 bg-[#D4873A] hover:bg-[#c06a2a] disabled:opacity-50 text-white font-bold text-sm rounded-lg inline-flex items-center gap-2"
+                >
+                  {savingUser && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Save Changes
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -730,16 +838,156 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
         />
       )}
 
-      {/* Editorial Conference Modal */}
-      {showConference && (
-        <EditorialConferenceModal
-          reporters={users.filter(u => u.isAIReporter)}
-          reporterProfiles={reporterProfiles}
-          userId={adminUserId || users.find(u => u.isAdmin)?._id || ''}
-          onClose={() => setShowConference(false)}
-          onGoToArticles={onGoToArticles}
-          onOpenReporterChat={(reporter) => setEditorialChatReporter(reporter)}
-        />
+
+      {/* Create Employee Modal */}
+      {showCreateEmployee && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowCreateEmployee(false)} />
+          <div className="relative w-full max-w-md bg-gray-800 rounded-2xl shadow-2xl border border-gray-700 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-700">
+              <div className="flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-green-400" />
+                <span className="font-bold text-white">Create Employee</span>
+              </div>
+              <button onClick={() => setShowCreateEmployee(false)} className="w-7 h-7 rounded-full hover:bg-gray-700 flex items-center justify-center text-gray-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-5 space-y-3">
+              {/* Name */}
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1 block">Name *</label>
+                <input
+                  value={newEmployee.name}
+                  onChange={e => setNewEmployee(p => ({ ...p, name: e.target.value }))}
+                  placeholder="e.g. Lisa Müller"
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-green-500"
+                />
+              </div>
+              {/* Nationality dropdown with flags */}
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1 block">Nationality</label>
+                <div className="relative">
+                  <select
+                    value={newEmployee.nationality}
+                    onChange={e => setNewEmployee(p => ({ ...p, nationality: e.target.value }))}
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500 appearance-none pr-8"
+                  >
+                    <option value="">— Select nationality</option>
+                    {COUNTRIES.map(c => (
+                      <option key={c.name} value={c.name}>{c.flag} {c.name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+              {/* Role dropdown */}
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1 block">Role *</label>
+                <div className="relative">
+                  <select
+                    value={newEmployee.role}
+                    onChange={e => setNewEmployee(p => ({ ...p, role: e.target.value }))}
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500 appearance-none pr-8"
+                  >
+                    <option value="">— Select role</option>
+                    {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+              {/* Responsibilities multi-select */}
+              <div className="relative">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1 block">Responsibilities * <span className="text-gray-500 normal-case font-normal">(select all that apply)</span></label>
+                <button
+                  type="button"
+                  onClick={() => setShowRespDropdown(p => !p)}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-left focus:outline-none focus:border-green-500 flex items-center justify-between gap-2"
+                >
+                  <span className={newEmployee.responsibilities.length ? 'text-white' : 'text-gray-500'}>
+                    {newEmployee.responsibilities.length
+                      ? newEmployee.responsibilities.join(', ')
+                      : '— Select topics'}
+                  </span>
+                  <ChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${showRespDropdown ? 'rotate-180' : ''}`} />
+                </button>
+                {showRespDropdown && (
+                  <div className="absolute z-50 top-full mt-1 w-full bg-gray-700 border border-gray-600 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                    <div className="grid grid-cols-2 p-2 gap-0.5">
+                      {RESPONSIBILITY_OPTIONS.map(opt => {
+                        const selected = newEmployee.responsibilities.includes(opt);
+                        return (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => setNewEmployee(p => ({
+                              ...p,
+                              responsibilities: selected
+                                ? p.responsibilities.filter(r => r !== opt)
+                                : [...p.responsibilities, opt],
+                            }))}
+                            className={`flex items-center gap-1.5 px-2 py-1.5 rounded text-xs text-left transition-colors ${
+                              selected ? 'bg-green-600/30 text-green-300' : 'hover:bg-gray-600 text-gray-300'
+                            }`}
+                          >
+                            {selected ? <Check className="w-3 h-3 flex-shrink-0" /> : <span className="w-3 h-3 flex-shrink-0" />}
+                            {opt}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {/* Writing Style dropdown */}
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1 block">Writing Style</label>
+                <div className="relative">
+                  <select
+                    value={newEmployee.writingStyle}
+                    onChange={e => setNewEmployee(p => ({ ...p, writingStyle: e.target.value }))}
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500 appearance-none pr-8"
+                  >
+                    <option value="">— Select writing style</option>
+                    {WRITING_STYLES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+              {/* Personality dropdown */}
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1 block">Personality</label>
+                <div className="relative">
+                  <select
+                    value={newEmployee.personality}
+                    onChange={e => setNewEmployee(p => ({ ...p, personality: e.target.value }))}
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500 appearance-none pr-8"
+                  >
+                    <option value="">— Select personality</option>
+                    {PERSONALITIES.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+            </div>
+            <div className="px-5 pb-5 flex gap-3">
+              <button
+                onClick={() => setShowCreateEmployee(false)}
+                className="flex-1 py-2.5 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={createEmployee}
+                disabled={creatingEmployee}
+                className="flex-1 py-2.5 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                {creatingEmployee ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                {creatingEmployee ? 'Creating...' : 'Create Employee'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

@@ -1370,6 +1370,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                     <option value="lifestyle">Lifestyle</option>
                     <option value="news">News</option>
                     <option value="rip">RIP</option>
+                    <option value="eastercorn">Eastercorn</option>
                   </select>
                 </div>
               </div>

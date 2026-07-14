@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import User from '@/models/User';
 import Reward from '@/models/Reward';
+import GameResult from '@/models/GameResult';
 import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -163,8 +164,36 @@ export async function POST(request: Request) {
     }
 
     // Deduct coins from user
-    user.bogxCoins = (user.bogxCoins || 0) - reward.cost;
+    const bogxBefore = user.bogxCoins || 0;
+    user.bogxCoins = bogxBefore - reward.cost;
     await user.save();
+
+    // Record ledger entry so ranking scores stay in sync with the wallet
+    try {
+      const today = new Date().toLocaleString('en-CA', {
+        timeZone: 'Europe/Berlin',
+        year: 'numeric', month: '2-digit', day: '2-digit'
+      }).split(',')[0];
+      await GameResult.create({
+        userId: user._id,
+        username: user.username,
+        cardId: 'reward-redeem',
+        question: `Redeemed: ${reward.name}`,
+        userAnswer: null,
+        correctAnswer: '-',
+        isCorrect: false,
+        pointsChange: -reward.cost,
+        pointsBefore: bogxBefore,
+        pointsAfter: user.bogxCoins,
+        timeUsed: 0,
+        difficulty: 1,
+        skipped: false,
+        timedOut: false,
+        gameDate: today,
+      });
+    } catch (e) {
+      console.error('redeem-shop: failed to create GameResult:', e);
+    }
 
     // Send confirmation email
     if (email || user.email) {

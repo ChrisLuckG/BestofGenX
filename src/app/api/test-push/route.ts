@@ -2,14 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import User from '@/models/User';
 import Notification from '@/models/Notification';
-import webpush from 'web-push';
-
-// Configure web-push
-webpush.setVapidDetails(
-  'mailto:admin@bestofgenx.com',
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '',
-  process.env.VAPID_PRIVATE_KEY || ''
-);
+import { sendPushNotification } from '@/lib/webpush';
 
 // POST - Send a test push notification AND create a notification in the list
 export async function POST(request: NextRequest) {
@@ -55,26 +48,25 @@ export async function POST(request: NextRequest) {
           ? JSON.parse(user.pushSubscription) 
           : user.pushSubscription;
           
-        await webpush.sendNotification(
+        pushSent = await sendPushNotification(
           subscription,
-          JSON.stringify({
+          {
             title: '🎉 Test Notification!',
             body: `Hey ${user.username}, push is working!`,
             icon: '/images/genxlogo1.png',
             badge: '/images/genxlogo1.png',
             tag: 'test-push',
             url: '/mobile?tab=notifications'
-          })
+          },
+          userId,
+          'test-push'
         );
-        pushSent = true;
+        if (!pushSent) {
+          pushError = 'Push failed - check logs';
+        }
       } catch (err: any) {
         console.error('Push send error:', err);
         pushError = `${err.statusCode || 'Error'}: ${err.body || err.message || 'Unknown'}`;
-        // Auto-cleanup if subscription is dead
-        if (err.statusCode === 410 || err.statusCode === 404) {
-          await User.findByIdAndUpdate(userId, { $unset: { pushSubscription: 1 } });
-          pushError += ' (Subscription removed - please re-enable notifications)';
-        }
       }
     }
     

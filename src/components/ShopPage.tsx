@@ -207,39 +207,19 @@ export default function ShopPage({ coins = 0, onCoinsUsed }: ShopPageProps) {
           <>
             <div className="flex items-center justify-between mx-3 mt-4 mb-2">
               <div className="flex items-center gap-2">
-                <span className="text-lg">🔥</span>
-                <span className="font-display text-base tracking-wide text-gray-900">BESTSELLERS</span>
+                <span className="text-lg">�️</span>
+                <span className="font-display text-base tracking-wide text-gray-900">PRODUCTS</span>
               </div>
-              <button className="text-[#D4873A] text-xs font-semibold flex items-center gap-0.5">
-                SEE ALL <ChevronRight className="w-3 h-3" />
-              </button>
             </div>
 
             <div className="grid grid-cols-2 gap-3 mx-3 pb-4">
-              {filteredProducts.map((product: Product, index: number) => {
-                // Assign badges based on index for demo
-                const badges = ['BESTSELLER', 'TOP RATED', 'NEW', 'LIMITED'];
-                const badgeColors: Record<string, string> = {
-                  'BESTSELLER': 'bg-[#D4873A]',
-                  'TOP RATED': 'bg-[#D4873A]',
-                  'NEW': 'bg-[#D4873A]',
-                  'LIMITED': 'bg-[#D4873A]',
-                };
-                const badge = badges[index % badges.length];
-                
+              {filteredProducts.map((product: Product) => {
                 return (
                   <div 
                     key={product.id}
                     onClick={() => setSelectedProduct(product)}
                     className="bg-cream border border-warm overflow-hidden rounded-xl shadow-sm transition-all cursor-pointer active:scale-95 relative"
                   >
-                    {/* Badge */}
-                    <div className={`absolute top-2 left-2 z-10 px-2 py-0.5 ${badgeColors[badge]} rounded text-white text-[9px] font-bold flex items-center gap-1`}>
-                      {badge === 'BESTSELLER' && '🔥'}
-                      {badge === 'TOP RATED' && <Star className="w-2.5 h-2.5 fill-yellow-400 text-yellow-400" />}
-                      {badge}
-                    </div>
-                    
                     {/* Wishlist */}
                     <button 
                       className="absolute top-2 right-2 z-10 w-7 h-7 bg-[#D4873A]/20 backdrop-blur-sm rounded-full flex items-center justify-center"

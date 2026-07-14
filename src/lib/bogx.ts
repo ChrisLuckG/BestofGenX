@@ -50,9 +50,9 @@ export function battleBetToBOGX(points: number): number {
 
 // Default reward values in BOGX
 export const BOGX_REWARDS = {
-  dailyLogin: 0.05,
-  readArticle: 0.20,
-  voteRanking: 0.05,
+  dailyLogin: 0.01,
+  readArticle: 0.05,
+  voteRanking: 0.01,
   welcomeBonus: 5.00, // 500 points = 5.00 BOGX
   referralBonus: 5.00, // 500 points = 5.00 BOGX
 };

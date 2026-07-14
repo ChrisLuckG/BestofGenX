@@ -135,11 +135,11 @@ export async function POST(
           arrayFilters: [{ 'item.id': optionId }],
         });
         
-        // Award 0.05 BOGX per vote (only for FIRST vote on this item)
+        // Award 0.01 BOGX per vote (only for FIRST vote on this item)
         // awardBogx also creates a GameResult so it counts in the rankings
         if (userId) {
-          await awardBogx({ userId, amount: 0.05, source: 'vote', description: 'Voted on ranking' });
-          coinsAwarded = 0.05;
+          await awardBogx({ userId, amount: 0.01, source: 'vote', description: 'Voted on ranking' });
+          coinsAwarded = 0.01;
         }
       }
       

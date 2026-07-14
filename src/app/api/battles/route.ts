@@ -4,8 +4,8 @@ import Battle from '@/models/Battle';
 import User from '@/models/User';
 import Card from '@/models/Card';
 import OpenAI from 'openai';
-import fs from 'fs';
-import path from 'path';
+import { combinePrompts } from '@/lib/loadPrompt';
+import { getQuestionsForUser } from '@/lib/questionService';
 
 // GET - List open battles
 export async function GET(request: NextRequest) {
@@ -20,14 +20,16 @@ export async function GET(request: NextRequest) {
 
     // Fast path: just return counts for the welcome modal / nav badge
     if (countOnly && userId) {
-      const [pendingChallenges, activeBattles] = await Promise.all([
+      const [pendingChallenges, activeBattles, myOpenBattles] = await Promise.all([
         Battle.countDocuments({ challengedUser: userId, status: 'open' }),
         Battle.countDocuments({
           $or: [{ creator: userId }, { opponent: userId }],
           status: 'active',
         }),
+        // Battles the user created themselves, still waiting for an opponent to join
+        Battle.countDocuments({ creator: userId, status: 'open' }),
       ]);
-      return NextResponse.json({ success: true, pendingChallenges, activeBattles });
+      return NextResponse.json({ success: true, pendingChallenges, activeBattles, myOpenBattles });
     }
     
     const query: any = { status };
@@ -68,6 +70,23 @@ export async function GET(request: NextRequest) {
       }
     }
     
+    // Special case: fetch declined battles for the modal
+    if (status === 'declined' && userId) {
+      const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000); // last 48h
+      const declined = await Battle.find({
+        creator: userId,
+        status: 'cancelled',
+        declinedBy: { $exists: true },
+        declinedAt: { $gte: cutoff },
+        dismissedByCreator: { $ne: true },
+      })
+        .select('_id topic wager rounds status challengedUser declinedBy declinedAt createdAt')
+        .populate('declinedBy', 'username avatar')
+        .sort({ declinedAt: -1 })
+        .limit(10);
+      return NextResponse.json({ success: true, battles: declined });
+    }
+
     const battles = await Battle.find(query)
       .select('_id creator opponent topic wager rounds status questions creatorResults opponentResults creatorTotalPoints opponentTotalPoints winner isPrivate challengedUser createdAt')
       .populate('creator', 'username avatar country countryFlag points isBot')
@@ -153,100 +172,69 @@ export async function POST(request: NextRequest) {
     }
     
     // Map topic to theme for Card model
+    // NOTE: must match the ACTUAL theme strings stored in the DB (see /api/trivia/categories)
     const themeMap: { [key: string]: string } = {
-      sport: 'SPORTS', music: 'MUSIC', film: 'FILM', culture: 'CULTURE',
-      fashion: 'FASHION', games: 'GAMES', tv: 'TV', art: 'ART', food: 'FOOD'
+      sport: 'SPORTS', music: 'MUSIC', film: 'MOVIES', culture: 'CULTURE',
+      fashion: 'FASHION', games: 'GAMING', tv: 'TV SHOWS', art: 'ART', food: 'FOOD'
     };
     const theme = themeMap[topic] || 'CULTURE';
     
-    // 1. Try to get existing cards from database first
-    // Prioritize today's cards, then fall back to archive
+    // 1. Try to get existing cards from database first, using the same smart
+    // rotation Solo Trivia uses: prioritize cards the creator has never seen,
+    // then recycle the oldest-seen ones once the pool runs out. This scales
+    // automatically as more questions get added - no manual tuning needed.
     let battleQuestions: any[] = [];
-    const usedQuestionIds = new Set<string>();
-    
-    // Get questions the user has already seen (last 30 days)
-    const UserQuestionHistory = (await import('@/models/UserQuestionHistory')).default;
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
-    const seenHistory = await UserQuestionHistory.find({ 
-      userId: creatorId,
-      answeredAt: { $gte: thirtyDaysAgo }
-    }).select('cardId questionText').lean();
-    
-    const seenCardIds = new Set(seenHistory.map((h: any) => h.cardId?.toString()));
-    const seenQuestionTexts = new Set(seenHistory.map((h: any) => h.questionText?.toLowerCase().trim()));
-    
-    console.log(`User ${creatorId} has seen ${seenCardIds.size} cards in last 30 days`);
-    
-    // Get all active cards for this theme (no date filtering)
-    // Use exact match (case-insensitive) to avoid cross-category pollution
-    const allCards = await Card.find({ 
-      theme: { $regex: new RegExp(`^${theme}$`, 'i') }, 
-      active: true,
-      'questions.2': { $exists: true } // Must have all 3 difficulties
-    }).lean();
-    
-    console.log(`Found ${allCards.length} cards for theme "${theme}" (topic: ${topic})`);
-    
-    // Shuffle cards
-    allCards.sort(() => Math.random() - 0.5);
-    
-    // Flatten all questions from all cards (all difficulties)
-    // Separate into unseen and seen questions
-    const unseenQuestions: any[] = [];
-    const seenQuestions: any[] = [];
-    
-    for (const card of allCards) {
-      if (!card.questions || !Array.isArray(card.questions)) continue;
-      for (const q of card.questions) {
-        if (!q.question || !q.options || q.options.length !== 4) continue;
-        const questionId = `${card._id}_${q.difficulty || 0}`;
-        if (usedQuestionIds.has(questionId)) continue;
-        
-        const correctIndex = q.options.indexOf(q.correctAnswer);
-        // NO FALLBACK - skip invalid questions
-        if (correctIndex === -1) {
-          console.error('Correct answer not found in options, skipping card:', card._id);
-          continue;
-        }
-        
-        const questionObj = {
-          questionId,
-          cardId: card._id,
-          question: q.question,
-          answers: q.options,
-          correctIndex: correctIndex,
-          points: q.maxReward || 100,
-          difficulty: q.difficulty,
-          difficultyText: q.difficultyText
-        };
-        
-        // Check if user has seen this question
-        const questionTextLower = q.question.toLowerCase().trim();
-        if (seenQuestionTexts.has(questionTextLower)) {
-          seenQuestions.push(questionObj);
-        } else {
-          unseenQuestions.push(questionObj);
-        }
+
+    // For direct challenges, also avoid cards the challenged opponent has
+    // already seen (both players will face the same questions in this battle).
+    let opponentExcludeIds: string[] = [];
+    if (challengedUserId) {
+      const UserQuestionHistory = (await import('@/models/UserQuestionHistory')).default;
+      const opponentHistory = await UserQuestionHistory.find({ userId: challengedUserId })
+        .select('cardId')
+        .lean();
+      opponentExcludeIds = opponentHistory.map((h: any) => h.cardId?.toString()).filter(Boolean);
+    }
+
+    // Fetch more candidate cards than rounds needed, since each card may fail
+    // validation (missing/invalid question data) and get skipped below.
+    const candidateCards = await getQuestionsForUser(creatorId, {
+      theme,
+      count: rounds * 6,
+      context: 'battle',
+      excludeCardIds: opponentExcludeIds,
+    });
+
+    console.log(`Found ${candidateCards.length} candidate cards for theme "${theme}" (topic: ${topic})`);
+
+    for (const card of candidateCards) {
+      if (battleQuestions.length >= rounds) break;
+      if (!card.questions || !Array.isArray(card.questions) || card.questions.length === 0) continue;
+
+      // Pick a random difficulty variant from this card
+      const q = card.questions[Math.floor(Math.random() * card.questions.length)];
+      if (!q.question || !q.options || q.options.length !== 4) continue;
+
+      const correctIndex = q.options.indexOf(q.correctAnswer);
+      // NO FALLBACK - skip invalid questions
+      if (correctIndex === -1) {
+        console.error('Correct answer not found in options, skipping card:', card._id);
+        continue;
       }
+
+      battleQuestions.push({
+        questionId: `${card._id}_${q.difficulty || 0}`,
+        cardId: card._id,
+        question: q.question,
+        answers: q.options,
+        correctIndex,
+        points: q.maxReward || 100,
+        difficulty: q.difficulty,
+        difficultyText: q.difficultyText,
+      });
     }
-    
-    // Prioritize unseen questions, only use seen if not enough unseen
-    console.log(`Questions: ${unseenQuestions.length} unseen, ${seenQuestions.length} seen`);
-    
-    // Shuffle unseen questions first
-    const shuffledUnseen = unseenQuestions.sort(() => Math.random() - 0.5);
-    const shuffledSeen = seenQuestions.sort(() => Math.random() - 0.5);
-    
-    // Take from unseen first, then seen if needed
-    if (shuffledUnseen.length >= rounds) {
-      battleQuestions = shuffledUnseen.slice(0, rounds);
-    } else {
-      battleQuestions = [...shuffledUnseen, ...shuffledSeen.slice(0, rounds - shuffledUnseen.length)];
-    }
-    
-    console.log(`Using ${battleQuestions.length} questions for battle (topic: ${topic}, total cards: ${allCards.length})`);
+
+    console.log(`Using ${battleQuestions.length} questions for battle (topic: ${topic}, candidates: ${candidateCards.length})`);
     
     // 2. If not enough cards, generate FULL quiz sets (Easy/Medium/Hard) with ChatGPT
     //    Each card stored properly with all 3 variants so it can be reused later in normal play
@@ -259,8 +247,7 @@ export async function POST(request: NextRequest) {
         }
       } else {
         const openai = new OpenAI({ apiKey });
-        const promptPath = path.join(process.cwd(), 'src', 'prompts', 'system-prompt.txt');
-        const systemPrompt = fs.readFileSync(promptPath, 'utf-8');
+        const systemPrompt = combinePrompts(['core.txt', 'trivia.txt']);
 
         console.log(`Generating ${questionsNeeded} NEW full quiz-sets (Easy+Medium+Hard) for theme: ${theme}`);
 
@@ -271,7 +258,7 @@ export async function POST(request: NextRequest) {
               model: "gpt-4o-mini",
               messages: [
                 { role: "system", content: systemPrompt },
-                { role: "user", content: `Generate 3 quiz questions (Easy, Medium, Hard) STRICTLY about: ${theme}. The questions MUST be about ${theme === 'GAMES' ? 'video games, board games, or gaming' : theme === 'MUSIC' ? 'music, bands, songs, or musicians' : theme === 'SPORTS' ? 'sports, athletes, or sporting events' : theme === 'FILM' || theme === 'MOVIES' ? 'movies, films, actors, or directors' : theme === 'TV' ? 'TV shows, series, or TV personalities' : theme}. Do NOT mix categories!` }
+                { role: "user", content: `Generate 3 quiz questions (Easy, Medium, Hard) STRICTLY about: ${theme}. The questions MUST be about ${theme === 'GAMES' ? 'video games, board games, or gaming' : theme === 'MUSIC' ? 'music, bands, songs, or musicians' : theme === 'SPORTS' ? 'sports, athletes, or sporting events' : theme === 'FILM' || theme === 'MOVIES' ? 'movies, films, actors, or directors' : theme === 'TV' ? 'TV shows, series, or TV personalities' : theme}. Do NOT mix categories! Respond with a valid JSON object.` }
               ],
               temperature: 1.0,
               response_format: { type: 'json_object' },

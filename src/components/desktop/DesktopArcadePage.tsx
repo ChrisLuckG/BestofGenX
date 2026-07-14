@@ -1,10 +1,17 @@
 "use client";
 
-import { Users, User, HelpCircle, Trophy, BarChart3, Coins, Zap, Play, LucideIcon, Radio, Clock, Target, Lightbulb, Swords } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Users, User, HelpCircle, Trophy, BarChart3, Coins, Zap, Play, LucideIcon, Radio, Clock, Target, Lightbulb, Swords, Crosshair } from "lucide-react";
+import OpenBattlesModal from "../OpenBattlesModal";
 
 interface DesktopArcadePageProps {
-  onSelectGame: (game: 'quizzbattle' | 'trivia' | 'spacegenx' | 'memory' | 'prediction' | 'genxmen' | 'nextplay' | 'faceblur') => void;
+  onSelectGame: (game: 'quizzbattle' | 'trivia' | 'spacegenx' | 'memory' | 'prediction' | 'genxmen' | 'nextplay' | 'faceblur' | 'bogxinvaders') => void;
   onShowRankings?: () => void;
+  userId?: string;
+  battleAlertCount?: number;
+  onCoinsChange?: (delta: number) => void;
+  onPlaySpecificBattle?: (battleId: string) => void;
+  onShowLogin?: () => void;
 }
 
 interface GameFeature {
@@ -13,7 +20,7 @@ interface GameFeature {
 }
 
 interface GameBanner {
-  game: 'quizzbattle' | 'trivia' | 'nextplay' | 'faceblur' | 'prediction';
+  game: 'quizzbattle' | 'trivia' | 'nextplay' | 'faceblur' | 'prediction' | 'bogxinvaders';
   image: string;
   badgeIcon: LucideIcon;
   badge: string;
@@ -25,6 +32,7 @@ interface GameBanner {
   features: GameFeature[];
   featureColor: string;
   comingSoon?: boolean;
+  overlayColor?: string;
 }
 
 const GAMES: GameBanner[] = [
@@ -61,6 +69,24 @@ const GAMES: GameBanner[] = [
       { icon: Zap, lines: ['Beat the', 'Clock'] },
     ],
     featureColor: '#E5A55A',
+  },
+  {
+    game: 'bogxinvaders',
+    image: '/images/Hintergund/hamster.png',
+    badgeIcon: User,
+    badge: 'Single Player',
+    titleA: 'BOGX',
+    titleB: 'INVADERS',
+    titleColor: '#760b79',
+    subtitleA: 'Shoot the hamster wheels!',
+    subtitleB: '+0.01 BOGX per kill.',
+    features: [
+      { icon: Crosshair, lines: ['Arcade', 'Shooter'] },
+      { icon: Coins, lines: ['Real-time', 'Rewards'] },
+      { icon: Trophy, lines: ['Beat the', 'Boss'] },
+    ],
+    featureColor: '#760b79',
+    overlayColor: 'none',
   },
   {
     game: 'nextplay',
@@ -118,7 +144,27 @@ const GAMES: GameBanner[] = [
   },
 ];
 
-export default function DesktopArcadePage({ onSelectGame }: DesktopArcadePageProps) {
+export default function DesktopArcadePage({ onSelectGame, userId, battleAlertCount = 0, onCoinsChange, onPlaySpecificBattle, onShowLogin }: DesktopArcadePageProps) {
+  const [showOpenBattles, setShowOpenBattles] = useState(false);
+  const [liveBattleCount, setLiveBattleCount] = useState(battleAlertCount);
+
+  // Fetch live battle count when arcade is shown
+  useEffect(() => {
+    if (!userId) return;
+    // Get count of pending + active battles needing attention
+    fetch(`/api/battles?countOnly=true&userId=${userId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          // pendingChallenges = incoming challenges to accept/deny
+          // activeBattles = battles where you need to play
+          const total = (data.pendingChallenges || 0) + (data.activeBattles || 0);
+          setLiveBattleCount(total);
+        }
+      })
+      .catch(() => {});
+  }, [userId]);
+
   return (
     <div className="w-full h-full flex flex-col overflow-hidden">
       {/* Header - same style as Feed/Articles */}
@@ -130,9 +176,30 @@ export default function DesktopArcadePage({ onSelectGame }: DesktopArcadePagePro
             <span className="text-[10px] text-gray-500 -mt-0.5 block">Challenge yourself & others</span>
           </div>
         </div>
-        {/* Placeholder for consistent spacing */}
-        <div className="w-48" />
+        {/* Open Battles button */}
+        <button
+          onClick={() => setShowOpenBattles(true)}
+          className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#D4873A]/40 bg-[#D4873A]/10 hover:bg-[#D4873A]/20 transition-colors"
+        >
+          <Swords className="w-4 h-4 text-[#D4873A]" />
+          <span className="text-xs font-semibold text-[#D4873A]">Open Battles</span>
+          {liveBattleCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">
+              {liveBattleCount}
+            </span>
+          )}
+        </button>
       </div>
+
+      {/* Open Battles Modal */}
+      <OpenBattlesModal
+        isOpen={showOpenBattles}
+        onClose={() => setShowOpenBattles(false)}
+        userId={userId || ''}
+        onPlayBattle={(battleId) => { setShowOpenBattles(false); onPlaySpecificBattle?.(battleId) || onSelectGame('quizzbattle'); }}
+        onCoinsChange={onCoinsChange}
+        onShowLogin={onShowLogin}
+      />
 
       {/* Grid */}
       <div className="flex-1 overflow-y-auto px-6 py-6">
@@ -150,7 +217,16 @@ export default function DesktopArcadePage({ onSelectGame }: DesktopArcadePagePro
                 style={{ backgroundImage: `url('${g.image}')` }}
               >
                 {/* Left fade for text readability */}
-                <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/45 to-transparent" />
+                {g.overlayColor !== 'none' && (
+                  <div 
+                    className="absolute inset-0 bg-gradient-to-r to-transparent" 
+                    style={{ 
+                      background: g.overlayColor 
+                        ? `linear-gradient(to right, ${g.overlayColor}cc, ${g.overlayColor}70, transparent)`
+                        : 'linear-gradient(to right, rgba(0,0,0,0.85), rgba(0,0,0,0.45), transparent)'
+                    }}
+                  />
+                )}
 
                 <div className="relative h-full flex flex-col justify-center items-start text-left px-6 py-5 max-w-[70%]">
                   {/* Badge */}

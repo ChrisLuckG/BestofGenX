@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ChevronLeft, ChevronRight, Trophy, Star, Gift, Zap, Target, TrendingUp, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, Trophy, Star, Gift, Zap, Target, TrendingUp, Clock, Sparkles, Flame, Crown, Award } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import PlayerCard from "@/components/PlayerCard";
 import CountryFlag from "@/components/CountryFlag";
@@ -26,6 +26,7 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(initialPlayerId || null);
   const [countdown, setCountdown] = useState('');
+  const [statsExpanded, setStatsExpanded] = useState(false); // Stats row - collapsed by default
   
   // Central live rankings hook - same logic on Desktop AND Mobile
   const { rankings, loading, isLive } = useLiveRankings({
@@ -48,7 +49,7 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
       .then(r => r.json())
       .then(d => { if (d && !d.error) setUserStats(d); })
       .catch(() => {});
-  }, [isLoggedIn, user?.id, rankings]);
+  }, [isLoggedIn, user?.id]);
 
   // Sync with external selectedPlayerId prop
   useEffect(() => {
@@ -194,7 +195,7 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
       <div className="flex-1 overflow-y-auto bg-gradient-to-b from-transparent to-[#D4873A]/[0.03]" style={{ scrollbarWidth: 'none' }}>
         
         {/* My Rank Card */}
-        {isLoggedIn && loading ? (
+        {isLoggedIn && loading && rankings.length === 0 ? (
           <div className="mx-4 mt-3 mb-2 px-3 py-2.5 bg-[#D4873A]/5 border border-[#D4873A]/20 rounded-lg flex items-center gap-3 animate-pulse">
             <div className="w-14 h-14 rounded-full bg-[#D4873A]/10 flex-shrink-0" />
             <div className="flex-shrink-0">
@@ -249,32 +250,37 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
                       
                       {/* LED Segment Progress Bar */}
                       <div className="flex items-center gap-3 mt-2">
-                        <div className="flex gap-0.5 max-w-[200px]">
+                        <div className="flex gap-0.5 flex-1">
                           {Array.from({ length: 20 }).map((_, i) => {
                             const segmentProgress = (i + 1) * 5; // Each segment = 5%
                             const isActive = progress >= segmentProgress;
                             return (
                               <div 
                                 key={i}
-                                className="w-2 h-3 rounded-sm transition-all duration-300"
+                                className="flex-1 h-3 rounded-sm"
                                 style={{ 
-                                  backgroundColor: isActive ? level.color : '#E5E7EB',
+                                  backgroundColor: level.color,
                                   boxShadow: isActive ? `0 0 4px ${level.color}` : 'none',
+                                  transformOrigin: 'bottom',
+                                  opacity: isActive ? 0 : 0.2,
+                                  transform: isActive ? 'scaleY(0)' : 'scaleY(1)',
+                                  animation: isActive ? `ledPopIn 0.25s ease-out ${i * 40}ms forwards` : 'none',
                                 }}
                               />
                             );
                           })}
                         </div>
-                        <span className="text-sm font-bold text-gray-600">{progress}%</span>
+                        <span className="text-sm font-bold text-gray-600 flex-shrink-0">{progress}%</span>
                       </div>
                       
                       {/* BOGX Info */}
                       <div className="flex items-center gap-1.5 mt-1.5 text-[10px] text-gray-600">
-                        <Star className="w-3 h-3" style={{ color: level.color }} />
-                        <span>{formatCurrency(userBogx)} BOGX gesammelt</span>
-                      </div>
-                      <div className="text-[10px] text-gray-500 mt-0.5">
-                        {nextName ? `Noch ${formatCurrency(toNext)} BOGX bis zum nächsten Rang` : 'Max Level erreicht!'}
+                        <Star className="w-3 h-3 flex-shrink-0" style={{ color: level.color }} />
+                        <span className="font-semibold" style={{ color: level.color }}>{formatCurrency(userBogx)} BOGX</span>
+                        <span className="text-gray-300">•</span>
+                        <span className="text-gray-500">
+                          {nextName ? <><span className="font-semibold text-gray-700">{formatCurrency(toNext)} BOGX</span> to next rank</> : 'Max Level reached!'}
+                        </span>
                       </div>
                     </div>
                     
@@ -291,34 +297,65 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
                     <div className="flex items-center justify-between relative">
                       {/* Connection Line */}
                       <div className="absolute top-3 left-6 right-6 h-0.5 bg-gray-300" />
+                      {/* Solid line up to current level */}
                       <div 
-                        className="absolute top-3 left-6 h-0.5 transition-all duration-500"
+                        className="absolute top-3 left-6 h-0.5"
                         style={{ 
                           width: `${(levelIndex / (LEVELS.length - 1)) * 100}%`,
-                          backgroundColor: level.color 
+                          backgroundColor: level.color,
+                          transformOrigin: 'left',
+                          animation: 'lineGrow 0.6s ease-out 150ms both',
                         }}
                       />
+                      {/* Progress line within current level (gradient to next node) */}
+                      {levelIndex < LEVELS.length - 1 && progress > 0 && (() => {
+                        // Calculate segment width as percentage of total line
+                        const segmentWidth = 100 / (LEVELS.length - 1); // e.g., 25% for 5 levels
+                        const progressWidth = segmentWidth * (progress / 100); // e.g., 82% of 25% = 20.5%
+                        const startPos = (levelIndex / (LEVELS.length - 1)) * 100; // e.g., 25% for level 2
+                        return (
+                          <div 
+                            className="absolute top-3 left-6 h-0.5"
+                            style={{ 
+                              marginLeft: `${startPos}%`,
+                              width: `${progressWidth}%`,
+                              background: `linear-gradient(to right, ${level.color}, ${level.color}20)`,
+                              transformOrigin: 'left',
+                              animation: 'lineGrow 0.6s ease-out 300ms both',
+                            }}
+                          />
+                        );
+                      })()}
                       
                       {/* Level Nodes */}
                       {LEVELS.map((l, i) => {
                         const isActive = i <= levelIndex;
                         const isCurrent = l.name === level.name;
+                        // Different icon for each level
+                        const LevelIcon = [Sparkles, Star, Flame, Award, Crown][i] || Star;
                         return (
                           <div key={l.name} className="flex flex-col items-center z-10">
                             {/* LED Circle */}
                             <div 
-                              className={`w-6 h-6 rounded-full flex items-center justify-center border-2 transition-all ${
+                              className={`w-6 h-6 rounded-full flex items-center justify-center border-2 ${
                                 isCurrent ? 'shadow-lg' : ''
                               }`}
                               style={{ 
                                 backgroundColor: isActive ? l.color : '#E5E7EB',
                                 borderColor: isActive ? l.color : '#D1D5DB',
+                                color: l.color,
+                                animation: isCurrent
+                                  ? `nodePopIn 0.35s ease-out ${i * 120}ms both, pulseRing 2s ease-in-out ${i * 120 + 400}ms infinite`
+                                  : `nodePopIn 0.35s ease-out ${i * 120}ms both`,
                               }}
                             >
-                              {isCurrent && <Star className="w-3 h-3 text-white" />}
+                              <LevelIcon className={`w-3 h-3 ${isActive ? 'text-white' : 'text-gray-400'}`} />
                             </div>
                             {/* Label */}
-                            <div className="mt-2 text-center">
+                            <div 
+                              className="mt-2 text-center"
+                              style={{ animation: `fadeInUp 0.35s ease-out ${i * 120 + 100}ms both` }}
+                            >
                               <div 
                                 className="text-[9px] font-bold uppercase tracking-wide"
                                 style={{ color: isActive ? l.color : '#6B7280' }}
@@ -331,39 +368,51 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
                         );
                       })}
                     </div>
-                    
-                    {/* BOGX to next */}
-                    {nextName && (
-                      <div className="text-center mt-3 text-[10px] text-gray-700">
-                        {formatCurrency(toNext)} BOGX bis zum nächsten Rang
-                      </div>
-                    )}
                   </div>
                   
-                  {/* Stats Row */}
-                  <div className="flex items-center justify-around py-3 px-6 border-t border-dashed border-[#D4873A]/20 bg-white/50">
-                    <div className="text-center px-3">
-                      <Trophy className="w-4 h-4 text-gray-400 mx-auto" />
-                      <div className="font-bold text-sm text-gray-900 mt-0.5">
-                        {userStats ? `${userStats.quizzWins} / ${userStats.quizzLosses}` : '—'}
+                  {/* Pull handle - toggles Stats Row */}
+                  <button
+                    onClick={() => setStatsExpanded(prev => !prev)}
+                    className="w-full flex items-center justify-center gap-1.5 py-1.5 border-t border-dashed border-[#D4873A]/20 bg-white/30 hover:bg-[#D4873A]/5 transition-colors group"
+                  >
+                    <span className="text-[9px] font-semibold uppercase tracking-wider text-gray-500 group-hover:text-[#D4873A] transition-colors">
+                      {statsExpanded ? 'Less' : 'More Stats'}
+                    </span>
+                    <ChevronDown 
+                      className="w-3.5 h-3.5 text-gray-400 group-hover:text-[#D4873A] transition-all duration-300"
+                      style={{ transform: statsExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                    />
+                  </button>
+                  
+                  {/* Stats Row - collapsible, collapsed by default */}
+                  <div 
+                    className="overflow-hidden transition-all duration-300 ease-out"
+                    style={{ maxHeight: statsExpanded ? '120px' : '0px', opacity: statsExpanded ? 1 : 0 }}
+                  >
+                    <div className="flex items-center justify-around py-3 px-6 border-t border-dashed border-[#D4873A]/20 bg-white/50">
+                      <div className="text-center px-3">
+                        <Trophy className="w-4 h-4 text-gray-400 mx-auto" />
+                        <div className="font-bold text-sm text-gray-900 mt-0.5">
+                          {userStats ? `${userStats.quizzWins} / ${userStats.quizzLosses}` : '—'}
+                        </div>
+                        <div className="text-[7px] text-gray-500 uppercase tracking-wide">Battle W/L</div>
                       </div>
-                      <div className="text-[7px] text-gray-500 uppercase tracking-wide">Battle W/L</div>
-                    </div>
-                    <div className="w-px h-8 bg-[#D4873A]/20" />
-                    <div className="text-center px-3">
-                      <Target className="w-4 h-4 text-gray-400 mx-auto" />
-                      <div className="font-bold text-sm text-gray-900 mt-0.5">
-                        {userStats && userStats.accuracy != null ? `${Math.round(userStats.accuracy)}%` : '—'}
+                      <div className="w-px h-8 bg-[#D4873A]/20" />
+                      <div className="text-center px-3">
+                        <Target className="w-4 h-4 text-gray-400 mx-auto" />
+                        <div className="font-bold text-sm text-gray-900 mt-0.5">
+                          {userStats && userStats.accuracy != null ? `${Math.round(userStats.accuracy)}%` : '—'}
+                        </div>
+                        <div className="text-[7px] text-gray-500 uppercase tracking-wide">Accuracy</div>
                       </div>
-                      <div className="text-[7px] text-gray-500 uppercase tracking-wide">Accuracy</div>
-                    </div>
-                    <div className="w-px h-8 bg-[#D4873A]/20" />
-                    <div className="text-center px-3">
-                      <Clock className="w-4 h-4 text-gray-400 mx-auto" />
-                      <div className="font-bold text-sm text-gray-900 mt-0.5">
-                        {userStats && userStats.avgAnswerTime != null ? `${(userStats.avgAnswerTime / 1000).toFixed(1)}s` : '—'}
+                      <div className="w-px h-8 bg-[#D4873A]/20" />
+                      <div className="text-center px-3">
+                        <Clock className="w-4 h-4 text-gray-400 mx-auto" />
+                        <div className="font-bold text-sm text-gray-900 mt-0.5">
+                          {userStats && userStats.avgAnswerTime != null ? `${(userStats.avgAnswerTime / 1000).toFixed(1)}s` : '—'}
+                        </div>
+                        <div className="text-[7px] text-gray-500 uppercase tracking-wide">Avg Time</div>
                       </div>
-                      <div className="text-[7px] text-gray-500 uppercase tracking-wide">Avg Time</div>
                     </div>
                   </div>
                 </div>

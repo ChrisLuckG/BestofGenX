@@ -16,10 +16,11 @@ import RequestsTab from "@/components/admin/RequestsTab";
 import MarketingTab from "@/components/admin/MarketingTab";
 import TVTab from "@/components/admin/TVTab";
 import MenschenTab from "@/components/admin/MenschenTab";
+import NewsroomConference from "@/components/admin/NewsroomConference";
 
 const PRINTFUL_URL = 'https://www.printful.com/dashboard/default';
 
-type TabType = 'articles' | 'arcade' | 'rewards' | 'rankroll' | 'users' | 'currency' | 'costs' | 'requests' | 'marketing' | 'tv' | 'mike' | 'menschen';
+type TabType = 'articles' | 'arcade' | 'rewards' | 'rankroll' | 'users' | 'currency' | 'costs' | 'requests' | 'marketing' | 'tv' | 'mike' | 'menschen' | 'conference';
 
 // Frontend-related tabs (left)
 const CONTENT_TABS: { id: TabType; label: string }[] = [
@@ -38,6 +39,7 @@ const CONFIG_TABS: { id: TabType; label: string }[] = [
   { id: 'currency', label: 'Currency' },
   { id: 'mike', label: 'Mike' },
   { id: 'menschen', label: 'Menschen' },
+  { id: 'conference', label: '📰 Conference' },
 ];
 
 export default function AdminPage() {
@@ -47,7 +49,7 @@ export default function AdminPage() {
     // Restore last active tab from localStorage
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('admin-active-tab') as TabType | null;
-      if (saved && ['articles', 'arcade', 'rewards', 'rankroll', 'users', 'currency', 'costs', 'requests', 'marketing', 'tv', 'mike', 'menschen'].includes(saved)) {
+      if (saved && ['articles', 'arcade', 'rewards', 'rankroll', 'users', 'currency', 'costs', 'requests', 'marketing', 'tv', 'mike', 'menschen', 'conference'].includes(saved)) {
         return saved;
       }
     }
@@ -112,7 +114,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white px-3 py-3">
+    <div className="min-h-screen bg-gray-900 text-white px-3 py-3" style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
       <div className="w-full max-w-[2200px] mx-auto">
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-lg font-bold">Admin Panel</h1>
@@ -191,6 +193,7 @@ export default function AdminPage() {
         {activeTab === 'tv' && <TVTab />}
         {activeTab === 'mike' && <MikeTab />}
         {activeTab === 'menschen' && <MenschenTab userId={user?.id} />}
+        {activeTab === 'conference' && <NewsroomConference userId={user?.id} />}
       </div>
     </div>
   );

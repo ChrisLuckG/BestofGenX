@@ -11,6 +11,7 @@ export interface IBattle extends Document {
   // Questions for this battle
   questions: {
     questionId: string; // Card ID with suffix (e.g., "cardId_3")
+    cardId?: mongoose.Types.ObjectId; // Source card - needed to record play history and avoid repeats
     question: string;
     answers: string[];
     correctIndex: number;
@@ -45,6 +46,12 @@ export interface IBattle extends Document {
   
   // Direct challenge to specific user
   challengedUser?: mongoose.Types.ObjectId;
+  
+  // Set when opponent declines a challenge (to distinguish from self-cancelled)
+  declinedBy?: mongoose.Types.ObjectId;
+  declinedAt?: Date;
+  // Set when the creator manually dismisses the "declined" notice from My Open Battles
+  dismissedByCreator?: boolean;
   
   // Timestamps
   createdAt: Date;
@@ -85,6 +92,7 @@ const BattleSchema = new Schema<IBattle>({
   
   questions: [{
     questionId: { type: String }, // Card ID with suffix (e.g., "cardId_3")
+    cardId: { type: Schema.Types.ObjectId, ref: 'Card' },
     question: String,
     answers: [String],
     correctIndex: Number,
@@ -114,6 +122,10 @@ const BattleSchema = new Schema<IBattle>({
   isPrivate: { type: Boolean, default: false },
   
   challengedUser: { type: Schema.Types.ObjectId, ref: 'User' },
+  
+  declinedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+  declinedAt: Date,
+  dismissedByCreator: { type: Boolean, default: false },
   
   acceptedAt: Date,
   completedAt: Date

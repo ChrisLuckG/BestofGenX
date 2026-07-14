@@ -2,15 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import dbConnect from "@/lib/mongoose";
 import Card from "@/models/Card";
-import { readFileSync } from "fs";
-import { join } from "path";
 import { findDuplicateQuestion, generateQuestionHash, buildAvoidList, recordUsedTopic } from "@/lib/questionService";
 import { v2 as cloudinary } from 'cloudinary';
 import sharp from "sharp";
+import { combinePrompts } from "@/lib/loadPrompt";
 
-// Load the system prompt from the text file - NO FALLBACK
-const systemPromptPath = join(process.cwd(), "src/prompts/system-prompt.txt");
-const baseSystemPrompt = readFileSync(systemPromptPath, "utf-8");
+// Load modular prompts: core + trivia rules
+const baseSystemPrompt = combinePrompts(["core.txt", "trivia.txt"]);
 
 export async function POST(request: NextRequest) {
   // Configure Cloudinary

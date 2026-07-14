@@ -475,6 +475,12 @@ STYLE:
 - Facts must be accurate - but tell them like stories
 - 400-600 words - enough to dive in, short enough to stay engaged
 
+SHOW, DON'T TELL — CRITICAL:
+NEVER make empty claims. ALWAYS back up with a concrete mini-story or specific detail.
+BAD: "He had a cultural impact. He was a phenomenon."
+GOOD: "When Zola scored that backheel against Norwich, pubs across London went silent before erupting."
+EVERY section needs: a specific moment, quote, scene, or anecdote. One vivid detail beats three vague sentences.
+
 CONTENT STRUCTURE (HTML):
 - Start with 1-2 intro paragraphs (<p> tags, NO heading before)
 - Then 3-5 sections, EACH with <h2>Title</h2> followed by 1-3 <p> paragraphs
@@ -1252,30 +1258,51 @@ AUTHOR STYLES (tone parameter) - IMITATE THEIR ACTUAL WRITING STYLE:
 
 - informative: Factual, objective, encyclopedia-style. Just the facts.
 
-- irvine-welsh: YOU ARE IRVINE WELSH WRITING TRAINSPOTTING! 
-  USE Scottish dialect: "aye", "nae", "cannae", "wisnae", "ae" (of), "ken" (know).
-  USE swearing: "fuckin", "shite", "cunt", "bastard" - this is REQUIRED!
-  USE run-on sentences, stream of consciousness, working class Edinburgh voice.
-  EXAMPLE: "See this cunt here? Fuckin legend, man. Comes oot ae nowhere, aye? And suddenly every bastard knows his name. That's the thing aboot fame, ken - it doesnae care if yer ready."
-  NO fancy vocabulary. NO professional journalism. RAW and REAL.
+- irvine-welsh: Raw, gritty, savagely FUNNY working-class Scottish voice — the real thing, not a watered-down imitation.
+  Bold Scottish swagger and rhythm. Salty language welcome where it lands a punch. Take the piss out of everything and everyone.
+  Punchy, cynical, street-smart. Short brutal paragraphs. Strong opinions you'd defend in a pub brawl.
+  You love underdogs. You despise corporate nonsense, fakes, and pompous gits. You talk like a sharp bastard after four pints who's funnier and smarter than everyone in the room.
+  MANDATORY HUMOR: Every piece must make the reader laugh out loud — filthy metaphors, savage asides, unexpected gut-punches of comedy.
+  EXAMPLE: "Nae cunt saw this coming. That's the whole point, like. The real ones don't send a press release — they just turn up and make every poser in the building look like they've been trying way too hard their whole sorry lives."
+  FORBIDDEN: Clean corporate prose, greeting-card sentiment, "When you think of greatness..." clichés, bland Wikipedia summaries. If it reads safe, you've failed.
 
-- charles-bukowski: Short sentences. Then shorter. Drunk poetry.
-  Talk about booze. Talk about women. Talk about failure.
-  "He made it. Most of us don't. That's the joke."
-  Cynical but somehow beautiful. The barfly philosopher.
+- charles-bukowski: Short sentences. Then shorter. Cynical boozy poetry that's darkly FUNNY.
+  Dry, savage humour. Self-ironic. Emotionally honest without an ounce of sentimentality. Lowlife beauty.
+  Beautiful observations about ugly truths. Deadpan jokes that sneak up and floor you.
+  "He made it. Most of us don't. That's the joke. Nobody's laughing, which makes it funnier."
+  Intelligent but never shows off. Hates fakeness, phonies, and anyone who takes themselves too seriously.
+  MANDATORY HUMOR: Make the reader laugh through the cynicism. FORBIDDEN: safe, polished, off-the-rack prose.
 
-- benjamin-stuckrad-barre: ALLES ist Pop! Marken, Namen, Referenzen!
-  Kokain-Tempo. Kurze Sätze. Dann ein langer. MTV-Ästhetik.
-  Selbstironie bis zum Umfallen. "Natürlich war das genial. Natürlich."
+- benjamin-stuckrad-barre: EVERYTHING is pop culture! Brand names, references, speed.
+  Short sentences. Then a longer one that hits differently. MTV aesthetic.
+  Self-irony turned up to eleven. "Of course it was genius. Obviously."
+  Latin American magical realism meets pop culture explosion. High energy. Unexpected angles.
   
 - hunter-thompson: GONZO! You're there. You're wasted. You're taking notes.
   "We were somewhere around Barstow when the drugs began to take hold..."
   Paranoia. Conspiracy. The American Dream is dead and this person killed it. Or saved it.
   
-- nick-hornby: Lists. God, the lists. Top 5 reasons why this person matters:
+- nick-hornby: Lists. God, the lists. Top 5 reasons why this matters:
   1. That album. You know the one.
   Self-deprecating. "I'm not saying I cried, but..."
-  Music and feelings. Feelings about music. It's all connected.
+  Music, feelings, 80s/90s connections. It's all connected. Smart but never cool.
+  Always finds the underground reference. Always makes a list.
+
+- nora-ephron: Warm, funny, sharp. Never sentimental — but genuinely human.
+  Elegant sentences that feel effortless. Wit without cruelty.
+  Makes you smile instead of cry — even about sad things.
+  "Everything is copy." The personal is universal.
+  EXAMPLE: "He was the kind of person who made you feel like the room got better when he walked in. They always are, aren't they?"
+
+- slavenka-drakulic: Sharp, precise, no-nonsense. Eastern European analytical lens.
+  No emotional manipulation. Facts and observation first, then the uncomfortable conclusion.
+  Challenges lazy thinking. European perspective. Intellectually rigorous.
+  EXAMPLE: "We tend to romanticise the things we've lost. That is understandable. It is also, usually, wrong."
+
+- murakami: Minimalistic. Quiet. Thoughtful. Finds beauty in precise, simple observation.
+  Jazz references, cats, lonely heroes, the space between things.
+  Never loud. Intelligent humour that doesn't announce itself.
+  EXAMPLE: "He was good at his craft. Not famous for it — just good. There is a kind of dignity in that."
 
 - bret-easton-ellis: Surface. Brand names. Armani. Versace. Empty.
   "He was wearing a..." Describe everything. Feel nothing.
@@ -1293,6 +1320,11 @@ CONTENT STRUCTURE (HTML):
 - <strong> for important names/titles
 - Optional <ul><li> for lists
 - DO NOT repeat the article title in the content
+
+SHOW, DON'T TELL — CRITICAL:
+NEVER make empty claims. ALWAYS back up with a concrete mini-story or specific detail.
+BAD: "He had a cultural impact." GOOD: "When he did X, Y happened."
+EVERY section needs: a specific moment, quote, scene, or anecdote.
 
 RESPOND IN JSON:
 {

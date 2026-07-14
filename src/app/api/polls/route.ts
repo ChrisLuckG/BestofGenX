@@ -12,11 +12,16 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status') || 'active';
     const articleId = searchParams.get('articleId');
     const featured = searchParams.get('featured');
+    const type = searchParams.get('type'); // 'simple', 'quiz', 'ranking'
     
     const query: any = {};
     
     if (status !== 'all') {
       query.status = status;
+    }
+    
+    if (type) {
+      query.type = type;
     }
     
     if (articleId) {
@@ -127,28 +132,11 @@ export async function POST(request: NextRequest) {
         featured: featured || false,
         closesAt: closesAt ? new Date(closesAt) : undefined,
       });
-      
-      // Auto-create Article entry for this ranking poll
-      await Article.create({
-        title,
-        subtitle: subtitle || description || `Vote for your favorites`,
-        content: `<p>${description || 'Cast your vote and see where the community stands.'}</p>`,
-        coverImage: image || '',
-        contentType: 'rankroll',
-        linkedContentId: poll._id.toString(),
-        mainCategory: 'voting',
-        category: 'culture',
-        author: body.authorId || '000000000000000000000000', // System author
-        authorName: 'BOGX Team',
-        status: 'draft', // Start as draft so admin can position it
-        layout: 'standard',
-        order: 0,
-        featured: false,
-        trending: false,
-        views: 0,
-        likes: 0,
-      });
-      
+
+      // NOTE: Poll and Article are independent entities. Creating a ranking poll
+      // does NOT auto-create or link an article. If an article is wanted alongside
+      // a poll (e.g. in a campaign), it is created separately with its own ID.
+
       return NextResponse.json({ success: true, poll });
     }
     

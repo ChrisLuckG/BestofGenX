@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Vote, ChevronRight, Clock } from "lucide-react";
+import { Vote, ChevronRight, Clock, Check } from "lucide-react";
 import { PollsSkeleton } from "./DesktopSkeletons";
+import { useAuth } from "@/context/AuthContext";
 
 interface PollOption {
   id: string;
@@ -65,9 +66,36 @@ function useCountdown(endsAt?: string) {
 
 // Ranking Card - Image block left, content right
 function RankingCard({ poll, onOpenArticle, onOpenRankroll }: { poll: Poll; onOpenArticle?: (articleId: string) => void; onOpenRankroll?: (pollId: string) => void }) {
+  const { user } = useAuth();
   const countdown = useCountdown(poll.closesAt);
   const top3 = [...(poll.items || [])].sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0)).slice(0, 3);
   const [linkedArticleId, setLinkedArticleId] = useState<string | null>(null);
+  const [hasVoted, setHasVoted] = useState(false);
+  
+  // Check if user has already voted
+  useEffect(() => {
+    const checkVotes = async () => {
+      if (!poll._id) return;
+      const params = new URLSearchParams();
+      if (user?.id) params.set('userId', user.id);
+      else {
+        const visitorId = localStorage.getItem('visitorId');
+        if (visitorId) params.set('visitorId', visitorId);
+      }
+      if (!params.toString()) return;
+      
+      try {
+        const res = await fetch(`/api/polls/${poll._id}/vote?${params}`);
+        const data = await res.json();
+        if (data.success && data.votes && Object.keys(data.votes).length > 0) {
+          setHasVoted(true);
+        }
+      } catch (e) {
+        console.error('Failed to check votes:', e);
+      }
+    };
+    checkVotes();
+  }, [poll._id, user?.id]);
   
   // Find the article that links to this poll
   useEffect(() => {
@@ -96,29 +124,27 @@ function RankingCard({ poll, onOpenArticle, onOpenRankroll }: { poll: Poll; onOp
   return (
     <button
       onClick={handleClick}
-      className="w-full text-left rounded-xl overflow-hidden hover:shadow-xl hover:border-[#D4873A]/50 transition-all duration-300 group border border-warm bg-cream flex"
+      className="w-full text-left rounded-xl overflow-hidden hover:shadow-[0_8px_30px_rgba(212,135,58,0.3)] hover:border-[#D4873A] hover:-translate-y-1.5 transition-all duration-300 group border-2 border-warm bg-cream flex"
     >
       {/* Left: Large Image Block with Timer */}
       <div className="w-48 flex-shrink-0 relative overflow-hidden">
         {(poll.articleImage || poll.image || poll.items?.[0]?.image) ? (
-          <img src={poll.articleImage || poll.image || poll.items?.[0]?.image} alt="" className="absolute inset-0 w-full h-full object-cover" />
+          <img src={poll.articleImage || poll.image || poll.items?.[0]?.image} alt="" className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-[#D4873A]/40 to-[#D4873A]/20" />
         )}
         {/* Timer at bottom of image */}
         {countdown && (
-          <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-sm px-3 py-2">
-            <div className="flex items-center gap-2">
-              <Clock className="w-3.5 h-3.5 text-white/70" />
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/80 to-transparent px-3 py-4  transition-colors duration-300">
+            <div className="flex items-center gap-2.5">
+              <Clock className="w-5 h-5 text-white/70 group-hover:text-[#D4873A] transition-colors duration-300" />
               <div>
-                <span className="text-[7px] text-white/60 uppercase block">ENDS IN</span>
-                <span className="text-sm text-white font-bold">
-                  {countdown.expired ? 'Ended' : (
+                <span className="text-[9px] text-white/90 uppercase tracking-wider block font-semibold group-hover:text-[#D4873A] transition-colors duration-300">ENDS IN</span>
+                <span className="font-display text-xl text-white tracking-wider group-hover:text-[#D4873A] transition-colors duration-300">
+                  {countdown.expired ? 'ENDED' : (
                     <>
-                      {countdown.days > 0 && <><span className="font-display">{countdown.days}</span><span className="font-sans-lv">d </span></>}
-                      <span className="font-display">{countdown.hours.toString().padStart(2, '0')}</span><span className="font-sans-lv">h </span>
-                      <span className="font-display">{countdown.minutes.toString().padStart(2, '0')}</span><span className="font-sans-lv">m </span>
-                      <span className="font-display">{countdown.seconds.toString().padStart(2, '0')}</span><span className="font-sans-lv">s</span>
+                      {countdown.days > 0 && <>{countdown.days}d </>}
+                      {countdown.hours.toString().padStart(2, '0')}h {countdown.minutes.toString().padStart(2, '0')}m {countdown.seconds.toString().padStart(2, '0')}s
                     </>
                   )}
                 </span>
@@ -136,17 +162,29 @@ function RankingCard({ poll, onOpenArticle, onOpenRankroll }: { poll: Poll; onOp
           <div className="flex items-center gap-2">
             <Vote className="w-5 h-5 text-[#D4873A]" />
             <div>
-              <h4 className="font-display text-lg text-gray-900 group-hover:text-[#D4873A] transition-colors uppercase leading-tight">
+              <h4 className="font-display text-lg text-gray-900 group-hover:text-[#D4873A] transition-colors duration-200 uppercase leading-tight">
                 {poll.title}
               </h4>
-              <p className="text-[10px] text-gray-500">Vote & rank your favorites</p>
-            </div>
+                          </div>
           </div>
           
           {/* Right: Vote Button */}
-          <span className="px-5 py-2 bg-[#D4873A] text-white text-sm font-bold rounded-lg group-hover:bg-[#C4772A] transition-colors">
-            VOTE NOW
-          </span>
+          {hasVoted ? (
+            <span className="px-4 py-2 bg-[#D4873A]/20 text-[#D4873A] border border-[#D4873A]/30 font-display text-sm uppercase tracking-wider rounded-lg flex items-center gap-1.5">
+              <Check className="w-3.5 h-3.5" />
+              Voted
+              <span className="text-[#D4873A]/40">·</span>
+              <Vote className="w-3.5 h-3.5 text-[#D4873A]/60" />
+              <span>{poll.totalVotes}</span>
+            </span>
+          ) : (
+            <span className="px-4 py-2 bg-[#D4873A] text-white font-display text-sm uppercase tracking-wider rounded-lg group-hover:bg-[#B5682A] group-hover:scale-105 group-hover:shadow-lg transition-all duration-200 flex items-center gap-1.5">
+              Vote Now
+              <span className="text-white/60">·</span>
+              <Vote className="w-3.5 h-3.5 text-white/80" />
+              <span>{poll.totalVotes}</span>
+            </span>
+          )}
         </div>
         
         {/* Items List */}
@@ -154,17 +192,17 @@ function RankingCard({ poll, onOpenArticle, onOpenRankroll }: { poll: Poll; onOp
           {top3.map((item, idx) => {
             const rank = idx + 1;
             return (
-              <div key={item.id} className="group/row flex items-center gap-4 px-4 h-[56px] border-b border-warm last:border-b-0 hover:bg-[#D4873A]/10 transition-colors duration-150 cursor-pointer">
+              <div key={item.id} className="flex items-center gap-4 px-4 py-2 border-b border-warm last:border-b-0">
                 {/* Rank Badge */}
                 <span className={`w-7 h-7 rounded flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${
                   rank === 1 ? 'bg-[#D4873A]' : 'bg-gray-400'
                 }`}>
                   {rank.toString().padStart(2, '0')}
                 </span>
-                {/* Image */}
-                <div className="w-10 h-8 rounded overflow-hidden flex-shrink-0">
+                {/* Image - zooms on card hover */}
+                <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0">
                   {item.image ? (
-                    <img src={item.image} alt="" className="w-full h-full object-cover group-hover/row:scale-105 transition-transform duration-200" />
+                    <img src={item.image} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
                   ) : (
                     <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-400 text-xs">
                       {item.title?.charAt(0)}
@@ -173,14 +211,14 @@ function RankingCard({ poll, onOpenArticle, onOpenRankroll }: { poll: Poll; onOp
                 </div>
                 {/* Title */}
                 <div className="flex-1 min-w-0">
-                  <p className="font-display text-gray-900 group-hover/row:text-[#D4873A] text-sm truncate uppercase transition-colors duration-150">{item.title}</p>
+                  <p className="font-display text-gray-900 text-sm truncate uppercase">{item.title}</p>
                 </div>
                 {/* Score */}
                 <div className="flex items-center gap-1 text-[#D4873A] flex-shrink-0">
                   <span className="text-xs">↑</span>
                   <span className="font-bold text-sm">{item.upvotes || 0}</span>
                 </div>
-                <ChevronRight className="w-4 h-4 text-gray-300 group-hover/row:text-[#D4873A] group-hover/row:translate-x-0.5 transition-all duration-150" />
+                <ChevronRight className="w-4 h-4 text-gray-300" />
               </div>
             );
           })}
@@ -192,9 +230,36 @@ function RankingCard({ poll, onOpenArticle, onOpenRankroll }: { poll: Poll; onOp
 
 // Simple Poll Card - Image block left, content right (same layout as RankingCard)
 function SimplePollCard({ poll, onClick }: { poll: Poll; onClick: () => void }) {
+  const { user } = useAuth();
   const countdown = useCountdown(poll.closesAt);
   const options = poll.options || [];
   const totalVotes = poll.totalVotes || 0;
+  const [hasVoted, setHasVoted] = useState(false);
+  
+  // Check if user has already voted
+  useEffect(() => {
+    const checkVotes = async () => {
+      if (!poll._id) return;
+      const params = new URLSearchParams();
+      if (user?.id) params.set('userId', user.id);
+      else {
+        const visitorId = localStorage.getItem('visitorId');
+        if (visitorId) params.set('visitorId', visitorId);
+      }
+      if (!params.toString()) return;
+      
+      try {
+        const res = await fetch(`/api/polls/${poll._id}/vote?${params}`);
+        const data = await res.json();
+        if (data.success && (data.hasVoted || (data.votes && Object.keys(data.votes).length > 0))) {
+          setHasVoted(true);
+        }
+      } catch (e) {
+        console.error('Failed to check votes:', e);
+      }
+    };
+    checkVotes();
+  }, [poll._id, user?.id]);
   
   // Get percentage for each option
   const getPercentage = (votes: number) => {
@@ -219,18 +284,16 @@ function SimplePollCard({ poll, onClick }: { poll: Poll; onClick: () => void }) 
         )}
         {/* Timer at bottom of image */}
         {countdown && (
-          <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-sm px-3 py-2">
-            <div className="flex items-center gap-2">
-              <Clock className="w-3.5 h-3.5 text-white/70" />
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/80 to-transparent px-3 py-4  transition-colors duration-300">
+            <div className="flex items-center gap-2.5">
+              <Clock className="w-5 h-5 text-white/70 group-hover:text-[#D4873A] transition-colors duration-300" />
               <div>
-                <span className="text-[7px] text-white/60 uppercase block">ENDS IN</span>
-                <span className="text-sm text-white font-bold">
-                  {countdown.expired ? 'Ended' : (
+                <span className="text-[9px] text-white/90 uppercase tracking-wider block font-semibold group-hover:text-[#D4873A] transition-colors duration-300">ENDS IN</span>
+                <span className="font-display text-xl text-white tracking-wider group-hover:text-[#D4873A] transition-colors duration-300">
+                  {countdown.expired ? 'ENDED' : (
                     <>
-                      {countdown.days > 0 && <><span className="font-display">{countdown.days}</span><span className="font-sans-lv">d </span></>}
-                      <span className="font-display">{countdown.hours.toString().padStart(2, '0')}</span><span className="font-sans-lv">h </span>
-                      <span className="font-display">{countdown.minutes.toString().padStart(2, '0')}</span><span className="font-sans-lv">m </span>
-                      <span className="font-display">{countdown.seconds.toString().padStart(2, '0')}</span><span className="font-sans-lv">s</span>
+                      {countdown.days > 0 && <>{countdown.days}d </>}
+                      {countdown.hours.toString().padStart(2, '0')}h {countdown.minutes.toString().padStart(2, '0')}m {countdown.seconds.toString().padStart(2, '0')}s
                     </>
                   )}
                 </span>
@@ -251,14 +314,26 @@ function SimplePollCard({ poll, onClick }: { poll: Poll; onClick: () => void }) 
               <h4 className="font-display text-lg text-gray-900 group-hover:text-[#D4873A] transition-colors uppercase leading-tight">
                 {poll.title}
               </h4>
-              <p className="text-[10px] text-gray-500">Vote for your favorite</p>
-            </div>
+                          </div>
           </div>
           
           {/* Right: Vote Button */}
-          <span className="px-5 py-2 bg-[#D4873A] text-white text-sm font-bold rounded-lg group-hover:bg-[#C4772A] transition-colors">
-            VOTE NOW
-          </span>
+          {hasVoted ? (
+            <span className="px-4 py-2 bg-[#D4873A]/20 text-[#D4873A] border border-[#D4873A]/30 font-display text-sm uppercase tracking-wider rounded-lg flex items-center gap-1.5">
+              <Check className="w-3.5 h-3.5" />
+              Voted
+              <span className="text-[#D4873A]/40">·</span>
+              <Vote className="w-3.5 h-3.5 text-[#D4873A]/60" />
+              <span>{totalVotes}</span>
+            </span>
+          ) : (
+            <span className="px-4 py-2 bg-[#D4873A] text-white font-display text-sm uppercase tracking-wider rounded-lg group-hover:bg-[#C4772A] transition-colors flex items-center gap-1.5">
+              Vote Now
+              <span className="text-white/60">·</span>
+              <Vote className="w-3.5 h-3.5 text-white/80" />
+              <span>{totalVotes}</span>
+            </span>
+          )}
         </div>
         
         {/* Options List */}

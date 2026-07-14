@@ -69,6 +69,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   'news': 'News',
   'lifestyle': 'Lifestyle',
   'rip': 'RIP',
+  'eastercorn': 'Eastercorn',
 };
 
 const MAIN_CATEGORY_LABELS: Record<string, string> = {
@@ -208,6 +209,7 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
   const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
   const [countdown, setCountdown] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const proseRef = useRef<HTMLDivElement>(null);
   
   // Countdown timer for linked poll OR article closesAt (for voting articles)
   useEffect(() => {
@@ -388,6 +390,18 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
         e.preventDefault();
         e.stopPropagation();
         window.dispatchEvent(new Event('openTV'));
+      } else if (target.closest('.rankroll-cta-banner')) {
+        e.preventDefault();
+        e.stopPropagation();
+        const ctaEl = target.closest('.rankroll-cta-banner') as HTMLElement;
+        const rankrollId = ctaEl?.getAttribute('data-rankroll-id');
+        if (rankrollId) {
+          // Navigate to the rankroll page with this poll
+          window.dispatchEvent(new CustomEvent('openRankroll', { detail: { pollId: rankrollId } }));
+        } else {
+          // Fallback: just open rankroll page
+          window.dispatchEvent(new Event('openRankroll'));
+        }
       }
     };
     document.addEventListener('click', handleCtaClick);
@@ -409,6 +423,111 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
   }, [article]);
 
   const processedHtml = useMemo(() => processArticleHtml(article?.content || ''), [article?.content]);
+
+  // Use ref-based innerHTML injection to prevent iframe flickering on re-renders.
+  // dangerouslySetInnerHTML destroys/recreates the DOM (and iframes) on every render;
+  // this only updates when processedHtml actually changes.
+  useEffect(() => {
+    if (proseRef.current && proseRef.current.innerHTML !== processedHtml) {
+      proseRef.current.innerHTML = processedHtml;
+    }
+  }, [processedHtml]);
+
+  // Gallery Slider: carousel arrows + lightbox
+  useEffect(() => {
+    const el = proseRef.current;
+    if (!el) return;
+    const galleries = el.querySelectorAll('.gallery-slider-block');
+    if (!galleries.length) return;
+
+    // Inject WebKit scrollbar-hiding CSS once
+    const styleId = 'gsl-no-scrollbar';
+    if (!document.getElementById(styleId)) {
+      const s = document.createElement('style');
+      s.id = styleId;
+      s.textContent = '.gsl-track::-webkit-scrollbar{display:none}.gallery-slider-block img[data-gallery-index]{height:240px!important;width:auto!important;flex-shrink:0!important;object-fit:cover!important;border-radius:12px!important;display:block!important;cursor:pointer!important;}';
+      document.head.appendChild(s);
+    }
+
+    // ── Lightbox ──────────────────────────────────────────────────────────────
+    const lb = document.createElement('div');
+    lb.style.cssText = 'display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.95);align-items:center;justify-content:center;';
+    lb.innerHTML = `
+      <button id="lb-close" style="position:absolute;top:16px;right:20px;background:none;border:none;color:white;font-size:28px;cursor:pointer;line-height:1;opacity:0.8;">✕</button>
+      <button id="lb-prev" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.15);border:none;color:white;font-size:40px;cursor:pointer;padding:6px 14px;border-radius:8px;line-height:1;">&#8249;</button>
+      <img id="lb-img" style="max-width:92vw;max-height:88vh;border-radius:10px;object-fit:contain;cursor:default;box-shadow:0 8px 40px rgba(0,0,0,0.6);" />
+      <button id="lb-next" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.15);border:none;color:white;font-size:40px;cursor:pointer;padding:6px 14px;border-radius:8px;line-height:1;">&#8250;</button>
+      <div id="lb-counter" style="position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.55);font-size:13px;letter-spacing:0.06em;"></div>
+    `;
+    document.body.appendChild(lb);
+
+    let lbImgs: string[] = [];
+    let lbIdx = 0;
+
+    const lbShow = (images: string[], i: number) => {
+      lbImgs = images; lbIdx = i;
+      (lb.querySelector('#lb-img') as HTMLImageElement).src = images[i];
+      (lb.querySelector('#lb-counter') as HTMLDivElement).textContent = `${i + 1} / ${images.length}`;
+      (lb.querySelector('#lb-prev') as HTMLButtonElement).style.display = images.length > 1 ? '' : 'none';
+      (lb.querySelector('#lb-next') as HTMLButtonElement).style.display = images.length > 1 ? '' : 'none';
+      lb.style.display = 'flex';
+    };
+    const lbHide = () => { lb.style.display = 'none'; };
+
+    lb.querySelector('#lb-close')!.addEventListener('click', lbHide);
+    lb.querySelector('#lb-prev')!.addEventListener('click', (e) => { e.stopPropagation(); lbShow(lbImgs, (lbIdx - 1 + lbImgs.length) % lbImgs.length); });
+    lb.querySelector('#lb-next')!.addEventListener('click', (e) => { e.stopPropagation(); lbShow(lbImgs, (lbIdx + 1) % lbImgs.length); });
+    lb.querySelector('#lb-img')!.addEventListener('click', (e) => e.stopPropagation());
+    lb.addEventListener('click', lbHide);
+
+    const onKey = (e: KeyboardEvent) => {
+      if (lb.style.display === 'none') return;
+      if (e.key === 'Escape') lbHide();
+      if (e.key === 'ArrowLeft') lbShow(lbImgs, (lbIdx - 1 + lbImgs.length) % lbImgs.length);
+      if (e.key === 'ArrowRight') lbShow(lbImgs, (lbIdx + 1) % lbImgs.length);
+    };
+    document.addEventListener('keydown', onKey);
+
+    // ── Per-gallery carousel init ─────────────────────────────────────────────
+    galleries.forEach((gallery) => {
+      let galleryImages: string[] = [];
+      try { galleryImages = JSON.parse(gallery.getAttribute('data-images') || '[]'); } catch {}
+      if (!galleryImages.length) return;
+
+      // Lightbox on image click
+      gallery.querySelectorAll('img[data-gallery-index]').forEach((img, i) => {
+        img.addEventListener('click', () => lbShow(galleryImages, i));
+      });
+
+      // Carousel arrows
+      const track = gallery.querySelector('.gsl-track') as HTMLElement | null;
+      const prevBtn = gallery.querySelector('.gsl-prev') as HTMLButtonElement | null;
+      const nextBtn = gallery.querySelector('.gsl-next') as HTMLButtonElement | null;
+      if (!track) return;
+
+      const SCROLL_BY = 248; // slide width (220) + gap (8) + a bit
+
+      const updateArrows = () => {
+        const atStart = track.scrollLeft <= 4;
+        const atEnd = track.scrollLeft >= track.scrollWidth - track.clientWidth - 4;
+        const hasOverflow = track.scrollWidth > track.clientWidth + 8;
+        if (prevBtn) prevBtn.style.display = hasOverflow && !atStart ? 'flex' : 'none';
+        if (nextBtn) nextBtn.style.display = hasOverflow && !atEnd ? 'flex' : 'none';
+      };
+
+      // Check after layout settles
+      setTimeout(updateArrows, 200);
+      track.addEventListener('scroll', updateArrows, { passive: true });
+
+      prevBtn?.addEventListener('click', (e) => { e.stopPropagation(); track.scrollBy({ left: -SCROLL_BY, behavior: 'smooth' }); });
+      nextBtn?.addEventListener('click', (e) => { e.stopPropagation(); track.scrollBy({ left: SCROLL_BY, behavior: 'smooth' }); });
+    });
+
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      lb.remove();
+    };
+  }, [processedHtml]);
 
   const handleLike = async () => {
     if (!isLoggedIn || !user?.id) {
@@ -536,15 +655,9 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
           )
         )}
         
-        {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/30 z-[1]" />
+        {/* Gradient Overlay - only bottom 25% darkens for title readability, top stays clean */}
+        <div className="absolute inset-x-0 bottom-0 h-[35%] bg-gradient-to-t from-black via-black/60 to-transparent z-[1]" />
 
-        {/* Mobile: Category Badge pinned just below the back button - fixed regardless of headline length */}
-        {!isDesktop && (
-          <div className="absolute top-16 left-4 z-20">
-            <CategoryBadge category={article.category} size="lg" />
-          </div>
-        )}
 
         {/* Desktop: Share Button on image - top right */}
         {isDesktop && (
@@ -562,7 +675,7 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
         <div className={`absolute bottom-0 left-0 right-0 z-10 ${isDesktop ? 'p-6' : 'p-4'}`}>
           {/* Category Badge + Read Time + Trending Badge */}
           <div className="flex items-center gap-2 mb-3 flex-wrap">
-            {isDesktop && <CategoryBadge category={article.category} size="lg" />}
+            <CategoryBadge category={article.category} size="lg" />
             {/* Countdown Timer Badge - if poll has endsAt */}
             {countdown && (
               <span
@@ -601,26 +714,25 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
             )}
           </div>
 
-          {/* Title */}
-          <h1 
-            className="text-4xl font-display leading-tight mb-2 drop-shadow-lg"
-            style={{ color: article.titleColor || '#ffffff' }}
-          >
-            {article.title}
-          </h1>
-
-          {/* Subtitle */}
-          {article.subtitle && (
-            <p 
-              className="text-lg font-display mb-4 drop-shadow-md"
-              style={{ color: article.subtitleColor || 'rgba(255,255,255,0.85)' }}
+          {/* Title only in hero */}
+          <div className="flex items-end gap-3">
+            <h1 
+              className="text-4xl font-display leading-tight drop-shadow-lg"
+              style={{ color: article.titleColor || '#ffffff' }}
             >
-              {article.subtitle}
-            </p>
-          )}
+              {article.title}
+            </h1>
+            {article.category === 'rip' && (
+              <span className="text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)] flex-shrink-0 mb-1" style={{ fontFamily: 'Georgia,serif', fontSize: '2rem', lineHeight: 1 }}>✝</span>
+            )}
+          </div>
+        </div>
+      </div>
 
-          {/* Meta */}
-          <div className="flex items-center gap-4 text-xs text-white/60">
+      {/* ── Below Hero: Meta + Subtitle ── */}
+      <div className={`bg-cream ${isDesktop ? 'px-8 pt-5 pb-2' : 'px-5 pt-4 pb-2'}`}>
+        {/* Author · Date · Views */}
+        <div className="flex items-center gap-4 text-xs text-gray-500 flex-wrap mb-3">
             {article.authorName && (() => {
               const initials = article.authorName
                 .split(' ')
@@ -670,12 +782,22 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
               <Eye className="w-3 h-3" />
               <span>{article.views} views</span>
             </div>
-          </div>
         </div>
       </div>
 
       {/* Article Content - relative z-10 to scroll over fixed image on mobile */}
       <div className="px-5 pt-4 pb-8 bg-cream overflow-hidden relative z-10">
+
+        {/* Subtitle — below hero, above article body */}
+        {article.subtitle && (
+          <p
+            className={`font-serif italic leading-snug mb-5 ${isDesktop ? 'text-2xl' : 'text-xl'} border-l-4 border-[#D4873A] pl-4`}
+            style={{ color: article.subtitleColor || '#D4873A' }}
+          >
+            {article.subtitle}
+          </p>
+        )}
+
         <div 
           className="article-prose prose prose-base max-w-none font-sans-lv
             prose-headings:font-display prose-headings:mt-10 prose-headings:mb-4 prose-headings:tracking-normal prose-headings:font-bold
@@ -700,9 +822,7 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
             '--tw-prose-headings': article.contentColor || '#111827',
             fontFamily: 'var(--font-sans-lv), "DM Sans", system-ui, sans-serif',
           } as React.CSSProperties}
-          dangerouslySetInnerHTML={{ 
-            __html: processedHtml
-          }}
+          ref={proseRef}
         />
 
         {/* Music Community Song List - only for music-community articles */}

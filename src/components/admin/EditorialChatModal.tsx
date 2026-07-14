@@ -137,7 +137,7 @@ export default function EditorialChatModal({ reporter, onClose, onGoToArticles }
     return content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
   };
 
-  const roleLabel = reporter.role.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  const roleLabel = (reporter.role || 'journalist').replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
@@ -205,7 +205,7 @@ export default function EditorialChatModal({ reporter, onClose, onGoToArticles }
               </div>
               <div>
                 <p className="text-white font-medium">{reporterName}</p>
-                <p className="text-gray-400 text-xs mt-0.5">{reporter.responsibilities.slice(0, 80)}...</p>
+                <p className="text-gray-400 text-xs mt-0.5">{(reporter.responsibilities || reporter.role || '').slice(0, 80)}{(reporter.responsibilities || '').length > 80 ? '...' : ''}</p>
               </div>
               <div className="grid grid-cols-2 gap-2 mt-2 w-full max-w-sm">
                 {[

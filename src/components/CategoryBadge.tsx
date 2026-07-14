@@ -1,25 +1,6 @@
 "use client";
 
-// Category labels mapping
-const CATEGORY_LABELS: Record<string, string> = {
-  // Main categories
-  'articles': 'Articles',
-  'shop': 'Shop',
-  'rewind': 'Rewind',
-  'arcade': 'Arcade',
-  // Sub categories
-  'movies-tv': 'Movies & TV',
-  'music': 'Music',
-  'gaming': 'Gaming',
-  'sports': 'Sports',
-  'tech': 'Tech',
-  'fashion': 'Fashion',
-  'food': 'Food',
-  'travel': 'Travel',
-  'culture': 'Culture',
-  'lifestyle': 'Lifestyle',
-  'rip': 'RIP',
-};
+import { getCategoryLabel } from "@/lib/categories";
 
 interface CategoryBadgeProps {
   category: string;
@@ -28,7 +9,7 @@ interface CategoryBadgeProps {
 }
 
 export default function CategoryBadge({ category, size = 'md', className = '' }: CategoryBadgeProps) {
-  const label = CATEGORY_LABELS[category] || category;
+  const label = getCategoryLabel(category) || category;
   
   const sizeClasses = {
     sm: 'px-1.5 py-0.5 text-[8px]',

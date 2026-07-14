@@ -4,7 +4,8 @@ import Battle from '@/models/Battle';
 import User from '@/models/User';
 import Card from '@/models/Card';
 
-const TOPICS = ['sport', 'music', 'film', 'culture', 'fashion', 'games', 'tv'];
+// NOTE: culture removed - not enough DB questions for this theme yet
+const TOPICS = ['sport', 'music', 'film', 'fashion', 'games', 'tv'];
 // BOGX wager amounts - Bot uses the lowest VALID wager so new users can play
 // (0.05 no longer exists - minimum is 0.10)
 const WAGERS = [
@@ -85,10 +86,13 @@ async function ensureShadowHunterBattle(): Promise<{ created: boolean; joined: b
     }
   }
   
-  // Shadow Hunter also joins any open battles from real users
+  // Shadow Hunter also joins any open PUBLIC battles from real users
+  // NEVER join private battles or battles with a specific challengedUser!
   const openUserBattle = await Battle.findOne({
     status: 'open',
     creator: { $ne: shadowHunter._id },
+    isPrivate: { $ne: true },           // Don't join private battles
+    challengedUser: { $exists: false }, // Don't join direct challenges
   }).populate('creator', 'isBot username');
   
   if (openUserBattle) {
@@ -226,10 +230,13 @@ export async function POST(request: NextRequest) {
           }
         }
       } else {
-        // Try to join an open battle (not created by a bot)
+        // Try to join an open PUBLIC battle (not created by a bot)
+        // NEVER join private battles or direct challenges!
         const openBattle = await Battle.findOne({
           status: 'open',
           creator: { $ne: bot._id },
+          isPrivate: { $ne: true },           // Don't join private battles
+          challengedUser: { $exists: false }, // Don't join direct challenges
         }).populate('creator', 'isBot');
         
         if (openBattle && bot.bogxCoins >= openBattle.wager) {

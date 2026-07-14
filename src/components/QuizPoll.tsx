@@ -157,8 +157,7 @@ export default function QuizPollCard({ poll, userId, visitorId, onComplete, onOp
           <div className="flex-1 min-w-0 overflow-hidden">
             <span className="text-xs font-bold text-[#D4873A] uppercase tracking-wider">SELF-TEST</span>
             <h3 className="font-display text-lg text-gray-900 leading-tight line-clamp-2 uppercase">{poll.title}</h3>
-            {poll.subtitle && <p className="text-sm text-gray-700 line-clamp-1">{poll.subtitle}</p>}
-            <div className="flex items-center gap-2 mt-0.5">
+                        <div className="flex items-center gap-2 mt-0.5">
               <p className="text-xs text-gray-600">{poll.questions.length} questions · {poll.totalVotes} participants</p>
               {poll.linkedArticleId && onOpenArticle && (
                 <>
@@ -276,8 +275,7 @@ export default function QuizPollCard({ poll, userId, visitorId, onComplete, onOp
           <div className="absolute bottom-3 left-3 right-3">
             <span className="text-[10px] font-bold text-white/80 uppercase tracking-wider">SELF-TEST</span>
             <h3 className="font-display text-xl text-white leading-tight uppercase">{poll.title}</h3>
-            {poll.subtitle && <p className="text-sm text-white/80">{poll.subtitle}</p>}
-          </div>
+                      </div>
         </div>
       ) : (
         <div className="px-4 pt-3 pb-2 border-b border-warm">

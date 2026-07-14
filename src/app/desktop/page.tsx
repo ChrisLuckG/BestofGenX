@@ -30,6 +30,7 @@ import DesktopLoginPage from "@/components/desktop/DesktopLoginPage";
 import PredictionsGame from "@/components/games/PredictionsGame";
 import GenXManGame from "@/components/games/GenXManGame";
 import SoloTriviaGame from "@/components/games/SoloTriviaGame";
+import BogxInvadersGame from "@/components/games/BogxInvadersGame";
 import CoinAnimation from "@/components/CoinAnimation";
 import DesktopRewardsPage from "@/components/desktop/DesktopRewardsPage";
 import DesktopContentWrapper from "@/components/desktop/DesktopContentWrapper";
@@ -38,6 +39,7 @@ import DesktopRankWidget from "@/components/desktop/DesktopRankWidget";
 import RadioPage from "@/components/RadioPage";
 import WelcomeBackModal, { WelcomeBackRankChange } from "@/components/WelcomeBackModal";
 import CheckoutSuccessModal from "@/components/CheckoutSuccessModal";
+import StaticPageInline from "@/components/StaticPageInline";
 
 // Navigation tabs
 const navTabs = [
@@ -58,13 +60,33 @@ export default function DesktopPage() {
   const { coins, setCoins } = useBogxCoins(user?.id);
   const [activeTab, setActiveTab] = useState<NavTab>("feed");
   const [previousTab, setPreviousTab] = useState<NavTab>("feed");
+  const [tabRestored, setTabRestored] = useState(false);
+  
+  // Restore activeTab from sessionStorage after mount (SSR-safe)
+  useEffect(() => {
+    if (tabRestored) return;
+    const saved = sessionStorage.getItem('desktopActiveTab');
+    if (saved && ['feed', 'arcade', 'articles', 'voting', 'shop', 'tv', 'radio', 'notifications', 'profile', 'rankings'].includes(saved)) {
+      setActiveTab(saved as NavTab);
+    }
+    setTabRestored(true);
+  }, [tabRestored]);
+  
+  // Persist activeTab to sessionStorage
+  useEffect(() => {
+    if (!tabRestored) return;
+    sessionStorage.setItem('desktopActiveTab', activeTab);
+  }, [activeTab, tabRestored]);
+  
   const [arcadeGame, setArcadeGame] = useState<string | null>(null);
   const [showLoginPage, setShowLoginPage] = useState(false);
   const [openArticleId, setOpenArticleId] = useState<string | null>(null);
   const [openRankrollId, setOpenRankrollId] = useState<string | null>(null);
   const [openRankrollData, setOpenRankrollData] = useState<any>(null);
   const [feedRefreshKey, setFeedRefreshKey] = useState(0); // Increment to force feed refresh
+  const [staticPageSlug, setStaticPageSlug] = useState<string | null>(null);
   const [coinAnimation, setCoinAnimation] = useState<{ show: boolean; amount: number; variant?: 'gain' | 'loss' | 'hold' }>({ show: false, amount: 0 });
+  const [coinAnimKey, setCoinAnimKey] = useState(0);
   
   // Animate coins counting up/down step by step
   const animateCoins = (amount: number) => {
@@ -101,10 +123,22 @@ export default function DesktopPage() {
   const [showWelcomeBack, setShowWelcomeBack] = useState(false);
   const [welcomeRankChange, setWelcomeRankChange] = useState<WelcomeBackRankChange | null>(null);
   const [welcomeCurrentRank, setWelcomeCurrentRank] = useState<number | null>(null);
-  const [welcomeNotificationsEnabled, setWelcomeNotificationsEnabled] = useState(true);
-  const [welcomeAI, setWelcomeAI] = useState<{ greeting: string; subtitle: string; fact: string; factReaction: string; callToAction: string } | null>(null);
+  const [welcomeTotalPoints, setWelcomeTotalPoints] = useState(0);
+  const [welcomePointsToday, setWelcomePointsToday] = useState(0);
+  const [welcomePointsToNext, setWelcomePointsToNext] = useState(0);
+  const [welcomeStreak, setWelcomeStreak] = useState(0);
+  const [welcomeEvents, setWelcomeEvents] = useState<any[]>([]);
+  const [welcomeLastSeenAt, setWelcomeLastSeenAt] = useState<string | null>(null);
+  const [welcomeDailyReward, setWelcomeDailyReward] = useState(false);
   const [pendingChallengeCount, setPendingChallengeCount] = useState(0);
   const [activeBattleCount, setActiveBattleCount] = useState(0);
+  const [currentLeader, setCurrentLeader] = useState<string | null>(null);
+  const [welcomeLevel, setWelcomeLevel] = useState(1);
+  const [welcomeLevelName, setWelcomeLevelName] = useState('Rookie');
+  const [welcomeLevelProgress, setWelcomeLevelProgress] = useState(0);
+  const [welcomePointsToNextLevel, setWelcomePointsToNextLevel] = useState(0);
+  const [welcomeAvatar, setWelcomeAvatar] = useState<string | undefined>(undefined);
+  const [welcomeLoading, setWelcomeLoading] = useState(true);
   
   // Fetch pending battle counts on login
   useEffect(() => {
@@ -272,29 +306,43 @@ export default function DesktopPage() {
     const sessionKey = `welcome_shown_${user.id}_${new Date().toDateString()}`;
     if (sessionStorage.getItem(sessionKey)) return;
     
-    // Fetch personalized welcome data (rank change) + AI daily facts in parallel
+    // Show modal immediately with loading state, then fetch data
+    setWelcomeLoading(true);
+    setShowWelcomeBack(true);
+    sessionStorage.setItem(sessionKey, 'true');
+    
+    // Fetch personalized welcome data + current leader in parallel
     const fetchWelcomeMessage = async () => {
       try {
-        const [welcomeRes, factsRes] = await Promise.all([
+        const [welcomeRes, leaderRes] = await Promise.all([
           fetch(`/api/user/welcome-message?userId=${user.id}`).then(r => r.json()).catch(() => null),
-          fetch(`/api/daily-facts`).then(r => r.json()).catch(() => null),
+          fetch(`/api/leaderboard?period=today&limit=5`).then(r => r.json()).catch(() => null),
         ]);
 
         if (welcomeRes?.success) {
           setWelcomeRankChange(welcomeRes.rankChange || null);
           setWelcomeCurrentRank(welcomeRes.currentRank ?? null);
-          setWelcomeNotificationsEnabled(welcomeRes.notificationsEnabled !== false);
+          setWelcomeTotalPoints(welcomeRes.totalPoints ?? 0);
+          setWelcomePointsToday(welcomeRes.pointsToday ?? 0);
+          setWelcomePointsToNext(welcomeRes.pointsToNextRank ?? 0);
+          setWelcomeStreak(welcomeRes.streak ?? 0);
+          setWelcomeEvents(welcomeRes.whileAwayEvents ?? []);
+          setWelcomeLastSeenAt(welcomeRes.lastSeenAt ?? null);
+          setWelcomeDailyReward(welcomeRes.dailyRewardReady ?? false);
+          // Level data
+          setWelcomeLevel(welcomeRes.level ?? 1);
+          setWelcomeLevelName(welcomeRes.levelName ?? 'Rookie');
+          setWelcomeLevelProgress(welcomeRes.levelProgress ?? 0);
+          setWelcomePointsToNextLevel(welcomeRes.pointsToNextLevel ?? 0);
+          setWelcomeAvatar(welcomeRes.avatar || undefined);
         }
-        if (factsRes?.success && factsRes.welcome) {
-          setWelcomeAI(factsRes.welcome);
+        if (leaderRes?.success && leaderRes.leaderboard?.[0]) {
+          setCurrentLeader(leaderRes.leaderboard[0].username || null);
         }
-
-        setShowWelcomeBack(true);
-        sessionStorage.setItem(sessionKey, 'true');
       } catch (e) {
-        // Still show welcome even if AI fails
-        setShowWelcomeBack(true);
-        sessionStorage.setItem(sessionKey, 'true');
+        // Data fetch failed, but modal is already showing
+      } finally {
+        setWelcomeLoading(false);
       }
     };
     
@@ -423,7 +471,10 @@ export default function DesktopPage() {
     setPreviousTab(activeTab);
     setActiveTab(tab);
     setArcadeGame(null);
-    setOpenArticleId(null); // Close any open article when changing tabs
+    setOpenArticleId(null);
+    setStaticPageSlug(null); // Close static page when changing tabs
+    // Scroll to top when changing tabs
+    contentRef.current?.scrollTo(0, 0);
   };
 
   // Logout redirect: if on profile tab and logged out → go to feed
@@ -442,12 +493,32 @@ export default function DesktopPage() {
     const handleOpenRadio = () => { setOpenArticleId(null); handleTabChange('radio'); };
     const handleOpenTV = () => { setOpenArticleId(null); handleTabChange('tv'); };
     const handleOpenArticles = () => { setOpenArticleId(null); handleTabChange('articles'); };
+    const handleOpenRankroll = async (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const pollId = customEvent.detail?.pollId;
+      setOpenArticleId(null);
+      if (pollId) {
+        try {
+          const res = await fetch(`/api/polls/${pollId}`);
+          const data = await res.json();
+          if (data.success && data.poll) {
+            setOpenRankrollData(data.poll);
+            handleTabChange('voting');
+          }
+        } catch (err) {
+          console.error('Failed to load rankroll:', err);
+        }
+      } else {
+        handleTabChange('voting');
+      }
+    };
 
     window.addEventListener('openShop', handleOpenShop);
     window.addEventListener('openArcade', handleOpenArcade);
     window.addEventListener('openRadio', handleOpenRadio);
     window.addEventListener('openTV', handleOpenTV);
     window.addEventListener('openArticles', handleOpenArticles);
+    window.addEventListener('openRankroll', handleOpenRankroll);
 
     return () => {
       window.removeEventListener('openShop', handleOpenShop);
@@ -455,6 +526,7 @@ export default function DesktopPage() {
       window.removeEventListener('openRadio', handleOpenRadio);
       window.removeEventListener('openTV', handleOpenTV);
       window.removeEventListener('openArticles', handleOpenArticles);
+      window.removeEventListener('openRankroll', handleOpenRankroll);
     };
   }, []);
 
@@ -489,7 +561,7 @@ export default function DesktopPage() {
           <div className="h-[72px] flex items-center px-6">
             {/* LEFT – Logo (same width as left sidebar ~240px) */}
             <div className="w-60 flex-shrink-0 flex items-center">
-              <button onClick={() => handleTabChange('home')} className="flex-shrink-0 hover:opacity-80 transition-opacity">
+              <button onClick={() => handleTabChange('feed')} className="flex-shrink-0 hover:opacity-80 transition-opacity">
                 <Image src="/images/genxlogo1.png" alt="Best of GenX" width={120} height={48} className="h-12 w-auto" />
               </button>
             </div>
@@ -619,41 +691,56 @@ export default function DesktopPage() {
                   <div className="flex items-center justify-center py-10">
                     <div className="w-6 h-6 border-2 border-[#D4873A]/30 border-t-[#D4873A] rounded-full animate-spin" />
                   </div>
-                ) : rankings.length === 0 && !isBreakTime ? (
-                  <div className="flex flex-col items-center justify-center py-8 px-4">
-                    <Trophy className="w-8 h-8 text-[#D4873A]/30 mb-2" />
-                    <p className="text-xs text-gray-500 text-center">Be the first to play today!</p>
-                  </div>
-                ) : rankings.slice(0, 10).map((r, i) => (
-                  <button key={r._id} onClick={() => { setSelectedPlayerId(r._id); handleTabChange('rankings'); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/70 transition-colors">
-                    {/* Rank number */}
-                    <span className={`text-sm font-bold tabular-nums w-4 text-center ${
-                      i === 0 ? 'text-[#D4873A]' :
-                      i < 3 ? 'text-[#D4873A]/60' :
-                      'text-gray-400'
-                    }`}>{i + 1}</span>
-                    {/* Avatar with country flag */}
-                    <div className="relative flex-shrink-0">
-                      <div className={`w-8 h-8 rounded-full overflow-hidden border ${i === 0 ? 'border-[#D4873A]' : 'border-warm'}`}>
-                        {r.avatar ? (
-                          <img src={r.avatar} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full bg-skeleton-light flex items-center justify-center">
-                            <span className="text-sm font-semibold text-gray-500">{r.username?.[0]?.toUpperCase() || '?'}</span>
+                ) : (
+                  // Always show 10 slots - fill with placeholders if needed
+                  Array.from({ length: 10 }).map((_, i) => {
+                    const r = rankings[i];
+                    if (r) {
+                      return (
+                        <button key={r._id} onClick={() => { setSelectedPlayerId(r._id); handleTabChange('rankings'); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/70 transition-colors">
+                          {/* Rank number */}
+                          <span className={`text-sm font-bold tabular-nums w-4 text-center ${
+                            i === 0 ? 'text-[#D4873A]' :
+                            i < 3 ? 'text-[#D4873A]/60' :
+                            'text-gray-400'
+                          }`}>{i + 1}</span>
+                          {/* Avatar with country flag */}
+                          <div className="relative flex-shrink-0">
+                            <div className={`w-8 h-8 rounded-full overflow-hidden border ${i === 0 ? 'border-[#D4873A]' : 'border-warm'}`}>
+                              {r.avatar ? (
+                                <img src={r.avatar} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full bg-skeleton-light flex items-center justify-center">
+                                  <span className="text-sm font-semibold text-gray-500">{r.username?.[0]?.toUpperCase() || '?'}</span>
+                                </div>
+                              )}
+                            </div>
+                            <CountryFlag flag={r.countryFlag} className="absolute -bottom-1 -right-1 w-4 h-3 rounded-[2px] border border-cream object-cover shadow-sm" />
                           </div>
-                        )}
+                          {/* Username */}
+                          <span className="flex-1 text-left font-display text-[13px] tracking-wide font-normal text-gray-800 truncate">{r.username}</span>
+                          {/* BOGX Coins */}
+                          <div className="flex items-center gap-1">
+                            <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
+                            <span className="font-display text-[13px] tracking-wide font-semibold tabular-nums text-[#D4873A]">{formatCurrency(r.bogxCoins || r.points)}</span>
+                          </div>
+                        </button>
+                      );
+                    }
+                    // Placeholder for empty slot
+                    return (
+                      <div key={`empty-${i}`} className="w-full flex items-center gap-3 px-4 py-2.5 opacity-40">
+                        <span className="text-sm font-bold tabular-nums w-4 text-center text-gray-300">{i + 1}</span>
+                        <div className="w-8 h-8 rounded-full bg-gray-200 border border-gray-200" />
+                        <span className="flex-1 text-left font-display text-[13px] tracking-wide text-gray-400">—</span>
+                        <div className="flex items-center gap-1">
+                          <img src="/images/bogxcoin.png" alt="" className="w-4 h-4 opacity-30" />
+                          <span className="font-display text-[13px] tracking-wide text-gray-300">—</span>
+                        </div>
                       </div>
-                      <CountryFlag flag={r.countryFlag} className="absolute -bottom-1 -right-1 w-4 h-3 rounded-[2px] border border-cream object-cover shadow-sm" />
-                    </div>
-                    {/* Username */}
-                    <span className="flex-1 text-left font-display text-[13px] tracking-wide font-normal text-gray-800 truncate">{r.username}</span>
-                    {/* BOGX Coins */}
-                    <div className="flex items-center gap-1">
-                      <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
-                      <span className="font-display text-[13px] tracking-wide font-semibold tabular-nums text-[#D4873A]">{formatCurrency(r.bogxCoins || r.points)}</span>
-                    </div>
-                  </button>
-                ))}
+                    );
+                  })
+                )}
               </div>
             </div>
 
@@ -725,15 +812,17 @@ export default function DesktopPage() {
           </aside>
 
           {/* MAIN CONTENT */}
-          <main className="flex-1 min-w-0">
+          <main className="flex-1 min-w-0 relative z-0">
             <div 
               ref={contentRef}
               data-content-scroll
-              className="relative rounded-xl border border-warm overflow-y-auto shadow-sm min-h-[calc(100vh-108px)] scrollbar-hide bg-[#F5F0E8]"
+              className="relative rounded-xl border border-warm overflow-y-auto shadow-sm min-h-[calc(100vh-108px)] scrollbar-hide bg-[#F5F0E8] isolate"
             >
+              {/* Static Page View */}
+              {staticPageSlug && <StaticPageInline slug={staticPageSlug} defaultTitle={staticPageSlug} onClose={() => { setStaticPageSlug(null); contentRef.current?.scrollTo(0, 0); }} />}
               {/* Content Tabs */}
-              {activeTab === "feed" && !openArticleId && <WelcomeReel onOpenArticle={handleOpenArticle} readArticles={readArticles} isDesktop={true} onShowLogin={handleShowLogin} />}
-              {openArticleId && <ArticlePage articleId={openArticleId} onBack={() => {
+              {!staticPageSlug && activeTab === "feed" && !openArticleId && <WelcomeReel onOpenArticle={handleOpenArticle} readArticles={readArticles} isDesktop={true} onShowLogin={handleShowLogin} />}
+              {!staticPageSlug && openArticleId && <ArticlePage articleId={openArticleId} onBack={() => {
                 setOpenArticleId(null);
                 // Refresh read articles from DB after viewing
                 if (user?.id) {
@@ -749,108 +838,47 @@ export default function DesktopPage() {
                 // Mark article as read immediately in UI
                 setReadArticles(prev => { const next = new Set(Array.from(prev)); next.add(openArticleId); return next; });
                 // Show animation + animate coins counting up
+                setCoinAnimKey(k => k + 1);
                 setCoinAnimation({ show: true, amount, variant: 'gain' });
                 animateCoins(amount);
               }} />}
-              {activeTab === "arcade" && (
+              {!staticPageSlug && activeTab === "arcade" && (
                 arcadeGame === 'quizzbattle' ? (
-                  <DesktopBattlesPage coins={coins} setCoins={setCoins} onCoinAnimation={(amount, variant) => setCoinAnimation({ show: true, amount, variant })} onShowLogin={() => setShowLoginPage(true)} onBattleActiveChange={setIsBattleActive} pendingBattleId={pendingBattleId} onPendingBattleHandled={() => setPendingBattleId(null)} onBack={() => setArcadeGame(null)} />
+                  <DesktopBattlesPage coins={coins} setCoins={setCoins} onCoinAnimation={(amount, variant) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount, variant }); }} onShowLogin={() => setShowLoginPage(true)} onBattleActiveChange={setIsBattleActive} pendingBattleId={pendingBattleId} onPendingBattleHandled={() => setPendingBattleId(null)} onBack={() => setArcadeGame(null)} />
                 ) : arcadeGame === 'genxmen' ? (
                   <GenXManGame onBack={() => setArcadeGame(null)} onScoreUpdate={() => {}} />
                 ) : arcadeGame === 'prediction' ? (
                   <DesktopContentWrapper><PredictionsGame onBack={() => setArcadeGame(null)} onShowLogin={() => setShowLoginPage(true)} embedded={true} /></DesktopContentWrapper>
                 ) : arcadeGame === 'trivia' ? (
                   <div className="h-full min-h-full flex flex-col bg-[#F5F0E8]">
-                    <SoloTriviaGame onBack={() => setArcadeGame(null)} onCoinsChange={(amount) => animateCoins(amount)} onCoinAnimation={(amount) => setCoinAnimation({ show: true, amount })} embedded={true} />
+                    <SoloTriviaGame onBack={() => setArcadeGame(null)} onCoinsChange={(amount) => animateCoins(amount)} onCoinAnimation={(amount) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} embedded={true} />
+                  </div>
+                ) : arcadeGame === 'bogxinvaders' ? (
+                  <div className="h-[calc(100vh-108px)] flex flex-col">
+                    <BogxInvadersGame onBack={() => setArcadeGame(null)} onCoinsChange={(amount) => animateCoins(amount)} isLoggedIn={isLoggedIn} userId={user?.id} onShowLogin={() => setShowLoginPage(true)} />
                   </div>
                 ) : (
-                  <DesktopContentWrapper><DesktopArcadePage onSelectGame={(game) => setArcadeGame(game)} onShowRankings={() => handleTabChange('rankings')} /></DesktopContentWrapper>
+                  <DesktopContentWrapper><DesktopArcadePage onSelectGame={(game) => setArcadeGame(game)} onShowRankings={() => handleTabChange('rankings')} userId={user?.id} onCoinsChange={(amount) => animateCoins(amount)} onShowLogin={() => setShowLoginPage(true)} /></DesktopContentWrapper>
                 )
               )}
-              {activeTab === "articles" && !openArticleId && <DesktopArticlesPage onOpenArticle={(id: string) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onShowLogin={() => setShowLoginPage(true)} />}
-              {activeTab === "voting" && !openArticleId && !openRankrollData && <DesktopRankrollPage onOpenArticle={(id: string) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onOpenRankroll={async (pollId: string) => { try { const res = await fetch(`/api/polls/${pollId}`); const data = await res.json(); if (data.success && data.poll) { setOpenRankrollData(data.poll); contentRef.current?.scrollTo(0, 0); } } catch (e) { console.error('Failed to load rankroll:', e); } }} onShowLogin={() => setShowLoginPage(true)} onCoinAnimation={(amount) => { animateCoins(amount); setCoinAnimation({ show: true, amount }); }} />}
-              {activeTab === "voting" && openRankrollData && <DesktopRankingDetailPage poll={openRankrollData} onBack={() => setOpenRankrollData(null)} onOpenArticle={(id: string) => { setOpenArticleId(id); }} onShowLogin={() => setShowLoginPage(true)} onCoinAnimation={(amount) => { animateCoins(amount); setCoinAnimation({ show: true, amount }); }} />}
-              {activeTab === "shop" && <DesktopContentWrapper><ShopPage coins={coins} onCoinsUsed={(amount) => { setCoins(prev => prev - amount); setCoinAnimation({ show: true, amount: -amount }); }} /></DesktopContentWrapper>}
-              {activeTab === "tv" && <DesktopContentWrapper><TVPage /></DesktopContentWrapper>}
-              {activeTab === "radio" && <DesktopContentWrapper transparent><RadioPage isDesktop={true} /></DesktopContentWrapper>}
-              {activeTab === "notifications" && <DesktopContentWrapper transparent><NotificationPage onGoToProfile={() => handleTabChange('profile')} onGoToBattle={(id) => { setPendingBattleId(id); setArcadeGame('quizzbattle'); handleTabChange('arcade'); }} onPointsAwarded={(amount) => setCoinAnimation({ show: true, amount })} /></DesktopContentWrapper>}
-              {activeTab === "profile" && (isLoggedIn ? <DesktopContentWrapper><ProfilePage coins={coins} /></DesktopContentWrapper> : <DesktopLoginPage onClose={() => handleTabChange("feed")} onSuccess={() => {}} showBack={true} />)}
-              {activeTab === "rankings" && <DesktopRankingsPage currentUserScore={coins} onBack={() => handleTabChange('home')} onShowSignup={() => setShowLoginPage(true)} onShowRewards={() => handleTabChange('rewards')} selectedPlayerId={selectedPlayerId} onPlayerClose={() => setSelectedPlayerId(null)} />}
-              {activeTab === "rewards" && <DesktopRewardsPage coins={coins} onClose={() => handleTabChange('rankings')} onRedeem={(rewardId: string, cost: number) => { const change = -cost; setCoins(prev => prev + change); setCoinAnimation({ show: true, amount: change }); }} />}
+              {!staticPageSlug && activeTab === "articles" && !openArticleId && <DesktopArticlesPage onOpenArticle={(id: string) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onShowLogin={() => setShowLoginPage(true)} />}
+              {!staticPageSlug && activeTab === "voting" && !openArticleId && !openRankrollData && <DesktopRankrollPage onOpenArticle={(id: string) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onOpenRankroll={async (pollId: string) => { try { const res = await fetch(`/api/polls/${pollId}`); const data = await res.json(); if (data.success && data.poll) { setOpenRankrollData(data.poll); contentRef.current?.scrollTo(0, 0); } } catch (e) { console.error('Failed to load rankroll:', e); } }} onShowLogin={() => setShowLoginPage(true)} onCoinAnimation={(amount) => { animateCoins(amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} />}
+              {!staticPageSlug && activeTab === "voting" && openRankrollData && <DesktopRankingDetailPage poll={openRankrollData} onBack={() => setOpenRankrollData(null)} onOpenArticle={(id: string) => { setOpenArticleId(id); }} onShowLogin={() => setShowLoginPage(true)} onCoinAnimation={(amount) => { animateCoins(amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} />}
+              {!staticPageSlug && activeTab === "shop" && <DesktopContentWrapper><ShopPage coins={coins} onCoinsUsed={(amount) => { setCoins(prev => prev - amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount: -amount }); }} /></DesktopContentWrapper>}
+              {!staticPageSlug && activeTab === "tv" && <DesktopContentWrapper><TVPage /></DesktopContentWrapper>}
+              {!staticPageSlug && activeTab === "radio" && <DesktopContentWrapper transparent><RadioPage isDesktop={true} /></DesktopContentWrapper>}
+              {!staticPageSlug && activeTab === "notifications" && <DesktopContentWrapper transparent><NotificationPage onGoToProfile={() => handleTabChange('profile')} onGoToBattle={(id) => { handleTabChange('arcade'); setArcadeGame('quizzbattle'); setPendingBattleId(id); }} onPointsAwarded={(amount) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} /></DesktopContentWrapper>}
+              {!staticPageSlug && activeTab === "profile" && (isLoggedIn ? <DesktopContentWrapper><ProfilePage coins={coins} /></DesktopContentWrapper> : <DesktopLoginPage onClose={() => handleTabChange("feed")} onSuccess={() => {}} showBack={true} />)}
+              {!staticPageSlug && activeTab === "rankings" && <DesktopRankingsPage currentUserScore={coins} onBack={() => handleTabChange('home')} onShowSignup={() => setShowLoginPage(true)} onShowRewards={() => handleTabChange('rewards')} selectedPlayerId={selectedPlayerId} onPlayerClose={() => setSelectedPlayerId(null)} />}
+              {!staticPageSlug && activeTab === "rewards" && <DesktopRewardsPage coins={coins} onClose={() => handleTabChange('rankings')} onRedeem={(rewardId: string, cost: number) => { const change = -cost; setCoins(prev => prev + change); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount: change }); }} />}
             </div>
           </main>
 
           {/* RIGHT SIDEBAR */}
           <aside className="w-60 flex-shrink-0 hidden xl:block space-y-5">
-            {/* Trivia CTA - links to Trivia tab, not directly to game */}
-            <button
-              onClick={() => { handleTabChange('arcade'); setArcadeGame(null); }}
-              className="w-full rounded-xl border border-warm overflow-hidden text-left group hover:brightness-105 transition-all shadow-sm relative bg-cover bg-center bg-no-repeat"
-              style={{ backgroundImage: 'url(/images/battle.png)' }}
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-[#D4873A] via-[#D4873A]/90 to-transparent" />
-              <div className="relative p-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <Gamepad2 className="w-5 h-5 text-white" />
-                  <span className="font-display text-lg tracking-wider uppercase text-white">Arcade</span>
-                </div>
-                <p className="text-xs text-white/80 mb-3">Test your knowledge & win BOGX.</p>
-                <span className="inline-flex items-center gap-1 text-xs font-bold text-[#D4873A] bg-white px-3 py-1.5 rounded-lg">
-                  PLAY NOW <ChevronRight className="w-3 h-3" />
-                </span>
-              </div>
-            </button>
-
-            {/* Shop */}
-            <div className="bg-[#F5F0E8] rounded-xl border border-warm overflow-hidden shadow-sm">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-warm">
-                <div className="flex items-center gap-2">
-                  <ShoppingBag className="w-4 h-4 text-[#D4873A]" />
-                  <span className="font-display text-sm tracking-wider uppercase text-gray-900">Shop</span>
-                </div>
-                <button onClick={() => handleTabChange('shop')} className="text-[10px] font-semibold text-[#D4873A] hover:underline uppercase">View All</button>
-              </div>
-              <div className="p-3 space-y-2">
-                {shopProducts.map((product) => (
-                  <button
-                    key={product.id}
-                    onClick={() => handleTabChange('shop')}
-                    className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-white/70 transition-colors text-left group"
-                  >
-                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-white border border-warm flex-shrink-0">
-                      <img src={product.image} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-gray-800 truncate leading-tight">{product.name}</p>
-                      <p className="text-sm font-semibold text-[#D4873A]">{product.price}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Rewards - with gift box decoration */}
-            <button
-              onClick={() => handleTabChange('rewards')}
-              className="w-full rounded-xl border border-warm overflow-hidden text-left group hover:brightness-105 transition-all shadow-sm relative bg-cover bg-center bg-no-repeat"
-              style={{ backgroundImage: 'url(/images/reward.png)' }}
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-[#FFF8E7] via-[#FFF8E7]/90 to-transparent" />
-              <div className="relative p-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <Gift className="w-4 h-4 text-[#D4873A]" />
-                  <span className="font-display text-sm tracking-wider uppercase text-gray-900">Rewards</span>
-                </div>
-                <p className="text-[11px] text-gray-600 mb-2">Earn free points & claim prizes.</p>
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-white bg-[#D4873A] px-2.5 py-1 rounded-md group-hover:bg-[#C4772A] transition-colors">
-                  CLAIM NOW <ChevronRight className="w-3 h-3" />
-                </span>
-              </div>
-            </button>
-
             {/* Radio - with background image and equalizer */}
             <div className="rounded-xl border border-warm overflow-hidden shadow-sm relative bg-cover bg-center bg-no-repeat" style={{ backgroundImage: 'url(/images/radio.png)' }}>
-              <div className="relative z-10">
+              <div className="relative">
                 {/* Header with Equalizer */}
                 <div className="px-4 pt-4 pb-3 border-b border-white/20">
                   <div className="flex items-center justify-between mb-3">
@@ -899,6 +927,72 @@ export default function DesktopPage() {
                 </div>
               </div>
             </div>
+
+            {/* Shop */}
+            <div className="bg-[#F5F0E8] rounded-xl border border-warm overflow-hidden shadow-sm">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-warm">
+                <div className="flex items-center gap-2">
+                  <ShoppingBag className="w-4 h-4 text-[#D4873A]" />
+                  <span className="font-display text-sm tracking-wider uppercase text-gray-900">Shop</span>
+                </div>
+                <button onClick={() => handleTabChange('shop')} className="text-[10px] font-semibold text-[#D4873A] hover:underline uppercase">View All</button>
+              </div>
+              <div className="p-3 space-y-2">
+                {shopProducts.map((product) => (
+                  <button
+                    key={product.id}
+                    onClick={() => handleTabChange('shop')}
+                    className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-white/70 transition-colors text-left group"
+                  >
+                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-white border border-warm flex-shrink-0">
+                      <img src={product.image} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-gray-800 truncate leading-tight">{product.name}</p>
+                      <p className="text-sm font-semibold text-[#D4873A]">{product.price}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Rewards */}
+            <button
+              onClick={() => handleTabChange('rewards')}
+              className="w-full rounded-xl border border-warm overflow-hidden text-left group hover:brightness-105 transition-all shadow-sm relative bg-cover bg-center bg-no-repeat"
+              style={{ backgroundImage: 'url(/images/reward.png)' }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-[#FFF8E7] via-[#FFF8E7]/90 to-transparent" />
+              <div className="relative p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Gift className="w-4 h-4 text-[#D4873A]" />
+                  <span className="font-display text-sm tracking-wider uppercase text-gray-900">Rewards</span>
+                </div>
+                <p className="text-[11px] text-gray-600 mb-2">Earn free points & claim prizes.</p>
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-white bg-[#D4873A] px-2.5 py-1 rounded-md group-hover:bg-[#C4772A] transition-colors">
+                  CLAIM NOW <ChevronRight className="w-3 h-3" />
+                </span>
+              </div>
+            </button>
+
+            {/* Arcade */}
+            <button
+              onClick={() => { handleTabChange('arcade'); setArcadeGame(null); }}
+              className="w-full rounded-xl border border-warm overflow-hidden text-left group hover:brightness-105 transition-all shadow-sm relative bg-cover bg-center bg-no-repeat"
+              style={{ backgroundImage: 'url(/images/battle.png)' }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-[#D4873A] via-[#D4873A]/90 to-transparent" />
+              <div className="relative p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Gamepad2 className="w-5 h-5 text-white" />
+                  <span className="font-display text-lg tracking-wider uppercase text-white">Arcade</span>
+                </div>
+                <p className="text-xs text-white/80 mb-3">Test your knowledge & win BOGX.</p>
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-[#D4873A] bg-white px-3 py-1.5 rounded-lg">
+                  PLAY NOW <ChevronRight className="w-3 h-3" />
+                </span>
+              </div>
+            </button>
           </aside>
         </div>
       </div>
@@ -914,12 +1008,12 @@ export default function DesktopPage() {
         
         {/* Links */}
         <div className="flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm text-gray-500 mb-6">
-          <a href="/impressum" className="hover:text-[#D4873A] transition-colors">Impressum</a>
-          <a href="/datenschutz" className="hover:text-[#D4873A] transition-colors">Datenschutz</a>
-          <a href="/agb" className="hover:text-[#D4873A] transition-colors">AGB</a>
-          <a href="/karriere" className="hover:text-[#D4873A] transition-colors">Karriere</a>
-          <a href="/kontakt" className="hover:text-[#D4873A] transition-colors">Kontakt</a>
-          <a href="/presse" className="hover:text-[#D4873A] transition-colors">Presse</a>
+          <button onClick={() => { setStaticPageSlug('impressum'); contentRef.current?.scrollTo(0, 0); window.scrollTo(0, 0); }} className="hover:text-[#D4873A] transition-colors">Impressum</button>
+          <button onClick={() => { setStaticPageSlug('datenschutz'); contentRef.current?.scrollTo(0, 0); window.scrollTo(0, 0); }} className="hover:text-[#D4873A] transition-colors">Datenschutz</button>
+          <button onClick={() => { setStaticPageSlug('agb'); contentRef.current?.scrollTo(0, 0); window.scrollTo(0, 0); }} className="hover:text-[#D4873A] transition-colors">AGB</button>
+          <button onClick={() => { setStaticPageSlug('karriere'); contentRef.current?.scrollTo(0, 0); window.scrollTo(0, 0); }} className="hover:text-[#D4873A] transition-colors">Karriere</button>
+          <button onClick={() => { setStaticPageSlug('kontakt'); contentRef.current?.scrollTo(0, 0); window.scrollTo(0, 0); }} className="hover:text-[#D4873A] transition-colors">Kontakt</button>
+          <button onClick={() => { setStaticPageSlug('presse'); contentRef.current?.scrollTo(0, 0); window.scrollTo(0, 0); }} className="hover:text-[#D4873A] transition-colors">Presse</button>
         </div>
         
         {/* Social Links */}
@@ -953,36 +1047,42 @@ export default function DesktopPage() {
 
       {/* Login Modal */}
       {showLoginPage && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => { setShowLoginPage(false); setActiveTab(previousTab); }}>
-          <div className="relative w-full max-w-md mx-4 bg-[#F5F0E8] rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget) { setShowLoginPage(false); setActiveTab(previousTab); } }}>
+          <div className="relative w-full max-w-md mx-4 bg-[#F5F0E8] rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
             <DesktopLoginPage onClose={() => { setShowLoginPage(false); setActiveTab(previousTab); }} onSuccess={() => setShowLoginPage(false)} isModal={true} />
           </div>
         </div>
       )}
 
       {/* Coin Animation - Desktop mode for bigger, more impactful animation */}
-      {coinAnimation.show && <CoinAnimation amount={coinAnimation.amount} variant={coinAnimation.variant} isDesktop={true} onComplete={() => setCoinAnimation({ show: false, amount: 0 })} />}
+      {coinAnimation.show && <CoinAnimation key={coinAnimKey} amount={coinAnimation.amount} variant={coinAnimation.variant} isDesktop={true} onComplete={() => setCoinAnimation({ show: false, amount: 0 })} />}
 
       {/* Welcome Back Modal */}
       {showWelcomeBack && (
         <WelcomeBackModal
           isOpen={showWelcomeBack}
           onClose={() => setShowWelcomeBack(false)}
+          loading={welcomeLoading}
           username={user?.username || 'there'}
+          avatar={welcomeAvatar}
           currentRank={welcomeCurrentRank}
           rankChange={welcomeRankChange}
-          welcomeAI={welcomeAI}
-          notificationsEnabled={welcomeNotificationsEnabled}
-          unreadCount={0}
-          playedCount={0}
-          totalCards={0}
+          totalPoints={welcomeTotalPoints}
+          pointsToday={welcomePointsToday}
+          pointsToNextRank={welcomePointsToNext}
+          nextRankPosition={welcomeCurrentRank ? welcomeCurrentRank - 1 : undefined}
+          streak={welcomeStreak}
+          whileAwayEvents={welcomeEvents}
+          lastSeenAt={welcomeLastSeenAt}
+          dailyRewardReady={welcomeDailyReward}
           pendingChallengeCount={pendingChallengeCount}
           activeBattleCount={activeBattleCount}
+          currentLeader={currentLeader}
+          level={welcomeLevel}
+          levelName={welcomeLevelName}
+          levelProgress={welcomeLevelProgress}
+          pointsToNextLevel={welcomePointsToNextLevel}
           onPrimaryAction={() => setShowWelcomeBack(false)}
-          onEnableNotifications={() => {
-            setShowWelcomeBack(false);
-            setActiveTab('notifications');
-          }}
           onGoToBattles={() => {
             setShowWelcomeBack(false);
             setArcadeGame('quizzbattle');

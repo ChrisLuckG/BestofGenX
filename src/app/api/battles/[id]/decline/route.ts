@@ -45,8 +45,10 @@ export async function POST(
       $inc: { bogxCoins: battle.wager }
     });
     
-    // Cancel the battle
+    // Cancel the battle and record who declined it
     battle.status = 'cancelled';
+    battle.declinedBy = oderId;
+    battle.declinedAt = new Date();
     await battle.save();
     
     // Send push notification to creator that challenge was declined

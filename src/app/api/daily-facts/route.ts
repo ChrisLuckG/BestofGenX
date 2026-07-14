@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
-import fs from "fs";
-import path from "path";
 import dbConnect from "@/lib/mongoose";
 import DailyFact from "@/models/DailyFact";
+import { combinePrompts } from "@/lib/loadPrompt";
 
 // AI-generated daily welcome message with historical fact
 // Cached in DB, regenerated annually per date
@@ -20,14 +19,9 @@ function getDateKey(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-// Load central system prompt
+// Load modular prompts: core + welcome-message rules
 function getSystemPrompt(): string {
-  try {
-    const promptPath = path.join(process.cwd(), "src", "prompts", "system-prompt.txt");
-    return fs.readFileSync(promptPath, "utf-8");
-  } catch {
-    return "";
-  }
+  return combinePrompts(["core.txt", "welcome-message.txt"]);
 }
 
 export async function GET(request: NextRequest) {

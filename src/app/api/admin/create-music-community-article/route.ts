@@ -8,9 +8,19 @@ export async function POST(request: NextRequest) {
   try {
     await dbConnect();
 
-    // Check if it already exists
+    // No hardcoded image: music-community inherits the Music FIXED block's bannerImage via
+    // the cover-image fallback in the articles API (same as the dedicated banner pages).
+    const STALE_DEFAULTS = ['/images/Hintergund/music.png', '/images/topics/music.png'];
+
+    // Check if it already exists — clear any stale hardcoded cover so the banner image shows.
     const existing = await Article.findOne({ contentType: 'music-community' });
     if (existing) {
+      if (existing.coverImage && STALE_DEFAULTS.includes(existing.coverImage)) {
+        existing.coverImage = '';
+        existing.thumbnailUrl = '';
+        await existing.save();
+        return NextResponse.json({ success: true, message: 'Cleared stale cover (now uses banner image)', articleId: existing._id });
+      }
       return NextResponse.json({ success: true, message: 'Already exists', articleId: existing._id });
     }
 
@@ -21,8 +31,8 @@ export async function POST(request: NextRequest) {
       subtitle: 'Your songs. Our playlist. Every month, Gen X picks the tracks.',
       content: `<p>Every month the BestOfGenX community picks the tracks that make it onto our Spotify playlists. You suggest, you vote, we add. The most upvoted songs become part of the official playlist — this month and forever.</p>
 <p>See which songs made the cut this month and discover new suggestions from the community below. Think a track deserves a spot? Submit it!</p>`,
-      coverImage: '/images/Hintergund/music.png',
-      thumbnailUrl: '/images/Hintergund/music.png',
+      coverImage: '',
+      thumbnailUrl: '',
       contentType: 'music-community',
       category: 'music',
       mainCategory: 'articles',

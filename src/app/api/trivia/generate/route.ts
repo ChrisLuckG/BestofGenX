@@ -3,17 +3,15 @@ import dbConnect from '@/lib/mongoose';
 import Card from '@/models/Card';
 import UserQuestionHistory from '@/models/UserQuestionHistory';
 import OpenAI from 'openai';
-import { readFileSync } from 'fs';
-import { join } from 'path';
 import crypto from 'crypto';
 import mongoose from 'mongoose';
+import { combinePrompts } from '@/lib/loadPrompt';
 
 // 6 months cooldown for questions
 const QUESTION_COOLDOWN_DAYS = 180;
 
-// Load system prompt - NO FALLBACK
-const systemPromptPath = join(process.cwd(), 'src/prompts/system-prompt.txt');
-const systemPrompt = readFileSync(systemPromptPath, 'utf-8');
+// Load modular prompts: core + trivia rules
+const systemPrompt = combinePrompts(['core.txt', 'trivia.txt']);
 
 // Category mapping from frontend to database themes
 const CATEGORY_MAP: Record<string, string[]> = {

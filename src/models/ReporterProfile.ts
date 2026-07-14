@@ -30,10 +30,27 @@ export const REPORTER_ROLES: { value: ReporterRole; label: string; group: string
   { value: 'analyst', label: 'Analyst', group: 'Operations' },
 ];
 
+export type ReporterRegion = 
+  | 'north-america' | 'south-america' | 'europe' | 'united-kingdom' | 'asia' 
+  | 'oceania' | 'africa' | 'middle-east' | 'global';
+
+export const REPORTER_REGIONS: { value: ReporterRegion; label: string }[] = [
+  { value: 'north-america', label: 'North America' },
+  { value: 'south-america', label: 'South America' },
+  { value: 'united-kingdom', label: 'United Kingdom' },
+  { value: 'europe', label: 'Europe' },
+  { value: 'asia', label: 'Asia' },
+  { value: 'oceania', label: 'Oceania' },
+  { value: 'africa', label: 'Africa' },
+  { value: 'middle-east', label: 'Middle East' },
+  { value: 'global', label: 'Global' },
+];
+
 export interface IReporterProfile extends Document {
   userId: mongoose.Types.ObjectId;
   slug: string;
   role: ReporterRole;
+  region?: ReporterRegion;
   nationality: string;
   countryFlag?: string;
   countryCode?: string;
@@ -55,6 +72,7 @@ const ReporterProfileSchema = new Schema<IReporterProfile>(
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
     slug: { type: String, required: true, unique: true },
     role: { type: String, required: true, default: 'journalist' },
+    region: { type: String, enum: ['north-america', 'south-america', 'united-kingdom', 'europe', 'asia', 'oceania', 'africa', 'middle-east', 'global'], default: 'global' },
     nationality: { type: String, default: '' },
     countryFlag: { type: String, default: '' },
     countryCode: { type: String, default: '' },

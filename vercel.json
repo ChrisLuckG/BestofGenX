@@ -41,6 +41,10 @@
       "schedule": "0 10 * * *"
     },
     {
+      "path": "/api/daily-facts",
+      "schedule": "55 6 * * *"
+    },
+    {
       "path": "/api/cron/daily-facts-article",
       "schedule": "0 7 * * *"
     },

@@ -9,6 +9,7 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   'movies-tv':  ['movie', 'cinema', 'tv', 'film'],
   gaming:       ['gaming', 'arcade', 'game'],
   rip:          ['rip', 'memorial', 'obituary'],
+  eastercorn:   ['politics', 'political', 'government', 'election', 'eastercorn'],
   lifestyle:    ['lifestyle', 'living'],
   culture:      ['culture'],
   history:      ['history', 'historical'],

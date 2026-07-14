@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
-import { readFileSync } from "fs";
-import { join } from "path";
+import { combinePrompts } from "@/lib/loadPrompt";
 
-// Load the ARTICLE-SPECIFIC prompt - separate from main system prompt!
-const articlePromptPath = join(process.cwd(), "src/prompts/article-prompt.txt");
-const articlePrompt = readFileSync(articlePromptPath, "utf-8");
+// Load modular prompts: core + article rules for almanac articles
+const articlePrompt = combinePrompts(["core.txt", "article-prompt.txt"]);
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,7 +19,7 @@ export async function POST(request: NextRequest) {
     const subjectName = `${person.firstname}${person.lastname ? ' ' + person.lastname : ''}`;
     console.log(`[Almanac] Generating article for ${subjectName} (${isItem ? itemCategory : 'person'})...`);
 
-    // Minimal user message - all instructions are in system-prompt.txt
+    // Minimal user message - all instructions are in article-prompt.txt
     const userMessage = isItem
       ? `Write an article about "${subjectName}" (${itemCategory}).
 Details: ${person.knownfor || 'a GenX cultural icon'}.

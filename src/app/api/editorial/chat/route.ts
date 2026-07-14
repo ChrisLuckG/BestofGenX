@@ -1,24 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import fs from 'fs';
-import path from 'path';
 import dbConnect from '@/lib/mongoose';
 import User from '@/models/User';
 import ReporterProfile from '@/models/ReporterProfile';
 import EditorialConversation from '@/models/EditorialConversation';
 import Article from '@/models/Article';
 import { generateReporterSystemPrompt } from '@/lib/generateReporterPrompt';
+import { VALID_CATEGORY_SLUGS } from '@/lib/categories';
+import { combinePrompts } from '@/lib/loadPrompt';
 
+// Load modular prompts: core + article rules for reporters
 function loadBogxSystemPrompt(): string {
-  try {
-    const promptPath = path.join(process.cwd(), 'src', 'prompts', 'system-prompt.txt');
-    return fs.readFileSync(promptPath, 'utf-8');
-  } catch {
-    return '';
-  }
+  return combinePrompts(['core.txt', 'article-prompt.txt']);
 }
 
+// Daily in-memory caches — these Wikipedia sources only change once per day, so we avoid
+// re-downloading them on every chat message (major latency win).
+let _liveCtxCache: { key: string; value: string } | null = null; // Cache cleared on code change
+let _deathsCache: { key: string; value: string } | null = null;
+
 async function fetchLiveContext(month: number, day: number): Promise<string> {
+  const cacheKey = `genx-${month}-${day}`; // Changed key to force cache refresh
+  if (_liveCtxCache?.key === cacheKey) return _liveCtxCache.value;
   try {
     const res = await fetch(
       `https://en.wikipedia.org/api/rest_v1/feed/onthisday/all/${month}/${day}`,
@@ -29,10 +32,10 @@ async function fetchLiveContext(month: number, day: number): Promise<string> {
 
     const lines: string[] = [];
 
-    // Notable births today (filter for GenX era relevance: born 1940-1985)
+    // Notable births today (filter for GenX ONLY: born 1965-1980)
     const births = (data.births || [])
-      .filter((b: any) => b.year >= 1940 && b.year <= 1985)
-      .slice(0, 6)
+      .filter((b: any) => b.year >= 1965 && b.year <= 1980)
+      .slice(0, 10)
       .map((b: any) => `  - ${b.text?.split('.')[0]} (born ${b.year})`);
     if (births.length) lines.push(`BIRTHDAYS TODAY (GenX relevant):\n${births.join('\n')}`);
 
@@ -50,7 +53,9 @@ async function fetchLiveContext(month: number, day: number): Promise<string> {
       .map((e: any) => `  - ${e.year}: ${e.text?.split('.')[0]}`);
     if (events.length) lines.push(`NOTABLE EVENTS ON THIS DAY:\n${events.join('\n')}`);
 
-    return lines.length ? `\n================================================================================\nLIVE CONTEXT — TODAY IN HISTORY (use this for article ideas and accurate reporting)\n================================================================================\n${lines.join('\n\n')}\n` : '';
+    const value = lines.length ? `\n================================================================================\nLIVE CONTEXT — TODAY IN HISTORY (use this for article ideas and accurate reporting)\n================================================================================\n${lines.join('\n\n')}\n` : '';
+    if (value) _liveCtxCache = { key: cacheKey, value };
+    return value;
   } catch {
     return ''; // Fail silently — don't block chat
   }
@@ -88,22 +93,69 @@ const CTA_HTML: Record<string, string> = {
   rankroll: `<div class="cta-block rankroll-cta-banner" data-cta-type="rankroll" data-rankroll-id="" style="display:flex;flex-direction:column;gap:12px;padding:16px;background:linear-gradient(to right,rgba(212,135,58,0.15),rgba(212,135,58,0.05));border-radius:16px;border:1px solid rgba(212,135,58,0.2);margin:24px 0;cursor:pointer;"><div style="display:flex;align-items:center;gap:12px;"><div class="cta-icon" style="width:44px;height:44px;min-width:44px;background:#D4873A;border-radius:50%;display:flex;align-items:center;justify-content:center;" data-emoji="🗳️"><svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M18 13h-.68l-2 2h1.91L19 17H5l1.78-2h2.05l-2-2H6l-3 3v4c0 1.1.89 2 1.99 2H19c1.1 0 2-.89 2-2v-4l-3-3zm-1-5.05l-4.95 4.95-3.54-3.54 4.95-4.95 3.54 3.54zm-4.24-5.66L6.39 8.66a.996.996 0 000 1.41l4.95 4.95c.39.39 1.02.39 1.41 0l6.36-6.36a.996.996 0 000-1.41l-4.95-4.95a.996.996 0 00-1.41 0z"/></svg></div><div><div style="font-weight:700;color:#1a1a1a;font-size:14px;line-height:1.3;">Vote Now!</div><div style="font-size:12px;color:#666;line-height:1.4;">Cast your vote and rank your favorites.</div></div></div><span style="display:block;text-align:center;padding:10px 18px;background:#D4873A;color:white;border-radius:10px;font-weight:700;font-size:13px;">Go to Rankroll →</span></div>`,
 };
 
-function buildYoutubeCta(searchTerm: string): string {
-  const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(searchTerm)}`;
-  return `<div class="cta-block" data-cta-type="youtube" style="display:flex;flex-direction:column;gap:12px;padding:16px;background:linear-gradient(to right,rgba(255,0,0,0.12),rgba(255,0,0,0.03));border-radius:16px;border:1px solid rgba(255,0,0,0.2);margin:24px 0;cursor:pointer;" onclick="window.open('${url}','_blank')"><div style="display:flex;align-items:center;gap:12px;"><div style="width:44px;height:44px;min-width:44px;background:#FF0000;border-radius:50%;display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M21.58 7.19c-.23-.86-.91-1.54-1.77-1.77C18.25 5 12 5 12 5s-6.25 0-7.81.42c-.86.23-1.54.91-1.77 1.77C2 8.75 2 12 2 12s0 3.25.42 4.81c.23.86.91 1.54 1.77 1.77C5.75 19 12 19 12 19s6.25 0 7.81-.42c.86-.23 1.54-.91 1.77-1.77C22 15.25 22 12 22 12s0-3.25-.42-4.81zM10 15V9l5.2 3-5.2 3z"/></svg></div><div><div style="font-weight:700;color:#1a1a1a;font-size:14px;line-height:1.3;">Watch on YouTube</div><div style="font-size:12px;color:#666;line-height:1.4;">${searchTerm}</div></div></div><span style="display:block;text-align:center;padding:10px 18px;background:#FF0000;color:white;border-radius:10px;font-weight:700;font-size:13px;">Watch Now →</span></div>`;
+// Ask GPT-4o for a real YouTube video ID for the given search term
+async function findYoutubeVideoId(searchTerm: string): Promise<string | null> {
+  try {
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a YouTube expert. Return ONLY a single JSON object with one field: "youtubeId" (the real 11-character YouTube video ID). No markdown, no explanation. The video must actually exist on YouTube and be directly relevant to the search term.',
+        },
+        { role: 'user', content: `Find the best YouTube video for: ${searchTerm}` },
+      ],
+      temperature: 0.3,
+      max_tokens: 60,
+    });
+    const raw = (completion.choices[0]?.message?.content || '').replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(raw);
+    const id = parsed?.youtubeId?.trim();
+    return id && /^[a-zA-Z0-9_-]{11}$/.test(id) ? id : null;
+  } catch {
+    return null;
+  }
 }
 
-function injectCtasIntoContent(content: string, ctas: string[], youtubeSearchTerm?: string): string {
-  const ctaBlocks: string[] = [];
-  // YouTube CTA first if present
-  if (youtubeSearchTerm) ctaBlocks.push(buildYoutubeCta(youtubeSearchTerm));
-  // Platform CTAs
+function buildYoutubeIframe(youtubeId: string): string {
+  return `<iframe src="https://www.youtube.com/embed/${youtubeId}" frameborder="0" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>`;
+}
+
+// Inject YouTube iframe after 2nd </p> and spread CTAs through content
+function injectCtasIntoContent(content: string, ctas: string[], youtubeId?: string | null): string {
   const validCtas = ['radio', 'arcade', 'shop', 'articles', 'tv', 'rankroll'];
-  (ctas || []).forEach(cta => {
-    if (validCtas.includes(cta) && CTA_HTML[cta]) ctaBlocks.push(CTA_HTML[cta]);
-  });
-  if (!ctaBlocks.length) return content;
-  return content + '\n' + ctaBlocks.join('\n');
+  const ctaQueue = (ctas || []).filter(c => validCtas.includes(c) && CTA_HTML[c]).map(c => CTA_HTML[c]);
+
+  // Inject YouTube iframe after the 2nd paragraph
+  let result = content;
+  if (youtubeId) {
+    const iframe = buildYoutubeIframe(youtubeId);
+    let pCount = 0;
+    result = result.replace(/<\/p>/gi, (match) => {
+      pCount++;
+      return pCount === 2 ? `</p>\n${iframe}` : match;
+    });
+    // If fewer than 2 paragraphs, prepend
+    if (pCount < 2) result = iframe + '\n' + result;
+  }
+
+  // Spread CTAs: one after ~4th paragraph, rest at end
+  if (ctaQueue.length) {
+    let pCount2 = 0;
+    let midInjected = false;
+    result = result.replace(/<\/p>/gi, (match) => {
+      pCount2++;
+      if (pCount2 === 4 && !midInjected && ctaQueue.length > 1) {
+        midInjected = true;
+        return `</p>\n${ctaQueue.shift()}`;
+      }
+      return match;
+    });
+    // Append remaining CTAs at the end
+    if (ctaQueue.length) result += '\n' + ctaQueue.join('\n');
+  }
+
+  return result;
 }
 
 async function searchWikimediaImage(term: string): Promise<string | null> {
@@ -134,6 +186,90 @@ async function searchTenorGif(term: string): Promise<string | null> {
   return null;
 }
 
+// Detect if message asks about real-time / recent events (EN + DE)
+function needsLiveSearch(message: string): boolean {
+  return /recent|latest|last \d+ (hour|day|week)|past \d+ (hour|day|week)|this week|today|just died|died recently|just happened|breaking|current|right now|48h|24h|who died|passed away|obituary|news|nachrichten|gestorben|verstorben|verstarb|gestern|letzten? tage?n?|letzte woche|diese woche|k[üu]rzlich|neulich|aktuell|heute|gerade|wer ist gestorben|todesf[äa]lle?/i.test(message);
+}
+
+// Detect if message specifically asks about recent deaths (EN + DE, typo-tolerant)
+function isDeathQuery(message: string): boolean {
+  return /gest[or]{2}ben|verst[or]{2}ben|verstarb|todesf[äa]lle?|\btode?s?\b|\btot\b|died|death|passed away|obituary|\brip\b|deceased/i.test(message);
+}
+
+// Robust recent-deaths source: parse Wikipedia "Deaths in <Month> <Year>" (independent
+// of the flaky web_search_preview). Most recent days are at the end of the article.
+async function fetchRecentDeaths(now: Date): Promise<string> {
+  const cacheKey = now.toISOString().slice(0, 10);
+  if (_deathsCache?.key === cacheKey) return _deathsCache.value;
+  try {
+    const monthName = now.toLocaleDateString('en-US', { month: 'long' });
+    const year = now.getFullYear();
+    const title = `Deaths in ${monthName} ${year}`;
+    const url = `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&format=json&redirects=1&titles=${encodeURIComponent(title)}`;
+    const res = await fetch(url, { headers: { 'User-Agent': 'BOGX-Editorial/1.0' }, signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return '';
+    const data = await res.json();
+    const pages = data?.query?.pages || {};
+    const page: any = Object.values(pages)[0];
+    if (!page || page.missing !== undefined) return '';
+    const extract: string = page.extract || '';
+    if (!extract) return '';
+    // Drop the references/footer, keep the day-by-day death list, take the most recent tail.
+    const body = extract.split(/\n==+\s*(Previous months|References|See also|External links)/i)[0];
+    const tail = body.slice(-4500);
+    const value = `\n================================================================================
+⚠️⚠️⚠️ RECENT DEATHS — STRICT GENX FILTER (WORLDWIDE) ⚠️⚠️⚠️
+================================================================================
+YOU MUST SCAN THE DATA BELOW AND EXTRACT GENX DEATHS.
+
+GENX = BORN 1965–1980. NO EXCEPTIONS.
+In ${year}, that means people who died aged ${year - 1980}–${year - 1965}.
+
+HOW TO CHECK:
+1. Find the age at death (e.g. "aged 52" or "52,")
+2. Calculate: birth year = ${year} − age
+3. If birth year is 1965–1980 → INCLUDE ✅
+4. Otherwise → EXCLUDE ❌
+
+EXAMPLES OF NON-GENX (EXCLUDE):
+- Age 80+ → born before 1945 ❌
+- Age 70-79 → born 1945-1955 ❌  
+- Age 60-69 → born 1955-1965 ❌ (borderline, check exact year)
+- Age 44-59 → born 1965-1980 ✅ GENX!
+- Age under 44 → born after 1980 ❌
+
+SCAN THE DATA BELOW. For each person aged ${year - 1980}–${year - 1965} (born 1965–1980):
+→ List: NAME, birth year (calculated), profession/what they were known for
+
+If you find ZERO people in that age range, say "Keine Generation-X-Todesfälle in den aktuellen Daten gefunden."
+NEVER list people outside 1965–1980 birth years.
+
+DATA (worldwide deaths, most recent at end):
+${tail}\n`;
+    _deathsCache = { key: cacheKey, value };
+    return value;
+  } catch {
+    return '';
+  }
+}
+
+// Use OpenAI web search (gpt-4o-search-preview) to get live context for a query
+async function searchWebForContext(query: string): Promise<string> {
+  try {
+    const response = await (openai as any).responses.create({
+      model: 'gpt-4o-search-preview',
+      tools: [{ type: 'web_search_preview' }],
+      input: query,
+    });
+    const text = response?.output_text || '';
+    if (!text) return '';
+    return `\n================================================================================\nLIVE WEB SEARCH RESULTS (fetched right now — use this as your primary source)\n================================================================================\n${text.slice(0, 3000)}\n`;
+  } catch (err) {
+    console.warn('Web search failed, skipping:', err);
+    return '';
+  }
+}
+
 // Extract potential memories from reporter response (simple heuristic)
 function extractMemories(userMsg: string, response: string): string[] {
   const memories: string[] = [];
@@ -149,7 +285,7 @@ export async function POST(request: NextRequest) {
     await dbConnect();
 
     const body = await request.json();
-    const { reporterUserId, message, conversationId } = body;
+    const { reporterUserId, message, conversationId, autoPublish } = body;
 
     if (!reporterUserId || !message) {
       return NextResponse.json({ success: false, error: 'reporterUserId and message required' }, { status: 400 });
@@ -184,27 +320,41 @@ export async function POST(request: NextRequest) {
       content: m.content,
     }));
 
-    // Rebuild system prompt: BOGX knowledge (system-prompt.txt) + reporter persona
+    // Rebuild system prompt: BOGX knowledge (core.txt + article-prompt.txt) + reporter persona
     const bogxKnowledge = loadBogxSystemPrompt();
     const reporterPersona = generateReporterSystemPrompt({
       name: reporterName,
       role: profile.role,
       nationality: profile.nationality,
+      region: profile.region,
       responsibilities: profile.responsibilities,
       writingStyle: profile.writingStyle,
       politicalTendency: profile.politicalTendency,
       personality: profile.personality,
       memories: profile.memories,
     });
-    // Inject real date + live Wikipedia context
+    // Inject real date + live Wikipedia context + optional web search
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    const liveContext = await fetchLiveContext(now.getMonth() + 1, now.getDate());
+    // Both are cached per day, so after the first request they resolve instantly.
+    const [liveContext, deathsContext] = await Promise.all([
+      fetchLiveContext(now.getMonth() + 1, now.getDate()),
+      fetchRecentDeaths(now),
+    ]);
 
     // Combine: reporter persona first (their identity), then full BOGX knowledge
     const systemPrompt = `TODAY'S DATE: ${dateStr}
 You know today's exact date. Never guess or make up the date.
-${liveContext}
+
+SINGLE-TURN RULE — BE PRODUCTIVE, NEVER STALL:
+This chat is a single request/response. You CANNOT "get back later" or do work in the background.
+NEVER reply with empty promises like "let me check and I'll get back to you", "one moment", "lass mich nachschauen", "ich melde mich gleich", "einen Moment bitte". Such replies are useless.
+ALWAYS complete the task fully IN THIS SAME MESSAGE and deliver the concrete answer (names, dates, facts) directly.
+The sections below already contain LIVE, up-to-date data (today-in-history + the real recent-deaths list).
+USE THEM as your source for any recent-events / "who died" question — interpret the editor's intent from MEANING,
+ignoring typos/spelling/language (e.g. "gestroben" still means "gestorben"). Never claim you have no recent
+information when the data below answers it. If the data truly contains nothing relevant, say so honestly.
+${liveContext}${deathsContext}
 ${reporterPersona}
 
 ================================================================================
@@ -215,7 +365,7 @@ ${bogxKnowledge}`;
     const articleMode = isArticleApproval(message);
 
     const userMessageContent = articleMode
-      ? `${message}\n\nEDITOR APPROVED. Output ONLY valid JSON, nothing else:\n{"title":"...","subtitle":"...","content":"<p>...</p><h2>...</h2><p>...</p>","tags":["..."],"category":"movies-tv|music|gaming|sports|tech|culture|news|lifestyle|genx-icons|rip","imageSearchTerm":"specific search term for Wikimedia cover image","ctas":["rankroll","tv","articles"],"youtubeSearchTerm":"specific iconic YouTube clip title for this topic"}`
+      ? `${message}\n\nEDITOR APPROVED. Output ONLY valid JSON, nothing else:\n{"title":"...","subtitle":"...","content":"<p>...</p><h2>...</h2><p>...</p>","tags":["..."],"category":"movies-tv|music|gaming|sports|history|lifestyle|rip|news|eastercorn","imageSearchTerm":"specific search term for Wikimedia cover image"}`
       : message;
 
     const openaiMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
@@ -224,11 +374,14 @@ ${bogxKnowledge}`;
       { role: 'user', content: userMessageContent },
     ];
 
+    // Single GPT call — the live data (today-in-history + recent deaths) is already injected
+    // in the system prompt (cached per day), so the reporter answers in ONE round trip. This is
+    // both fast and typo-proof: it never depends on keyword-matching the editor's exact wording.
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: openaiMessages,
       temperature: 0.85,
-      max_tokens: 2000, // always allow full response — reporter may generate JSON even in non-article mode
+      max_tokens: 2000,
     });
 
     const rawResponse = completion.choices[0]?.message?.content || '';
@@ -243,11 +396,14 @@ ${bogxKnowledge}`;
     let finalResponse = rawResponse;
     let articleDraftId: string | null = null;
     let articleTitle: string | null = null;
+    let articleData: any = null;
 
     // Handle article generation — always try to parse JSON in case reporter generated it
     // (reporter's system prompt controls when it outputs JSON, not just the mode flag)
+    // BUT: if proposalOnly is true, skip article creation entirely
+    const proposalOnly = body.proposalOnly === true;
     const looksLikeJson = rawResponse.trim().startsWith('{') || rawResponse.includes('"title"') && rawResponse.includes('"content"');
-    if (articleMode || looksLikeJson) {
+    if (!proposalOnly && (articleMode || looksLikeJson)) {
       try {
         const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
@@ -262,48 +418,57 @@ ${bogxKnowledge}`;
             coverImage = (await searchWikimediaImage(searchTerm)) || '';
           }
 
-          // Save as Article draft
-          const validCategories = ['history', 'movies-tv', 'music', 'gaming', 'sports', 'tech', 'culture', 'news', 'lifestyle', 'genx-icons', 'rip'];
-          // Guard: reporter sometimes returns the full pipe-string instead of one value
+          // Validate category
           const rawCategory = (parsed.category || '').split('|')[0].trim().toLowerCase();
-          const safeCategory = validCategories.includes(rawCategory) ? rawCategory : 'culture';
+          const safeCategory = VALID_CATEGORY_SLUGS.includes(rawCategory) ? rawCategory : 'culture';
 
-          // Inject CTAs into content
-          const contentWithCtas = injectCtasIntoContent(
-            parsed.content || '',
-            parsed.ctas || [],
-            parsed.youtubeSearchTerm || ''
-          );
+          // Check if skipSave is requested (for preview before saving)
+          const skipSave = body.skipSave === true;
+          
+          if (skipSave) {
+            // Return article data without saving to DB
+            articleData = {
+              title: parsed.title || 'Untitled',
+              subtitle: parsed.subtitle || '',
+              content: parsed.content || '',
+              coverImage,
+              tags: parsed.tags || [],
+              category: safeCategory,
+              reporterId: reporterUserId,
+              reporterName,
+            };
+            articleTitle = parsed.title || 'Untitled';
+            finalResponse = `Article "${articleTitle}" ready for review.`;
+          } else {
+            // Save as Article draft (original behavior)
+            const article = await Article.create({
+              title: parsed.title || 'Untitled',
+              subtitle: parsed.subtitle || '',
+              content: parsed.content || '',
+              coverImage,
+              thumbnailUrl: coverImage,
+              tags: parsed.tags || [],
+              category: safeCategory,
+              mainCategory: 'articles',
+              contentType: 'article',
+              author: reporterUserId,
+              authorName: reporterName,
+              authorAvatar: (user as any)?.avatar || '',
+              status: autoPublish ? 'published' : 'draft',
+              layout: 'standard',
+              autoGenerated: true,
+            });
 
-          const article = await Article.create({
-            title: parsed.title || 'Untitled',
-            subtitle: parsed.subtitle || '',
-            content: contentWithCtas,
-            coverImage,
-            thumbnailUrl: coverImage,
-            tags: parsed.tags || [],
-            category: safeCategory,
-            mainCategory: 'articles',
-            contentType: 'article',
-            author: reporterUserId,
-            authorName: reporterName,
-            authorAvatar: (user as any)?.avatar || '',
-            status: 'draft',
-            layout: 'standard',
-            autoGenerated: true,
-          });
+            articleDraftId = article._id.toString();
+            articleTitle = parsed.title || 'Untitled';
+            profile.articleCount = (profile.articleCount || 0) + 1;
 
-          articleDraftId = article._id.toString();
-          articleTitle = parsed.title || 'Untitled';
-          profile.articleCount = (profile.articleCount || 0) + 1;
+            finalResponse = `✅ **Draft saved:** "${articleTitle}"
 
-          const ctaCount = (parsed.ctas || []).length + (parsed.youtubeSearchTerm ? 1 : 0);
-          const ctaSummary = ctaCount > 0 ? ` · ${ctaCount} CTA${ctaCount > 1 ? 's' : ''} added${parsed.youtubeSearchTerm ? ' (incl. YouTube)' : ''}` : '';
-          finalResponse = `✅ **Draft saved:** "${articleTitle}"
+Category: ${safeCategory}${coverImage ? ' · Cover image found' : ' · No cover image'}
 
-Category: ${safeCategory}${coverImage ? ' · Cover image found' : ' · No cover image'}${ctaSummary}
-
-It's in the Articles tab → Drafts. Review it, edit if needed, then publish. Want me to change anything?`
+It's in the Articles tab → Drafts. Add CTAs manually, then publish.`
+          }
         }
       } catch {
         finalResponse = rawResponse;
@@ -335,10 +500,20 @@ It's in the Articles tab → Drafts. Review it, edit if needed, then publish. Wa
       response: finalResponse,
       articleDraftId,
       articleTitle,
-      isArticle: !!articleDraftId,
+      articleData, // For skipSave mode - contains article content without saving
+      isArticle: !!articleDraftId || !!articleData,
       reporterName,
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.message?.startsWith('INVALID_CATEGORY:')) {
+      const badCat = error.message.replace('INVALID_CATEGORY:', '');
+      return NextResponse.json({
+        success: true,
+        response: `❌ **Draft not saved** — reporter returned invalid category "${badCat}". Valid values: ${VALID_CATEGORY_SLUGS.join(', ')}. Ask them to retry.`,
+        articleDraftId: null,
+        isArticle: false,
+      });
+    }
     console.error('Editorial chat error:', error);
     return NextResponse.json({ success: false, error: 'Chat failed' }, { status: 500 });
   }

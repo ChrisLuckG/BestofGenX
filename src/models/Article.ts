@@ -13,7 +13,7 @@ export interface IArticle {
   imagePosition?: 'top' | 'center' | 'bottom' | 'left' | 'right'; // Where to focus the image
   imagePosX?: number; // 0-100, horizontal position
   imagePosY?: number; // 0-100, vertical position
-  contentType: 'article' | 'rankroll' | 'tv' | 'radio' | 'arcade' | 'shop' | 'music-community'; // Type of content
+  contentType: 'article' | 'rankroll' | 'tv' | 'radio' | 'arcade' | 'shop' | 'music-community' | 'banner-page'; // Type of content
   linkedContentId?: string; // ID of linked Poll, TVVideo, RadioStation, etc.
   mainCategory: string; // Main category (articles, arcade, voting, shop)
   category: string;     // Sub category (music, culture, gaming, etc.)
@@ -98,7 +98,7 @@ const ArticleSchema = new mongoose.Schema({
   },
   contentType: {
     type: String,
-    enum: ['article', 'rankroll', 'tv', 'radio', 'arcade', 'shop', 'music-community'],
+    enum: ['article', 'rankroll', 'tv', 'radio', 'arcade', 'shop', 'music-community', 'banner-page'],
     default: 'article',
   },
   linkedContentId: {
@@ -114,7 +114,7 @@ const ArticleSchema = new mongoose.Schema({
   category: {
     type: String,
     required: true,
-    enum: ['history', 'movies-tv', 'music', 'gaming', 'sports', 'tech', 'culture', 'news', 'lifestyle', 'genx-icons', 'rip'],
+    enum: ['history', 'movies-tv', 'music', 'gaming', 'sports', 'tech', 'culture', 'news', 'lifestyle', 'genx-icons', 'rip', 'eastercorn'],
     default: 'culture',
   },
   tags: {

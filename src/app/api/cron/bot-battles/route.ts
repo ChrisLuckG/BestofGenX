@@ -3,9 +3,42 @@ import dbConnect from '@/lib/mongoose';
 import Battle from '@/models/Battle';
 import User from '@/models/User';
 import Card from '@/models/Card';
+import GameResult from '@/models/GameResult';
 import { compareBattleResults } from '@/utils/battleWinner';
 
-const TOPICS = ['sport', 'music', 'film', 'culture', 'fashion', 'games', 'tv', 'art', 'food'];
+// Helper: record net wager change so bot rankings stay in sync with their wallet
+async function saveBotBattleGameResult(userId: string, opponentName: string, pointsChange: number, won: boolean) {
+  try {
+    const user = await User.findById(userId).select('username bogxCoins');
+    if (!user) return;
+    const today = new Date().toLocaleString('en-CA', {
+      timeZone: 'Europe/Berlin',
+      year: 'numeric', month: '2-digit', day: '2-digit'
+    }).split(',')[0];
+    await GameResult.create({
+      userId,
+      username: user.username,
+      cardId: 'quizzbattle-bot',
+      question: `QuizzBattle vs ${opponentName}`,
+      userAnswer: null,
+      correctAnswer: '-',
+      isCorrect: won,
+      pointsChange,
+      pointsBefore: (user.bogxCoins || 0) - pointsChange,
+      pointsAfter: user.bogxCoins || 0,
+      timeUsed: 0,
+      difficulty: 1,
+      skipped: false,
+      timedOut: false,
+      gameDate: today,
+    });
+  } catch (e) {
+    console.error('Failed to save bot battle GameResult:', e);
+  }
+}
+
+// NOTE: culture, art, food removed - not enough DB questions for these themes yet
+const TOPICS = ['sport', 'music', 'film', 'fashion', 'games', 'tv'];
 const WAGERS = [
   { amount: 0.10, rounds: 3 },
   { amount: 0.25, rounds: 3 },
@@ -223,10 +256,14 @@ export async function POST(request: NextRequest) {
             battle.winner = battle.creator;
             await User.findByIdAndUpdate(battle.creator, { $inc: { bogxCoins: battle.wager, wins: 1 } });
             await User.findByIdAndUpdate(bot._id, { $inc: { bogxCoins: -battle.wager } });
+            await saveBotBattleGameResult(battle.creator.toString(), bot.username || 'bot', battle.wager, true);
+            await saveBotBattleGameResult(bot._id.toString(), 'bot', -battle.wager, false);
           } else if (cmp < 0) {
             battle.winner = bot._id;
             await User.findByIdAndUpdate(bot._id, { $inc: { bogxCoins: battle.wager, wins: 1 } });
             await User.findByIdAndUpdate(battle.creator, { $inc: { bogxCoins: -battle.wager } });
+            await saveBotBattleGameResult(bot._id.toString(), 'bot', battle.wager, true);
+            await saveBotBattleGameResult(battle.creator.toString(), bot.username || 'bot', -battle.wager, false);
           }
           // Tie = no BOGX change, no winner
         }

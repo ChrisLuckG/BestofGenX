@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import User from '@/models/User';
+import GameResult from '@/models/GameResult';
 
 export async function POST(request: Request) {
   try {
     await dbConnect();
     
-    const { userId, pointsChange, isWin } = await request.json();
+    const { userId, pointsChange, isWin, skipGameResult, source, description } = await request.json();
     
     if (!userId) {
       return NextResponse.json(
@@ -51,6 +52,36 @@ export async function POST(request: Request) {
         { error: 'User not found' },
         { status: 404 }
       );
+    }
+
+    // ATOMIC LEDGER: unless the caller explicitly skips (because it saves a richer
+    // GameResult itself right after this call), record this change in the ledger
+    // in THE SAME request. This guarantees wallet (bogxCoins) and ledger (GameResult
+    // sum) can never drift apart due to a failed/dropped second network call.
+    if (!skipGameResult && safePointsChange !== 0) {
+      const gameDate = new Date().toLocaleString('en-CA', {
+        timeZone: 'Europe/Berlin',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).split(',')[0];
+      await GameResult.create({
+        userId,
+        username: currentUser.username,
+        cardId: source || 'update-points',
+        question: description || (safePointsChange > 0 ? 'BOGX earned' : 'BOGX spent'),
+        userAnswer: null,
+        correctAnswer: '-',
+        isCorrect: safePointsChange > 0,
+        pointsChange: safePointsChange,
+        pointsBefore: currentBalance,
+        pointsAfter: user.bogxCoins || 0,
+        timeUsed: 0,
+        difficulty: 1,
+        skipped: false,
+        timedOut: false,
+        gameDate,
+      });
     }
     
     return NextResponse.json({

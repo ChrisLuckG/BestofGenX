@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import User from '@/models/User';
+import { awardBogx } from '@/lib/awardBogx';
 
 export async function POST(request: Request) {
   try {
@@ -31,7 +32,14 @@ export async function POST(request: Request) {
     const REFERRAL_REWARD = 5.00; // 5.00 BOGX
     if (user.referredBy) {
       await User.findByIdAndUpdate(user.referredBy, {
-        $inc: { bogxCoins: REFERRAL_REWARD, referralCount: 1 },
+        $inc: { referralCount: 1 },
+      });
+      // awardBogx credits coins + creates GameResult so it counts in rankings
+      await awardBogx({
+        userId: user.referredBy.toString(),
+        amount: REFERRAL_REWARD,
+        source: 'referral',
+        description: `Referral bonus for inviting ${user.username || 'a friend'}`,
       });
     }
 

@@ -76,7 +76,7 @@ export default function RankingItemRow({
               disabled={isVoting || userVote === 'down'}
               className={`w-full flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg transition-all ${
                 userVote === 'down'
-                  ? 'bg-[#D4873A]/60 text-white cursor-default'
+                  ? 'bg-[#D4873A] text-white cursor-default'
                   : 'bg-[#D4873A]/5 text-[#D4873A]/50 hover:bg-[#D4873A]/10 hover:text-[#D4873A]/70 cursor-pointer'
               } ${isVoting ? 'opacity-50' : ''}`}
             >
@@ -110,7 +110,7 @@ export default function RankingItemRow({
                 disabled={isVoting || userVote === 'down'}
                 className={`flex-1 flex items-center justify-center gap-2 rounded-lg transition-all ${
                   userVote === 'down'
-                    ? 'bg-[#D4873A]/60 text-white cursor-default'
+                    ? 'bg-[#D4873A] text-white cursor-default'
                     : 'bg-[#D4873A]/5 text-[#D4873A]/50 hover:bg-[#D4873A]/10 hover:text-[#D4873A]/70 cursor-pointer'
                 } ${isVoting ? 'opacity-50' : ''}`}
               >

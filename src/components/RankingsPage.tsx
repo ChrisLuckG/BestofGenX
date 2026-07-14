@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ChevronLeft, ChevronRight, Trophy, Gift, Zap, Target, TrendingUp, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, Trophy, Gift, Zap, Target, TrendingUp, Clock } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import PlayerCard from "@/components/PlayerCard";
 import CountryFlag from "@/components/CountryFlag";
@@ -22,6 +22,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
   const [activeTab, setActiveTab] = useState<"day" | "month" | "year">("day");
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [statsExpanded, setStatsExpanded] = useState(false); // Stats row - collapsed by default
   
   // Central live rankings hook - same logic on Desktop AND Mobile
   const { rankings, loading, isLive } = useLiveRankings({
@@ -45,7 +46,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
       .then(r => r.json())
       .then(d => { if (d && !d.error) setUserStats(d); })
       .catch(() => {});
-  }, [isLoggedIn, user?.id, rankings]);
+  }, [isLoggedIn, user?.id]);
 
   // Check if game is on break (9:00-10:00 CET)
   const isOnBreak = () => {
@@ -183,7 +184,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
       <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
         
         {/* My Rank Card - compact single row (logged in) OR Join CTA (guest) */}
-        {isLoggedIn && loading ? (
+        {isLoggedIn && loading && rankings.length === 0 ? (
           /* Skeleton for My Rank while loading */
           <div className="mx-4 mt-3 mb-2 px-3 py-2.5 bg-skeleton-light border border-[#E8DFD4] rounded-lg flex items-center gap-3 animate-pulse">
             <div className="w-14 h-14 rounded-full bg-skeleton flex-shrink-0" />
@@ -226,7 +227,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                       <span className="font-bold text-sm text-gray-900">{currentUserRank.name}</span>
                       <CountryFlag flag={currentUserRank.flag} className="w-5 h-4 rounded-[2px]" />
                     </div>
-                    <div className="text-[8px] text-gray-500 flex items-center gap-1">
+                    <div className="text-[9px] text-gray-500 flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
                       EUROPE
                     </div>
@@ -237,7 +238,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                 <div className="flex-shrink-0 bg-[#D4873A] rounded-lg px-3 py-2 flex items-center gap-2">
                   <Trophy className="w-5 h-5 text-white" />
                   <div>
-                    <div className="text-[7px] text-white/80 uppercase tracking-wider leading-none">Rank</div>
+                    <div className="text-[8px] text-white/80 uppercase tracking-wider leading-none">Rank</div>
                     <div className="font-display text-xl text-white leading-none">#{currentUserRank.rank}</div>
                   </div>
                 </div>
@@ -256,21 +257,30 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                 
                 return (
                   <div className="px-3 pb-3 border-t border-dashed border-[#D4873A]/10 pt-2">
-                    <div style={{ color: level.color }} className="font-bold text-[10px]">{level.name.toUpperCase()}</div>
+                    <div style={{ color: level.color }} className="font-bold text-xs">{level.name.toUpperCase()}</div>
                     <div className="flex items-center gap-2 mt-0.5">
                       {/* Segmented Progress Bar */}
                       <div className="flex-1 flex gap-0.5">
-                        {[...Array(10)].map((_, i) => (
-                          <div 
-                            key={i} 
-                            className="flex-1 h-2 rounded-sm"
-                            style={{ backgroundColor: i < segments ? level.color : '#D1D5DB' }}
-                          />
-                        ))}
+                        {[...Array(10)].map((_, i) => {
+                          const isActive = i < segments;
+                          return (
+                            <div 
+                              key={i} 
+                              className="flex-1 h-2 rounded-sm"
+                              style={{ 
+                                backgroundColor: level.color,
+                                opacity: isActive ? 0 : 0.2,
+                                transformOrigin: 'bottom',
+                                transform: isActive ? 'scaleY(0)' : 'scaleY(1)',
+                                animation: isActive ? `ledPopIn 0.25s ease-out ${i * 40}ms forwards` : 'none',
+                              }}
+                            />
+                          );
+                        })}
                       </div>
-                      <span className="text-[8px] text-gray-500">{progress}%</span>
+                      <span className="text-[10px] text-gray-500">{progress}%</span>
                     </div>
-                    <div className="text-[9px] text-gray-600 mt-0.5">
+                    <div className="text-[10px] text-gray-600 mt-1">
                       {formatCurrency(userBogx)} BOGX · {nextName ? (
                         <>{formatCurrency(toNext)} to <span style={{ color: level.color }} className="font-semibold">{nextName}</span></>
                       ) : (
@@ -279,7 +289,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                     </div>
                     
                     {/* Level Steps */}
-                    <div className="flex items-center gap-1 mt-1 text-[7px] text-gray-500">
+                    <div className="flex items-center gap-1 mt-1.5 text-[8px] text-gray-500">
                       {LEVELS.map((l, i) => (
                         <span key={l.name}>
                           {i > 0 && <span className="mx-0.5">•</span>}
@@ -293,28 +303,47 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                 );
               })()}
               
-              {/* Row 3: Stats (full width) - larger, black */}
-              <div className="flex items-center justify-around py-3 px-3 border-t border-dashed border-[#D4873A]/20 bg-white/50">
-                <div className="text-center">
-                  <Trophy className="w-4 h-4 text-gray-900 mx-auto" />
-                  <div className="font-bold text-base text-gray-900">
-                    {userStats ? `${userStats.quizzWins} / ${userStats.quizzLosses}` : '—'}
+              {/* Pull handle - toggles Stats Row */}
+              <button
+                onClick={() => setStatsExpanded(prev => !prev)}
+                className="w-full flex items-center justify-center gap-1.5 py-1 border-t border-dashed border-[#D4873A]/20 bg-white/30 active:bg-[#D4873A]/5 transition-colors"
+              >
+                <span className="text-[9px] font-semibold uppercase tracking-wider text-gray-500">
+                  {statsExpanded ? 'Less' : 'More Stats'}
+                </span>
+                <ChevronDown 
+                  className="w-3 h-3 text-gray-400 transition-transform duration-300"
+                  style={{ transform: statsExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                />
+              </button>
+
+              {/* Row 3: Stats (full width) - larger, black - collapsible, collapsed by default */}
+              <div 
+                className="overflow-hidden transition-all duration-300 ease-out"
+                style={{ maxHeight: statsExpanded ? '100px' : '0px', opacity: statsExpanded ? 1 : 0 }}
+              >
+                <div className="flex items-center justify-around py-3 px-3 border-t border-dashed border-[#D4873A]/20 bg-white/50">
+                  <div className="text-center">
+                    <Trophy className="w-4 h-4 text-gray-900 mx-auto" />
+                    <div className="font-bold text-base text-gray-900">
+                      {userStats ? `${userStats.quizzWins} / ${userStats.quizzLosses}` : '—'}
+                    </div>
+                    <div className="text-[8px] text-gray-700 uppercase font-medium">Battle W/L</div>
                   </div>
-                  <div className="text-[8px] text-gray-700 uppercase font-medium">Battle W/L</div>
-                </div>
-                <div className="text-center">
-                  <Target className="w-4 h-4 text-gray-900 mx-auto" />
-                  <div className="font-bold text-base text-gray-900">
-                    {userStats && userStats.accuracy != null ? `${Math.round(userStats.accuracy)}%` : '—'}
+                  <div className="text-center">
+                    <Target className="w-4 h-4 text-gray-900 mx-auto" />
+                    <div className="font-bold text-base text-gray-900">
+                      {userStats && userStats.accuracy != null ? `${Math.round(userStats.accuracy)}%` : '—'}
+                    </div>
+                    <div className="text-[8px] text-gray-700 uppercase font-medium">Accuracy</div>
                   </div>
-                  <div className="text-[8px] text-gray-700 uppercase font-medium">Accuracy</div>
-                </div>
-                <div className="text-center">
-                  <Clock className="w-4 h-4 text-gray-900 mx-auto" />
-                  <div className="font-bold text-base text-gray-900">
-                    {userStats && userStats.avgAnswerTime != null ? `${(userStats.avgAnswerTime / 1000).toFixed(1)}s` : '—'}
+                  <div className="text-center">
+                    <Clock className="w-4 h-4 text-gray-900 mx-auto" />
+                    <div className="font-bold text-base text-gray-900">
+                      {userStats && userStats.avgAnswerTime != null ? `${(userStats.avgAnswerTime / 1000).toFixed(1)}s` : '—'}
+                    </div>
+                    <div className="text-[8px] text-gray-700 uppercase font-medium">Avg Time</div>
                   </div>
-                  <div className="text-[8px] text-gray-700 uppercase font-medium">Avg Time</div>
                 </div>
               </div>
             </div>

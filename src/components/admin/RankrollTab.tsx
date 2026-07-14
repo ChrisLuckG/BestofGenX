@@ -27,6 +27,7 @@ export default function RankrollTab() {
   const [showRankrollImagePicker, setShowRankrollImagePicker] = useState(false); // For rankroll cover (left side)
   const [imagePickerItemIndex, setImagePickerItemIndex] = useState<number | null>(null);
   const [activeSubTab, setActiveSubTab] = useState<'all' | 'ranking' | 'quiz' | 'simple'>('all');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const itemImageInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-search GIF from Tenor based on item title
@@ -353,10 +354,41 @@ export default function RankrollTab() {
     try {
       const res = await fetch(`/api/polls/${id}`, { method: "DELETE" });
       if (res.ok) {
+        setSelectedIds(prev => { const n = new Set(prev); n.delete(id); return n; });
         fetchPolls();
       }
     } catch (error) {
       console.error("Error deleting poll:", error);
+    }
+  };
+
+  // Toggle a single row's selection
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  // Select all / none for the currently visible list
+  const toggleSelectAll = () => {
+    const visibleIds = getCurrentPolls().map(p => p._id);
+    const allSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.has(id));
+    setSelectedIds(allSelected ? new Set() : new Set(visibleIds));
+  };
+
+  // Delete all selected polls
+  const deleteSelected = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Delete ${selectedIds.size} selected item(s)? This cannot be undone.`)) return;
+    try {
+      await Promise.all(Array.from(selectedIds).map(id => fetch(`/api/polls/${id}`, { method: "DELETE" })));
+      setSelectedIds(new Set());
+      fetchPolls();
+    } catch (error) {
+      console.error("Error deleting selected polls:", error);
+      alert('Failed to delete some items');
     }
   };
 
@@ -494,6 +526,31 @@ export default function RankrollTab() {
           </div>
         </div>
 
+        {/* Bulk actions toolbar */}
+        {!pollsLoading && currentPolls.length > 0 && (
+          <div className="flex items-center gap-3 mb-2 px-1">
+            <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={currentPolls.length > 0 && currentPolls.every(p => selectedIds.has(p._id))}
+                onChange={toggleSelectAll}
+                className="accent-[#D4873A]"
+              />
+              Select all
+            </label>
+            <span className="text-xs text-gray-500">{currentPolls.length} items</span>
+            {selectedIds.size > 0 && (
+              <button
+                onClick={deleteSelected}
+                className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-red-600 text-white hover:bg-red-500 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete selected ({selectedIds.size})
+              </button>
+            )}
+          </div>
+        )}
+
         {/* List */}
         {pollsLoading ? (
           <div className="flex justify-center py-12">
@@ -505,12 +562,24 @@ export default function RankrollTab() {
           </p>
         ) : (
           <div className="space-y-2">
-            {currentPolls.map((poll) => (
+            {currentPolls.map((poll, idx) => (
               <div
                 key={poll._id}
                 onClick={() => setEditingPoll(poll)}
-                className="bg-gray-800 rounded-xl p-3 border border-gray-700 hover:border-gray-600 cursor-pointer transition-colors flex items-center gap-4"
+                className={`bg-gray-800 rounded-xl p-3 border cursor-pointer transition-colors flex items-center gap-3 ${
+                  selectedIds.has(poll._id) ? 'border-[#D4873A]' : 'border-gray-700 hover:border-gray-600'
+                }`}
               >
+                {/* Selection checkbox */}
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(poll._id)}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={() => toggleSelect(poll._id)}
+                  className="accent-[#D4873A] flex-shrink-0"
+                />
+                {/* Running number */}
+                <span className="text-xs text-gray-500 w-7 text-right flex-shrink-0 tabular-nums">{idx + 1}</span>
                 {/* Image - prioritize main thumbnail (poll.image), then articleImage, then first item */}
                 {(poll.image || poll.articleImage || poll.items?.[0]?.image) && (
                   <img src={poll.image || poll.articleImage || poll.items?.[0]?.image} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0" />
@@ -524,6 +593,7 @@ export default function RankrollTab() {
                     {poll.type === 'simple' && <>{poll.options?.length || 0} options</>}
                     {' · '}{poll.totalVotes || 0} votes
                     {poll.linkedArticleId && <span className="text-purple-400 ml-1">· Article</span>}
+                    {poll.createdAt && <span className="ml-1">· {new Date(poll.createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>}
                   </div>
                 </div>
                 {/* Type badge - smaller */}

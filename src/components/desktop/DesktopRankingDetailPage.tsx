@@ -42,6 +42,9 @@ export default function DesktopRankingDetailPage({ poll, onBack, onOpenArticle, 
   const [votingItem, setVotingItem] = useState<string | null>(null);
   const [visitorId, setVisitorId] = useState<string | undefined>(undefined);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  // Guards against the race where a user can vote before we've confirmed
+  // whether they already voted (existing-vote check is async).
+  const [votesLoaded, setVotesLoaded] = useState(false);
 
   // Get or create visitor ID
   useEffect(() => {
@@ -57,8 +60,12 @@ export default function DesktopRankingDetailPage({ poll, onBack, onOpenArticle, 
 
   // Load user's existing votes
   useEffect(() => {
+    setVotesLoaded(false);
     const loadVotes = async () => {
-      if (!user?.id && !visitorId) return;
+      if (!user?.id && !visitorId) {
+        setVotesLoaded(true);
+        return;
+      }
       
       try {
         const params = new URLSearchParams();
@@ -73,6 +80,8 @@ export default function DesktopRankingDetailPage({ poll, onBack, onOpenArticle, 
         }
       } catch (e) {
         console.error('Failed to load votes:', e);
+      } finally {
+        setVotesLoaded(true);
       }
     };
     
@@ -81,6 +90,10 @@ export default function DesktopRankingDetailPage({ poll, onBack, onOpenArticle, 
 
   const handleVote = async (itemId: string, voteType: 'up' | 'down') => {
     console.log('Desktop handleVote:', { itemId, voteType, userId: user?.id, userVotes });
+    
+    // Block voting until we've confirmed whether the user already voted -
+    // prevents the race where a click during the initial load slips through.
+    if (!votesLoaded) return;
     
     // Require login
     if (!user?.id) {
@@ -91,21 +104,65 @@ export default function DesktopRankingDetailPage({ poll, onBack, onOpenArticle, 
     
     // Already voted same type? Do nothing
     if (userVotes[itemId] === voteType) {
-      console.log('Already voted same type, skipping');
       return;
     }
-    
-    if (votingItem) {
-      console.log('Already voting');
-      return;
-    }
-    
+
     const oldVoteType = userVotes[itemId];
-    setVotingItem(itemId);
-    
+    const isNewVote = !oldVoteType;
+
+    // OPTIMISTIC UPDATE: apply instantly for immediate feedback, rollback on failure
+    setLocalPoll(prev => ({
+      ...prev,
+      items: prev.items?.map(item => {
+        if (item.id !== itemId) return item;
+        if (oldVoteType) {
+          return {
+            ...item,
+            upvotes: oldVoteType === 'up' ? item.upvotes - 1 : (voteType === 'up' ? item.upvotes + 1 : item.upvotes),
+            downvotes: oldVoteType === 'down' ? item.downvotes - 1 : (voteType === 'down' ? item.downvotes + 1 : item.downvotes),
+          };
+        }
+        return {
+          ...item,
+          upvotes: voteType === 'up' ? item.upvotes + 1 : item.upvotes,
+          downvotes: voteType === 'down' ? item.downvotes + 1 : item.downvotes,
+        };
+      })
+    }));
+    setUserVotes(prev => ({ ...prev, [itemId]: voteType }));
+    if (isNewVote) {
+      onCoinAnimation?.(0.01);
+    }
+
+    const rollback = () => {
+      setLocalPoll(prev => ({
+        ...prev,
+        items: prev.items?.map(item => {
+          if (item.id !== itemId) return item;
+          const reverted = {
+            ...item,
+            upvotes: voteType === 'up' ? item.upvotes - 1 : item.upvotes,
+            downvotes: voteType === 'down' ? item.downvotes - 1 : item.downvotes,
+          };
+          if (oldVoteType) {
+            return {
+              ...reverted,
+              upvotes: oldVoteType === 'up' ? reverted.upvotes + 1 : reverted.upvotes,
+              downvotes: oldVoteType === 'down' ? reverted.downvotes + 1 : reverted.downvotes,
+            };
+          }
+          return reverted;
+        })
+      }));
+      setUserVotes(prev => {
+        const next = { ...prev };
+        if (oldVoteType) next[itemId] = oldVoteType;
+        else delete next[itemId];
+        return next;
+      });
+    };
+
     try {
-      console.log('Voting:', { pollId: poll._id, itemId, voteType, userId: user?.id, visitorId, changing: !!oldVoteType });
-      
       const res = await fetch(`/api/polls/${poll._id}/vote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -118,52 +175,63 @@ export default function DesktopRankingDetailPage({ poll, onBack, onOpenArticle, 
       });
       
       const data = await res.json();
-      console.log('Vote response:', data);
       
-      if (data.success) {
-        // Update vote counts locally but DON'T re-sort the list
-        setLocalPoll(prev => ({
-          ...prev,
-          items: prev.items?.map(item => {
-            if (item.id !== itemId) return item;
-            
-            // If changing vote, remove old and add new
-            if (oldVoteType) {
-              return {
-                ...item,
-                upvotes: oldVoteType === 'up' ? item.upvotes - 1 : (voteType === 'up' ? item.upvotes + 1 : item.upvotes),
-                downvotes: oldVoteType === 'down' ? item.downvotes - 1 : (voteType === 'down' ? item.downvotes + 1 : item.downvotes),
-              };
-            }
-            
-            // New vote
-            return { 
-              ...item, 
-              upvotes: voteType === 'up' ? item.upvotes + 1 : item.upvotes,
-              downvotes: voteType === 'down' ? item.downvotes + 1 : item.downvotes,
-            };
-          })
-        }));
-        
-        // Mark the vote locally
-        setUserVotes({ ...userVotes, [itemId]: voteType });
-        
-        // Award coins only for first vote
-        if (data.coinsAwarded > 0) {
-          onCoinAnimation?.(data.coinsAwarded);
-        }
-      } else {
-        console.error('Vote failed:', data.error);
+      if (!data.success) {
+        console.error('Vote failed, rolling back:', data.error);
+        rollback();
       }
     } catch (e) {
-      console.error('Vote failed:', e);
-    } finally {
-      setVotingItem(null);
+      console.error('Vote failed, rolling back:', e);
+      rollback();
     }
   };
 
   // Sort items by upvotes (highest first)
   const sortedItems = [...(localPoll.items || [])].sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0));
+
+  // Show skeleton while loading votes
+  if (!votesLoaded) {
+    return (
+      <div className="h-full flex flex-col bg-[#F5F0E8] overflow-hidden animate-pulse">
+        {/* Header Skeleton */}
+        <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
+          <div className="w-8 h-8 rounded-lg bg-skeleton" />
+          <div className="flex-1">
+            <div className="h-3 w-16 bg-skeleton rounded mb-2" />
+            <div className="h-6 w-48 bg-skeleton rounded" />
+          </div>
+        </div>
+        {/* Description Skeleton */}
+        <div className="px-4 py-3 border-b border-warm">
+          <div className="flex gap-4">
+            <div className="w-24 h-24 rounded-lg bg-skeleton" />
+            <div className="flex-1">
+              <div className="h-4 w-full bg-skeleton rounded mb-2" />
+              <div className="h-4 w-3/4 bg-skeleton rounded mb-2" />
+              <div className="h-3 w-20 bg-skeleton rounded" />
+            </div>
+          </div>
+        </div>
+        {/* Items Skeleton */}
+        <div className="flex-1 p-4 space-y-3">
+          {[1, 2, 3, 4, 5].map(i => (
+            <div key={i} className="flex items-center gap-3 p-3 bg-cream rounded-xl border border-warm">
+              <div className="w-8 h-8 rounded-full bg-skeleton" />
+              <div className="w-12 h-12 rounded-lg bg-skeleton" />
+              <div className="flex-1">
+                <div className="h-4 w-32 bg-skeleton rounded mb-1" />
+                <div className="h-3 w-48 bg-skeleton rounded" />
+              </div>
+              <div className="flex gap-2">
+                <div className="w-16 h-8 rounded-lg bg-skeleton" />
+                <div className="w-16 h-8 rounded-lg bg-skeleton" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col bg-[#F5F0E8] overflow-hidden">
@@ -177,7 +245,7 @@ export default function DesktopRankingDetailPage({ poll, onBack, onOpenArticle, 
         </button>
         <div className="flex-1 min-w-0">
           <span className="text-[10px] font-bold text-[#D4873A] uppercase tracking-wider">RANKING</span>
-          <h1 className="font-bold text-gray-900 truncate">{poll.title}</h1>
+          <h1 className="font-display text-2xl text-gray-900 truncate uppercase">{poll.title}</h1>
         </div>
         {poll.linkedArticleId && onOpenArticle && (
           <button
@@ -190,7 +258,7 @@ export default function DesktopRankingDetailPage({ poll, onBack, onOpenArticle, 
         )}
       </div>
 
-      {/* Description with Image */}
+      {/* Subtitle/Description with Image */}
       <div className="px-4 py-3 border-b border-warm bg-[#D4873A]/[0.02]">
         <div className="flex items-start gap-4">
           {/* Article Image */}
@@ -200,8 +268,8 @@ export default function DesktopRankingDetailPage({ poll, onBack, onOpenArticle, 
             </div>
           )}
           <div className="flex-1 min-w-0">
-            {poll.description && (
-              <p className="text-sm text-gray-600">{poll.description}</p>
+            {(poll.subtitle || poll.description) && (
+              <p className="text-sm text-gray-600">{poll.subtitle || poll.description}</p>
             )}
             <p className="text-xs text-gray-400 mt-1">{localPoll.totalVotes} total votes</p>
           </div>
@@ -217,7 +285,7 @@ export default function DesktopRankingDetailPage({ poll, onBack, onOpenArticle, 
               item={item}
               rank={index + 1}
               userVote={userVotes[item.id]}
-              isVoting={votingItem === item.id}
+              isVoting={votingItem === item.id || !votesLoaded}
               isDesktop={true}
               onVote={handleVote}
             />

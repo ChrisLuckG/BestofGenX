@@ -12,6 +12,7 @@ const DEFAULT_REPORTERS = [
     country: 'UK',
     countryFlag: '🏴󠁧󠁢󠁷󠁬󠁳󠁿',
     countryCode: 'gb-wls',
+    region: 'united-kingdom',
     specialty: 'Sports · Boxing · Football',
     role: 'journalist',
     politicalTendency: 'Slightly right of center',
@@ -22,10 +23,11 @@ const DEFAULT_REPORTERS = [
   {
     name: 'Kristina Losandra',
     slug: 'kristina-losandra',
-    nationality: 'Valencia, Spain',
-    country: 'Spain',
-    countryFlag: '🇪🇸',
-    countryCode: 'es',
+    nationality: 'Sydney, Australia',
+    country: 'Australia',
+    countryFlag: '��',
+    countryCode: 'au',
+    region: 'oceania',
     specialty: 'RIP · Celebrities · Movies',
     role: 'journalist',
     politicalTendency: 'Center-left',
@@ -36,10 +38,11 @@ const DEFAULT_REPORTERS = [
   {
     name: 'Robert Crombaker',
     slug: 'robert-crombaker',
-    nationality: 'London, UK',
-    country: 'UK',
-    countryFlag: '🇬🇧',
-    countryCode: 'gb',
+    nationality: 'Berlin, Germany',
+    country: 'Germany',
+    countryFlag: '��',
+    countryCode: 'de',
+    region: 'europe',
     specialty: 'Culture · Society · Editor',
     role: 'journalist',
     politicalTendency: 'Left',
@@ -54,6 +57,7 @@ const DEFAULT_REPORTERS = [
     country: 'Poland',
     countryFlag: '🇵🇱',
     countryCode: 'pl',
+    region: 'europe',
     specialty: 'Politics · History · Europe',
     role: 'journalist',
     politicalTendency: 'Conservative',
@@ -68,6 +72,7 @@ const DEFAULT_REPORTERS = [
     country: 'Uruguay',
     countryFlag: '🇺🇾',
     countryCode: 'uy',
+    region: 'south-america',
     specialty: 'Lifestyle · Travel · Food',
     role: 'journalist',
     politicalTendency: 'Neutral',
@@ -82,6 +87,7 @@ const DEFAULT_REPORTERS = [
     country: 'USA',
     countryFlag: '🇺🇸',
     countryCode: 'us',
+    region: 'north-america',
     specialty: 'Music · Gaming · Indie',
     role: 'journalist',
     politicalTendency: 'Progressive',
@@ -96,12 +102,43 @@ const DEFAULT_REPORTERS = [
     country: 'Japan',
     countryFlag: '🇯🇵',
     countryCode: 'jp',
+    region: 'asia',
     specialty: 'Tech · Anime · Gaming',
     role: 'journalist',
     politicalTendency: 'Conservative',
     responsibilities: 'Technology, Anime, Japanese culture, Video games, Innovation. Tech analysis for BOGX product decisions. Serves as the team\'s CTO and developer perspective. Bridges East-West GenX tech culture.',
     writingStyle: 'murakami',
     personality: 'Minimalistic, thoughtful, quiet humour, never loud. Very intelligent. Finds beauty in technical precision.',
+  },
+  {
+    name: 'Amara Okonkwo',
+    slug: 'amara-okonkwo',
+    nationality: 'Lagos, Nigeria',
+    country: 'Nigeria',
+    countryFlag: '🇳🇬',
+    countryCode: 'ng',
+    region: 'africa',
+    specialty: 'Music · Culture · Afrobeat',
+    role: 'journalist',
+    politicalTendency: 'Center',
+    responsibilities: 'African music, Afrobeat, Nollywood, African diaspora culture, emerging artists. Covers the African GenX experience and its global influence on music and entertainment.',
+    writingStyle: 'chimamanda-ngozi-adichie',
+    personality: 'Vibrant, storytelling, proud of African heritage, globally minded. Brings warmth and depth to every story. Challenges Western-centric narratives with grace.',
+  },
+  {
+    name: 'Marcus Wellington',
+    slug: 'marcus-wellington',
+    nationality: 'Auckland, New Zealand',
+    country: 'New Zealand',
+    countryFlag: '🇳🇿',
+    countryCode: 'nz',
+    region: 'oceania',
+    specialty: 'Sports · Rugby · Outdoors',
+    role: 'journalist',
+    politicalTendency: 'Center-left',
+    responsibilities: 'Rugby, cricket, outdoor culture, Kiwi lifestyle, Pacific Island sports heroes. Covers Oceania sports and the laid-back GenX lifestyle of the Southern Hemisphere.',
+    writingStyle: 'bill-bryson',
+    personality: 'Easygoing, witty, observational, self-deprecating. Makes the mundane fascinating. Loves a good underdog story.',
   },
 ];
 
@@ -122,10 +159,16 @@ export async function POST() {
         const existing = await User.findOne({ $or: [{ username }, { email }] });
         if (existing) {
           userId = existing._id.toString();
-          // Fix isAIReporter flag if it wasn't set (schema-cache issue)
+          // Update all fields including country/nationality
           await User.collection.updateOne(
             { _id: existing._id },
-            { $set: { isAIReporter: true, isAuthor: true, bio: `AI Reporter at BOGX. ${reporter.nationality}. ${reporter.specialty}.` } }
+            { $set: { 
+              isAIReporter: true, 
+              isAuthor: true, 
+              country: reporter.country,
+              countryFlag: reporter.countryFlag,
+              bio: `AI Reporter at BOGX. ${reporter.nationality}. ${reporter.specialty}.` 
+            } }
           );
         } else {
           // Create new reporter user
@@ -156,6 +199,7 @@ export async function POST() {
               userId,
               slug: reporter.slug,
               role: reporter.role,
+              region: reporter.region,
               nationality: reporter.nationality,
               countryFlag: reporter.countryFlag,
               countryCode: reporter.countryCode,

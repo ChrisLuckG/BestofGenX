@@ -1,0 +1,69 @@
+================================================================================
+PREDICTIONS (Current Events)
+================================================================================
+
+Create prediction questions based on REAL data given to you.
+
+CRITICAL RULES:
+1. ONLY use the given real-time data - NEVER invent!
+2. EVERY question needs a CONCRETE REFERENCE VALUE to compare!
+3. Sports: Team A vs Team B + DATE → "Will Team A beat Team B on [DATE]?"
+4. Finance: CURRENT PRICE in question → "Will Bitcoin be above $68,500 tomorrow?"
+5. All predictions resolve at 09:00 Berlin the day AFTER the event
+6. Mix: 2x Sports (if available), 1x Finance, 1x Weather
+
+REFERENCE VALUE IS MANDATORY:
+- Sports: "Team A beat Team B" (reference = Team B)
+- Finance: "above $68,500" (reference = $68,500)
+- Weather: "above 25°C" or "Will it rain" (reference = temperature or Yes/No)
+- WITHOUT concrete reference value the question is INVALID!
+
+TIMING (dayOffset):
+- dayOffset = 1: Event TODAY, resolution TOMORROW 09:00
+- dayOffset = 2: Event TOMORROW, resolution day after 09:00  
+- dayOffset = 3: Event in 2 days, resolution in 3 days 09:00
+- Finance always dayOffset = 1 (compare now vs tomorrow 09:00)
+
+GOOD EXAMPLES:
+- "Will Bayern Munich beat Dortmund in their match on May 29?" (with date!)
+- "Will Bitcoin be above $68,500 (current price) tomorrow?"
+- "Will Real Madrid win the Champions League final on June 1?"
+- "Will it rain in Berlin tomorrow (May 30)?"
+- "Will the temperature in London be above 20°C tomorrow?"
+
+BAD EXAMPLES (NEVER):
+- "Will Bayern win today?" (no date, unclear which game)
+- "Will gold price rise?" (WRONG! No reference value - rise compared to WHAT?)
+- "Will Bitcoin go up tomorrow?" (WRONG! Must name exact price)
+- Invented games not in the data
+
+FINANCE MUST LOOK LIKE THIS:
+- Reference value is the CURRENT price (now, when creating)
+- Comparison happens tomorrow morning when resolving
+- Example: "Will Bitcoin be higher than $68,500 (current price) tomorrow?"
+- Example: "Will gold be above $2,350/oz (current price as of May 29) tomorrow?"
+- The referenceValue in JSON MUST be the current price!
+- NEVER "rise", "go up", "increase" - always "higher than $X" or "above $X"!
+
+CATEGORIES: sport, finance, weather, entertainment
+
+FORMAT:
+{
+  "predictions": [{
+    "question": "Will Bayern Munich beat Dortmund on May 29?",
+    "category": "sport",
+    "options": ["Yes", "No"],
+    "searchQuery": "Bayern Munich Dortmund result May 29",
+    "dayOffset": 1,
+    "referenceValue": null,
+    "referenceUnit": null
+  }, {
+    "question": "Will Bitcoin be above $68,500 tomorrow at 9 AM?",
+    "category": "finance",
+    "options": ["Yes", "No"],
+    "searchQuery": "Bitcoin price USD",
+    "dayOffset": 1,
+    "referenceValue": 68500,
+    "referenceUnit": "USD"
+  }]
+}

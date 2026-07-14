@@ -4,6 +4,7 @@ import { X, Upload, Loader2, GripVertical, ChevronUp, ChevronDown, Palette } fro
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
+import { resolveContainer } from "@/lib/containerFill";
 
 const ImagePickerModal = dynamic(() => import("./ImagePickerModal"), { ssr: false });
 
@@ -24,6 +25,20 @@ export const CONTAINER_THEMES = {
   culture: { bg: 'bg-pink-800', border: 'border-pink-500', label: 'Culture', color: '#db2777' },
   gaming: { bg: 'bg-indigo-800', border: 'border-indigo-500', label: 'Gaming', color: '#6366f1' },
   retro: { bg: 'bg-teal-800', border: 'border-teal-500', label: 'Retro', color: '#14b8a6' },
+  // Additional colors
+  red: { bg: 'bg-red-700', border: 'border-red-500', label: 'Red', color: '#b91c1c' },
+  rose: { bg: 'bg-rose-700', border: 'border-rose-500', label: 'Rose', color: '#be123c' },
+  fuchsia: { bg: 'bg-fuchsia-700', border: 'border-fuchsia-500', label: 'Fuchsia', color: '#a21caf' },
+  violet: { bg: 'bg-violet-700', border: 'border-violet-500', label: 'Violet', color: '#6d28d9' },
+  sky: { bg: 'bg-sky-700', border: 'border-sky-500', label: 'Sky', color: '#0369a1' },
+  cyan: { bg: 'bg-cyan-700', border: 'border-cyan-500', label: 'Cyan', color: '#0e7490' },
+  emerald: { bg: 'bg-emerald-700', border: 'border-emerald-500', label: 'Emerald', color: '#047857' },
+  lime: { bg: 'bg-lime-700', border: 'border-lime-500', label: 'Lime', color: '#4d7c0f' },
+  yellow: { bg: 'bg-yellow-600', border: 'border-yellow-400', label: 'Yellow', color: '#ca8a04' },
+  slate: { bg: 'bg-slate-700', border: 'border-slate-500', label: 'Slate', color: '#334155' },
+  zinc: { bg: 'bg-zinc-800', border: 'border-zinc-600', label: 'Dark', color: '#27272a' },
+  // Custom color placeholder - will be handled specially
+  custom: { bg: '', border: '', label: 'Custom', color: '#888888' },
 } as const;
 
 export type ContainerTheme = keyof typeof CONTAINER_THEMES;
@@ -35,6 +50,7 @@ interface SimpleArticle {
   coverImage?: string;
   category?: string;
   status?: string;
+  createdAt?: string;
 }
 
 interface ContainerBlockType {
@@ -55,9 +71,10 @@ interface ContainerBlockProps {
   containerName: string;
   containerBlocks: ContainerBlockType[];
   containerTheme?: ContainerTheme;
+  customColor?: string; // Custom hex color when theme is 'custom'
   articles: SimpleArticle[];
   onUpdateName: (index: number, name: string) => void;
-  onUpdateTheme?: (index: number, theme: ContainerTheme) => void;
+  onUpdateTheme?: (index: number, theme: ContainerTheme, customColor?: string) => void;
   onRemove: (index: number) => void;
   onAddBlock: (index: number, blockType: ContainerBlockType['type']) => void;
   onRemoveBlock: (index: number, blockIndex: number) => void;
@@ -68,6 +85,9 @@ interface ContainerBlockProps {
   onMoveDown?: (index: number) => void;  // Move container down
   isFirst?: boolean;
   isLast?: boolean;
+  excludeIds?: Set<string>;  // Article IDs consumed by preceding containers (waterfall dedup)
+  isGlobalLatest?: boolean;  // Top container = global newest (any category)
+  bannerCategories?: Set<string>;  // Date-based banner categories excluded from Top Area
 }
 
 // Sub-component for FIXED banner with image upload + AI generation
@@ -184,18 +204,25 @@ export default function ContainerBlock({
   onMoveDown,
   isFirst,
   isLast,
+  excludeIds,
+  isGlobalLatest,
+  bannerCategories,
+  customColor,
 }: ContainerBlockProps) {
   const [showThemePicker, setShowThemePicker] = useState(false);
-  
-  const getArticle = (id: string | null | undefined) => {
-    if (!id) return null;
-    return articles.find(a => a._id === id);
-  };
 
-  const theme = CONTAINER_THEMES[containerTheme] || CONTAINER_THEMES.cream;
+  // Support custom colors - if theme is 'custom' and customColor is set, use that
+  const baseTheme = CONTAINER_THEMES[containerTheme] || CONTAINER_THEMES.cream;
+  const theme = containerTheme === 'custom' && customColor
+    ? { bg: '', border: '', label: 'Custom', color: customColor }
+    : baseTheme;
+  const useCustomStyle = containerTheme === 'custom' && customColor;
 
   return (
-    <div className={`col-span-6 border-2 border-dashed ${theme.border} rounded-lg p-2 ${theme.bg}`}>
+    <div 
+      className={`col-span-6 border-2 border-dashed rounded-lg p-2 ${useCustomStyle ? '' : `${theme.border} ${theme.bg}`}`}
+      style={useCustomStyle ? { backgroundColor: customColor, borderColor: customColor } : undefined}
+    >
       {/* Container Header */}
       <div className="flex items-center gap-1 mb-2">
         {/* Move buttons */}
@@ -228,7 +255,7 @@ export default function ContainerBlock({
             <Palette className="w-3 h-3" style={{ color: theme.color }} />
           </button>
           {showThemePicker && (
-            <div className="absolute top-full left-0 mt-1 bg-gray-900 border border-gray-700 rounded-lg p-2 z-50 w-48">
+            <div className="absolute top-full left-0 mt-1 bg-gray-900 border border-gray-700 rounded-lg p-2.5 z-50 w-56">
               <div className="text-[8px] text-gray-500 uppercase mb-1">Original</div>
               <div className="flex gap-1 mb-2">
                 <button
@@ -239,16 +266,38 @@ export default function ContainerBlock({
                 />
               </div>
               <div className="text-[8px] text-gray-500 uppercase mb-1">Highlight</div>
-              <div className="flex flex-wrap gap-1">
-                {Object.entries(CONTAINER_THEMES).slice(1).map(([key, t]) => (
+              <div className="flex flex-wrap gap-1 mb-2">
+                {Object.entries(CONTAINER_THEMES).slice(1, -1).map(([key, t]) => (
                   <button
                     key={key}
                     onClick={() => { onUpdateTheme?.(index, key as ContainerTheme); setShowThemePicker(false); }}
-                    className={`w-6 h-6 rounded ${containerTheme === key ? 'ring-2 ring-white' : ''}`}
+                    className={`w-5 h-5 rounded ${containerTheme === key ? 'ring-2 ring-white ring-offset-1 ring-offset-gray-900' : 'hover:scale-110'} transition-transform`}
                     style={{ backgroundColor: t.color }}
                     title={t.label}
                   />
                 ))}
+              </div>
+              <div className="text-[8px] text-gray-500 uppercase mb-1">Custom Color</div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  defaultValue={customColor || theme.color}
+                  onChange={(e) => {
+                    const color = e.target.value;
+                    // Check if it matches an existing theme
+                    const match = Object.entries(CONTAINER_THEMES).find(([key, t]) => key !== 'custom' && t.color.toLowerCase() === color.toLowerCase());
+                    if (match) {
+                      onUpdateTheme?.(index, match[0] as ContainerTheme);
+                    } else {
+                      // Use custom color
+                      onUpdateTheme?.(index, 'custom', color);
+                    }
+                    setShowThemePicker(false);
+                  }}
+                  className="w-8 h-6 rounded cursor-pointer border-0 bg-transparent"
+                  title="Pick custom color"
+                />
+                <span className="text-[9px] text-gray-400">Pick any color</span>
               </div>
             </div>
           )}
@@ -271,9 +320,13 @@ export default function ContainerBlock({
 
       {/* Blocks */}
       <div className="space-y-1">
-        {containerBlocks.map((block, bIdx) => {
-          const art1 = getArticle(block.articleId);
-          const art2 = getArticle(block.articleId2);
+        {(() => {
+          // Shared resolver — identical selection + waterfall dedup as the live feed
+          const { perBlock } = resolveContainer(containerName, containerTheme, containerBlocks, articles, excludeIds || new Set(), isGlobalLatest, bannerCategories || new Set());
+          return containerBlocks.map((block, bIdx) => {
+          const resolved = perBlock[bIdx] || { type: block.type };
+          const art1 = (resolved.main || resolved.left) as SimpleArticle | null | undefined;
+          const art2 = resolved.right as SimpleArticle | null | undefined;
 
           return (
             <div 
@@ -309,6 +362,11 @@ export default function ContainerBlock({
                         <div className="text-[8px] text-white font-bold mt-0.5 line-clamp-2">{art1.title}</div>
                       </div>
                     </>
+                  ) : art1 ? (
+                    <div className="flex flex-col items-center justify-center h-full bg-[#D4873A]/20 p-1">
+                      <span className="text-[7px] font-bold text-[#D4873A] bg-black/40 px-1 rounded">MAIN · no image</span>
+                      <div className="text-[8px] text-white font-bold mt-0.5 line-clamp-2 text-center">{art1.title}</div>
+                    </div>
                   ) : (
                     <div className="flex items-center justify-center h-full bg-[#D4873A]/10 border border-dashed border-[#D4873A]/30">
                       <div className="text-center">
@@ -336,6 +394,8 @@ export default function ContainerBlock({
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
                         <div className="absolute bottom-0.5 left-0.5 right-0.5 text-[6px] text-white font-bold truncate">{art1.title}</div>
                       </>
+                    ) : art1 ? (
+                      <div className="flex items-center justify-center h-full bg-pink-500/20 p-0.5 text-[6px] text-white font-bold text-center line-clamp-3">{art1.title}</div>
                     ) : (
                       <div className="flex items-center justify-center h-full bg-pink-500/10 border border-dashed border-pink-500/30 text-[7px] text-gray-400">Drop 1</div>
                     )}
@@ -347,6 +407,8 @@ export default function ContainerBlock({
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
                         <div className="absolute bottom-0.5 left-0.5 right-0.5 text-[6px] text-white font-bold truncate">{art2.title}</div>
                       </>
+                    ) : art2 ? (
+                      <div className="flex items-center justify-center h-full bg-pink-500/20 p-0.5 text-[6px] text-white font-bold text-center line-clamp-3">{art2.title}</div>
                     ) : (
                       <div className="flex items-center justify-center h-full bg-pink-500/10 border border-dashed border-pink-500/30 text-[7px] text-gray-400">Drop 2</div>
                     )}
@@ -471,6 +533,7 @@ export default function ContainerBlock({
                           <option value="news">News</option>
                           <option value="lifestyle">Lifestyle</option>
                           <option value="rip">RIP</option>
+                          <option value="eastercorn">Eastercorn</option>
                         </select>
                         <select
                           value={block.autoFillLimit || 10}
@@ -512,21 +575,9 @@ export default function ContainerBlock({
 
               {/* VERTICAL Block - shows list of articles with auto-fill option */}
               {block.type === 'VERTICAL' && (() => {
-                // Auto-fill: get articles by category if set
                 const cat = block.autoFillCategory?.toLowerCase() || '';
-                const autoArticles = cat 
-                  ? articles
-                      .filter(a => a.category?.toLowerCase() === cat && a.status === 'published' && a.coverImage)
-                      .slice(0, block.autoFillLimit || 5)
-                  : [];
-                
-                // Manual articles (when no auto-fill)
-                const manualArticles = (block.articles || [])
-                  .map(id => articles.find(a => a._id === id))
-                  .filter(Boolean);
-                
-                // Use auto or manual
-                const vertArticles = cat ? autoArticles : manualArticles;
+                // Use shared resolver result (respects cross-container waterfall dedup)
+                const vertArticles = (resolved.vertical || []) as SimpleArticle[];
                 
                 return (
                   <div 
@@ -590,10 +641,11 @@ export default function ContainerBlock({
                         <option value="news">News</option>
                         <option value="lifestyle">Lifestyle</option>
                         <option value="rip">RIP</option>
+                        <option value="eastercorn">Eastercorn</option>
                       </select>
                       {cat && (
                         <select
-                          value={block.autoFillLimit || 5}
+                          value={block.autoFillLimit || 3}
                           onChange={(e) => onUpdateBlock(index, bIdx, { autoFillLimit: parseInt(e.target.value) })}
                           className="bg-gray-700 text-[8px] text-white px-1 py-0.5 rounded border border-indigo-500/50 w-10"
                         >
@@ -639,21 +691,22 @@ export default function ContainerBlock({
               })()}
             </div>
           );
-        })}
+          });
+        })()}
       </div>
 
       {/* Add Block Buttons */}
       <div className="flex flex-wrap items-center gap-1 mt-2 pt-1 border-t border-amber-500/20">
-        <button onClick={() => onAddBlock(index, 'MAIN')} className="px-1.5 py-0.5 bg-[#D4873A]/30 text-[#D4873A] rounded font-bold text-[7px] hover:bg-[#D4873A]/50">+MAIN</button>
-        <button onClick={() => onAddBlock(index, '2H')} className="px-1.5 py-0.5 bg-pink-500/30 text-pink-400 rounded font-bold text-[7px] hover:bg-pink-500/50">+2H</button>
-        <button onClick={() => onAddBlock(index, 'SOCIAL')} className="px-1.5 py-0.5 bg-teal-500/30 text-teal-400 rounded font-bold text-[7px] hover:bg-teal-500/50">+SOCIAL</button>
-        <button onClick={() => onAddBlock(index, 'FIXED')} className="px-1.5 py-0.5 bg-green-500/30 text-green-400 rounded font-bold text-[7px] hover:bg-green-500/50">+FIXED</button>
-        <button onClick={() => onAddBlock(index, 'SLIDER')} className="px-1.5 py-0.5 bg-cyan-500/30 text-cyan-400 rounded font-bold text-[7px] hover:bg-cyan-500/50">+SLIDER</button>
-        <button onClick={() => onAddBlock(index, 'VERTICAL')} className="px-1.5 py-0.5 bg-indigo-500/30 text-indigo-400 rounded font-bold text-[7px] hover:bg-indigo-500/50">+VERT</button>
+        <button onClick={() => onAddBlock(index, 'MAIN')} className="px-1 py-0 bg-[#D4873A]/30 text-black rounded lowercase text-[6px] hover:bg-[#D4873A]/50">+MAIN</button>
+        <button onClick={() => onAddBlock(index, '2H')} className="px-1 py-0 bg-pink-500/30 text-black rounded lowercase text-[6px] hover:bg-pink-500/50">+2H</button>
+        <button onClick={() => onAddBlock(index, 'SOCIAL')} className="px-1 py-0 bg-teal-500/30 text-black rounded lowercase text-[6px] hover:bg-teal-500/50">+SOCIAL</button>
+        <button onClick={() => onAddBlock(index, 'FIXED')} className="px-1 py-0 bg-green-500/30 text-black rounded lowercase text-[6px] hover:bg-green-500/50">+FIXED</button>
+        <button onClick={() => onAddBlock(index, 'SLIDER')} className="px-1 py-0 bg-cyan-500/30 text-black rounded lowercase text-[6px] hover:bg-cyan-500/50">+SLIDER</button>
+        <button onClick={() => onAddBlock(index, 'VERTICAL')} className="px-1 py-0 bg-indigo-500/30 text-black rounded lowercase text-[6px] hover:bg-indigo-500/50">+VERT</button>
         {/* Add new Container button */}
         <button 
           onClick={() => onAddContainer?.()}
-          className="px-2 py-0.5 bg-amber-500/30 text-amber-400 rounded font-bold text-[7px] hover:bg-amber-500/50 border border-amber-500/50"
+          className="px-1 py-0 bg-amber-500/30 text-black rounded lowercase text-[6px] hover:bg-amber-500/50 border border-amber-500/50"
         >
           +CONTAINER
         </button>

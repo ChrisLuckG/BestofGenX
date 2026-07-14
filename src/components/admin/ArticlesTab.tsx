@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Plus, Edit2, Trash2, Save, X, Eye, EyeOff, Loader2, Sparkles, Upload, RefreshCw, MoreVertical, Copy, Archive, Calendar, MessageSquare, Link, Wand2, Image as ImageIcon, Star } from "lucide-react";
+import { Plus, Edit2, Trash2, Save, X, Eye, EyeOff, Loader2, Sparkles, Upload, RefreshCw, MoreVertical, Copy, Archive, Calendar, MessageSquare, Link, Wand2, Image as ImageIcon, Star, ChevronUp, ChevronDown } from "lucide-react";
+import { UI_CATEGORIES, getCategoryLabel } from "@/lib/categories";
+import { computeContainerExcludes, computeBannerCategories } from "@/lib/containerFill";
+const SUB_CATEGORIES = UI_CATEGORIES;
 import BlockEditor from "./BlockEditor";
 import ContainerBlock from "./ContainerBlock";
 import ImagePickerModal from "./ImagePickerModal";
@@ -18,7 +21,7 @@ interface ArticleData {
   imagePosition?: 'top' | 'center' | 'bottom' | 'left' | 'right';
   imagePosX?: number;
   imagePosY?: number;
-  contentType?: 'article' | 'rankroll' | 'tv' | 'radio' | 'arcade' | 'shop';
+  contentType?: 'article' | 'rankroll' | 'tv' | 'radio' | 'arcade' | 'shop' | 'music-community' | 'banner-page';
   linkedContentId?: string;
   mainCategory: string;
   category: string;
@@ -56,6 +59,8 @@ const CONTENT_TYPE_BADGES: Record<string, { label: string; color: string }> = {
   radio: { label: 'RADIO', color: 'bg-green-500' },
   arcade: { label: 'ARCADE', color: 'bg-purple-500' },
   shop: { label: 'SHOP', color: 'bg-amber-500' },
+  'music-community': { label: 'MUSIC', color: 'bg-green-600' },
+  'banner-page': { label: 'PAGE', color: 'bg-teal-600' },
 };
 
 const MAIN_CATEGORIES = [
@@ -65,19 +70,6 @@ const MAIN_CATEGORIES = [
   { value: 'shop', label: 'Shop' },
 ];
 
-const SUB_CATEGORIES = [
-  { value: 'history', label: 'History' },
-  { value: 'movies-tv', label: 'Movies & TV' },
-  { value: 'music', label: 'Music' },
-  { value: 'gaming', label: 'Gaming' },
-  { value: 'rewind', label: 'Rewind' },
-  { value: 'sports', label: 'Sports' },
-  { value: 'tech', label: 'Tech' },
-  { value: 'culture', label: 'Culture' },
-  { value: 'news', label: 'News' },
-  { value: 'lifestyle', label: 'Lifestyle' },
-  { value: 'rip', label: 'RIP' },
-];
 
 interface ArticlesTabProps {
   userId?: string;
@@ -93,6 +85,8 @@ function getSectionAiPrompt(category?: string, _title?: string): string {
     return 'Retro arcade scene. Glowing arcade cabinet screens, joystick, neon grid floor, pixel art patterns, cyberpunk purple and cyan lights. NO people, NO faces, NO text.';
   if (cat === 'sports' || cat === 'sport')
     return 'Retro sports atmosphere. Golden trophy, stadium floodlights at night, vintage leather football, running track, championship ribbon. Dramatic warm lighting. NO people, NO faces, NO text.';
+  if (cat === 'eastercorn' || cat === 'politics')
+    return 'Political power atmosphere. Government marble columns, national flag, newspaper front pages, podium microphone, vintage press conference. Deep navy and gold tones. NO people, NO faces, NO text.';
   if (cat === 'lifestyle' || cat === 'culture' || cat === 'movies-tv')
     return 'Warm nostalgic flat lay. Vintage magazines, polaroid camera, cassette tape, vinyl record, retro sunglasses on cream surface. Golden hour warm light. NO people, NO faces, NO text.';
   if (cat === 'music')
@@ -123,6 +117,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
     adData?: {image: string, link: string, title: string},
     containerName?: string,
     containerTheme?: string,
+    customColor?: string, // Custom hex color when containerTheme is 'custom'
     containerBlocks?: {
       type: 'MAIN' | '2H' | 'FIXED' | 'SLIDER' | 'VERTICAL' | 'SOCIAL';
       articleId?: string | null;
@@ -142,13 +137,13 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
   const [uploadingAdIndex, setUploadingAdIndex] = useState<number | null>(null);
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'published' | 'scheduled' | 'archived'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [dateSort, setDateSort] = useState<'desc' | 'asc'>('desc');
   const [showPreview, setShowPreview] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; articleId: string } | null>(null);
-  const [showEditImagePicker, setShowEditImagePicker] = useState(false);
   const [hoveredTemplateArticle, setHoveredTemplateArticle] = useState<string | null>(null);
   const [hoveredListArticle, setHoveredListArticle] = useState<string | null>(null);
-  const [sortByTemplate, setSortByTemplate] = useState(false);
   const [selectedArticles, setSelectedArticles] = useState<Set<string>>(new Set());
   const [bulkPublishing, setBulkPublishing] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('list');
@@ -354,6 +349,24 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
     }
   };
 
+  const bulkDelete = async (articleIds: string[]) => {
+    if (!articleIds.length || bulkPublishing) return;
+    if (!confirm(`Delete ${articleIds.length} selected article${articleIds.length !== 1 ? 's' : ''}? This cannot be undone.`)) return;
+    setBulkPublishing(true);
+    let deleted = 0;
+    for (const id of articleIds) {
+      try {
+        const res = await fetch(`/api/articles/${id}?userId=${userId}`, { method: 'DELETE' });
+        if (res.ok) deleted++;
+      } catch { /* continue */ }
+    }
+    setArticles(prev => prev.filter(a => !articleIds.includes(a._id!)));
+    setSelectedArticles(new Set());
+    setBulkPublishing(false);
+    setToast({ message: `🗑️ ${deleted} article${deleted !== 1 ? 's' : ''} removed`, articleId: '' });
+    setTimeout(() => setToast(null), 3000);
+  };
+
   const duplicateArticle = async (article: ArticleData) => {
     try {
       const res = await fetch(`/api/articles/${article._id}?includeContent=true`);
@@ -407,16 +420,22 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
 
   const featureArticle = async (article: ArticleData) => {
     if (!article._id || article.status !== 'published') return;
+    const next = !article.featured;
+    // Optimistic UI update
+    setArticles(prev => prev.map(a => a._id === article._id ? { ...a, featured: next } : a));
     try {
-      await fetch('/api/editorial/auto-place', {
-        method: 'POST',
+      // Star = allow this article into the Top Area, sorted chronologically (no fixed pin).
+      await fetch(`/api/articles/${article._id}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ articleId: article._id, category: article.category, featured: true }),
+        body: JSON.stringify({ userId, featured: next }),
       });
-      setToast({ message: '⭐ Featured!', articleId: article._id });
+      setToast({ message: next ? '⭐ In Top Area' : 'Aus Top Area entfernt', articleId: article._id });
       setTimeout(() => setToast(null), 2000);
     } catch (err) {
       console.error('Feature error:', err);
+      // Revert on failure
+      setArticles(prev => prev.map(a => a._id === article._id ? { ...a, featured: !next } : a));
     }
   };
 
@@ -442,7 +461,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
       content: "",
       coverImage: "",
       mainCategory: "articles",
-      category: "culture",
+      category: "lifestyle",
       tags: [],
       status: "draft",
       layout: "standard",
@@ -581,7 +600,8 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
     const newArticles = [...articles];
     const [removed] = newArticles.splice(draggedIndex, 1);
     newArticles.splice(targetIndex, 0, removed);
-    setArticles(newArticles);
+    // Reassign a fresh order index so the manual position survives the (order, date) sort.
+    setArticles(newArticles.map((a, i) => ({ ...a, order: i })));
     setOrderChanged(true);
   };
 
@@ -631,9 +651,13 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
     setTemplateItems(newItems);
   };
 
-  const updateContainerTheme = (index: number, theme: string) => {
+  const updateContainerTheme = (index: number, theme: string, customColor?: string) => {
     const newItems = [...templateItems];
-    newItems[index] = { ...newItems[index], containerTheme: theme };
+    newItems[index] = { 
+      ...newItems[index], 
+      containerTheme: theme,
+      customColor: theme === 'custom' ? customColor : undefined 
+    };
     setTemplateItems(newItems);
   };
 
@@ -834,7 +858,12 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                     className="grid grid-cols-6 gap-2 auto-rows-auto transition-transform origin-top-left"
                     style={{ transform: `scale(${templateZoom / 100})`, width: `${10000 / templateZoom}%` }}
                   >
-              {templateItems.map((item, index) => {
+              {(() => {
+                // Cross-container waterfall dedup — excludeIds per container index
+                const containerExcludes = computeContainerExcludes(templateItems as any, articles as any);
+                const bannerCategories = computeBannerCategories(templateItems as any);
+                const firstContainerIndex = templateItems.findIndex(it => it.size === 12);
+                return templateItems.map((item, index) => {
                 // Container (size 12) - use separate component
                 if (item.size === 12) {
                   return (
@@ -843,8 +872,12 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                       index={index}
                       containerName={item.containerName || 'NEW SECTION'}
                       containerTheme={(item.containerTheme as any) || 'cream'}
+                      customColor={item.customColor}
                       containerBlocks={item.containerBlocks || []}
                       articles={articles}
+                      excludeIds={containerExcludes[index]}
+                      isGlobalLatest={index === firstContainerIndex}
+                      bannerCategories={bannerCategories}
                       onUpdateName={updateContainerName}
                       onUpdateTheme={updateContainerTheme}
                       onRemove={removeTemplateItem}
@@ -863,7 +896,8 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
 
                 // Legacy items (size 1-10) - skip rendering, only Container (12) is supported now
                 return null;
-              })}
+                });
+              })()}
             </div>
             
             {/* Static Pages in Phone */}
@@ -949,7 +983,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
             
             {/* Status Filter Tabs + Sort */}
             <div className="flex items-center justify-between mb-3">
-              <div className="flex gap-1">
+              <div className="flex gap-1 flex-wrap">
                 {[
                   { value: 'all', label: 'All' },
                   { value: 'published', label: 'Published' },
@@ -969,17 +1003,17 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                   </button>
                 ))}
               </div>
-              <button
-                onClick={() => setSortByTemplate(!sortByTemplate)}
-                className={`px-2 py-1 rounded text-[10px] font-medium transition-colors flex items-center gap-1 ${
-                  sortByTemplate
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
-                }`}
-                title="Sort articles by their position in the template"
+              {/* Category Filter */}
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="px-2 py-1 rounded text-[10px] font-medium bg-gray-700 text-gray-300 border border-gray-600 hover:bg-gray-600 transition-colors"
               >
-                <span>↕</span> Template
-              </button>
+                <option value="all">All Cats</option>
+                {SUB_CATEGORIES.map(c => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
+                ))}
+              </select>
               {/* View Mode Toggle */}
               <div className="flex bg-gray-700 rounded overflow-hidden">
                 <button
@@ -1008,41 +1042,29 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                 <Loader2 className="w-6 h-6 text-[#D4873A] animate-spin" />
               </div>
             ) : (() => {
-              // Get all article IDs from template in order
-              const getTemplateArticleIds = (): string[] => {
-                const ids: string[] = [];
-                templateItems.forEach(item => {
-                  if (item.articleId) ids.push(item.articleId);
-                  if (item.articleId2) ids.push(item.articleId2);
-                  if (item.sliderArticles) ids.push(...item.sliderArticles);
-                  if (item.verticalArticles) ids.push(...item.verticalArticles);
-                });
-                return ids;
-              };
-              
               // Filter articles by status
               let filteredArticles = articles.filter((article: ArticleData & { createdAt?: string }) => {
-                if (statusFilter === 'all') return true;
-                if (statusFilter === 'published') return article.status === 'published' && !article.scheduledAt;
-                if (statusFilter === 'scheduled') return !!article.scheduledAt; // Has a scheduled date
-                if (statusFilter === 'archived') return article.status === 'archived';
+                // Admin list shows ALL types (incl. Arcade/Rankroll) so they stay manageable.
+                // The public article lists hide Arcade/Rankroll/feature pages instead.
+                if (statusFilter !== 'all') {
+                  if (statusFilter === 'published' && !(article.status === 'published' && !article.scheduledAt)) return false;
+                  if (statusFilter === 'scheduled' && !article.scheduledAt) return false;
+                  if (statusFilter === 'archived' && article.status !== 'archived') return false;
+                }
+                if (categoryFilter !== 'all' && article.category !== categoryFilter) return false;
                 return true;
               });
               
-              // Sort by template order if enabled
-              if (sortByTemplate) {
-                const templateIds = getTemplateArticleIds();
-                filteredArticles = [...filteredArticles].sort((a, b) => {
-                  const aIndex = templateIds.indexOf(a._id || '');
-                  const bIndex = templateIds.indexOf(b._id || '');
-                  // Articles in template come first, sorted by position
-                  // Articles not in template go to the end
-                  if (aIndex === -1 && bIndex === -1) return 0;
-                  if (aIndex === -1) return 1;
-                  if (bIndex === -1) return -1;
-                  return aIndex - bIndex;
-                });
-              }
+              // Single sort: manual drag order (`order`) wins, otherwise by date.
+              // All articles share order 0 by default -> behaves like a date sort until
+              // an editor drags a row, which pins it via a persisted order index.
+              filteredArticles = [...filteredArticles].sort((a: any, b: any) => {
+                const ao = a.order ?? 0, bo = b.order ?? 0;
+                if (ao !== bo) return ao - bo;
+                const da = new Date(a.scheduledAt || a.createdAt || 0).getTime();
+                const db = new Date(b.scheduledAt || b.createdAt || 0).getTime();
+                return dateSort === 'desc' ? db - da : da - db;
+              });
               
               return filteredArticles.length === 0 ? (
                 <div className="text-center py-8 text-gray-500 text-sm">
@@ -1063,30 +1085,44 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                       {bulkPublishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />}
                       Publish All
                     </button>
+                    <button
+                      onClick={() => bulkDelete(Array.from(selectedArticles))}
+                      disabled={bulkPublishing}
+                      className="flex items-center gap-1.5 px-3 py-1 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-[11px] font-bold rounded transition-colors"
+                    >
+                      {bulkPublishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                      Remove All
+                    </button>
                     <button onClick={() => setSelectedArticles(new Set())} className="text-[10px] text-gray-400 hover:text-white ml-auto">
                       Clear
                     </button>
                   </div>
                 )}
                 {/* Header */}
-                <div className="grid grid-cols-[28px_75px_40px_90px_90px_1fr_45px_95px_60px_80px_60px_105px] gap-4 px-4 py-2 text-[9px] text-gray-500 uppercase tracking-wider border-b border-gray-700 bg-gray-800/50">
+                <div className="grid grid-cols-[28px_75px_40px_55px_75px_1fr_40px_70px_55px_70px_55px_105px] gap-2 px-4 py-2 text-[9px] text-gray-500 uppercase tracking-wider border-b border-gray-700 bg-gray-800/50">
                   <div>
                     <input
                       type="checkbox"
                       className="w-3 h-3 accent-[#D4873A] cursor-pointer"
-                      title="Select all drafts"
-                      checked={filteredArticles.filter(a => a.status === 'draft').every(a => selectedArticles.has(a._id!)) && filteredArticles.some(a => a.status === 'draft')}
+                      title="Select all"
+                      checked={filteredArticles.length > 0 && filteredArticles.every(a => selectedArticles.has(a._id!))}
                       onChange={(e) => {
-                        const draftIds = filteredArticles.filter(a => a.status === 'draft').map(a => a._id!);
+                        const allIds = filteredArticles.map(a => a._id!);
                         if (e.target.checked) {
-                          setSelectedArticles(prev => new Set(Array.from(prev).concat(draftIds)));
+                          setSelectedArticles(prev => new Set(Array.from(prev).concat(allIds)));
                         } else {
-                          setSelectedArticles(prev => { const next = new Set(prev); draftIds.forEach(id => next.delete(id)); return next; });
+                          setSelectedArticles(prev => { const next = new Set(prev); allIds.forEach(id => next.delete(id)); return next; });
                         }
                       }}
                     />
                   </div>
-                  <div>Date</div>
+                  <button
+                    className="flex items-center gap-0.5 hover:text-white transition-colors"
+                    onClick={() => setDateSort(d => d === 'desc' ? 'asc' : 'desc')}
+                    title="Toggle date sort"
+                  >
+                    Date {dateSort === 'desc' ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
+                  </button>
                   <div></div>
                   <div>Type</div>
                   <div>Cat</div>
@@ -1108,7 +1144,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                     }}
                     onDragOver={(e) => handleDragOver(e, article._id!)}
                     onDragEnd={handleDragEnd}
-                    className={`grid grid-cols-[28px_75px_40px_90px_90px_1fr_45px_95px_60px_80px_60px_105px] gap-4 items-center px-4 py-1 rounded cursor-move hover:bg-gray-700/50 transition-all ${
+                    className={`grid grid-cols-[28px_75px_40px_55px_75px_1fr_40px_70px_55px_70px_55px_105px] gap-2 items-center px-4 py-1 rounded cursor-move hover:bg-gray-700/50 transition-all ${
                       draggedArticle === article._id ? 'opacity-50' : ''
                     } ${hoveredTemplateArticle && hoveredTemplateArticle.split(',').includes(article._id!) ? 'bg-[#D4873A]/10 ring-1 ring-[#D4873A]/50' : ''}`}
                     onMouseEnter={() => setHoveredListArticle(article._id!)}
@@ -1174,16 +1210,18 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                             console.error('Failed to update type:', err);
                           }
                         }}
-                        className={`px-1.5 py-0.5 rounded text-[7px] font-bold cursor-pointer border-0 outline-none uppercase ${
+                        className={`w-full px-1 py-0.5 rounded text-[7px] font-bold cursor-pointer border-0 outline-none uppercase ${
                           CONTENT_TYPE_BADGES[article.contentType || 'article']?.color || 'bg-blue-500'
                         } text-white`}
                       >
-                        <option value="article" className="bg-gray-800 text-white">Article</option>
-                        <option value="rankroll" className="bg-gray-800 text-white">Rankroll</option>
+                        <option value="article" className="bg-gray-800 text-white">Art</option>
+                        <option value="rankroll" className="bg-gray-800 text-white">Rnkr</option>
                         <option value="tv" className="bg-gray-800 text-white">TV</option>
                         <option value="radio" className="bg-gray-800 text-white">Radio</option>
-                        <option value="arcade" className="bg-gray-800 text-white">Arcade</option>
+                        <option value="arcade" className="bg-gray-800 text-white">Arc</option>
                         <option value="shop" className="bg-gray-800 text-white">Shop</option>
+                        <option value="music-community" className="bg-gray-800 text-white">Music</option>
+                        <option value="banner-page" className="bg-gray-800 text-white">Page</option>
                       </select>
                     </div>
                     {/* Category - Editable Dropdown */}
@@ -1205,7 +1243,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                             console.error('Failed to update category:', err);
                           }
                         }}
-                        className="px-1 py-0.5 rounded text-[7px] cursor-pointer border-0 outline-none bg-gray-600 text-white"
+                        className="w-full px-1 py-0.5 rounded text-[7px] cursor-pointer border-0 outline-none bg-gray-600 text-white"
                       >
                         <option value="" className="bg-gray-800 text-white">—</option>
                         {SUB_CATEGORIES.map(sub => (
@@ -1214,7 +1252,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                       </select>
                     </div>
                     {/* Title */}
-                    <div className="text-[11px] text-gray-200 truncate">
+                    <div className="min-w-0 text-[11px] text-gray-200 truncate">
                       {article.title}
                     </div>
                     {/* Source - AI generated or manually edited */}
@@ -1254,15 +1292,15 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                             console.error('Failed to update status:', err);
                           }
                         }}
-                        className={`px-1.5 py-0.5 rounded text-[8px] font-bold cursor-pointer border-0 outline-none ${
+                        className={`w-full px-1 py-0.5 rounded text-[7px] font-bold cursor-pointer border-0 outline-none ${
                           article.status === 'published' ? 'bg-green-600 text-white' :
                           article.status === 'archived' ? 'bg-gray-600 text-white' :
                           'bg-orange-600 text-white'
                         }`}
                       >
                         <option value="draft" className="bg-gray-800 text-white">Draft</option>
-                        <option value="published" className="bg-gray-800 text-white">Published</option>
-                        <option value="archived" className="bg-gray-800 text-white">Archived</option>
+                        <option value="published" className="bg-gray-800 text-white">Live</option>
+                        <option value="archived" className="bg-gray-800 text-white">Arc</option>
                       </select>
                     </div>
                     {/* Views - Clickable */}
@@ -1417,8 +1455,8 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                         <Archive className="w-3 h-3" />
                       </button>
                       {article.status === 'published' && (
-                        <button title="Feature (promote to top)" onClick={(e) => { e.stopPropagation(); featureArticle(article); }} className="p-1 text-yellow-400/70 hover:text-yellow-400 hover:bg-yellow-900/30 rounded transition-colors">
-                          <Star className="w-3 h-3" />
+                        <button title={article.featured ? 'In Top Area (klicken zum Entfernen)' : 'In Top Area anzeigen (chronologisch)'} onClick={(e) => { e.stopPropagation(); featureArticle(article); }} className={`p-1 rounded transition-colors ${article.featured ? 'text-yellow-400 bg-yellow-900/30' : 'text-yellow-400/70 hover:text-yellow-400 hover:bg-yellow-900/30'}`}>
+                          <Star className={`w-3 h-3 ${article.featured ? 'fill-yellow-400' : ''}`} />
                         </button>
                       )}
                       <button title="Delete" onClick={(e) => { e.stopPropagation(); deleteArticle(article._id!, article.title); }} className="p-1 text-red-400/70 hover:text-red-400 hover:bg-red-900/30 rounded transition-colors">
@@ -1696,50 +1734,16 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                   <BlockEditor
                     value={editingArticle.content || ''}
                     onChange={(content: string) => setEditingArticle({ ...editingArticle, content })}
+                    articleContext={{
+                      title: editingArticle.title,
+                      subCategory: editingArticle.category,
+                      tags: editingArticle.tags,
+                    }}
                   />
                 </div>
 
                 {/* RIGHT - Sidebar with all metadata */}
                 <div className="space-y-3">
-                  {/* Cover Image */}
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">Cover Image</label>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.preventDefault(); setShowEditImagePicker(true); }}
-                      className="w-full relative rounded overflow-hidden border border-gray-600 hover:border-[#D4873A] transition-colors group"
-                    >
-                      {editingArticle.coverImage ? (
-                        isVideoUrl(editingArticle.coverImage) ? (
-                          <video src={editingArticle.coverImage} className="w-full h-24 object-cover" muted autoPlay loop playsInline />
-                        ) : (
-                          <img src={editingArticle.coverImage} alt="" className="w-full h-24 object-cover" style={{ objectPosition: `${editingArticle.imagePosX ?? 50}% ${editingArticle.imagePosY ?? 50}%` }} />
-                        )
-                      ) : (
-                        <div className="w-full h-24 bg-gray-700 flex items-center justify-center text-gray-400 text-xs gap-1.5">
-                          <ImageIcon className="w-4 h-4" /> Change Image
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                        <span className="text-white text-xs font-medium">Change Image</span>
-                      </div>
-                    </button>
-                    {editingArticle.coverImage && !isVideoUrl(editingArticle.coverImage) && (
-                      <div className="mt-2 space-y-1.5">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-gray-400 w-6">X:</span>
-                          <input type="range" min="0" max="100" value={editingArticle.imagePosX ?? 50} onChange={(e) => setEditingArticle({ ...editingArticle, imagePosX: Number(e.target.value) })} className="flex-1 h-1.5 accent-[#D4873A]" />
-                          <span className="text-[10px] text-gray-500 w-8">{editingArticle.imagePosX ?? 50}%</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-gray-400 w-6">Y:</span>
-                          <input type="range" min="0" max="100" value={editingArticle.imagePosY ?? 50} onChange={(e) => setEditingArticle({ ...editingArticle, imagePosY: Number(e.target.value) })} className="flex-1 h-1.5 accent-[#D4873A]" />
-                          <span className="text-[10px] text-gray-500 w-8">{editingArticle.imagePosY ?? 50}%</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
                   {/* Categories - stacked in sidebar */}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
@@ -1969,7 +1973,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
               {/* Article Content */}
               <div className="p-4">
                 <div className="text-[10px] font-bold text-[#D4873A] uppercase tracking-wider mb-1">
-                  {SUB_CATEGORIES.find(c => c.value === editingArticle.category)?.label || editingArticle.category}
+                  {getCategoryLabel(editingArticle.category || '')}
                 </div>
                 <h1 
                   className="text-xl font-bold text-gray-900 mb-2"
@@ -2367,12 +2371,17 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
         onClose={() => setImageManagerArticle(null)}
         onSelect={async (url: string, position?: { x: number; y: number }) => {
           if (imageManagerArticle) {
-            await fetch(`/api/articles/${imageManagerArticle._id}`, {
+            const posX = position?.x ?? 50;
+            const posY = position?.y ?? 50;
+            console.log('Saving image position:', { posX, posY, position });
+            const res = await fetch(`/api/articles/${imageManagerArticle._id}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ userId, coverImage: url, ...(position ? { imagePosX: position.x, imagePosY: position.y } : {}) }),
+              body: JSON.stringify({ userId, coverImage: url, imagePosX: posX, imagePosY: posY }),
             });
-            setArticles(prev => prev.map(a => a._id === imageManagerArticle._id ? { ...a, coverImage: url, ...(position ? { imagePosX: position.x, imagePosY: position.y } : {}) } : a));
+            const data = await res.json();
+            console.log('API response:', data);
+            setArticles(prev => prev.map(a => a._id === imageManagerArticle._id ? { ...a, coverImage: url, imagePosX: posX, imagePosY: posY } : a));
             setImageManagerArticle(null);
           }
         }}
@@ -2381,23 +2390,6 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
         searchTerm={imageManagerArticle?.title || ''}
         showAiGenerate={true}
         aiPromptContext={getSectionAiPrompt(imageManagerArticle?.category, imageManagerArticle?.title)}
-      />
-
-      {/* ImagePickerModal for Edit Article modal - updates editingArticle state only */}
-      <ImagePickerModal
-        isOpen={showEditImagePicker}
-        onClose={() => setShowEditImagePicker(false)}
-        onSelect={(url: string, position?: { x: number; y: number }) => {
-          if (editingArticle) {
-            setEditingArticle({ ...editingArticle, coverImage: url, ...(position ? { imagePosX: position.x, imagePosY: position.y } : {}) });
-          }
-          setShowEditImagePicker(false);
-        }}
-        currentImage={editingArticle?.coverImage}
-        currentPosition={editingArticle ? { x: editingArticle.imagePosX ?? 50, y: editingArticle.imagePosY ?? 50 } : undefined}
-        searchTerm={editingArticle?.title || ''}
-        showAiGenerate={true}
-        aiPromptContext={getSectionAiPrompt(editingArticle?.category, editingArticle?.title)}
       />
 
       {/* Legacy Image Manager Modal - only for detailed thumbnail editing */}

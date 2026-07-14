@@ -20,6 +20,7 @@ import TVPage from "@/components/TVPage";
 import BattlesPage from "@/components/BattlesPage";
 import ArcadePage from "@/components/ArcadePage";
 import GenXManGame from "@/components/games/GenXManGame";
+import BogxInvadersGame from "@/components/games/BogxInvadersGame";
 import PredictionsGame from "@/components/games/PredictionsGame";
 import SoloTriviaGame from "@/components/games/SoloTriviaGame";
 import ArticlesListPage from "@/components/ArticlesListPage";
@@ -40,6 +41,7 @@ import PushNotifications from "@/components/PushNotifications";
 import SummaryCard from "@/components/games/SummaryCard";
 import CheckoutSuccessModal from "@/components/CheckoutSuccessModal";
 import DevLockScreen from "@/components/DevLockScreen";
+import StaticPageInline from "@/components/StaticPageInline";
 import InstallBanner from "@/components/InstallBanner";
 import ArticlePage from "@/components/ArticlePage";
 import AuthorPage from "@/components/AuthorPage";
@@ -156,22 +158,33 @@ export default function MobilePage() {
   const { coins, setCoins } = useBogxCoins(user?.id);
   // Pending wager indicator - global source of truth (same on mobile & desktop)
   const { hasPendingWager } = usePendingWager(user?.id);
-  const [activeTab, setActiveTab] = useState<NavTab>(() => {
-    if (typeof window !== 'undefined') {
-      // Use sessionStorage - only persists during browser session (refresh), not across visits
-      const saved = sessionStorage.getItem('activeTab');
-      if (saved && ['home', 'arcade', 'articles', 'voting', 'shop', 'tv', 'notifications', 'profile', 'rankings', 'battles'].includes(saved)) {
-        return saved as NavTab;
-      }
-    }
-    return "home";
-  });
+  const [activeTab, setActiveTab] = useState<NavTab>("home");
   const [previousTab, setPreviousTab] = useState<NavTab>("home"); // Track previous tab for toggle back
+  const [tabRestored, setTabRestored] = useState(false);
+  
+  // Restore activeTab from sessionStorage after mount (SSR-safe)
+  useEffect(() => {
+    if (tabRestored) return;
+    const saved = sessionStorage.getItem('activeTab');
+    if (saved && ['home', 'arcade', 'articles', 'voting', 'shop', 'tv', 'notifications', 'profile', 'rankings', 'battles'].includes(saved)) {
+      setActiveTab(saved as NavTab);
+    }
+    setTabRestored(true);
+  }, [tabRestored]);
   
   // Persist activeTab to sessionStorage (only for refresh, not across browser sessions)
+  // Also scroll to top when changing tabs (except home which has its own scroll handling)
   useEffect(() => {
+    if (!tabRestored) return; // Don't save until restored
     sessionStorage.setItem('activeTab', activeTab);
-  }, [activeTab]);
+    // Scroll window to top when changing to a new tab
+    if (activeTab !== 'home') {
+      window.scrollTo(0, 0);
+      // Also try to scroll any scrollable container in the tab
+      const tabContainer = document.querySelector(`[data-tab="${activeTab}"]`);
+      if (tabContainer) tabContainer.scrollTop = 0;
+    }
+  }, [activeTab, tabRestored]);
   const [arcadeGame, setArcadeGame] = useState<string | null>(null); // Which game is active in Arcade (e.g. 'quizzbattle')
   const [radioOpen, setRadioOpen] = useState(false);
   const eqBarsMobile = useMemo(() =>
@@ -220,17 +233,35 @@ export default function MobilePage() {
   const [showWelcomeBack, setShowWelcomeBack] = useState(false);
   const [welcomeRankChange, setWelcomeRankChange] = useState<WelcomeBackRankChange | null>(null);
   const [welcomeCurrentRank, setWelcomeCurrentRank] = useState<number | null>(null);
-  const [welcomeAI, setWelcomeAI] = useState<{ greeting: string; subtitle: string; fact: string; factReaction: string; callToAction: string } | null>(null);
-  const [welcomeNotificationsEnabled, setWelcomeNotificationsEnabled] = useState(true);
+  const [welcomeTotalPoints, setWelcomeTotalPoints] = useState(0);
+  const [welcomePointsToday, setWelcomePointsToday] = useState(0);
+  const [welcomePointsToNext, setWelcomePointsToNext] = useState(0);
+  const [welcomeStreak, setWelcomeStreak] = useState(0);
+  const [welcomeEvents, setWelcomeEvents] = useState<any[]>([]);
+  const [welcomeLastSeenAt, setWelcomeLastSeenAt] = useState<string | null>(null);
+  const [welcomeDailyReward, setWelcomeDailyReward] = useState(false);
   const [pendingChallengeCount, setPendingChallengeCount] = useState(0);
   const [activeBattleCount, setActiveBattleCount] = useState(0);
+  const [currentLeader, setCurrentLeader] = useState<string | null>(null);
+  const [welcomeLevel, setWelcomeLevel] = useState(1);
+  const [welcomeLevelName, setWelcomeLevelName] = useState('Rookie');
+  const [welcomeLevelProgress, setWelcomeLevelProgress] = useState(0);
+  const [welcomePointsToNextLevel, setWelcomePointsToNextLevel] = useState(0);
+  const [welcomeAvatar, setWelcomeAvatar] = useState<string | undefined>(undefined);
+  const [welcomeLoading, setWelcomeLoading] = useState(true);
   const [showLogoutToast, setShowLogoutToast] = useState(false);
   const [pendingBattleId, setPendingBattleId] = useState<string | null>(null);
   const [pushToast, setPushToast] = useState<{ title: string; body: string; url?: string } | null>(null);
   const [openArticleId, setOpenArticleId] = useState<string | null>(null);
+  const [staticPageSlug, setStaticPageSlug] = useState<string | null>(null);
   const [openAuthorName, setOpenAuthorName] = useState<string | null>(null);
   const [openRankrollId, setOpenRankrollId] = useState<string | null>(null);
   const [openRankrollData, setOpenRankrollData] = useState<any>(null);
+  const [rankrollLoading, setRankrollLoading] = useState(false);
+  // RankrollPage stays mounted while the detail overlay is shown (only openRankrollData
+  // toggles, not activeTab), so its poll list goes stale after voting. Bumping this key
+  // forces a full remount (and thus a fresh fetch) whenever we navigate back from a poll.
+  const [rankrollRefreshKey, setRankrollRefreshKey] = useState(0);
   const [rewardedArticles, setRewardedArticles] = useState<Set<string>>(new Set()); // Track which articles already gave reward
   const [feedRefreshKey, setFeedRefreshKey] = useState(0); // Increment to force feed refresh
   const [showRankingsOverlay, setShowRankingsOverlay] = useState(false); // Rankings overlay (opened via score click)
@@ -669,6 +700,8 @@ export default function MobilePage() {
     setShowJoinChallengePage(false);
     setRadioOpen(false);
     setOpenArticleId(null);
+    if (openRankrollData) setRankrollRefreshKey(k => k + 1);
+    setOpenRankrollData(null);
   };
 
   // Open overlay with auto-close of others (UNIVERSAL)
@@ -946,12 +979,37 @@ export default function MobilePage() {
       setOpenArticleId(null);
       setActiveTab('articles');
     };
+    const handleOpenRankroll = async (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const pollId = customEvent.detail?.pollId;
+      setOpenArticleId(null);
+      if (pollId) {
+        // Load and open the specific rankroll
+        setRankrollLoading(true);
+        try {
+          const res = await fetch(`/api/polls/${pollId}`);
+          const data = await res.json();
+          if (data.success && data.poll) {
+            setOpenRankrollData(data.poll);
+            setActiveTab('voting');
+          }
+        } catch (err) {
+          console.error('Failed to load rankroll:', err);
+        } finally {
+          setRankrollLoading(false);
+        }
+      } else {
+        // Just open rankroll tab
+        setActiveTab('voting');
+      }
+    };
     
     window.addEventListener('openRadio', handleOpenRadio);
     window.addEventListener('openShop', handleOpenShop);
     window.addEventListener('openArcade', handleOpenArcade);
     window.addEventListener('openTV', handleOpenTV);
     window.addEventListener('openArticles', handleOpenArticles);
+    window.addEventListener('openRankroll', handleOpenRankroll);
     
     return () => {
       window.removeEventListener('openRadio', handleOpenRadio);
@@ -959,6 +1017,7 @@ export default function MobilePage() {
       window.removeEventListener('openArcade', handleOpenArcade);
       window.removeEventListener('openTV', handleOpenTV);
       window.removeEventListener('openArticles', handleOpenArticles);
+      window.removeEventListener('openRankroll', handleOpenRankroll);
     };
   }, []);
 
@@ -1058,27 +1117,42 @@ export default function MobilePage() {
     const sessionKey = `welcome_shown_${user.id}_${new Date().toDateString()}`;
     if (sessionStorage.getItem(sessionKey)) return;
     
-    // Show welcome modal immediately, then enrich with API data as it arrives
+    // Show welcome modal immediately with loading, then enrich with API data
+    setWelcomeLoading(true);
     setShowWelcomeBack(true);
     sessionStorage.setItem(sessionKey, 'true');
 
     const fetchWelcomeMessage = async () => {
       try {
-        const [welcomeRes, factsRes] = await Promise.all([
+        const [welcomeRes, leaderRes] = await Promise.all([
           fetch(`/api/user/welcome-message?userId=${user.id}`).then(r => r.json()).catch(() => null),
-          fetch(`/api/daily-facts`).then(r => r.json()).catch(() => null),
+          fetch(`/api/leaderboard?period=today&limit=5`).then(r => r.json()).catch(() => null),
         ]);
 
         if (welcomeRes?.success) {
           setWelcomeRankChange(welcomeRes.rankChange || null);
           setWelcomeCurrentRank(welcomeRes.currentRank ?? null);
-          setWelcomeNotificationsEnabled(welcomeRes.notificationsEnabled !== false);
+          setWelcomeTotalPoints(welcomeRes.totalPoints ?? 0);
+          setWelcomePointsToday(welcomeRes.pointsToday ?? 0);
+          setWelcomePointsToNext(welcomeRes.pointsToNextRank ?? 0);
+          setWelcomeStreak(welcomeRes.streak ?? 0);
+          setWelcomeEvents(welcomeRes.whileAwayEvents ?? []);
+          setWelcomeLastSeenAt(welcomeRes.lastSeenAt ?? null);
+          setWelcomeDailyReward(welcomeRes.dailyRewardReady ?? false);
+          // Level data
+          setWelcomeLevel(welcomeRes.level ?? 1);
+          setWelcomeLevelName(welcomeRes.levelName ?? 'Rookie');
+          setWelcomeLevelProgress(welcomeRes.levelProgress ?? 0);
+          setWelcomePointsToNextLevel(welcomeRes.pointsToNextLevel ?? 0);
+          setWelcomeAvatar(welcomeRes.avatar || undefined);
         }
-        if (factsRes?.success && factsRes.welcome) {
-          setWelcomeAI(factsRes.welcome);
+        if (leaderRes?.success && leaderRes.leaderboard?.[0]) {
+          setCurrentLeader(leaderRes.leaderboard[0].username || null);
         }
       } catch {
         // Data already showing, just skip enrichment
+      } finally {
+        setWelcomeLoading(false);
       }
     };
     
@@ -1165,6 +1239,7 @@ export default function MobilePage() {
     if (rewardId.startsWith('topup-') || rewardId.startsWith('ad-reward-')) {
       const amount = Math.abs(cost);
       setCoins(prev => prev + amount);
+      setCoinAnimKey(k => k + 1);
       setCoinAnimation({ show: true, amount: amount });
       // Sync to database
       if (isLoggedIn && user?.id) {
@@ -1219,11 +1294,12 @@ export default function MobilePage() {
     
     if (correct && reward > 0) {
       sounds.correct();
+      setCoinAnimKey(k => k + 1);
       setCoinAnimation({ show: true, amount: reward });
       setCoins(prev => prev + reward);
       updateUser({ wins: (user?.wins || 0) + 1 });
       if (isLoggedIn) {
-        await syncPointsToDb(reward, true);
+        await syncPointsToDb(reward, true, true);
         if (user?.id && meta) {
           fetch('/api/game-results', {
             method: 'POST',
@@ -1235,10 +1311,11 @@ export default function MobilePage() {
     } else if (!correct) {
       sounds.wrong();
       const penalty = Math.abs(reward);
+      setCoinAnimKey(k => k + 1);
       setCoinAnimation({ show: true, amount: -penalty });
       setCoins(prev => Math.max(0, prev - penalty));
       if (isLoggedIn) {
-        await syncPointsToDb(-penalty, false);
+        await syncPointsToDb(-penalty, false, true);
         if (user?.id && meta) {
           fetch('/api/game-results', {
             method: 'POST',
@@ -1251,6 +1328,7 @@ export default function MobilePage() {
   };
 
   const handleSurpriseComplete = (reward: number) => {
+    setCoinAnimKey(k => k + 1);
     setCoinAnimation({ show: true, amount: reward });
     setCoins(prev => prev + reward);
   };
@@ -1290,6 +1368,7 @@ export default function MobilePage() {
       setSessionStartCoins(newCoins); // Track starting coins for accurate summary
       return newCoins;
     });
+    setCoinAnimKey(k => k + 1);
     setCoinAnimation({ show: true, amount });
     setBonusClaimed(true);
     setTimeout(() => setCoinAnimation({ show: false, amount: 0 }), 2000);
@@ -1317,6 +1396,7 @@ export default function MobilePage() {
           const WELCOME_BONUS = data.bonusAmount || 5; // Already in BOGX
           const bogx = data.points; // Already in BOGX
           setCoins(bogx);
+          setCoinAnimKey(k => k + 1);
           setCoinAnimation({ show: true, amount: WELCOME_BONUS });
         } else if (data.success) {
           // Already received - just sync points (convert to BOGX)
@@ -1333,6 +1413,7 @@ export default function MobilePage() {
         const GUEST_BONUS = 5.00; // 5.00 BOGX
         setCoins(prev => prev + GUEST_BONUS);
         localStorage.setItem('hasGuestWelcomeBonus', 'true');
+        setCoinAnimKey(k => k + 1);
         setCoinAnimation({ show: true, amount: GUEST_BONUS });
       }
     }
@@ -1355,6 +1436,7 @@ export default function MobilePage() {
         onOpenArticle={handleOpenArticle}
         readArticles={rewardedArticles}
         onShowLogin={() => { closeAllOverlays(); setShowLoginRequired(true); }}
+        onOpenStaticPage={(slug) => setStaticPageSlug(slug)}
       /> 
     )},
   ];
@@ -1468,6 +1550,7 @@ export default function MobilePage() {
 
   const handleSwipeWarningContinue = () => {
     // User wants to swipe away - deduct points
+    setCoinAnimKey(k => k + 1);
     setCoinAnimation({ show: true, amount: -currentReward });
     setCoins(prev => Math.max(0, prev - currentReward));
     setChallengeActive(false);
@@ -1515,6 +1598,7 @@ export default function MobilePage() {
   const handleSkipPenaltySkip = async () => {
     // User wants to skip - deduct fixed 100 points penalty
     const penalty = 100;
+    setCoinAnimKey(k => k + 1);
     setCoinAnimation({ show: true, amount: -penalty });
     setCoins(prev => Math.max(0, prev - penalty));
     setShowSkipPenalty(false);
@@ -1640,6 +1724,7 @@ export default function MobilePage() {
         hasPendingWager={hasPendingWager}
         rankingsOpen={showRankingsOverlay}
         onCoinsClick={() => { 
+          setOpenRankrollData(null);
           if (showRankingsOverlay) {
             setShowRankingsOverlay(false);
           } else {
@@ -1654,6 +1739,7 @@ export default function MobilePage() {
         onLogoClick={handleLogoClick}
         onNotificationClick={() => { 
           setOpenArticleId(null); 
+          setOpenRankrollData(null);
           setShowRankingsOverlay(false);
           setRadioOpen(false); // Close radio
           // If already on notifications, go back
@@ -1667,6 +1753,7 @@ export default function MobilePage() {
         }}
         onProfileClick={() => { 
           setOpenArticleId(null); 
+          setOpenRankrollData(null);
           setShowRankingsOverlay(false);
           setRadioOpen(false); // Close radio
           if (activeTab === 'profile') {
@@ -1678,6 +1765,7 @@ export default function MobilePage() {
         }}
         onRadioClick={() => {
           setOpenArticleId(null);
+          setOpenRankrollData(null);
           setShowRankingsOverlay(false);
           // If radio is open, close it
           if (radioOpen) {
@@ -1693,6 +1781,7 @@ export default function MobilePage() {
         }}
         onTVClick={() => {
           setOpenArticleId(null);
+          setOpenRankrollData(null);
           setShowRankingsOverlay(false);
           setRadioOpen(false); // Close radio
           if (activeTab === 'tv') {
@@ -1728,6 +1817,55 @@ export default function MobilePage() {
         onClose={() => setShowRewards(false)}
         onRedeem={handleRedeem}
       />
+
+      {/* Rankroll Loading Overlay - true root-level sibling of Header, guarantees it renders above it */}
+      {rankrollLoading && (
+        <div className="absolute inset-x-0 bottom-0 top-16 z-[60] bg-cream flex flex-col items-center justify-center gap-4">
+          <div className="relative">
+            <div className="w-12 h-12 border-4 border-[#D4873A]/20 rounded-full" />
+            <div className="absolute inset-0 w-12 h-12 border-4 border-[#D4873A] border-t-transparent rounded-full animate-spin" />
+          </div>
+          <p className="text-sm text-gray-500">Loading ranking...</p>
+        </div>
+      )}
+
+      {/* Rankroll Detail Page - true root-level sibling of Header, guarantees it renders above it */}
+      {openRankrollData && (
+        <div className="absolute inset-x-0 bottom-0 top-16 z-[60] bg-cream overflow-y-auto">
+          {/* Header - not sticky, scrolls away with content */}
+          <div className="bg-cream border-b border-warm">
+            <div className="flex items-center gap-3 px-4 py-3">
+              <button 
+                onClick={() => { setOpenRankrollData(null); setRankrollRefreshKey(k => k + 1); }}
+                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"
+              >
+                <ChevronLeft className="w-5 h-5 text-gray-600" />
+              </button>
+              <div className="flex-1 min-w-0">
+                <h1 className="font-display text-lg text-gray-900 truncate">{openRankrollData.title}</h1>
+                {openRankrollData.subtitle && (
+                  <p className="text-xs text-gray-500 truncate">{openRankrollData.subtitle}</p>
+                )}
+              </div>
+            </div>
+          </div>
+          {/* Content */}
+          <div className="p-4 pb-20">
+            {openRankrollData.description && (
+              <p className="text-sm text-gray-600 mb-4">{openRankrollData.description}</p>
+            )}
+            <RankingPollCard 
+              poll={openRankrollData}
+              onShowLogin={() => openOverlay('login', { loginView: 'login' })}
+              onCoinAnimation={(amount) => {
+                setCoins(prev => prev + amount);
+                setCoinAnimKey(k => k + 1);
+                setCoinAnimation({ show: true, amount, variant: 'gain' });
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Main Content Area - flex-1 to fill space between header and footer */}
       {/* Slides left when radio panel is open */}
@@ -1794,6 +1932,13 @@ export default function MobilePage() {
           </div>
         )}
 
+        {/* Static Page - slides in as overlay between header and footer */}
+        {staticPageSlug && (
+          <div className="absolute inset-0 z-[55] bg-[#F5F0E8] overflow-y-auto">
+            <StaticPageInline slug={staticPageSlug} defaultTitle={staticPageSlug} onClose={() => setStaticPageSlug(null)} />
+          </div>
+        )}
+
         {/* Author Page - Overlay when open (on top of article) */}
         {openAuthorName && (
           <div className="absolute inset-0 z-[60] bg-cream">
@@ -1805,43 +1950,6 @@ export default function MobilePage() {
                 handleOpenArticle(id);
               }}
             />
-          </div>
-        )}
-
-        {/* Rankroll Detail Page - Overlay when open */}
-        {openRankrollData && (
-          <div className="absolute inset-0 z-50 bg-cream overflow-y-auto">
-            {/* Header */}
-            <div className="sticky top-0 z-10 bg-cream border-b border-warm">
-              <div className="flex items-center gap-3 px-4 py-3">
-                <button 
-                  onClick={() => setOpenRankrollData(null)}
-                  className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"
-                >
-                  <ChevronLeft className="w-5 h-5 text-gray-600" />
-                </button>
-                <div className="flex-1 min-w-0">
-                  <h1 className="font-display text-lg text-gray-900 truncate">{openRankrollData.title}</h1>
-                  {openRankrollData.subtitle && (
-                    <p className="text-xs text-gray-500 truncate">{openRankrollData.subtitle}</p>
-                  )}
-                </div>
-              </div>
-            </div>
-            {/* Content */}
-            <div className="p-4 pb-20">
-              {openRankrollData.description && (
-                <p className="text-sm text-gray-600 mb-4">{openRankrollData.description}</p>
-              )}
-              <RankingPollCard 
-                poll={openRankrollData}
-                onShowLogin={() => openOverlay('login', { loginView: 'login' })}
-                onCoinAnimation={(amount) => {
-                  setCoins(prev => prev + amount);
-                  setCoinAnimation({ show: true, amount, variant: 'gain' });
-                }}
-              />
-            </div>
           </div>
         )}
 
@@ -1878,7 +1986,7 @@ export default function MobilePage() {
               <BattlesPage 
                 coins={coins} 
                 setCoins={setCoins} 
-                onCoinAnimation={(amount, variant) => setCoinAnimation({ show: true, amount, variant })} 
+                onCoinAnimation={(amount, variant) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount, variant }); }} 
                 onShowLogin={() => setShowLoginPage(true)} 
                 onBattleActiveChange={setIsBattleActive} 
                 pendingBattleId={pendingBattleId} 
@@ -1903,7 +2011,15 @@ export default function MobilePage() {
               <SoloTriviaGame 
                 onBack={() => setArcadeGame(null)}
                 onCoinsChange={(amount) => setCoins(prev => prev + amount)}
-                onCoinAnimation={(amount) => setCoinAnimation({ show: true, amount })}
+                onCoinAnimation={(amount) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }}
+              />
+            ) : arcadeGame === 'bogxinvaders' ? (
+              <BogxInvadersGame 
+                onBack={() => setArcadeGame(null)}
+                onCoinsChange={(amount) => { setCoins(prev => prev + amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }}
+                isLoggedIn={isLoggedIn}
+                userId={user?.id}
+                onShowLogin={() => setShowLoginPage(true)}
               />
             ) : (
               <ArcadePage 
@@ -1912,13 +2028,15 @@ export default function MobilePage() {
                     setArcadeGame('quizzbattle');
                   } else if (game === 'trivia') {
                     setArcadeGame('trivia');
+                  } else if (game === 'bogxinvaders') {
+                    setArcadeGame('bogxinvaders');
                   }
                 }}
                 onShowRankings={() => { setShowRankingsOverlay(true); setRankingsTab('ranking'); }}
                 onShowBattles={() => setArcadeGame('quizzbattle')}
                 battleAlertCount={pendingChallengeCount + activeBattleCount}
                 userId={user?.id}
-                onCoinsChange={(amount) => { setCoins(prev => prev + amount); setCoinAnimation({ show: true, amount }); }}
+                onCoinsChange={(amount) => { setCoins(prev => prev + amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }}
                 onPlaySpecificBattle={(battleId) => { setPendingBattleId(battleId); setArcadeGame('quizzbattle'); }}
               />
             )
@@ -1929,8 +2047,10 @@ export default function MobilePage() {
         <div className={`absolute inset-0 transition-opacity duration-150 ${activeTab === "voting" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"}`}>
           {activeTab === "voting" && (
             <RankrollPage 
+              key={rankrollRefreshKey}
               onOpenArticle={handleOpenArticle}
               onOpenRankroll={async (pollId) => {
+                setRankrollLoading(true);
                 try {
                   const res = await fetch(`/api/polls/${pollId}`);
                   const data = await res.json();
@@ -1939,10 +2059,13 @@ export default function MobilePage() {
                   }
                 } catch (e) {
                   console.error('Failed to load rankroll:', e);
+                } finally {
+                  setRankrollLoading(false);
                 }
               }}
               onCoinAnimation={(amount) => {
                 setCoins(prev => prev + amount);
+                setCoinAnimKey(k => k + 1);
                 setCoinAnimation({ show: true, amount, variant: 'gain' });
               }}
             />
@@ -1951,7 +2074,7 @@ export default function MobilePage() {
         
         {/* Shop Tab */}
         <div className={`absolute inset-0 transition-opacity duration-150 ${activeTab === "shop" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"}`}>
-          {activeTab === "shop" && <ShopPage coins={coins} onCoinsUsed={(amount) => { setCoins(prev => prev - amount); setCoinAnimation({ show: true, amount: -amount }); }} />}
+          {activeTab === "shop" && <ShopPage coins={coins} onCoinsUsed={(amount) => { setCoins(prev => prev - amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount: -amount }); }} />}
         </div>
         
         {/* TV Tab */}
@@ -1961,7 +2084,7 @@ export default function MobilePage() {
         
         {/* Battles Tab (accessed from Arcade -> QuizzBattle) */}
         <div className={`absolute inset-0 transition-opacity duration-150 ${activeTab === "battles" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"}`}>
-          {activeTab === "battles" && <BattlesPage coins={coins} setCoins={setCoins} onCoinAnimation={(amount, variant) => setCoinAnimation({ show: true, amount, variant })} onShowLogin={() => setShowLoginPage(true)} onBattleActiveChange={setIsBattleActive} pendingBattleId={pendingBattleId} onPendingBattleHandled={() => setPendingBattleId(null)} onGoToTrivia={() => { setActiveTab('arcade'); setArcadeGame('trivia'); }} onGoToArticles={() => setActiveTab('articles')} />}
+          {activeTab === "battles" && <BattlesPage coins={coins} setCoins={setCoins} onCoinAnimation={(amount, variant) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount, variant }); }} onShowLogin={() => setShowLoginPage(true)} onBattleActiveChange={setIsBattleActive} pendingBattleId={pendingBattleId} onPendingBattleHandled={() => setPendingBattleId(null)} onGoToTrivia={() => { setActiveTab('arcade'); setArcadeGame('trivia'); }} onGoToArticles={() => setActiveTab('articles')} />}
         </div>
         
         {/* Notifications Tab */}
@@ -1978,6 +2101,7 @@ export default function MobilePage() {
               onNewNotification={() => {}}
               onPointsAwarded={(amount) => {
                 // Points already added by API - just show animation and refresh
+                setCoinAnimKey(k => k + 1);
                 setCoinAnimation({ show: true, amount });
                 sounds.coins();
                 // Refresh coins from server to get updated total (convert to BOGX)
@@ -2009,7 +2133,7 @@ export default function MobilePage() {
 
       {/* Radio Panel - Slides in from right */}
       <div 
-        className={`fixed top-14 right-0 bottom-0 w-[85%] bg-cream z-[60] transition-transform duration-300 ease-out border-l border-warm ${
+        className={`fixed top-16 right-0 bottom-0 w-[85%] bg-cream z-[60] transition-transform duration-300 ease-out border-l border-warm ${
           radioOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
         }`}
       >
@@ -2296,10 +2420,9 @@ export default function MobilePage() {
               setArcadeGame(null);
             }
             // Mark battle badge as seen when entering arcade (won't re-show on refresh)
+            // But keep the actual counts - they should persist until battles are resolved
             if (tab === 'arcade') {
               if (user?.id) sessionStorage.setItem(`arcade_badge_seen_${user.id}`, '1');
-              setPendingChallengeCount(0);
-              setActiveBattleCount(0);
             }
             
             // Track previous tab before switching (for login close behavior)
@@ -2449,6 +2572,7 @@ export default function MobilePage() {
           // Add 100 points for watching ad
           const adReward = 100;
           setCoins(prev => prev + adReward);
+          setCoinAnimKey(k => k + 1);
           setCoinAnimation({ show: true, amount: adReward });
           setShowNoFunds(false);
           // Sync to database
@@ -2583,21 +2707,27 @@ export default function MobilePage() {
           <WelcomeBackModal
             isOpen={showWelcomeBack}
             onClose={() => setShowWelcomeBack(false)}
+            loading={welcomeLoading}
             username={user?.username || 'there'}
+            avatar={welcomeAvatar}
             currentRank={welcomeCurrentRank}
             rankChange={welcomeRankChange}
-            welcomeAI={welcomeAI}
-            notificationsEnabled={welcomeNotificationsEnabled}
-            unreadCount={unreadNotifications}
-            playedCount={playedCount}
-            totalCards={totalCards}
+            totalPoints={welcomeTotalPoints}
+            pointsToday={welcomePointsToday}
+            pointsToNextRank={welcomePointsToNext}
+            nextRankPosition={welcomeCurrentRank ? welcomeCurrentRank - 1 : undefined}
+            streak={welcomeStreak}
+            whileAwayEvents={welcomeEvents}
+            lastSeenAt={welcomeLastSeenAt}
+            dailyRewardReady={welcomeDailyReward}
             pendingChallengeCount={pendingChallengeCount}
             activeBattleCount={activeBattleCount}
+            currentLeader={currentLeader}
+            level={welcomeLevel}
+            levelName={welcomeLevelName}
+            levelProgress={welcomeLevelProgress}
+            pointsToNextLevel={welcomePointsToNextLevel}
             onPrimaryAction={handlePrimary}
-            onEnableNotifications={() => {
-              setShowWelcomeBack(false);
-              setActiveTab('notifications');
-            }}
             onGoToBattles={() => {
               setArcadeGame('quizzbattle');
               setActiveTab('arcade');
