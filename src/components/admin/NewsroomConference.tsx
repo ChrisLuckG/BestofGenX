@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { 
   X, Send, Loader2, ListOrdered, FileText, Tv, Radio, Plus, Check, ChevronDown, 
-  CheckCircle, AlertCircle, Users, Sparkles, ExternalLink, User, Eye
+  CheckCircle, AlertCircle, Users, Sparkles, ExternalLink, User, Eye, Pencil, Save,
+  RefreshCw, Trash2
 } from "lucide-react";
 import BlockEditor from "@/components/admin/BlockEditor";
 import ImagePickerModal from "@/components/admin/ImagePickerModal";
@@ -513,6 +514,19 @@ export default function NewsroomConference({
   const [apiStatus, setApiStatus] = useState<{ status: string; message: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Reporter Edit Modal state
+  const [editingReporter, setEditingReporter] = useState<{
+    id: string;
+    name: string;
+    nationality: string;
+    region: string;
+    specialty: string;
+    writingStyle: string;
+    personality: string;
+    responsibilities: string;
+  } | null>(null);
+  const [savingReporter, setSavingReporter] = useState(false);
+
   // Article editor state
   const [articleDraft, setArticleDraft] = useState<{
     _id?: string;
@@ -570,10 +584,61 @@ export default function NewsroomConference({
   function updatePieceMessages(pieceId: string, updater: (msgs: ConferenceMessage[]) => ConferenceMessage[]) {
     setPieces(prev => ({
       ...prev,
-      [activeDept]: prev[activeDept].map(p =>
-        p.id === pieceId ? { ...p, messages: updater(p.messages) } : p
+      [activeDept]: (prev[activeDept] || []).map(p =>
+        p.id === pieceId ? { ...p, messages: updater(p.messages || []) } : p
       ),
     }));
+  }
+
+  // Open reporter edit modal
+  function openReporterEdit(person: typeof roster[0]) {
+    const profile = reporterProfiles[person.id];
+    setEditingReporter({
+      id: person.id,
+      name: person.name,
+      nationality: profile?.nationality || '',
+      region: profile?.region || 'europe',
+      specialty: profile?.specialty || '',
+      writingStyle: profile?.writingStyle || '',
+      personality: profile?.personality || '',
+      responsibilities: profile?.responsibilities || '',
+    });
+  }
+
+  // Save reporter changes
+  async function saveReporterEdit() {
+    if (!editingReporter) return;
+    setSavingReporter(true);
+    try {
+      const res = await fetch(`/api/editorial/reporters/${editingReporter.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nationality: editingReporter.nationality,
+          region: editingReporter.region,
+          specialty: editingReporter.specialty,
+          writingStyle: editingReporter.writingStyle,
+          personality: editingReporter.personality,
+          responsibilities: editingReporter.responsibilities,
+        }),
+      });
+      if (res.ok) {
+        // Reload profiles
+        const profilesRes = await fetch('/api/editorial/reporters');
+        const profilesData = await profilesRes.json();
+        if (profilesData.profiles) {
+          const profileMap: Record<string, ReporterProfile> = {};
+          profilesData.profiles.forEach((p: ReporterProfile) => {
+            profileMap[p.userId] = p;
+          });
+          setLoadedProfiles(profileMap);
+        }
+        setEditingReporter(null);
+      }
+    } catch (err) {
+      console.error('Failed to save reporter:', err);
+    }
+    setSavingReporter(false);
   }
 
   // Toggle person in/out of conference
@@ -1645,108 +1710,69 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
           </div>
         </div>
 
-        {/* Body */}
-        <div className="flex flex-1 min-h-0 overflow-hidden">
-          {/* Roster panel */}
-          <div className="w-64 border-r border-gray-800 bg-gray-950 overflow-y-auto p-3 flex flex-col gap-2">
-            <div className="flex items-center justify-between px-1 mb-1">
-              <div className="text-[10px] uppercase tracking-widest text-gray-500 font-mono">
-                {DEPARTMENTS.find(d => d.id === activeDept)?.label} roster
-              </div>
-              {activeDept === 'authors' && (
-                <button
-                  onClick={() => {
-                    const allActive = roster.every(p => activeReporters[p.id]);
-                    const newState: Record<string, boolean> = {};
-                    roster.forEach(p => { newState[p.id] = !allActive; });
-                    setActiveReporters(newState);
-                  }}
-                  className="text-[10px] text-gray-500 hover:text-white"
-                >
-                  {roster.every(p => activeReporters[p.id]) ? 'Deselect All' : 'Select All'}
-                </button>
-              )}
+        {/* Body - NEW VERTICAL LAYOUT */}
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          {/* Reporter Chips Row - horizontal scrollable */}
+          <div className="border-b border-gray-800 bg-gray-950 px-4 py-3">
+            <div className="flex items-center gap-2 mb-2">
+              <span className={`text-[10px] font-mono uppercase tracking-widest ${theme.accentText} flex items-center gap-1 shrink-0`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${theme.dot} animate-pulse`} /> Live
+              </span>
+              <button
+                onClick={() => {
+                  const allActive = roster.every(p => activeReporters[p.id]);
+                  const newState: Record<string, boolean> = {};
+                  roster.forEach(p => { newState[p.id] = !allActive; });
+                  setActiveReporters(newState);
+                }}
+                className="text-[10px] text-gray-500 hover:text-white shrink-0"
+              >
+                {roster.every(p => activeReporters[p.id]) ? 'Deselect All' : 'Select All'}
+              </button>
             </div>
-            {activeDept === 'authors' ? (
-              roster.map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => togglePerson(p.id)}
-                  className={`w-full text-left rounded border px-3 py-2.5 transition-all ${
-                    activeReporters[p.id] ? theme.rosterActive : "bg-gray-900 border-gray-800 hover:border-gray-600"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    {activeReporters[p.id] && <span className="w-1.5 h-1.5 rounded-full bg-black shrink-0" />}
+            <div className="flex flex-wrap gap-2">
+              {roster.map(p => (
+                <div key={p.id} className="relative group">
+                  <button
+                    onClick={() => togglePerson(p.id)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${
+                      activeReporters[p.id] 
+                        ? theme.rosterActive 
+                        : "bg-gray-900 border-gray-700 hover:border-gray-500"
+                    }`}
+                  >
                     {p.avatar ? (
-                      <img src={p.avatar} alt={p.name} className="w-6 h-6 rounded-full object-cover" />
+                      <img src={p.avatar} alt={p.name} className="w-5 h-5 rounded-full object-cover" />
                     ) : (
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-black ${colorFor(p.id).bg}`}>
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-black ${colorFor(p.id).bg}`}>
                         {p.name.split(' ').map(n => n[0]).join('')}
                       </div>
                     )}
-                    <div className="flex-1 min-w-0">
-                      <div className={`text-sm font-semibold leading-tight truncate ${activeReporters[p.id] ? "text-black" : "text-gray-100"}`}>
-                        {p.name}
-                      </div>
-                      <div className={`text-xs leading-tight truncate ${activeReporters[p.id] ? theme.rosterActiveSub : "text-gray-500"}`}>
-                        {p.regionLabel}
-                      </div>
-                    </div>
-                    {/* Category icon - inside button, only when active */}
-                    {activeReporters[p.id] && (
-                      <select
-                        value={reporterCategories[p.id] || ''}
-                        onChange={(e) => { e.stopPropagation(); setReporterCategories(prev => ({ ...prev, [p.id]: e.target.value })); }}
-                        onClick={(e) => e.stopPropagation()}
-                        className="w-7 h-7 text-sm bg-black/20 rounded cursor-pointer appearance-none text-center shrink-0 hover:bg-black/40"
-                        title="Search category"
-                      >
-                        <option value="">🔍</option>
-                        <option value="sports">🏆</option>
-                        <option value="music">🎵</option>
-                        <option value="movies-tv">📺</option>
-                        <option value="lifestyle">✨</option>
-                        <option value="politics">🏛️</option>
-                        <option value="tech">💻</option>
-                      </select>
-                    )}
-                  </div>
-                </button>
-              ))
-            ) : (
-              <div className="text-center text-gray-500 text-sm py-8">
-                {activeDept === 'it' ? 'IT department coming soon' : 'Marketing department coming soon'}
-              </div>
-            )}
+                    <span className={`text-xs font-medium ${activeReporters[p.id] ? "text-black" : "text-gray-300"}`}>
+                      {p.name.split(' ')[0]}
+                    </span>
+                    <span className={`text-[10px] ${activeReporters[p.id] ? "text-black/60" : "text-gray-500"}`}>
+                      {p.regionLabel?.split(',')[0]}
+                    </span>
+                  </button>
+                  {/* Edit button - appears on hover */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); openReporterEdit(p); }}
+                    className="absolute -top-1 -right-1 w-5 h-5 bg-gray-700 hover:bg-[#D4873A] rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Edit reporter"
+                  >
+                    <Pencil size={10} className="text-white" />
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* Chat panel */}
-          <div className="flex-1 flex flex-col min-w-0">
-            {/* Live strip */}
-            <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-800 bg-gray-950">
-              <span className={`text-[10px] font-mono uppercase tracking-widest ${theme.accentText} flex items-center gap-1`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${theme.dot} animate-pulse`} /> Live
-              </span>
-              <div className="flex -space-x-2">
-                {activePeople.map(p => (
-                  <div
-                    key={p.id}
-                    title={p.name}
-                    className={`w-6 h-6 rounded-full border-2 border-gray-950 flex items-center justify-center text-[10px] font-bold text-black ${colorFor(p.id).bg}`}
-                  >
-                    {p.name.split(' ').map(n => n[0]).join('')}
-                  </div>
-                ))}
-              </div>
-              {activePeople.length === 0 && (
-                <span className="text-xs text-gray-500">No one active — select people from the roster.</span>
-              )}
-            </div>
-
-            {/* Messages */}
+          {/* Main Content Area */}
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            {/* Messages / Proposals */}
             {currentPiece ? (
-              <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+              <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
                 {messages.map(m => {
                   // System messages
                   if (m.from === 'system') {
@@ -2403,6 +2429,126 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
           currentImage={articleDraft.coverImage}
           searchTerm={articleDraft.personName}
         />
+      )}
+
+      {/* Reporter Edit Modal */}
+      {editingReporter && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/80">
+          <div className="bg-gray-800 rounded-xl w-full max-w-lg">
+            {/* Header */}
+            <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
+              <h3 className="text-sm font-bold flex items-center gap-2">
+                <Pencil size={14} className="text-[#D4873A]" />
+                Edit Reporter: {editingReporter.name}
+              </h3>
+              <button onClick={() => setEditingReporter(null)} className="text-gray-400 hover:text-white">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              {/* Nationality */}
+              <div>
+                <label className="block text-[10px] text-gray-400 mb-1 uppercase">Nationality</label>
+                <input
+                  type="text"
+                  value={editingReporter.nationality}
+                  onChange={e => setEditingReporter({ ...editingReporter, nationality: e.target.value })}
+                  placeholder="e.g. British, American, Japanese..."
+                  className="w-full bg-gray-700 border border-gray-600 px-3 py-2 rounded text-sm focus:border-[#D4873A] focus:outline-none"
+                />
+              </div>
+
+              {/* Region */}
+              <div>
+                <label className="block text-[10px] text-gray-400 mb-1 uppercase">Region</label>
+                <select
+                  value={editingReporter.region}
+                  onChange={e => setEditingReporter({ ...editingReporter, region: e.target.value })}
+                  className="w-full bg-gray-700 border border-gray-600 px-3 py-2 rounded text-sm focus:border-[#D4873A] focus:outline-none"
+                >
+                  {REPORTER_REGIONS.map(r => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Specialty */}
+              <div>
+                <label className="block text-[10px] text-gray-400 mb-1 uppercase">Specialty</label>
+                <select
+                  value={editingReporter.specialty}
+                  onChange={e => setEditingReporter({ ...editingReporter, specialty: e.target.value })}
+                  className="w-full bg-gray-700 border border-gray-600 px-3 py-2 rounded text-sm focus:border-[#D4873A] focus:outline-none"
+                >
+                  <option value="">— Any —</option>
+                  <option value="sports">🏆 Sports</option>
+                  <option value="music">🎵 Music</option>
+                  <option value="movies-tv">📺 Movies/TV</option>
+                  <option value="gaming">🎮 Gaming</option>
+                  <option value="politics">🏛️ Politics</option>
+                  <option value="lifestyle">✨ Lifestyle</option>
+                  <option value="tech">💻 Tech</option>
+                  <option value="rip">🕯️ RIP/Obituaries</option>
+                </select>
+              </div>
+
+              {/* Writing Style */}
+              <div>
+                <label className="block text-[10px] text-gray-400 mb-1 uppercase">Writing Style</label>
+                <input
+                  type="text"
+                  value={editingReporter.writingStyle}
+                  onChange={e => setEditingReporter({ ...editingReporter, writingStyle: e.target.value })}
+                  placeholder="e.g. nick-hornby, hunter-s-thompson..."
+                  className="w-full bg-gray-700 border border-gray-600 px-3 py-2 rounded text-sm focus:border-[#D4873A] focus:outline-none"
+                />
+              </div>
+
+              {/* Personality */}
+              <div>
+                <label className="block text-[10px] text-gray-400 mb-1 uppercase">Personality</label>
+                <textarea
+                  value={editingReporter.personality}
+                  onChange={e => setEditingReporter({ ...editingReporter, personality: e.target.value })}
+                  placeholder="Describe their personality, tone, quirks..."
+                  rows={2}
+                  className="w-full bg-gray-700 border border-gray-600 px-3 py-2 rounded text-sm focus:border-[#D4873A] focus:outline-none resize-none"
+                />
+              </div>
+
+              {/* Responsibilities */}
+              <div>
+                <label className="block text-[10px] text-gray-400 mb-1 uppercase">Responsibilities</label>
+                <textarea
+                  value={editingReporter.responsibilities}
+                  onChange={e => setEditingReporter({ ...editingReporter, responsibilities: e.target.value })}
+                  placeholder="What topics do they cover?"
+                  rows={2}
+                  className="w-full bg-gray-700 border border-gray-600 px-3 py-2 rounded text-sm focus:border-[#D4873A] focus:outline-none resize-none"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-4 py-3 border-t border-gray-700 flex justify-end gap-2">
+              <button
+                onClick={() => setEditingReporter(null)}
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-xs font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveReporterEdit}
+                disabled={savingReporter}
+                className="px-4 py-2 bg-[#D4873A] hover:bg-[#c07830] rounded text-xs font-bold text-white flex items-center gap-1 disabled:opacity-50"
+              >
+                {savingReporter ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
