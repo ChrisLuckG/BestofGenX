@@ -21,9 +21,13 @@ interface RankrollTabProps {
   // When set, auto-creates a NEW ranking with this title pre-filled (from Newsroom Conference)
   initialNewTitle?: string | null;
   initialNewDescription?: string | null;
+  // Pre-filled items from Newsroom Conference (with title, description, image)
+  initialNewItems?: Array<{ title: string; description: string; image: string }> | null;
+  // Category for the ranking
+  initialNewCategory?: string | null;
 }
 
-export default function RankrollTab({ initialEditPollId, onProposalHandled, hideListView, initialNewTitle, initialNewDescription }: RankrollTabProps = {}) {
+export default function RankrollTab({ initialEditPollId, onProposalHandled, hideListView, initialNewTitle, initialNewDescription, initialNewItems, initialNewCategory }: RankrollTabProps = {}) {
   const [polls, setPolls] = useState<any[]>([]);
   const [pollsLoading, setPollsLoading] = useState(false);
   const [editingPoll, setEditingPoll] = useState<any | null>(null);
@@ -226,25 +230,39 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
   // Auto-create a NEW ranking with pre-filled title (from Newsroom Conference)
   useEffect(() => {
     if (!initialNewTitle) return;
+    
+    // Use pre-filled items if provided, otherwise create empty placeholders
+    const items = initialNewItems && initialNewItems.length > 0
+      ? initialNewItems.map((item, idx) => ({
+          id: `item_${idx + 1}`,
+          title: item.title || '',
+          description: item.description || '',
+          image: item.image || '',
+          upvotes: 0,
+          downvotes: 0,
+          score: 0,
+        }))
+      : [
+          { id: 'item_1', title: '', description: '', image: '', upvotes: 0, downvotes: 0, score: 0 },
+          { id: 'item_2', title: '', description: '', image: '', upvotes: 0, downvotes: 0, score: 0 },
+          { id: 'item_3', title: '', description: '', image: '', upvotes: 0, downvotes: 0, score: 0 },
+        ];
+    
     setEditingPoll({
       title: initialNewTitle,
       subtitle: initialNewDescription || '',
       description: '',
       image: '',
       type: 'ranking',
-      items: [
-        { id: 'item_1', title: '', description: '', image: '', upvotes: 0, downvotes: 0, score: 0 },
-        { id: 'item_2', title: '', description: '', image: '', upvotes: 0, downvotes: 0, score: 0 },
-        { id: 'item_3', title: '', description: '', image: '', upvotes: 0, downvotes: 0, score: 0 },
-      ],
-      category: 'ranking',
-      status: 'inactive',
+      items,
+      category: 'ranking', // Must be: general, personality, opinion, prediction, ranking
+      status: 'draft', // Must be: active, closed, draft
       featured: false,
       _fromProposal: true,
     });
     // Also set the AI topic so "Generate All" can use it
     setAiTopic(initialNewTitle);
-  }, [initialNewTitle, initialNewDescription]);
+  }, [initialNewTitle, initialNewDescription, initialNewItems, initialNewCategory]);
 
   // Close the editor. If it was opened from a reporter proposal and was never actually
   // saved by the admin, DELETE the draft poll instead of leaving it orphaned.

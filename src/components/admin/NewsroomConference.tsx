@@ -9,6 +9,7 @@ import {
 import BlockEditor from "@/components/admin/BlockEditor";
 import ImagePickerModal from "@/components/admin/ImagePickerModal";
 import CountryFlag from "@/components/CountryFlag";
+import RankrollTab from "@/components/admin/RankrollTab";
 
 // Region constants (duplicated from ReporterProfile to avoid mongoose import on client)
 const REPORTER_REGIONS = [
@@ -440,6 +441,7 @@ export default function NewsroomConference({
   const [typing, setTyping] = useState<string | false>(false); // false or reporter name
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const cancelRequestedRef = useRef(false); // For stopping search (ref so loops can read it)
   
   // Global search filters
   const [globalCategory, setGlobalCategory] = useState<string>('');
@@ -577,6 +579,14 @@ export default function NewsroomConference({
   }>>([]);
   const [selectedRankrollTab, setSelectedRankrollTab] = useState<string | null>(null);
   const [savingRankroll, setSavingRankroll] = useState(false);
+  
+  // Rankroll Editor Modal state (opens the full RankrollTab editor)
+  const [rankrollEditorData, setRankrollEditorData] = useState<{
+    title: string;
+    description: string;
+    items: Array<{ title: string; description: string; image: string }>;
+    category: string;
+  } | null>(null);
 
   // Current piece
   const deptPieces = pieces[activeDept] || [];
@@ -829,7 +839,14 @@ export default function NewsroomConference({
     const deathday = diedMatch ? diedMatch[1].trim() : undefined;
     const causeOfDeath = causeMatch ? causeMatch[1].trim().split('\n')[0] : undefined;
     const country = countryMatch ? countryMatch[1].trim().split('\n')[0] : '';
-    const rawCategory = categoryMatch ? categoryMatch[1].trim().toLowerCase().split('\n')[0] : '';
+    let rawCategory = categoryMatch ? categoryMatch[1].trim().toLowerCase().split('\n')[0] : '';
+    // Normalize common variations
+    if (rawCategory === 'sport') rawCategory = 'sports';
+    if (rawCategory === 'movie' || rawCategory === 'tv' || rawCategory === 'film' || rawCategory === 'movies' || rawCategory === 'television') rawCategory = 'movies-tv';
+    if (rawCategory === 'game' || rawCategory === 'games' || rawCategory === 'video games') rawCategory = 'gaming';
+    if (rawCategory === 'musician' || rawCategory === 'singer' || rawCategory === 'band') rawCategory = 'music';
+    if (rawCategory === 'actor' || rawCategory === 'actress') rawCategory = 'movies-tv';
+    if (rawCategory === 'athlete' || rawCategory === 'football' || rawCategory === 'basketball' || rawCategory === 'soccer' || rawCategory === 'nfl' || rawCategory === 'nba') rawCategory = 'sports';
     const validCategories = ['sports', 'music', 'movies-tv', 'gaming', 'politics', 'tech', 'culture', 'lifestyle', 'rip'];
     const category = validCategories.includes(rawCategory) ? rawCategory : (globalCategory || 'culture');
     const description = descMatch ? descMatch[1].trim().slice(0, 300) : text.slice(0, 200);
@@ -939,8 +956,15 @@ export default function NewsroomConference({
       try {
         // Process reporters sequentially like Article flow
         const rankrollProposals: Proposal[] = [];
+        cancelRequestedRef.current = false;
         
         for (const reporter of targetReporters) {
+          // Check if cancel was requested
+          if (cancelRequestedRef.current) {
+            setTyping(false);
+            cancelRequestedRef.current = false;
+            break;
+          }
           setTyping(reporter.name);
           
           const res = await fetch('/api/editorial/chat', {
@@ -948,16 +972,36 @@ export default function NewsroomConference({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               reporterUserId: reporter.id,
-              message: `Propose a CREATIVE rankroll about: ${topic}
+              message: `Create a VIRAL ranking idea about: ${topic}
 
-Be creative like Ranker or Buzzfeed! Don't just do the obvious.
-For Mike Tyson: NOT just "knockouts" - think "Craziest Moments", "Best Trash Talk", "Wildest Press Conferences"
-For De Niro: NOT just "best movies" - think "Most Underrated Roles", "Scariest Characters", "Funniest Moments"
+You're writing for sports/entertainment fans who want FUN, ENGAGING content.
+
+🎯 MIX OF IDEAS - some should be SPORT-focused, some ENTERTAINMENT/VIRAL:
+
+SPORT ideas (with a twist):
+- "Tom Brady's Most Clutch 4th Quarter Drives"
+- "Touchdowns That Made Commentators Lose Their Minds"
+- "Games Where Tom Brady Destroyed a Team Single-Handedly"
+- "Tom Brady Passes That Defied Physics"
+
+ENTERTAINMENT/VIRAL ideas:
+- "Tom Brady's Most Savage Trash Talk Moments"
+- "Times Tom Brady Made Defenders Look Stupid"  
+- "Tom Brady Outfits That Broke the Internet"
+- "Celebrities Who Got Destroyed Trying to Roast Tom Brady"
+- "Tom Brady Commercials That Were Actually Hilarious"
+
+🚫 BANNED generic titles:
+- "Best Moments" / "Greatest Plays" / "Top 10" - TOO VAGUE
+- Just "Career Highlights" - BORING
+
+Be SPECIFIC! Use real games, real opponents, real dates when possible.
 
 Reply in this format:
-TITLE: [creative headline with number, e.g. "8 Times Mike Tyson Was Absolutely Unhinged"]
-ITEMS: [comma-separated list of the actual items you'd rank, e.g. "Ear Bite vs Holyfield, Face Tattoo Reveal, Pigeon Obsession Interview, ..."]
-DESCRIPTION: [1-2 sentences teaser]`,
+TITLE: [viral headline - make people WANT to click and vote]
+ITEMS: [8-12 specific items with real names/events/opponents, comma-separated]
+CATEGORY: [sports, music, movies-tv, culture, lifestyle]
+DESCRIPTION: [1 sentence hook that makes people curious]`,
               userId,
               proposalOnly: true,
               contentType: 'rankroll',
@@ -966,9 +1010,10 @@ DESCRIPTION: [1-2 sentences teaser]`,
           const data = await res.json();
           const text = data.response || '';
           
-          // Parse response - title, items, and description
+          // Parse response - title, items, category, and description
           const titleMatch = text.match(/TITLE:\s*(.+)/i);
           const itemsMatch = text.match(/ITEMS:\s*(.+)/i);
+          const categoryMatch = text.match(/CATEGORY:\s*(.+)/i);
           const descMatch = text.match(/DESCRIPTION:\s*(.+)/i);
           
           const title = titleMatch ? titleMatch[1].trim() : `Top 10 ${topic}`;
@@ -976,14 +1021,23 @@ DESCRIPTION: [1-2 sentences teaser]`,
           const items = itemsRaw.split(',').map((s: string) => s.trim()).filter((s: string) => s.length > 0);
           const description = descMatch ? descMatch[1].trim().replace(/\n/g, ' ').slice(0, 200) : '';
           
+          // Parse and normalize category
+          let rawCat = categoryMatch ? categoryMatch[1].trim().toLowerCase().split('\n')[0] : 'culture';
+          if (rawCat === 'sport') rawCat = 'sports';
+          if (rawCat === 'movie' || rawCat === 'tv' || rawCat === 'film' || rawCat === 'entertainment') rawCat = 'movies-tv';
+          if (rawCat === 'athlete' || rawCat === 'football' || rawCat === 'nfl' || rawCat === 'nba') rawCat = 'sports';
+          const validCats = ['sports', 'music', 'movies-tv', 'gaming', 'culture', 'lifestyle'];
+          const category = validCats.includes(rawCat) ? rawCat : 'sports';
+          
           rankrollProposals.push({
             name: title,
-            birthday: itemsRaw.slice(0, 100) + (itemsRaw.length > 100 ? '...' : ''), // Show items preview
+            birthday: itemsRaw, // FULL items list - needed for selectProposal()
             country: `${items.length} items`,
             profession: '',
             description,
             reporterId: reporter.id,
             reporterName: reporter.name,
+            category,
             isError: items.length < 3,
             errorReason: items.length < 3 ? 'Not enough items' : undefined,
           });
@@ -1109,6 +1163,13 @@ DESCRIPTION: [1 sentence about them]`;
       const alreadyProposed: string[] = []; // Track names to avoid duplicates
       
       for (let i = 0; i < targetReporters.length; i++) {
+        // Check if cancel was requested
+        if (cancelRequestedRef.current) {
+          setTyping(false);
+          cancelRequestedRef.current = false;
+          break;
+        }
+        
         const reporter = targetReporters[i];
         
         // Show this reporter is searching
@@ -1279,13 +1340,14 @@ DESCRIPTION: [1 sentence about them]`;
 
       const text = data.response || '';
       
-      // Parse structured format: NAME: / BORN: / DIED: / CAUSE: / COUNTRY: / DESCRIPTION:
+      // Parse structured format: NAME: / BORN: / DIED: / CAUSE: / COUNTRY: / CATEGORY: / DESCRIPTION:
       const nameMatch = text.match(/NAME:\s*(.+)/i);
       const bornMatch = text.match(/BORN:\s*(\d{1,2}\.\d{1,2}\.\d{4})/i);
       const diedMatch = text.match(/DIED:\s*(\d{1,2}\.\d{1,2}\.\d{4})/i);
       const causeMatch = text.match(/CAUSE:\s*(.+)/i);
       const countryMatch = text.match(/COUNTRY:\s*(.+)/i);
-      const descMatch = text.match(/DESCRIPTION:\s*([\s\S]+?)(?=\n(?:NAME|BORN|DIED|CAUSE|COUNTRY):|$)/i);
+      const categoryMatch = text.match(/CATEGORY:\s*(.+)/i);
+      const descMatch = text.match(/DESCRIPTION:\s*([\s\S]+?)(?=\n(?:NAME|BORN|DIED|CAUSE|COUNTRY|CATEGORY):|$)/i);
       
       // Fallback to legacy parsing if structured format not found
       let name = nameMatch ? nameMatch[1].trim() : 'Unknown';
@@ -1294,6 +1356,17 @@ DESCRIPTION: [1 sentence about them]`;
       const causeOfDeath = causeMatch ? causeMatch[1].trim().split('\n')[0].trim() : undefined;
       let country = countryMatch ? countryMatch[1].trim().split('\n')[0].trim() : '';
       let description = descMatch ? descMatch[1].trim().slice(0, 300) : '';
+      
+      // Parse and normalize category
+      let rawCategory = categoryMatch ? categoryMatch[1].trim().toLowerCase().split('\n')[0] : '';
+      if (rawCategory === 'sport') rawCategory = 'sports';
+      if (rawCategory === 'movie' || rawCategory === 'tv' || rawCategory === 'film' || rawCategory === 'movies' || rawCategory === 'television') rawCategory = 'movies-tv';
+      if (rawCategory === 'game' || rawCategory === 'games' || rawCategory === 'video games') rawCategory = 'gaming';
+      if (rawCategory === 'musician' || rawCategory === 'singer' || rawCategory === 'band') rawCategory = 'music';
+      if (rawCategory === 'actor' || rawCategory === 'actress') rawCategory = 'movies-tv';
+      if (rawCategory === 'athlete' || rawCategory === 'football' || rawCategory === 'basketball' || rawCategory === 'soccer' || rawCategory === 'nfl' || rawCategory === 'nba') rawCategory = 'sports';
+      const validCategories = ['sports', 'music', 'movies-tv', 'gaming', 'politics', 'tech', 'culture', 'lifestyle', 'rip'];
+      const category = validCategories.includes(rawCategory) ? rawCategory : (globalCategory || 'culture');
       
       // Legacy fallback parsing
       if (name === 'Unknown') {
@@ -1349,6 +1422,7 @@ DESCRIPTION: [1 sentence about them]`;
         description,
         reporterId,
         reporterName,
+        category,
         isRIP: !!deathday,
         isError: !isValidGenX || isDuplicate,
         errorReason: isDuplicate 
@@ -1416,7 +1490,7 @@ DESCRIPTION: [1 sentence about them]`;
     if (!currentPiece) return;
     if (selectingProposal) return; // Prevent double-click
     
-    // For RANKROLL: generate the full ranking with items + images, then show as tab
+    // For RANKROLL: generate items with images, then open the full RankrollTab editor
     if (currentPiece.type === 'rankroll') {
       setSelectingProposal(proposal.reporterId);
       
@@ -1441,42 +1515,68 @@ DESCRIPTION: [1 sentence about them]`;
         
         // Get Tenor GIFs for each item
         const itemsWithImages = await Promise.all(
-          itemTitles.map(async (title: string, idx: number) => {
+          itemTitles.map(async (title: string) => {
             try {
               const gifRes = await fetch(`/api/tenor-search?q=${encodeURIComponent(title)}`);
               const gifData = await gifRes.json();
               return {
-                id: `item_${idx + 1}`,
                 title,
                 description: '',
                 image: gifData.success ? gifData.url : '',
-                upvotes: 0,
-                downvotes: 0,
-                score: 0,
               };
             } catch {
-              return { id: `item_${idx + 1}`, title, description: '', image: '', upvotes: 0, downvotes: 0, score: 0 };
+              return { title, description: '', image: '' };
             }
           })
         );
         
+        // Generate descriptions for all items in one API call
+        try {
+          const descRes = await fetch('/api/editorial/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              reporterUserId: proposal.reporterId,
+              message: `Write SHORT descriptions (1-2 sentences each) for these ranking items about "${proposal.name}":
+
+${itemTitles.map((t: string, i: number) => `${i + 1}. ${t}`).join('\n')}
+
+Reply ONLY with numbered descriptions, one per line:
+1. [description for item 1]
+2. [description for item 2]
+...
+
+Make them FUN and ENGAGING - not boring Wikipedia summaries!`,
+              userId,
+              proposalOnly: true,
+            }),
+          });
+          const descData = await descRes.json();
+          const descText = descData.response || '';
+          
+          // Parse descriptions
+          const descLines = descText.split('\n').filter((l: string) => /^\d+\./.test(l.trim()));
+          descLines.forEach((line: string, idx: number) => {
+            if (itemsWithImages[idx]) {
+              const desc = line.replace(/^\d+\.\s*/, '').trim();
+              itemsWithImages[idx].description = desc;
+            }
+          });
+        } catch (descErr) {
+          console.error('Failed to generate descriptions:', descErr);
+          // Continue without descriptions
+        }
+        
         setTyping(false);
         setSelectingProposal(null);
         
-        // Add as tab (like articles)
-        const newRankrollId = generateId();
-        const newRankroll = {
-          id: newRankrollId,
+        // Open the full RankrollTab editor modal with pre-filled data
+        setRankrollEditorData({
           title: proposal.name,
-          subtitle: proposal.description,
+          description: proposal.description,
           items: itemsWithImages,
-          category: 'ranking',
-          reporterName: proposal.reporterName,
-          reporterId: proposal.reporterId,
-        };
-        
-        setCreatedRankrolls(prev => [...prev, newRankroll]);
-        setSelectedRankrollTab(newRankrollId);
+          category: proposal.category || 'ranking',
+        });
         
         // Add success message
         updatePieceMessages(currentPiece.id, msgs => [
@@ -1484,7 +1584,7 @@ DESCRIPTION: [1 sentence about them]`;
           { 
             id: generateId(), 
             from: 'result', 
-            text: `✅ Ranking "${proposal.name}" created with ${itemsWithImages.length} items`,
+            text: `✅ Opening editor for "${proposal.name}" with ${itemsWithImages.length} items`,
             resultType: 'rankroll' as const,
           },
         ]);
@@ -2048,17 +2148,29 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                   placeholder="e.g. Robert De Niro best movies, 90s hip hop albums, Mike Tyson fights..."
                   className="flex-1 bg-gray-700 px-3 py-2 rounded text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-[#D4873A]"
                 />
-                <button
-                  onClick={() => {
-                    if (rankrollInput.trim() && !typing) {
-                      sendMessage(`Propose a rankroll about: ${rankrollInput.trim()}`);
-                    }
-                  }}
-                  disabled={!!typing || !rankrollInput.trim()}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded text-xs font-bold shrink-0 disabled:opacity-50 ${theme.sendBtn}`}
-                >
-                  {typing ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Send
-                </button>
+                {typing ? (
+                  <button
+                    onClick={() => {
+                      cancelRequestedRef.current = true;
+                      setTyping(false); // Immediately stop typing indicator
+                    }}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded text-xs font-bold shrink-0 bg-red-600 hover:bg-red-500 text-white"
+                  >
+                    <X size={12} /> Stop
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      if (rankrollInput.trim() && !typing) {
+                        sendMessage(`Propose a rankroll about: ${rankrollInput.trim()}`);
+                      }
+                    }}
+                    disabled={!rankrollInput.trim()}
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded text-xs font-bold shrink-0 disabled:opacity-50 ${theme.sendBtn}`}
+                  >
+                    <Send size={12} /> Send
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -2132,7 +2244,7 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                                 <div className="text-xs text-gray-300 mb-1 line-clamp-1">{proposal.name}</div>
                               )}
                               {proposal.birthday && (
-                                <div className="text-[9px] text-gray-500 mb-1">📅 {proposal.birthday}</div>
+                                <div className="text-[9px] text-gray-500 mb-1">📅 {proposal.birthday?.length > 60 ? proposal.birthday.slice(0, 60) + '...' : proposal.birthday}</div>
                               )}
                               <p className="text-[10px] text-red-400/80 flex-1">{proposal.errorReason}</p>
                               <button
@@ -2163,7 +2275,7 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                               <div className="flex items-center gap-1.5 text-[11px] text-gray-300 mb-1">
                                 <span className="font-semibold text-white">{proposal.name}</span>
                                 <span className="text-gray-500">·</span>
-                                <span className="text-gray-400">{proposal.birthday}</span>
+                                <span className="text-gray-400">{proposal.birthday?.length > 80 ? proposal.birthday.slice(0, 80) + '...' : proposal.birthday}</span>
                                 {proposal.country && (
                                   <CountryFlag 
                                     flag={
@@ -2927,6 +3039,20 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
           </div>
         );
       })()}
+
+      {/* Full RankrollTab Editor Modal (from proposal selection) */}
+      {rankrollEditorData && (
+        <div className="fixed inset-0 z-[70] bg-black/95">
+          <RankrollTab
+            hideListView={true}
+            initialNewTitle={rankrollEditorData.title}
+            initialNewDescription={rankrollEditorData.description}
+            initialNewItems={rankrollEditorData.items}
+            initialNewCategory={rankrollEditorData.category}
+            onProposalHandled={() => setRankrollEditorData(null)}
+          />
+        </div>
+      )}
     </div>
   );
 }

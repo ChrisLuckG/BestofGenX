@@ -17,7 +17,7 @@ function loadSystemPrompt(): string {
 
 function appendToErrorLearning(lesson: string): void {
   try {
-    const promptPath = path.join(process.cwd(), 'src', 'prompts', 'system-prompt.txt');
+    const promptPath = path.join(process.cwd(), 'src', 'prompts', 'mike.txt');
     let content = fs.readFileSync(promptPath, 'utf-8');
     
     // Find the FEHLER-LERNUNG section and append

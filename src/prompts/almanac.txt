@@ -144,11 +144,12 @@ TIMEFRAME:
 - alltime: Full career and Gen X era impact
 
 CONTENT STRUCTURE (HTML):
-- Start with 1-2 intro paragraphs (<p> tags, NO heading before)
-- Then 3-5 sections, EACH with <h2>Title</h2> followed by 1-3 <p> paragraphs
+- Start with 2-3 intro paragraphs (<p> tags, NO heading before)
+- Then 6-8 sections, EACH with <h2>Title</h2> followed by 3-5 <p> paragraphs
 - <strong> for important names/titles
 - Optional <ul><li> for lists
 - DO NOT repeat the article title in the content
+- LENGTH: MINIMUM 1500 words — this is a magazine feature, not a blog post
 
 SHOW, DON'T TELL — CRITICAL:
 NEVER make empty claims. ALWAYS back up with a concrete mini-story or specific detail.
