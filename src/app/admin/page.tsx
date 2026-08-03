@@ -45,9 +45,10 @@ const CONFIG_TABS: { id: TabType; label: string }[] = [
 export default function AdminPage() {
   const { user, isLoggedIn } = useAuth();
   const [authChecked, setAuthChecked] = useState(false);
-  // When a reporter's rankroll proposal is saved as a draft from the Newsroom Conference,
-  // this holds the poll id so RankrollTab auto-opens the real editor for it.
-  const [pendingRankrollPollId, setPendingRankrollPollId] = useState<string | null>(null);
+  // When a reporter's rankroll proposal is selected from the Newsroom Conference,
+  // this holds the title/description so RankrollTab auto-creates a new ranking.
+  const [pendingRankrollTitle, setPendingRankrollTitle] = useState<string | null>(null);
+  const [pendingRankrollDescription, setPendingRankrollDescription] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>(() => {
     // Restore last active tab from localStorage
     if (typeof window !== 'undefined') {
@@ -188,10 +189,11 @@ export default function AdminPage() {
         {activeTab === 'articles' && <ArticlesTab userId={user?.id} />}
         {activeTab === 'users' && <UsersTab userId={user?.id} onGoToArticles={() => setActiveTab('articles')} />}
         {activeTab === 'rewards' && <RewardsTab />}
-        {(activeTab === 'rankroll' || pendingRankrollPollId) && (
+        {(activeTab === 'rankroll' || pendingRankrollTitle) && (
           <RankrollTab
-            initialEditPollId={pendingRankrollPollId}
-            onProposalHandled={() => setPendingRankrollPollId(null)}
+            initialNewTitle={pendingRankrollTitle}
+            initialNewDescription={pendingRankrollDescription}
+            onProposalHandled={() => { setPendingRankrollTitle(null); setPendingRankrollDescription(null); }}
             hideListView={activeTab !== 'rankroll'}
           />
         )}
@@ -205,9 +207,10 @@ export default function AdminPage() {
         {activeTab === 'conference' && (
           <NewsroomConference
             userId={user?.id}
-            onRankrollProposed={(pollId: string) => {
+            onRankrollProposed={(title: string, description: string) => {
               // Stay on the Conference tab — the editor opens as an overlay on top of it.
-              setPendingRankrollPollId(pollId);
+              setPendingRankrollTitle(title);
+              setPendingRankrollDescription(description);
             }}
           />
         )}

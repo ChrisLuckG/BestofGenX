@@ -18,9 +18,12 @@ interface RankrollTabProps {
   // hidden. Used to show the "Edit Ranking List" editor on top of another tab (e.g. the
   // Newsroom Conference) without navigating away from it.
   hideListView?: boolean;
+  // When set, auto-creates a NEW ranking with this title pre-filled (from Newsroom Conference)
+  initialNewTitle?: string | null;
+  initialNewDescription?: string | null;
 }
 
-export default function RankrollTab({ initialEditPollId, onProposalHandled, hideListView }: RankrollTabProps = {}) {
+export default function RankrollTab({ initialEditPollId, onProposalHandled, hideListView, initialNewTitle, initialNewDescription }: RankrollTabProps = {}) {
   const [polls, setPolls] = useState<any[]>([]);
   const [pollsLoading, setPollsLoading] = useState(false);
   const [editingPoll, setEditingPoll] = useState<any | null>(null);
@@ -219,6 +222,29 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
       setEditingPoll({ ...poll, _fromProposal: true });
     }
   }, [initialEditPollId, polls]);
+
+  // Auto-create a NEW ranking with pre-filled title (from Newsroom Conference)
+  useEffect(() => {
+    if (!initialNewTitle) return;
+    setEditingPoll({
+      title: initialNewTitle,
+      subtitle: initialNewDescription || '',
+      description: '',
+      image: '',
+      type: 'ranking',
+      items: [
+        { id: 'item_1', title: '', description: '', image: '', upvotes: 0, downvotes: 0, score: 0 },
+        { id: 'item_2', title: '', description: '', image: '', upvotes: 0, downvotes: 0, score: 0 },
+        { id: 'item_3', title: '', description: '', image: '', upvotes: 0, downvotes: 0, score: 0 },
+      ],
+      category: 'ranking',
+      status: 'inactive',
+      featured: false,
+      _fromProposal: true,
+    });
+    // Also set the AI topic so "Generate All" can use it
+    setAiTopic(initialNewTitle);
+  }, [initialNewTitle, initialNewDescription]);
 
   // Close the editor. If it was opened from a reporter proposal and was never actually
   // saved by the admin, DELETE the draft poll instead of leaving it orphaned.

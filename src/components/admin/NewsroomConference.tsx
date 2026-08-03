@@ -4,10 +4,11 @@ import { useState, useEffect, useRef } from "react";
 import { 
   X, Send, Loader2, ListOrdered, FileText, Tv, Radio, Plus, Check, ChevronDown, 
   CheckCircle, AlertCircle, Users, Sparkles, ExternalLink, User, Eye, Pencil, Save,
-  RefreshCw, Trash2
+  RefreshCw, Trash2, Calendar
 } from "lucide-react";
 import BlockEditor from "@/components/admin/BlockEditor";
 import ImagePickerModal from "@/components/admin/ImagePickerModal";
+import CountryFlag from "@/components/CountryFlag";
 
 // Region constants (duplicated from ReporterProfile to avoid mongoose import on client)
 const REPORTER_REGIONS = [
@@ -59,6 +60,7 @@ interface Proposal {
   isRIP?: boolean; // True if this is a death anniversary, not birthday
   isEvent?: boolean; // True if this is an ON THIS DAY event, not a person
   isError?: boolean; // True if reporter couldn't find anyone
+  errorReason?: string; // Why the proposal failed
 }
 
 interface ConferenceMessage {
@@ -109,7 +111,7 @@ interface NewsroomConferenceProps {
   userId?: string;
   onClose?: () => void;
   onGoToArticles?: () => void;
-  onRankrollProposed?: (pollId: string) => void;
+  onRankrollProposed?: (title: string, description: string) => void;
 }
 
 // ---- Constants ------------------------------------------------------------
@@ -442,6 +444,7 @@ export default function NewsroomConference({
   // Global search filters
   const [globalCategory, setGlobalCategory] = useState<string>('');
   const [globalCountry, setGlobalCountry] = useState<string>('');
+  const [rankrollInput, setRankrollInput] = useState<string>(''); // Free text for Rank template
   
   // Pending reporters (for proposal loading states)
   const [pendingReporters, setPendingReporters] = useState<Array<{id: string; name: string; status: 'searching' | 'done' | 'error'; error?: string}>>([]);
@@ -549,6 +552,31 @@ export default function NewsroomConference({
   } | null>(null);
   const [showImagePicker, setShowImagePicker] = useState(false);
   const [articleTagInput, setArticleTagInput] = useState("");
+  
+  // Created articles tabs (shown below chat)
+  const [createdArticles, setCreatedArticles] = useState<Array<{
+    id: string;
+    title: string;
+    reporterName: string;
+    draft: typeof articleDraft;
+  }>>([]);
+  const [selectedArticleTab, setSelectedArticleTab] = useState<string | null>(null);
+  const [selectingProposal, setSelectingProposal] = useState<string | null>(null); // Track which proposal is being selected
+  const [retryingReporter, setRetryingReporter] = useState<string | null>(null); // Track which reporter is retrying
+  const [savingArticle, setSavingArticle] = useState(false); // Track article save
+  
+  // Created rankrolls tabs (shown below chat, like articles)
+  const [createdRankrolls, setCreatedRankrolls] = useState<Array<{
+    id: string;
+    title: string;
+    subtitle: string;
+    items: Array<{ id: string; title: string; description: string; image: string; upvotes: number; downvotes: number; score: number }>;
+    category: string;
+    reporterName: string;
+    reporterId: string;
+  }>>([]);
+  const [selectedRankrollTab, setSelectedRankrollTab] = useState<string | null>(null);
+  const [savingRankroll, setSavingRankroll] = useState(false);
 
   // Current piece
   const deptPieces = pieces[activeDept] || [];
@@ -609,19 +637,21 @@ export default function NewsroomConference({
   async function saveReporterEdit() {
     if (!editingReporter) return;
     setSavingReporter(true);
+    
+    const updateData = {
+      region: editingReporter.region,
+      writingStyle: editingReporter.writingStyle,
+    };
+    console.log('Saving reporter:', editingReporter.id, updateData);
+    
     try {
       const res = await fetch(`/api/editorial/reporters/${editingReporter.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nationality: editingReporter.nationality,
-          region: editingReporter.region,
-          specialty: editingReporter.specialty,
-          writingStyle: editingReporter.writingStyle,
-          personality: editingReporter.personality,
-          responsibilities: editingReporter.responsibilities,
-        }),
+        body: JSON.stringify(updateData),
       });
+      const result = await res.json();
+      console.log('Save result:', result);
       if (res.ok) {
         // Reload profiles
         const profilesRes = await fetch('/api/editorial/reporters');
@@ -641,135 +671,9 @@ export default function NewsroomConference({
     setSavingReporter(false);
   }
 
-  // Toggle person in/out of conference
-  async function togglePerson(personId: string) {
-    const person = roster.find(p => p.id === personId);
-    if (!person) return;
-
-    const willActivate = !activeReporters[personId];
-    setActiveReporters(prev => ({ ...prev, [personId]: willActivate }));
-
-    if (willActivate && currentPiece) {
-      // Check if this reporter already responded in this piece
-      const alreadyResponded = messages.some(m => 
-        m.from === personId || 
-        (m.from === 'proposals' && m.proposals?.some(p => p.reporterId === personId)) ||
-        (m.from === 'system' && m.text.includes(person.name))
-      );
-      
-      if (alreadyResponded) {
-        // Just show join message, don't auto-prompt again
-        updatePieceMessages(currentPiece.id, msgs => [
-          ...msgs,
-          { id: generateId(), from: 'system', text: `${person.name} rejoined the conference.` },
-        ]);
-        return;
-      }
-      
-      updatePieceMessages(currentPiece.id, msgs => [
-        ...msgs,
-        { id: generateId(), from: 'system', text: `${person.name} joined the conference.` },
-      ]);
-
-      // Find the last editor message (the topic/prompt)
-      const lastEditorMsg = [...messages].reverse().find(m => m.from === 'me');
-      if (lastEditorMsg) {
-        // Auto-send the topic to the new reporter
-        setTyping(person.name);
-        const today = new Date();
-        const dayMonth = `${today.getDate()}.${(today.getMonth() + 1).toString().padStart(2, '0')}`;
-        
-        const proposalPrompt = `${lastEditorMsg.text}
-
-TODAY IS ${dayMonth} — find a celebrity born on THIS EXACT DAY (${dayMonth}) in your CONTINENT/REGION.
-
-YOU MUST FIND SOMEONE. There are thousands of celebrities born on every day of the year. Search harder!
-
-RULES:
-1. Birth year MUST be 1965-1980 (Generation X). NO exceptions!
-2. Search your ENTIRE continent - ALL countries in your region.
-3. Include: actors, musicians, athletes, directors, TV hosts, comedians, models, authors, politicians, business leaders, etc.
-4. If you can't find someone famous, find someone notable in sports, music, or entertainment.
-5. DO NOT say "I couldn't find anyone" - there is ALWAYS someone. Search Wikipedia, IMDB, sports databases.
-
-Format EXACTLY like this:
-**Name** (DD.MM.YYYY) - Country - 2-3 sentences about why they matter to GenX and their achievements.
-
-DO NOT write the article yet, just the proposal.`;
-
-        try {
-          const res = await fetch('/api/editorial/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              reporterUserId: personId,
-              message: proposalPrompt,
-              userId,
-            }),
-          });
-          const data = await res.json();
-          setTyping(false);
-
-          const text = data.response || '';
-          
-          // Parse the response
-          const dateMatch = text.match(/(\d{1,2}\.\d{1,2}\.\d{4})/);
-          const birthday = dateMatch ? dateMatch[1] : '';
-          
-          let name = 'Unknown';
-          const boldNameMatch = text.match(/\*\*([A-ZÀ-Ž][a-zà-ž']+(?:[-\s]+[A-ZÀ-Ž]?[a-zà-ž']+)*)\*\*/);
-          if (boldNameMatch) {
-            name = boldNameMatch[1].trim();
-          } else {
-            const anyNameDate = text.match(/([A-ZÀ-Ž][a-zà-ž']+(?:\s+[A-ZÀ-Ž][a-zà-ž']+)+)\s*\(\d{1,2}\.\d{1,2}\.\d{4}\)/);
-            if (anyNameDate) name = anyNameDate[1].trim();
-          }
-
-          const country = person.regionLabel || '';
-          const description = text.replace(/\*\*/g, '').slice(0, 250);
-
-          // Check if valid GenX (1965-1980) and not rejected
-          let isValidGenX = name !== 'Unknown' && birthday;
-          if (isValidGenX) {
-            const yearMatch = birthday.match(/(\d{4})/);
-            if (yearMatch) {
-              const year = parseInt(yearMatch[1]);
-              if (year < 1965 || year > 1980) isValidGenX = false;
-            }
-            if (description.toLowerCase().includes('outside')) isValidGenX = false;
-            if (description.toLowerCase().includes('not genx')) isValidGenX = false;
-            if (description.toLowerCase().includes('baby boomer')) isValidGenX = false;
-          }
-
-          if (isValidGenX) {
-            updatePieceMessages(currentPiece.id, msgs => [
-              ...msgs,
-              {
-                id: generateId(),
-                from: 'proposals',
-                text: '1 new proposal',
-                proposals: [{
-                  name,
-                  birthday,
-                  country,
-                  profession: '',
-                  description,
-                  reporterId: personId,
-                  reporterName: person.name,
-                }],
-              },
-            ]);
-          } else {
-            updatePieceMessages(currentPiece.id, msgs => [
-              ...msgs,
-              { id: generateId(), from: 'system', text: `${person.name} couldn't find a GenX person for today.` },
-            ]);
-          }
-        } catch (err) {
-          setTyping(false);
-        }
-      }
-    }
+  // Toggle person in/out of conference - JUST SELECT, NO AUTO-SEARCH
+  function togglePerson(personId: string) {
+    setActiveReporters(prev => ({ ...prev, [personId]: !prev[personId] }));
   }
 
   // Create a new piece
@@ -903,7 +807,79 @@ DO NOT write the article yet, just the proposal.`;
     }
   }
 
-  // Send a message - asks ALL active reporters in parallel (or specific one if @mentioned)
+  // Helper: Parse AI response into a Proposal object
+  function parseProposalResponse(
+    text: string, 
+    reporter: typeof activePeople[0], 
+    reporterCategories: Record<string, string>,
+    isEventRequest: boolean,
+    isRIPRequest: boolean
+  ): Proposal {
+    // Parse structured format
+    const nameMatch = text.match(/(?:NAME|EVENT|TITLE):\s*(.+)/i);
+    const bornMatch = text.match(/(?:BORN|DATE):\s*(\d{1,2}\.\d{1,2}\.\d{4})/i);
+    const diedMatch = text.match(/DIED:\s*(\d{1,2}\.\d{1,2}\.\d{4})/i);
+    const causeMatch = text.match(/CAUSE:\s*(.+)/i);
+    const countryMatch = text.match(/COUNTRY:\s*(.+)/i);
+    const categoryMatch = text.match(/CATEGORY:\s*(.+)/i);
+    const descMatch = text.match(/DESCRIPTION:\s*([\s\S]+?)(?=\n(?:NAME|BORN|DIED|CAUSE|COUNTRY|CATEGORY):|$)/i);
+    
+    let name = nameMatch ? nameMatch[1].trim().split('\n')[0] : 'Unknown';
+    const birthday = bornMatch ? bornMatch[1].trim() : '';
+    const deathday = diedMatch ? diedMatch[1].trim() : undefined;
+    const causeOfDeath = causeMatch ? causeMatch[1].trim().split('\n')[0] : undefined;
+    const country = countryMatch ? countryMatch[1].trim().split('\n')[0] : '';
+    const rawCategory = categoryMatch ? categoryMatch[1].trim().toLowerCase().split('\n')[0] : '';
+    const validCategories = ['sports', 'music', 'movies-tv', 'gaming', 'politics', 'tech', 'culture', 'lifestyle', 'rip'];
+    const category = validCategories.includes(rawCategory) ? rawCategory : (globalCategory || 'culture');
+    const description = descMatch ? descMatch[1].trim().slice(0, 300) : text.slice(0, 200);
+    const isEvent = isEventRequest || text.toLowerCase().includes('event:');
+    
+    // Check for NO_MATCH or NO_CATEGORY_MATCH response
+    let noCategoryMatch = false;
+    if (name === 'NO_MATCH' || name.includes('NO_MATCH')) {
+      name = 'Unknown';
+    }
+    if (name === 'NO_CATEGORY_MATCH' || name.includes('NO_CATEGORY_MATCH')) {
+      name = 'Unknown';
+      noCategoryMatch = true;
+    }
+    
+    // Validate GenX
+    let isValid = name !== 'Unknown' && birthday;
+    let errorReason = '';
+    if (noCategoryMatch) {
+      errorReason = `No ${category || 'matching'} people in today's Wikipedia list. Try a different category.`;
+    } else if (!isValid) {
+      errorReason = 'Could not find anyone for this date';
+    } else if (!isEvent && birthday) {
+      const yearMatch = birthday.match(/(\d{4})/);
+      if (yearMatch) {
+        const year = parseInt(yearMatch[1]);
+        if (year < 1965) { isValid = false; errorReason = `Born ${year} - too old for GenX (need 1965-1980)`; }
+        else if (year > 1980) { isValid = false; errorReason = `Born ${year} - too young for GenX (need 1965-1980)`; }
+      }
+    }
+    
+    return {
+      name,
+      birthday,
+      deathday,
+      causeOfDeath,
+      country,
+      profession: '',
+      description,
+      reporterId: reporter.id,
+      reporterName: reporter.name,
+      category,
+      isRIP: isRIPRequest || !!deathday,
+      isEvent,
+      isError: !isValid,
+      errorReason: isValid ? undefined : errorReason,
+    };
+  }
+
+  // Send a message - asks reporters ONE BY ONE (sequential)
   async function sendMessage(text?: string) {
     const messageText = text ?? draft;
     if (!messageText.trim() || !currentPiece) return;
@@ -945,13 +921,103 @@ DO NOT write the article yet, just the proposal.`;
     // Show who is typing - single name or "multiple"
     setTyping(targetReporters.length === 1 ? targetReporters[0].name : 'multiple');
 
+    // Check if this is a RANKROLL request
+    const lowerMsg = actualMessage.toLowerCase();
+    const isRankrollRequest = currentPiece.type === 'rankroll' || lowerMsg.includes('rankroll') || lowerMsg.includes('ranking');
+    
+    // For Rankroll, use a completely different flow - show cards like Article
+    if (isRankrollRequest) {
+      // Extract the topic from the message
+      const topic = actualMessage.replace(/propose a rankroll about:\s*/i, '').trim();
+      
+      // Add user message
+      updatePieceMessages(currentPiece.id, msgs => [
+        ...msgs,
+        { id: generateId(), from: 'me', name: 'Editor', text: `Propose rankroll: ${topic}` },
+      ]);
+      
+      try {
+        // Process reporters sequentially like Article flow
+        const rankrollProposals: Proposal[] = [];
+        
+        for (const reporter of targetReporters) {
+          setTyping(reporter.name);
+          
+          const res = await fetch('/api/editorial/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              reporterUserId: reporter.id,
+              message: `Propose a CREATIVE rankroll about: ${topic}
+
+Be creative like Ranker or Buzzfeed! Don't just do the obvious.
+For Mike Tyson: NOT just "knockouts" - think "Craziest Moments", "Best Trash Talk", "Wildest Press Conferences"
+For De Niro: NOT just "best movies" - think "Most Underrated Roles", "Scariest Characters", "Funniest Moments"
+
+Reply in this format:
+TITLE: [creative headline with number, e.g. "8 Times Mike Tyson Was Absolutely Unhinged"]
+ITEMS: [comma-separated list of the actual items you'd rank, e.g. "Ear Bite vs Holyfield, Face Tattoo Reveal, Pigeon Obsession Interview, ..."]
+DESCRIPTION: [1-2 sentences teaser]`,
+              userId,
+              proposalOnly: true,
+              contentType: 'rankroll',
+            }),
+          });
+          const data = await res.json();
+          const text = data.response || '';
+          
+          // Parse response - title, items, and description
+          const titleMatch = text.match(/TITLE:\s*(.+)/i);
+          const itemsMatch = text.match(/ITEMS:\s*(.+)/i);
+          const descMatch = text.match(/DESCRIPTION:\s*(.+)/i);
+          
+          const title = titleMatch ? titleMatch[1].trim() : `Top 10 ${topic}`;
+          const itemsRaw = itemsMatch ? itemsMatch[1].trim() : '';
+          const items = itemsRaw.split(',').map((s: string) => s.trim()).filter((s: string) => s.length > 0);
+          const description = descMatch ? descMatch[1].trim().replace(/\n/g, ' ').slice(0, 200) : '';
+          
+          rankrollProposals.push({
+            name: title,
+            birthday: itemsRaw.slice(0, 100) + (itemsRaw.length > 100 ? '...' : ''), // Show items preview
+            country: `${items.length} items`,
+            profession: '',
+            description,
+            reporterId: reporter.id,
+            reporterName: reporter.name,
+            isError: items.length < 3,
+            errorReason: items.length < 3 ? 'Not enough items' : undefined,
+          });
+        }
+        
+        setTyping(false);
+        
+        // Add proposals as cards
+        updatePieceMessages(currentPiece.id, msgs => [
+          ...msgs,
+          {
+            id: generateId(),
+            from: 'proposals' as const,
+            text: `${rankrollProposals.length} rankroll proposals`,
+            proposals: rankrollProposals,
+          },
+        ]);
+        
+      } catch (err) {
+        setTyping(false);
+        updatePieceMessages(currentPiece.id, msgs => [
+          ...msgs,
+          { id: generateId(), from: 'system', text: 'Error generating rankroll proposals.' },
+        ]);
+      }
+      return;
+    }
+
     // Build the prompt - ask for ONE proposal from their region, no article yet
     // Each reporter will get their region injected + TODAY'S DATE from the chat API
     const today = new Date();
     const dayMonth = `${today.getDate()}.${(today.getMonth() + 1).toString().padStart(2, '0')}`;
     
     // Detect if this is a RIP request (death anniversary) vs Birthday
-    const lowerMsg = actualMessage.toLowerCase();
     const isRIPRequest = lowerMsg.includes('rip') || 
                          lowerMsg.includes('died') || 
                          lowerMsg.includes('death') ||
@@ -978,202 +1044,148 @@ DO NOT write the article yet, just the proposal.`;
     
     // Simple prompt - the system prompt already has birthday data from Wikipedia
     const getProposalPrompt = (reporter: typeof activePeople[0], index: number) => {
-      const manualCategory = reporterCategories[reporter.id];
+      // Use global category filter if set, otherwise "any celebrity"
+      const categoryDesc = globalCategory === 'sports' ? 'an athlete/sports person' 
+        : globalCategory === 'music' ? 'a musician/singer'
+        : globalCategory === 'movies-tv' ? 'an actor/TV personality'
+        : globalCategory === 'politics' ? 'a politician'
+        : globalCategory === 'tech' ? 'a tech figure'
+        : globalCategory === 'gaming' ? 'a gaming personality'
+        : 'a GenX celebrity (any field)';
       
-      // Map reporter specialty to category
-      const specialty = (reporter.specialty || '').toLowerCase();
-      let autoCategory = 'movies-tv';
-      if (specialty.includes('sport') || specialty.includes('boxing') || specialty.includes('football') || specialty.includes('rugby')) {
-        autoCategory = 'sports';
-      } else if (specialty.includes('music') || specialty.includes('gaming') || specialty.includes('indie')) {
-        autoCategory = 'music';
-      } else if (specialty.includes('rip') || specialty.includes('celebrit') || specialty.includes('movie') || specialty.includes('tv')) {
-        autoCategory = 'movies-tv';
-      } else if (specialty.includes('politic') || specialty.includes('history')) {
-        autoCategory = 'politics';
-      } else if (specialty.includes('tech') || specialty.includes('anime')) {
-        autoCategory = 'tech';
-      } else if (specialty.includes('lifestyle') || specialty.includes('travel') || specialty.includes('food') || specialty.includes('culture')) {
-        autoCategory = 'lifestyle';
-      }
-      
-      const category = manualCategory || autoCategory;
-      const categoryLabel = category === 'sports' ? 'an athlete' 
-        : category === 'music' ? 'a musician'
-        : category === 'movies-tv' ? 'an actor/TV personality'
-        : category === 'politics' ? 'a politician'
-        : category === 'tech' ? 'a tech figure'
-        : 'a notable person (author, chef, entrepreneur)';
+      // Country filter
+      const countryNames: Record<string, string> = {
+        'US': 'United States', 'CA': 'Canada', 'MX': 'Mexico', 'BR': 'Brazil',
+        'AR': 'Argentina', 'UK': 'United Kingdom', 'DE': 'Germany', 'FR': 'France',
+        'IT': 'Italy', 'ES': 'Spain', 'NL': 'Netherlands', 'SE': 'Sweden',
+        'NO': 'Norway', 'PL': 'Poland', 'RU': 'Russia', 'JP': 'Japan',
+        'CN': 'China', 'KR': 'South Korea', 'IN': 'India', 'AU': 'Australia',
+        'NZ': 'New Zealand', 'ZA': 'South Africa', 'EG': 'Egypt',
+      };
+      const countryName = globalCountry ? (countryNames[globalCountry] || globalCountry) : '';
+      const countryFilter = countryName ? `from ${countryName}` : '';
       
       if (isRIPRequest) {
         // RIP request - find someone who DIED on this day
-        return `Using your own knowledge, find ${categoryLabel} from Generation X (born 1965-1980) who DIED on ${dayMonth} (any year).
-IMPORTANT: They must be DEAD. Find someone who passed away on this exact date (${dayMonth}).
+        return `Find ${categoryDesc} ${countryFilter} from Generation X (born 1965-1980) who DIED on ${dayMonth} (any year).
+${countryName ? `IMPORTANT: Person MUST be from ${countryName}.` : ''}
+${globalCategory ? `IMPORTANT: Person MUST be in ${globalCategory} category.` : ''}
 
 Reply in EXACTLY this format:
 NAME: [full name]
 BORN: [DD.MM.YYYY]
 DIED: ${dayMonth}.[YYYY]
-CAUSE: [cause of death - e.g. cancer, car accident, heart attack]
+CAUSE: [cause of death]
 COUNTRY: [country]
 DESCRIPTION: [1-2 sentences about their life and legacy]`;
       }
       
       // Birthday request - find someone BORN on this day
-      return `Using your own knowledge, find ${categoryLabel} born on ${dayMonth} (any year 1965-1980, Generation X).
+      const categoryRequirement = globalCategory 
+        ? `\n\n🚫🚫🚫 MANDATORY CATEGORY FILTER: ${globalCategory.toUpperCase()} 🚫🚫🚫\nYou MUST find someone in the ${globalCategory} category. NO sports people if politics is selected. NO actors if politics is selected. ONLY ${globalCategory}!\nIf you suggest someone outside ${globalCategory}, your response will be REJECTED.\n\n⚠️ CHECK THE "Categories available" LINE IN YOUR CONTEXT! If ${globalCategory} shows 0 or is not listed, respond with:\nNAME: NO_CATEGORY_MATCH\nBORN: ${dayMonth}.0000\nCOUNTRY: N/A\nCATEGORY: ${globalCategory}\nDESCRIPTION: No ${globalCategory} people found in today's Wikipedia birthday list. Try a different category.`
+        : '';
+      
+      return `Find a GenX celebrity (born 1965-1980) who was ACTUALLY born on ${dayMonth}.
+${categoryRequirement}
 
-Reply in EXACTLY this format:
-NAME: [name]
-BORN: ${dayMonth}.[YYYY]
-COUNTRY: [country]
-DESCRIPTION: [1-2 sentences]`;
+LOOK AT THE BIRTHDAYS TODAY LIST IN YOUR CONTEXT FIRST - these are VERIFIED birthdays.
+Check the "Categories available" line to see what categories have people today.
+${countryName ? `Filter for someone from ${countryName} if available in the list.` : ''}
+
+⚠️ CRITICAL: Only suggest someone if you are 100% CERTAIN of their birthday. Do NOT guess or invent birthdays!
+If the requested category has 0 people, use the NO_CATEGORY_MATCH format above.
+
+Reply EXACTLY in this format:
+NAME: [full name]
+BORN: ${dayMonth}.[year between 1965-1980]
+COUNTRY: [their country]
+CATEGORY: [must be: ${globalCategory || 'sports, music, movies-tv, gaming, politics, tech, culture, lifestyle'}]
+DESCRIPTION: [1 sentence about them]`;
     };
 
     try {
-      // Set pending reporters for loading UI
-      setPendingReporters(targetReporters.map(r => ({ id: r.id, name: r.name, status: 'searching' as const })));
+      // Process reporters ONE BY ONE (sequential, not parallel)
+      const results: { reporter: typeof targetReporters[0]; response: string; success: boolean }[] = [];
+      const alreadyProposed: string[] = []; // Track names to avoid duplicates
       
-      // Ask target reporters in parallel (all active, or just the @mentioned one)
-      const results = await Promise.all(
-        targetReporters.map(async (reporter, index) => {
-          const res = await fetch('/api/editorial/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              reporterUserId: reporter.id,
-              message: getProposalPrompt(reporter, index),
-              userId,
-              proposalOnly: true, // Don't auto-create articles from this response
-              contentType: currentPiece.type,
-              overrideCategory: globalCategory || undefined,
-              overrideCountry: globalCountry || undefined,
-              isEventRequest, // Flag for ON THIS DAY event requests (not people)
-            }),
-          });
-          const data = await res.json();
-          // Update pending status
-          setPendingReporters(prev => prev.map(r => 
-            r.id === reporter.id ? { ...r, status: 'done' as const } : r
-          ));
-          return {
-            reporter,
-            response: data.response || data.message || 'No response',
-            success: data.success,
+      for (let i = 0; i < targetReporters.length; i++) {
+        const reporter = targetReporters[i];
+        
+        // Show this reporter is searching
+        setTyping(reporter.name);
+        
+        // Build prompt with already proposed names
+        const basePrompt = getProposalPrompt(reporter, i);
+        const avoidList = alreadyProposed.length > 0 
+          ? `\n\n🚫🚫🚫 FORBIDDEN NAMES - DO NOT USE THESE: ${alreadyProposed.join(', ')}\nYou MUST pick someone COMPLETELY DIFFERENT. If you suggest any name from this list, your response will be REJECTED.`
+          : '';
+        
+        console.log(`[Reporter ${i+1}/${targetReporters.length}] ${reporter.name} - Already proposed: [${alreadyProposed.join(', ')}]`);
+        
+        const res = await fetch('/api/editorial/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reporterUserId: reporter.id,
+            message: basePrompt + avoidList,
+            userId,
+            proposalOnly: true,
+            contentType: currentPiece.type,
+            overrideCategory: globalCategory || undefined,
+            overrideCountry: globalCountry || undefined,
+            isEventRequest,
+          }),
+        });
+        const data = await res.json();
+        
+        results.push({
+          reporter,
+          response: data.response || data.message || 'No response',
+          success: data.success,
+        });
+        
+        // Immediately show this reporter's result
+        const text = data.response || '';
+        let proposal = parseProposalResponse(text, reporter, reporterCategories, isEventRequest, isRIPRequest);
+        
+        console.log(`[Reporter ${i+1}] Parsed name: "${proposal.name}" | isError: ${proposal.isError}`);
+        
+        // Check for duplicate - if name already proposed, mark as error
+        if (proposal.name && proposal.name !== 'Unknown' && alreadyProposed.some(n => n.toLowerCase() === proposal.name.toLowerCase())) {
+          proposal = {
+            ...proposal,
+            isError: true,
+            errorReason: `Duplicate: ${proposal.name} was already proposed`,
           };
-        })
-      );
-
-      setTyping(false);
-
-      // Parse each response into a Proposal card
-      const proposals: Proposal[] = [];
-      for (let i = 0; i < results.length; i++) {
-        const result = results[i];
-        const text = result.response;
-        // Calculate the category that was assigned to this reporter (same logic as prompt)
-        const specialty = (result.reporter.specialty || '').toLowerCase();
-        let autoCategory = 'movies-tv';
-        if (specialty.includes('sport') || specialty.includes('boxing') || specialty.includes('football') || specialty.includes('mma')) {
-          autoCategory = 'sports';
-        } else if (specialty.includes('music') || specialty.includes('gaming') || specialty.includes('indie')) {
-          autoCategory = 'music';
-        } else if (specialty.includes('rip') || specialty.includes('celebrit') || specialty.includes('movie') || specialty.includes('tv')) {
-          autoCategory = 'movies-tv';
-        } else if (specialty.includes('politic') || specialty.includes('history')) {
-          autoCategory = 'politics';
-        } else if (specialty.includes('tech') || specialty.includes('anime')) {
-          autoCategory = 'tech';
-        } else if (specialty.includes('lifestyle') || specialty.includes('travel') || specialty.includes('food') || specialty.includes('culture') || specialty.includes('society')) {
-          autoCategory = 'lifestyle';
+        } else if (proposal.name && proposal.name !== 'Unknown') {
+          // Track this name to avoid duplicates in next reporters
+          alreadyProposed.push(proposal.name);
         }
-        const assignedCategory = reporterCategories[result.reporter.id] || autoCategory;
-        console.log(`[${result.reporter.name}] (${assignedCategory}) Response:`, text);
         
-        // Parse structured format: NAME/EVENT: / BORN/DATE: / DIED: / CAUSE: / COUNTRY/CATEGORY: / DESCRIPTION:
-        const nameMatch = text.match(/(?:NAME|EVENT|TITLE):\s*(.+)/i);
-        const bornMatch = text.match(/(?:BORN|DATE):\s*(\d{1,2}\.\d{1,2}\.\d{4})/i);
-        const diedMatch = text.match(/DIED:\s*(\d{1,2}\.\d{1,2}\.\d{4})/i);
-        const causeMatch = text.match(/CAUSE:\s*(.+)/i);
-        const countryMatch = text.match(/COUNTRY:\s*(.+)/i);
-        const categoryMatch = text.match(/CATEGORY:\s*(.+)/i);
-        const descMatch = text.match(/DESCRIPTION:\s*([\s\S]+?)(?=\n(?:NAME|EVENT|TITLE|BORN|DATE|DIED|CAUSE|COUNTRY|CATEGORY):|$)/i);
-        
-        const name = nameMatch ? nameMatch[1].trim() : 'Unknown';
-        const birthday = bornMatch ? bornMatch[1].trim() : '';
-        const deathday = diedMatch ? diedMatch[1].trim() : undefined;
-        const causeOfDeath = causeMatch ? causeMatch[1].trim().split('\n')[0].trim() : undefined;
-        const country = countryMatch ? countryMatch[1].trim().split('\n')[0].trim() : '';
-        const parsedCategory = categoryMatch ? categoryMatch[1].trim().split('\n')[0].trim().toLowerCase() : '';
-        let description = descMatch ? descMatch[1].trim() : '';
-        
-        // Clean description
-        description = description.slice(0, 300);
-        
-        // Determine if this is an event based on the response format or the request type
-        const isEvent = isEventRequest || text.toLowerCase().includes('event:') || text.toLowerCase().includes('title:');
-        
-        proposals.push({
-          name,
-          birthday,
-          deathday,
-          causeOfDeath,
-          country,
-          profession: '',
-          description,
-          reporterId: result.reporter.id,
-          reporterName: result.reporter.name,
-          category: parsedCategory || assignedCategory,
-          isRIP: !!deathday, // Mark as RIP if we have a death date
-          isEvent, // Mark as event if this was an event request
+        // Add to messages immediately so card updates
+        updatePieceMessages(currentPiece.id, msgs => {
+          // Check if we already have a proposals message
+          const existingIdx = msgs.findIndex(m => m.from === 'proposals');
+          if (existingIdx >= 0) {
+            // Add to existing proposals
+            const existing = msgs[existingIdx];
+            return [
+              ...msgs.slice(0, existingIdx),
+              { ...existing, proposals: [...(existing.proposals || []), proposal] },
+              ...msgs.slice(existingIdx + 1),
+            ];
+          } else {
+            // Create new proposals message
+            return [
+              ...msgs,
+              { id: generateId(), from: 'proposals' as const, text: 'Proposals', proposals: [proposal] },
+            ];
+          }
         });
       }
 
-      // Filter out empty/failed proposals
-      // For events: just need name and date
-      // For people: need GenX birth year (1965-1980)
-      const validProposals = proposals.filter(p => {
-        // Must have name and date
-        if (p.name === 'Unknown' || !p.birthday) return false;
-        
-        // Events don't need GenX validation - any year is fine
-        if (p.isEvent) return true;
-        
-        // Check if description says "outside" GenX range
-        if (p.description.toLowerCase().includes('outside')) return false;
-        if (p.description.toLowerCase().includes('not genx')) return false;
-        if (p.description.toLowerCase().includes('baby boomer')) return false;
-        
-        // Check birth year is GenX (1965-1980)
-        const yearMatch = p.birthday.match(/(\d{4})/);
-        if (yearMatch) {
-          const year = parseInt(yearMatch[1]);
-          if (year < 1965 || year > 1980) return false;
-        }
-        
-        return true;
-      });
-      const failedCount = proposals.length - validProposals.length;
-      
-      // Only show proposals if we have any valid ones
-      if (validProposals.length > 0) {
-        updatePieceMessages(currentPiece.id, msgs => [
-          ...msgs,
-          {
-            id: generateId(),
-            from: 'proposals',
-            text: failedCount > 0 
-              ? `${validProposals.length} proposals received (${failedCount} reporter(s) found no one)`
-              : `${validProposals.length} proposals received`,
-            proposals: validProposals,
-          },
-        ]);
-      } else {
-        // No valid proposals - show message
-        updatePieceMessages(currentPiece.id, msgs => [
-          ...msgs,
-          { id: generateId(), from: 'system', text: `No valid GenX proposals found. Try asking for "Another" or add more reporters.` },
-        ]);
-      }
+      setTyping(false);
+      // Results already added to messages in the loop above
       
       // Clear pending reporters
       setPendingReporters([]);
@@ -1191,9 +1203,27 @@ DESCRIPTION: [1-2 sentences]`;
   // Ask a specific reporter for another suggestion
   async function askForAnother(reporterId: string, reporterName: string, isRIP: boolean = false) {
     if (!currentPiece) return;
+    if (retryingReporter) return; // Prevent double-click
+    
+    setRetryingReporter(reporterId);
 
     const today = new Date();
     const dayMonth = `${today.getDate()}.${(today.getMonth() + 1).toString().padStart(2, '0')}`;
+
+    // Collect ALL already proposed names from current proposals
+    const alreadyProposedNames: string[] = [];
+    for (const msg of currentPiece.messages) {
+      if (msg.from === 'proposals' && msg.proposals) {
+        for (const p of msg.proposals) {
+          if (p.name && p.name !== 'Unknown') {
+            alreadyProposedNames.push(p.name);
+          }
+        }
+      }
+    }
+    const forbiddenList = alreadyProposedNames.length > 0
+      ? `\n\n🚫🚫🚫 FORBIDDEN NAMES - ALREADY PROPOSED:\n${alreadyProposedNames.join(', ')}\n\nDO NOT suggest any of these names! Pick someone COMPLETELY DIFFERENT.`
+      : '';
 
     const requestType = isRIP ? 'RIP (died on this day)' : 'birthday';
     updatePieceMessages(currentPiece.id, msgs => [
@@ -1206,6 +1236,7 @@ DESCRIPTION: [1-2 sentences]`;
     // Build the retry message based on request type
     const retryMessage = isRIP 
       ? `Give me a DIFFERENT GenX celebrity (born 1965-1980) who DIED on ${dayMonth}. Not the same one as before!
+${forbiddenList}
 
 YOU MUST FIND SOMEONE DIFFERENT who passed away on this date. Search harder - actors, musicians, athletes, directors, TV hosts, comedians, models, authors, politicians.
 
@@ -1216,17 +1247,18 @@ DIED: ${dayMonth}.[YYYY]
 CAUSE: [cause of death]
 COUNTRY: [country]
 DESCRIPTION: [1-2 sentences about their life and legacy]`
-      : `Give me a DIFFERENT celebrity from your CONTINENT/REGION born on ${dayMonth}. Not the same one as before!
+      : `Pick a DIFFERENT person from the BIRTHDAYS TODAY list in your context. There are HUNDREDS of GenX celebrities born on ${dayMonth} - pick one you haven't suggested yet!
+${forbiddenList}
+${globalCategory ? `\n🚫🚫🚫 MANDATORY CATEGORY: ${globalCategory.toUpperCase()} ONLY! 🚫🚫🚫\nDO NOT suggest sports people, actors, or musicians if ${globalCategory} is required. ONLY ${globalCategory}!` : ''}
 
-YOU MUST FIND SOMEONE DIFFERENT. Search harder - actors, musicians, athletes, directors, TV hosts, comedians, models, authors, politicians, business leaders.
-
-Birth year MUST be 1965-1980 (GenX). Search ALL countries in your continent.
+🚫 "NO_MATCH" IS NOT ALLOWED. The birthday list has 300+ people - you MUST pick one.
 
 Reply in EXACTLY this format:
-NAME: [name]
-BORN: ${dayMonth}.[YYYY]
-COUNTRY: [country]
-DESCRIPTION: [1-2 sentences]`;
+NAME: [full name from the birthday list]
+BORN: ${dayMonth}.[year between 1965-1980]
+COUNTRY: [their country]
+CATEGORY: [must be: ${globalCategory || 'sports, music, movies-tv, gaming, politics, tech, culture, lifestyle'}]
+DESCRIPTION: [1 sentence about them]`;
 
     try {
       const res = await fetch('/api/editorial/chat', {
@@ -1301,85 +1333,175 @@ DESCRIPTION: [1-2 sentences]`;
       // For RIP requests, must have died date
       if (isRIP && !deathday) isValidGenX = false;
 
-      if (isValidGenX) {
-        // Remove old proposals from this reporter and add the new one
-        updatePieceMessages(currentPiece.id, msgs => {
-          // Filter out old proposals from this reporter
-          const filtered = msgs.map(m => {
-            if (m.from === 'proposals' && m.proposals) {
-              const remainingProposals = m.proposals.filter(p => p.reporterId !== reporterId);
-              if (remainingProposals.length === 0) return null; // Remove entire message if no proposals left
-              return { ...m, proposals: remainingProposals };
+      // Check if this name is a duplicate (already proposed by another reporter)
+      const isDuplicate = name !== 'Unknown' && alreadyProposedNames.some(
+        n => n.toLowerCase() === name.toLowerCase()
+      );
+
+      // Build the new proposal object
+      const newProposal: Proposal = {
+        name,
+        birthday,
+        deathday,
+        causeOfDeath,
+        country,
+        profession: '',
+        description,
+        reporterId,
+        reporterName,
+        isRIP: !!deathday,
+        isError: !isValidGenX || isDuplicate,
+        errorReason: isDuplicate 
+          ? `Duplicate: ${name} was already proposed`
+          : !isValidGenX ? (
+            name === 'Unknown' ? 'Could not find anyone for this date' :
+            birthday ? (() => {
+              const yearMatch = birthday.match(/(\d{4})/);
+              if (yearMatch) {
+                const year = parseInt(yearMatch[1]);
+                if (year < 1965) return `Born ${year} - too old for GenX (need 1965-1980)`;
+                if (year > 1980) return `Born ${year} - too young for GenX (need 1965-1980)`;
+              }
+              return 'Invalid GenX range';
+            })() : 'Missing birth date'
+          ) : undefined,
+      };
+      
+      // Update existing proposal for this reporter (replace, don't add new)
+      updatePieceMessages(currentPiece.id, msgs => {
+        let found = false;
+        const updated = msgs.map(m => {
+          if (m.from === 'proposals' && m.proposals) {
+            const hasThisReporter = m.proposals.some(p => p.reporterId === reporterId);
+            if (hasThisReporter) {
+              found = true;
+              // Replace this reporter's proposal
+              return {
+                ...m,
+                proposals: m.proposals.map(p => p.reporterId === reporterId ? newProposal : p),
+              };
             }
-            return m;
-          }).filter(Boolean) as typeof msgs;
-          
-          // Add new proposal
+          }
+          return m;
+        });
+        
+        // If not found, add as new proposal message
+        if (!found) {
           return [
-            ...filtered,
+            ...updated,
             {
               id: generateId(),
-              from: 'proposals',
+              from: 'proposals' as const,
               text: '1 new proposal',
-              proposals: [{
-                name,
-                birthday,
-                deathday,
-                causeOfDeath,
-                country,
-                profession: '',
-                description,
-                reporterId,
-                reporterName,
-                isRIP: !!deathday,
-              }],
+              proposals: [newProposal],
             },
           ];
-        });
-      } else {
-        // Remove old proposals from this reporter and show error
-        updatePieceMessages(currentPiece.id, msgs => {
-          const filtered = msgs.map(m => {
-            if (m.from === 'proposals' && m.proposals) {
-              const remainingProposals = m.proposals.filter(p => p.reporterId !== reporterId);
-              if (remainingProposals.length === 0) return null;
-              return { ...m, proposals: remainingProposals };
-            }
-            return m;
-          }).filter(Boolean) as typeof msgs;
-          
-          return [
-            ...filtered,
-            {
-              id: generateId(),
-              from: 'proposals',
-              text: `${reporterName} couldn't find another person`,
-              proposals: [{
-                name: '❌ No match found',
-                birthday: '',
-                country,
-                profession: '',
-                description: `${reporterName} couldn't find a valid person.`,
-                reporterId,
-                reporterName,
-                isError: true,
-              }],
-            },
-          ];
-        });
-      }
+        }
+        
+        return updated;
+      });
     } catch (err) {
       setTyping(false);
       updatePieceMessages(currentPiece.id, msgs => [
         ...msgs,
         { id: generateId(), from: 'system', text: 'Error. Please try again.' },
       ]);
+    } finally {
+      setRetryingReporter(null);
     }
   }
 
   // Select a proposal and ask that reporter to write the article - opens editor modal
   async function selectProposal(proposal: Proposal) {
     if (!currentPiece) return;
+    if (selectingProposal) return; // Prevent double-click
+    
+    // For RANKROLL: generate the full ranking with items + images, then show as tab
+    if (currentPiece.type === 'rankroll') {
+      setSelectingProposal(proposal.reporterId);
+      
+      updatePieceMessages(currentPiece.id, msgs => [
+        ...msgs,
+        { id: generateId(), from: 'me', name: 'Editor', text: `Create ranking: ${proposal.name}` },
+      ]);
+      
+      setTyping(proposal.reporterName);
+      
+      try {
+        // Items are already in proposal.birthday (comma-separated from the proposal)
+        const itemTitles = proposal.birthday
+          .replace(/\.\.\.$/,'') // Remove trailing ...
+          .split(',')
+          .map((s: string) => s.trim())
+          .filter((s: string) => s.length > 0);
+        
+        if (itemTitles.length < 3) {
+          throw new Error('Not enough items in proposal');
+        }
+        
+        // Get Tenor GIFs for each item
+        const itemsWithImages = await Promise.all(
+          itemTitles.map(async (title: string, idx: number) => {
+            try {
+              const gifRes = await fetch(`/api/tenor-search?q=${encodeURIComponent(title)}`);
+              const gifData = await gifRes.json();
+              return {
+                id: `item_${idx + 1}`,
+                title,
+                description: '',
+                image: gifData.success ? gifData.url : '',
+                upvotes: 0,
+                downvotes: 0,
+                score: 0,
+              };
+            } catch {
+              return { id: `item_${idx + 1}`, title, description: '', image: '', upvotes: 0, downvotes: 0, score: 0 };
+            }
+          })
+        );
+        
+        setTyping(false);
+        setSelectingProposal(null);
+        
+        // Add as tab (like articles)
+        const newRankrollId = generateId();
+        const newRankroll = {
+          id: newRankrollId,
+          title: proposal.name,
+          subtitle: proposal.description,
+          items: itemsWithImages,
+          category: 'ranking',
+          reporterName: proposal.reporterName,
+          reporterId: proposal.reporterId,
+        };
+        
+        setCreatedRankrolls(prev => [...prev, newRankroll]);
+        setSelectedRankrollTab(newRankrollId);
+        
+        // Add success message
+        updatePieceMessages(currentPiece.id, msgs => [
+          ...msgs,
+          { 
+            id: generateId(), 
+            from: 'result', 
+            text: `✅ Ranking "${proposal.name}" created with ${itemsWithImages.length} items`,
+            resultType: 'rankroll' as const,
+          },
+        ]);
+        
+      } catch (err) {
+        console.error('Rankroll generation failed:', err);
+        setTyping(false);
+        setSelectingProposal(null);
+        updatePieceMessages(currentPiece.id, msgs => [
+          ...msgs,
+          { id: generateId(), from: 'system', text: 'Failed to generate ranking. Try again.' },
+        ]);
+      }
+      return;
+    }
+    
+    setSelectingProposal(proposal.reporterId); // Show loading on this card
 
     // Add selection message
     updatePieceMessages(currentPiece.id, msgs => [
@@ -1417,10 +1539,11 @@ This is a memorial article honoring their life and legacy. Create the full artic
       setTyping(false);
 
       if (data.success && data.articleData) {
-        // Article content ready - open editor for review (NOT saved yet)
+        // Article content ready - add to tabs (NOT saved yet)
         // For RIP articles, use 'rip' category
         const articleCategory = proposal.isRIP ? 'rip' : (data.articleData.category || 'culture');
-        setArticleDraft({
+        const newArticleId = generateId();
+        const newDraft = {
           title: data.articleData.title || '',
           subtitle: data.articleData.subtitle || '',
           content: data.articleData.content || '',
@@ -1437,14 +1560,21 @@ This is a memorial article honoring their life and legacy. Create the full artic
           personCauseOfDeath: proposal.causeOfDeath,
           personCountry: proposal.country,
           isRIP: proposal.isRIP,
-        });
+        };
+        // Add to tabs
+        setCreatedArticles(prev => [...prev, {
+          id: newArticleId,
+          title: data.articleData.title || proposal.name,
+          reporterName: proposal.reporterName,
+          draft: newDraft,
+        }]);
         // Show message that article is ready for review
         updatePieceMessages(currentPiece.id, msgs => [
           ...msgs,
           {
             id: generateId(),
             from: 'system',
-            text: `Article "${data.articleData.title}" ready for review. Edit and Save to add to Articles.`,
+            text: `✅ Article "${data.articleData.title}" created. Click tab below to review.`,
           },
         ]);
       } else if (data.response) {
@@ -1472,6 +1602,8 @@ This is a memorial article honoring their life and legacy. Create the full artic
         ...msgs,
         { id: generateId(), from: 'system', text: 'Error creating article. Please try again.' },
       ]);
+    } finally {
+      setSelectingProposal(null); // Clear loading state
     }
   }
 
@@ -1577,8 +1709,9 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
         : "w-[95vw] max-w-[1400px] h-[95vh] bg-gray-950 border border-gray-800 rounded-xl overflow-hidden flex flex-col shadow-2xl"
       } style={isStandaloneTab ? { height: 'calc(100vh - 140px)' } : undefined}>
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800 bg-gray-950 shrink-0">
+        {/* Header with Department tabs on RIGHT */}
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-800 bg-gray-950 shrink-0">
+          {/* Left side */}
           <div className="flex items-center gap-3">
             <Users className="w-4 h-4 text-gray-400" />
             <h2 className="text-white font-semibold text-sm">Editorial Conference</h2>
@@ -1601,69 +1734,56 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
               </div>
             )}
           </div>
-          {onClose && (
-            <button onClick={onClose} className="text-gray-500 hover:text-white p-1 rounded transition-colors">
-              <X className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-
-        {/* Department tabs */}
-        <div className="flex items-center justify-between px-5 py-2.5 border-b border-gray-800 bg-gray-950 shrink-0">
-          <div className="flex gap-1.5">
-            {DEPARTMENTS.map(d => (
-              <button
-                key={d.id}
-                onClick={() => setActiveDept(d.id)}
-                className={`px-4 py-2 rounded text-sm font-semibold tracking-wide transition-colors ${
-                  activeDept === d.id ? DEPT_THEME[d.id].tabActive : "bg-gray-800 text-gray-400 hover:bg-gray-700"
-                }`}
-              >
-                {d.label}
+          
+          {/* Right side - Department tabs */}
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1">
+              {DEPARTMENTS.map(d => (
+                <button
+                  key={d.id}
+                  onClick={() => setActiveDept(d.id)}
+                  className={`px-3 py-1.5 rounded text-xs font-semibold transition-colors ${
+                    activeDept === d.id ? DEPT_THEME[d.id].tabActive : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                  }`}
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
+            {onClose && (
+              <button onClick={onClose} className="text-gray-500 hover:text-white p-1 rounded transition-colors ml-2">
+                <X className="w-4 h-4" />
               </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Content-type selector + piece tabs */}
-        <div className="flex items-center gap-2 px-5 py-2.5 border-b border-gray-800 bg-gray-950 shrink-0 relative z-30">
-          {/* Type dropdown - stays outside overflow so it can overlay */}
-          <div className="relative shrink-0 z-40">
-            <button
-              onClick={() => setTypeMenuOpen(v => !v)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded border border-gray-700 bg-gray-900 transition-colors ${theme.hoverBorder}`}
-            >
-              {(() => {
-                const Icon = CONTENT_TYPES.find(c => c.id === (currentPiece?.type || 'article'))?.icon || FileText;
-                return <Icon size={15} className={theme.accentText} />;
-              })()}
-              <span className="text-sm font-semibold">
-                {CONTENT_TYPES.find(c => c.id === (currentPiece?.type || 'article'))?.label || 'Article'}
-              </span>
-              <ChevronDown size={14} className="text-gray-500" />
-            </button>
-            {typeMenuOpen && (
-              <div className="absolute top-full left-0 z-50 mt-1 w-52 bg-gray-900 border border-gray-700 rounded shadow-xl overflow-hidden">
-                {CONTENT_TYPES.map(c => {
-                  const Icon = c.icon;
-                  const isCurrent = currentPiece?.type === c.id;
-                  return (
-                    <button
-                      key={c.id}
-                      onClick={() => createPiece(c.id)}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-800 text-left"
-                    >
-                      <Icon size={14} className={isCurrent ? theme.accentText : "text-gray-500"} />
-                      <span>New {c.label}</span>
-                      {isCurrent && <Check size={13} className={`ml-auto ${theme.accentText}`} />}
-                    </button>
-                  );
-                })}
-              </div>
             )}
           </div>
+        </div>
 
-          <div className="w-px h-6 bg-gray-800 shrink-0 mx-1" />
+        {/* Content-type TABS + piece tabs */}
+        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-800 bg-gray-950 shrink-0 relative z-30">
+
+          {/* Content type tabs - Article, Rankroll, TV, Radio */}
+          <div className="flex gap-1 shrink-0">
+            {CONTENT_TYPES.map(c => {
+              const Icon = c.icon;
+              const isActive = currentPiece?.type === c.id;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => createPiece(c.id)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold transition-colors ${
+                    isActive 
+                      ? theme.pieceActive
+                      : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                  }`}
+                >
+                  <Icon size={13} />
+                  {c.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="w-px h-5 bg-gray-700 shrink-0 mx-1" />
 
           {/* Piece tabs - scrollable container */}
           <div className="flex items-center gap-2 overflow-x-auto flex-1 min-w-0">
@@ -1710,14 +1830,12 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
           </div>
         </div>
 
-        {/* Body - NEW VERTICAL LAYOUT */}
+        {/* Body */}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          {/* Reporter Chips Row - horizontal scrollable */}
-          <div className="border-b border-gray-800 bg-gray-950 px-4 py-3">
+          {/* Reporter Row - clean cards, multiple rows */}
+          <div className="border-b border-gray-800 bg-gray-950 px-3 py-2">
+            {/* Select All button */}
             <div className="flex items-center gap-2 mb-2">
-              <span className={`text-[10px] font-mono uppercase tracking-widest ${theme.accentText} flex items-center gap-1 shrink-0`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${theme.dot} animate-pulse`} /> Live
-              </span>
               <button
                 onClick={() => {
                   const allActive = roster.every(p => activeReporters[p.id]);
@@ -1725,358 +1843,550 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                   roster.forEach(p => { newState[p.id] = !allActive; });
                   setActiveReporters(newState);
                 }}
-                className="text-[10px] text-gray-500 hover:text-white shrink-0"
+                className={`text-xs px-3 py-1 rounded font-medium transition-colors ${
+                  roster.every(p => activeReporters[p.id])
+                    ? "bg-gray-700 text-white hover:bg-gray-600"
+                    : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                }`}
               >
-                {roster.every(p => activeReporters[p.id]) ? 'Deselect All' : 'Select All'}
+                {roster.every(p => activeReporters[p.id]) ? '✓ All Selected' : 'Select All'}
               </button>
+              <span className="text-[10px] text-gray-500">
+                {Object.values(activeReporters).filter(Boolean).length} / {roster.length} active
+              </span>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {roster.map(p => (
-                <div key={p.id} className="relative group">
-                  <button
-                    onClick={() => togglePerson(p.id)}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${
-                      activeReporters[p.id] 
-                        ? theme.rosterActive 
-                        : "bg-gray-900 border-gray-700 hover:border-gray-500"
-                    }`}
-                  >
-                    {p.avatar ? (
-                      <img src={p.avatar} alt={p.name} className="w-5 h-5 rounded-full object-cover" />
-                    ) : (
-                      <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-black ${colorFor(p.id).bg}`}>
-                        {p.name.split(' ').map(n => n[0]).join('')}
-                      </div>
-                    )}
-                    <span className={`text-xs font-medium ${activeReporters[p.id] ? "text-black" : "text-gray-300"}`}>
-                      {p.name.split(' ')[0]}
-                    </span>
-                    <span className={`text-[10px] ${activeReporters[p.id] ? "text-black/60" : "text-gray-500"}`}>
-                      {p.regionLabel?.split(',')[0]}
-                    </span>
-                  </button>
-                  {/* Edit button - appears on hover */}
+            {/* Reporter grid */}
+            <div className="flex flex-wrap gap-1">
+            {roster.map(p => {
+              return (
+                <div 
+                  key={p.id} 
+                  onClick={() => togglePerson(p.id)}
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded border cursor-pointer transition-all ${
+                    activeReporters[p.id] 
+                      ? theme.rosterActive 
+                      : "bg-gray-900 border-gray-800 hover:border-gray-600"
+                  }`}
+                >
+                  {/* Avatar */}
+                  {p.avatar ? (
+                    <img src={p.avatar} alt={p.name} className="w-5 h-5 rounded-full object-cover shrink-0" />
+                  ) : (
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-black shrink-0 ${colorFor(p.id).bg}`}>
+                      {p.name.split(' ').map(n => n[0]).join('')}
+                    </div>
+                  )}
+                  
+                  {/* Name */}
+                  <span className={`text-xs font-medium whitespace-nowrap ${activeReporters[p.id] ? "text-black" : "text-gray-200"}`}>
+                    {p.name}
+                  </span>
+                  
+                  {/* Edit button */}
                   <button
                     onClick={(e) => { e.stopPropagation(); openReporterEdit(p); }}
-                    className="absolute -top-1 -right-1 w-5 h-5 bg-gray-700 hover:bg-[#D4873A] rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    className={`w-4 h-4 rounded flex items-center justify-center shrink-0 ${
+                      activeReporters[p.id] 
+                        ? "hover:bg-black/20 text-black/60" 
+                        : "hover:bg-gray-800 text-gray-500"
+                    }`}
                     title="Edit reporter"
                   >
-                    <Pencil size={10} className="text-white" />
+                    <Pencil size={9} />
                   </button>
                 </div>
-              ))}
+              );
+            })}
             </div>
           </div>
 
+          {/* Template Row - shows when Article type is selected */}
+          {currentPiece?.type === 'article' && (
+            <div className="border-b border-gray-800 bg-gray-900/50 px-3 py-2">
+              {/* Row 1: Template buttons + Category + Country */}
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <span className="text-[10px] text-gray-500">TEMPLATES:</span>
+                {PROMPT_TEMPLATES.filter(t => t.id !== 'custom').map(t => (
+                  <button
+                    key={t.id}
+                    onClick={() => setSelectedTemplate(selectedTemplate === t.id ? null : t.id)}
+                    className={`px-2 py-1 rounded text-[10px] font-medium transition-colors ${
+                      selectedTemplate === t.id 
+                        ? 'bg-[#D4873A] text-black' 
+                        : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+                
+                <div className="w-px h-4 bg-gray-700 mx-1" />
+                
+                <span className="text-[10px] text-gray-500">CATEGORY:</span>
+                <select
+                  value={globalCategory}
+                  onChange={e => setGlobalCategory(e.target.value)}
+                  className="bg-gray-800 border border-gray-700 rounded px-2 py-0.5 text-[10px] text-gray-300 focus:border-[#D4873A] focus:outline-none"
+                >
+                  <option value="">Any</option>
+                  <option value="sports">🏆 Sports</option>
+                  <option value="music">🎵 Music</option>
+                  <option value="movies-tv">📺 Movies/TV</option>
+                  <option value="gaming">🎮 Gaming</option>
+                  <option value="politics">🏛️ Politics</option>
+                  <option value="tech">💻 Tech</option>
+                </select>
+                
+                <span className="text-[10px] text-gray-500">COUNTRY:</span>
+                <select
+                  value={globalCountry}
+                  onChange={e => setGlobalCountry(e.target.value)}
+                  className="bg-gray-800 border border-gray-700 rounded px-2 py-0.5 text-[10px] text-gray-300 focus:border-[#D4873A] focus:outline-none"
+                >
+                  <option value="">Any</option>
+                  <optgroup label="Americas">
+                    <option value="US">🇺🇸 USA</option>
+                    <option value="CA">🇨🇦 Canada</option>
+                    <option value="MX">🇲🇽 Mexico</option>
+                    <option value="BR">🇧🇷 Brazil</option>
+                    <option value="AR">🇦🇷 Argentina</option>
+                    <option value="CO">🇨🇴 Colombia</option>
+                    <option value="CL">🇨🇱 Chile</option>
+                    <option value="PE">🇵🇪 Peru</option>
+                    <option value="CU">🇨🇺 Cuba</option>
+                    <option value="JM">🇯🇲 Jamaica</option>
+                  </optgroup>
+                  <optgroup label="Europe">
+                    <option value="UK">🇬🇧 UK</option>
+                    <option value="DE">🇩🇪 Germany</option>
+                    <option value="FR">🇫🇷 France</option>
+                    <option value="IT">🇮🇹 Italy</option>
+                    <option value="ES">🇪🇸 Spain</option>
+                    <option value="PT">🇵🇹 Portugal</option>
+                    <option value="NL">🇳🇱 Netherlands</option>
+                    <option value="BE">🇧🇪 Belgium</option>
+                    <option value="AT">🇦🇹 Austria</option>
+                    <option value="CH">🇨🇭 Switzerland</option>
+                    <option value="SE">🇸🇪 Sweden</option>
+                    <option value="NO">🇳🇴 Norway</option>
+                    <option value="DK">🇩🇰 Denmark</option>
+                    <option value="FI">🇫🇮 Finland</option>
+                    <option value="PL">🇵🇱 Poland</option>
+                    <option value="CZ">🇨🇿 Czech Republic</option>
+                    <option value="HU">🇭🇺 Hungary</option>
+                    <option value="GR">🇬🇷 Greece</option>
+                    <option value="IE">🇮🇪 Ireland</option>
+                    <option value="RU">🇷🇺 Russia</option>
+                    <option value="UA">🇺🇦 Ukraine</option>
+                  </optgroup>
+                  <optgroup label="Asia">
+                    <option value="JP">🇯🇵 Japan</option>
+                    <option value="CN">🇨🇳 China</option>
+                    <option value="KR">🇰🇷 South Korea</option>
+                    <option value="IN">🇮🇳 India</option>
+                    <option value="TH">🇹🇭 Thailand</option>
+                    <option value="PH">🇵🇭 Philippines</option>
+                    <option value="ID">🇮🇩 Indonesia</option>
+                    <option value="SG">🇸🇬 Singapore</option>
+                    <option value="TW">🇹🇼 Taiwan</option>
+                    <option value="HK">🇭🇰 Hong Kong</option>
+                    <option value="IL">🇮🇱 Israel</option>
+                    <option value="TR">🇹🇷 Turkey</option>
+                    <option value="SA">🇸🇦 Saudi Arabia</option>
+                    <option value="AE">🇦🇪 UAE</option>
+                  </optgroup>
+                  <optgroup label="Oceania">
+                    <option value="AU">🇦🇺 Australia</option>
+                    <option value="NZ">🇳🇿 New Zealand</option>
+                  </optgroup>
+                  <optgroup label="Africa">
+                    <option value="ZA">🇿🇦 South Africa</option>
+                    <option value="EG">🇪🇬 Egypt</option>
+                    <option value="NG">🇳🇬 Nigeria</option>
+                    <option value="KE">🇰🇪 Kenya</option>
+                    <option value="MA">🇲🇦 Morocco</option>
+                  </optgroup>
+                </select>
+              </div>
+              
+              {/* Row 2: Prompt preview + Send button (shows when template selected) */}
+              {selectedTemplate && selectedTemplate !== 'rank' && (
+                <div className="flex items-start gap-2 bg-gray-800 rounded p-2">
+                  <p className="flex-1 text-xs text-gray-300 leading-relaxed">
+                    {PROMPT_TEMPLATES.find(t => t.id === selectedTemplate)?.prompt}
+                  </p>
+                  <button
+                    onClick={() => {
+                      const prompt = PROMPT_TEMPLATES.find(t => t.id === selectedTemplate)?.prompt;
+                      if (prompt) sendMessage(prompt);
+                    }}
+                    disabled={!!typing}
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded text-xs font-bold shrink-0 disabled:opacity-50 ${theme.sendBtn}`}
+                  >
+                    {typing ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Send
+                  </button>
+                </div>
+              )}
+              
+            </div>
+          )}
+
+          {/* Rankroll Row - shows when Rankroll type is selected */}
+          {currentPiece?.type === 'rankroll' && (
+            <div className="border-b border-gray-800 bg-gray-900/50 px-3 py-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400 shrink-0">🏆 Propose ranking:</span>
+                <input
+                  type="text"
+                  value={rankrollInput}
+                  onChange={e => setRankrollInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && rankrollInput.trim() && !typing) {
+                      sendMessage(`Propose a rankroll about: ${rankrollInput.trim()}`);
+                    }
+                  }}
+                  placeholder="e.g. Robert De Niro best movies, 90s hip hop albums, Mike Tyson fights..."
+                  className="flex-1 bg-gray-700 px-3 py-2 rounded text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-[#D4873A]"
+                />
+                <button
+                  onClick={() => {
+                    if (rankrollInput.trim() && !typing) {
+                      sendMessage(`Propose a rankroll about: ${rankrollInput.trim()}`);
+                    }
+                  }}
+                  disabled={!!typing || !rankrollInput.trim()}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded text-xs font-bold shrink-0 disabled:opacity-50 ${theme.sendBtn}`}
+                >
+                  {typing ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Send
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Main Content Area */}
           <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-            {/* Messages / Proposals */}
+            {/* Proposals + Working indicators */}
             {currentPiece ? (
               <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-                {messages.map(m => {
-                  // System messages
-                  if (m.from === 'system') {
-                    return (
-                      <div key={m.id} className="text-center text-xs text-gray-500 font-mono py-1">
-                        {m.text}
-                      </div>
-                    );
-                  }
-
-                  // Proposals (selectable cards) - NEW GRID LAYOUT
-                  if (m.from === 'proposals' && m.proposals) {
-                    const allProposals = m.proposals;
-                    const hasEvents = allProposals.some(p => p.isEvent);
-                    return (
-                      <div key={m.id} className="space-y-3">
-                        {/* Header */}
-                        {allProposals.filter(p => !p.isError).length > 0 && (
-                          <div className="text-xs text-gray-500 font-mono">
-                            {hasEvents 
-                              ? `Select an event to write about (${allProposals.filter(p => !p.isError).length} proposals):`
-                              : `Select a person to write about (${allProposals.filter(p => !p.isError).length} proposals):`
-                            }
-                          </div>
-                        )}
-                        
-                        {/* Pending reporters (searching) */}
-                        {pendingReporters.filter(r => r.status === 'searching').length > 0 && (
-                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                            {pendingReporters.filter(r => r.status === 'searching').map(r => (
-                              <div key={r.id} className="bg-gray-900 border border-gray-700 rounded-xl p-4 flex flex-col items-center justify-center min-h-[180px]">
-                                <Loader2 className="w-6 h-6 text-[#D4873A] animate-spin mb-2" />
-                                <div className="text-xs text-gray-400">{r.name}</div>
-                                <div className="text-[10px] text-gray-500">searching...</div>
+                {/* Reporter Cards Grid - PERSISTENT cards that update with status */}
+                {(typing || messages.some(m => m.from === 'proposals')) && (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                    {roster.filter(r => activeReporters[r.id]).map(r => {
+                      // Find this reporter's proposal in messages
+                      const proposalMsg = messages.find(m => m.from === 'proposals' && m.proposals?.some(p => p.reporterId === r.id));
+                      const proposal = proposalMsg?.proposals?.find(p => p.reporterId === r.id);
+                      const isSearching = typing && !proposal;
+                      
+                      return (
+                        <div 
+                          key={r.id} 
+                          className={`rounded-xl p-4 flex flex-col min-h-[180px] transition-all ${
+                            isSearching 
+                              ? "bg-green-900/30 border border-green-600 animate-pulse"
+                              : proposal?.isError
+                                ? "bg-red-950/30 border border-red-900/50"
+                                : proposal
+                                  ? "bg-gray-900 border border-gray-700 hover:border-[#D4873A]"
+                                  : "bg-gray-900 border border-gray-700"
+                          }`}
+                        >
+                          {/* Reporter header: Avatar + Name + Category */}
+                          <div className="flex items-center gap-2 mb-2">
+                            {r.avatar ? (
+                              <img src={r.avatar} alt={r.name} className="w-6 h-6 rounded-full object-cover" />
+                            ) : (
+                              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-black ${colorFor(r.id).bg}`}>
+                                {r.name.split(' ').map(n => n[0]).join('')}
                               </div>
+                            )}
+                            <div className="text-xs font-semibold text-gray-200 flex-1">{r.name}</div>
+                            {proposal && !proposal.isError && (
+                              <span className="text-[8px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400">
+                                {proposal.category === 'sports' ? 'Sports' : 
+                                  proposal.category === 'music' ? 'Music' : 
+                                  proposal.category === 'gaming' ? 'Gaming' :
+                                  proposal.category === 'politics' ? 'Politics' :
+                                  proposal.category === 'tech' ? 'Tech' :
+                                  proposal.category === 'movies-tv' ? 'Movies/TV' :
+                                  proposal.category === 'lifestyle' ? 'Lifestyle' :
+                                  'Culture'}
+                              </span>
+                            )}
+                          </div>
+                          
+                          {/* Status content */}
+                          {isSearching ? (
+                            /* Searching state */
+                            <div className="flex-1 flex flex-col items-center justify-center">
+                              <Loader2 className="w-6 h-6 text-green-400 animate-spin mb-2" />
+                              <div className="text-[10px] text-green-400">searching...</div>
+                            </div>
+                          ) : proposal?.isError ? (
+                            /* Error state - show what was found but rejected */
+                            <>
+                              <div className="flex items-center gap-1 mb-1">
+                                <span className="text-sm">❌</span>
+                                <span className="text-[10px] text-red-400 font-medium">No match</span>
+                              </div>
+                              {proposal.name !== 'Unknown' && (
+                                <div className="text-xs text-gray-300 mb-1 line-clamp-1">{proposal.name}</div>
+                              )}
+                              {proposal.birthday && (
+                                <div className="text-[9px] text-gray-500 mb-1">📅 {proposal.birthday}</div>
+                              )}
+                              <p className="text-[10px] text-red-400/80 flex-1">{proposal.errorReason}</p>
+                              <button
+                                onClick={() => askForAnother(r.id, r.name, selectedTemplate === 'rip')}
+                                disabled={!!retryingReporter}
+                                className={`mt-2 w-full py-1.5 rounded text-[10px] flex items-center justify-center gap-1 ${
+                                  retryingReporter === r.id
+                                    ? 'bg-blue-600 text-white animate-pulse'
+                                    : retryingReporter
+                                      ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                                      : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                                }`}
+                              >
+                                {retryingReporter === r.id ? (
+                                  <>
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                    Searching...
+                                  </>
+                                ) : (
+                                  '↻ Try again'
+                                )}
+                              </button>
+                            </>
+                          ) : proposal ? (
+                            /* Found state - compact layout */
+                            <>
+                              {/* Line 1: Finding Name + Birthday + Flag */}
+                              <div className="flex items-center gap-1.5 text-[11px] text-gray-300 mb-1">
+                                <span className="font-semibold text-white">{proposal.name}</span>
+                                <span className="text-gray-500">·</span>
+                                <span className="text-gray-400">{proposal.birthday}</span>
+                                {proposal.country && (
+                                  <CountryFlag 
+                                    flag={
+                                      proposal.country === 'Canada' ? 'CA' : 
+                                      proposal.country === 'USA' || proposal.country === 'United States' ? 'US' :
+                                      proposal.country === 'UK' || proposal.country === 'United Kingdom' ? 'GB' :
+                                      proposal.country === 'Germany' ? 'DE' :
+                                      proposal.country === 'France' ? 'FR' :
+                                      proposal.country === 'Italy' ? 'IT' :
+                                      proposal.country === 'Spain' ? 'ES' :
+                                      proposal.country === 'Japan' ? 'JP' :
+                                      proposal.country === 'Australia' ? 'AU' :
+                                      proposal.country === 'Brazil' ? 'BR' :
+                                      proposal.country === 'Poland' ? 'PL' :
+                                      proposal.country === 'Singapore' ? 'SG' :
+                                      proposal.country === 'Libya' || proposal.country?.includes('Libya') ? 'LY' :
+                                      proposal.country === 'Mexico' ? 'MX' :
+                                      proposal.country === 'Argentina' ? 'AR' :
+                                      proposal.country === 'Netherlands' ? 'NL' :
+                                      proposal.country === 'Sweden' ? 'SE' :
+                                      proposal.country === 'Norway' ? 'NO' :
+                                      proposal.country === 'Russia' ? 'RU' :
+                                      proposal.country === 'China' ? 'CN' :
+                                      proposal.country === 'South Korea' ? 'KR' :
+                                      proposal.country === 'India' ? 'IN' :
+                                      'US'
+                                    } 
+                                    className="w-4 h-3 rounded-[1px]"
+                                  />
+                                )}
+                              </div>
+                              <p className="text-[9px] text-gray-500 flex-1 line-clamp-2 mb-1">{proposal.description}</p>
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={() => selectProposal(proposal)}
+                                  disabled={!!selectingProposal}
+                                  className={`flex-1 py-1 rounded text-[10px] font-bold text-white flex items-center justify-center gap-1 ${
+                                    selectingProposal === proposal.reporterId
+                                      ? 'bg-green-600 animate-pulse'
+                                      : selectingProposal
+                                        ? 'bg-gray-600 cursor-not-allowed'
+                                        : 'bg-[#D4873A] hover:bg-[#c07830]'
+                                  }`}
+                                >
+                                  {selectingProposal === proposal.reporterId ? (
+                                    <>
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                      Writing...
+                                    </>
+                                  ) : (
+                                    'Select'
+                                  )}
+                                </button>
+                                <button
+                                  onClick={() => askForAnother(r.id, r.name, proposal.isRIP)}
+                                  disabled={!!retryingReporter || !!selectingProposal}
+                                  className={`w-7 py-1 rounded text-[10px] flex items-center justify-center ${
+                                    retryingReporter === r.id
+                                      ? 'bg-blue-600 text-white animate-pulse'
+                                      : retryingReporter || selectingProposal
+                                        ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                                        : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                                  }`}
+                                  title="Try again"
+                                >
+                                  {retryingReporter === r.id ? <Loader2 className="w-3 h-3 animate-spin" /> : '↻'}
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            /* Waiting state */
+                            <div className="flex-1 flex items-center justify-center text-[10px] text-gray-500">
+                              Ready
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                
+                {/* Result cards (article created) */}
+                {messages.filter(m => m.from === 'result').map(m => (
+                  <div key={m.id} className={`rounded px-4 py-3 flex items-center justify-between gap-3 border ${theme.resultBox}`}>
+                    <span className={`text-sm ${theme.resultText}`}>{m.text}</span>
+                    <div className="flex items-center gap-2">
+                      {m.articleDraftId && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              const res = await fetch(`/api/articles/${m.articleDraftId}?includeContent=true`);
+                              const data = await res.json();
+                              if (data.article) {
+                                setArticleDraft({
+                                  _id: m.articleDraftId,
+                                  title: data.article.title || '',
+                                  subtitle: data.article.subtitle || '',
+                                  content: data.article.content || '',
+                                  category: data.article.category || 'culture',
+                                  tags: data.article.tags || [],
+                                  coverImage: data.article.coverImage || '',
+                                  imagePosX: data.article.imagePosX ?? 50,
+                                  imagePosY: data.article.imagePosY ?? 50,
+                                  reporterId: data.article.author?._id || data.article.author || '',
+                                  reporterName: data.article.author?.displayName || 'Unknown',
+                                  personName: data.article.title || '',
+                                });
+                              }
+                            } catch (err) {
+                              console.error('Failed to load article:', err);
+                            }
+                          }}
+                          className="shrink-0 px-3 py-1 rounded text-xs font-bold bg-[#D4873A] hover:bg-[#c07830] text-white flex items-center gap-1"
+                        >
+                          <ExternalLink size={12} /> Edit Article
+                        </button>
+                      )}
+                      {m.activated && (
+                        <button
+                          onClick={() => { onClose?.(); onGoToArticles?.(); }}
+                          className="shrink-0 px-3 py-1 rounded text-xs font-bold bg-gray-700 hover:bg-gray-600 text-white flex items-center gap-1"
+                        >
+                          View in Articles
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                
+                {/* Article preview (full article before activation) */}
+                {messages.filter(m => m.from === 'article-preview' && m.articlePreview).map(m => {
+                  const preview = m.articlePreview!;
+                  return (
+                    <div key={m.id} className="bg-gray-900 border border-gray-700 rounded-xl overflow-hidden max-w-[90%]">
+                      <div className="bg-gray-800 px-4 py-2 flex items-center justify-between">
+                        <span className="text-xs font-semibold text-green-400">📝 Article Draft Preview</span>
+                        <span className="text-[10px] text-gray-500">{preview.category}</span>
+                      </div>
+                      {preview.coverImage && (
+                        <img src={preview.coverImage} alt="" className="w-full h-40 object-cover" />
+                      )}
+                      <div className="p-4">
+                        <h3 className="text-lg font-bold text-white mb-1">{preview.title}</h3>
+                        {preview.subtitle && <p className="text-sm text-gray-400 mb-3">{preview.subtitle}</p>}
+                        <div 
+                          className="text-sm text-gray-300 max-h-60 overflow-y-auto prose prose-invert prose-sm"
+                          dangerouslySetInnerHTML={{ __html: preview.content }}
+                        />
+                        {preview.tags && preview.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-3">
+                            {preview.tags.map((tag, i) => (
+                              <span key={i} className="px-2 py-0.5 bg-gray-800 rounded text-[10px] text-gray-400">{tag}</span>
                             ))}
                           </div>
                         )}
-                        
-                        {/* Proposal Cards Grid */}
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                          {allProposals.map((p, idx) => (
-                            <div 
-                              key={idx}
-                              className={`rounded-xl p-4 flex flex-col ${
-                                p.isError 
-                                  ? 'bg-red-950/30 border border-red-900/50' 
-                                  : 'bg-gray-900 border border-gray-700 hover:border-[#D4873A] transition-colors'
-                              }`}
-                            >
-                              {p.isError ? (
-                                /* Error card */
-                                <>
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <span className="text-2xl">❌</span>
-                                    <h4 className="font-bold text-red-400 text-sm">No match</h4>
-                                  </div>
-                                  <p className="text-xs text-gray-400 flex-1 mb-3">{p.description}</p>
-                                  <div className="text-[9px] text-gray-500 mb-3">by {p.reporterName}</div>
-                                  <button
-                                    onClick={() => askForAnother(p.reporterId, p.reporterName, selectedTemplate === 'rip')}
-                                    className="w-full py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-300 transition-colors"
-                                  >
-                                    ↻ Try again
-                                  </button>
-                                </>
-                              ) : (
-                                /* Normal proposal card */
-                                <>
-                                  {/* Category badge */}
-                                  <div className="flex items-center justify-between mb-2">
-                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-700 text-gray-300">
-                                      {p.isEvent ? '📅 Event' : p.category === 'sports' ? '🏆 Sports' : p.category === 'music' ? '🎵 Music' : p.category === 'movies-tv' ? '📺 Movies/TV' : p.category === 'lifestyle' ? '✨ Lifestyle' : p.category === 'politics' ? '🏛️ Politics' : p.category === 'gaming' ? '🎮 Gaming' : '🔍 Any'}
-                                    </span>
-                                    {p.isRIP && <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-900/50 text-red-300">🕯️ RIP</span>}
-                                  </div>
-                                  
-                                  {/* Flag + Date */}
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <span className="text-lg">{p.country === 'USA' || p.country === 'US' ? '🇺🇸' : p.country === 'UK' ? '🇬🇧' : p.country === 'Germany' || p.country === 'DE' ? '🇩🇪' : p.country === 'France' || p.country === 'FR' ? '🇫🇷' : p.country === 'Japan' || p.country === 'JP' ? '🇯🇵' : p.country === 'Canada' || p.country === 'CA' ? '🇨🇦' : p.country === 'Australia' || p.country === 'AU' ? '🇦🇺' : '🌍'}</span>
-                                    <div>
-                                      <div className="text-[10px] text-[#D4873A] font-medium">📅 {p.birthday}</div>
-                                      <div className="text-[10px] text-gray-500">{p.country}</div>
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Name/Title */}
-                                  <h4 className="font-bold text-white text-sm mb-2 line-clamp-2">{p.name}</h4>
-                                  
-                                  {/* Death info for RIP */}
-                                  {p.isRIP && p.deathday && (
-                                    <div className="text-xs text-red-400 mb-2">
-                                      Died: {p.deathday}
-                                      {p.causeOfDeath && <span className="text-gray-500"> • {p.causeOfDeath}</span>}
-                                    </div>
-                                  )}
-                                  
-                                  {/* Description */}
-                                  <p className="text-xs text-gray-400 flex-1 mb-3 line-clamp-3">{p.description}</p>
-                                  
-                                  {/* Reporter */}
-                                  <div className="text-[9px] text-gray-500 mb-3">by {p.reporterName}</div>
-                                  
-                                  {/* Action buttons */}
-                                  <div className="flex gap-2 mt-auto">
-                                    <button
-                                      onClick={() => selectProposal(p)}
-                                      disabled={!!typing}
-                                      className={`flex-1 py-2 rounded-lg text-xs font-bold text-white transition-colors ${
-                                        typing === p.reporterName 
-                                          ? 'bg-[#D4873A]/50 cursor-wait' 
-                                          : 'bg-[#D4873A] hover:bg-[#c07830]'
-                                      }`}
-                                    >
-                                      {typing === p.reporterName ? 'Working...' : 'Select'}
-                                    </button>
-                                    <button
-                                      onClick={() => askForAnother(p.reporterId, p.reporterName, selectedTemplate === 'rip')}
-                                      disabled={!!typing}
-                                      className="px-2 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-300 transition-colors disabled:opacity-50"
-                                      title="Get another suggestion"
-                                    >
-                                      ↻
-                                    </button>
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          ))}
-                        </div>
                       </div>
-                    );
-                  }
-                  
-                  // Result card (article created)
-                  if (m.from === 'result') {
-                    return (
-                      <div key={m.id} className={`rounded px-4 py-3 flex items-center justify-between gap-3 border ${theme.resultBox}`}>
-                        <span className={`text-sm ${theme.resultText}`}>{m.text}</span>
-                        <div className="flex items-center gap-2">
-                          {m.articleDraftId && (
-                            <button
-                              onClick={async () => {
-                                // Fetch article and open in editor
-                                try {
-                                  const res = await fetch(`/api/articles/${m.articleDraftId}?includeContent=true`);
-                                  const data = await res.json();
-                                  if (data.article) {
-                                    setArticleDraft({
-                                      _id: m.articleDraftId,
-                                      title: data.article.title || '',
-                                      subtitle: data.article.subtitle || '',
-                                      content: data.article.content || '',
-                                      category: data.article.category || 'culture',
-                                      tags: data.article.tags || [],
-                                      coverImage: data.article.coverImage || '',
-                                      imagePosX: data.article.imagePosX ?? 50,
-                                      imagePosY: data.article.imagePosY ?? 50,
-                                      reporterId: data.article.author?._id || data.article.author || '',
-                                      reporterName: data.article.author?.displayName || 'Unknown',
-                                      personName: data.article.title || '',
-                                    });
-                                  }
-                                } catch (err) {
-                                  console.error('Failed to load article:', err);
-                                }
-                              }}
-                              className="shrink-0 px-3 py-1 rounded text-xs font-bold bg-[#D4873A] hover:bg-[#c07830] text-white flex items-center gap-1"
-                            >
-                              <ExternalLink size={12} /> Edit Article
-                            </button>
-                          )}
-                          {m.activated && (
-                            <button
-                              onClick={() => { onClose?.(); onGoToArticles?.(); }}
-                              className="shrink-0 px-3 py-1 rounded text-xs font-bold bg-gray-700 hover:bg-gray-600 text-white flex items-center gap-1"
-                            >
-                              View in Articles
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  }
-                  
-                  // Article preview (full article before activation)
-                  if (m.from === 'article-preview' && m.articlePreview) {
-                    const preview = m.articlePreview;
-                    return (
-                      <div key={m.id} className="bg-gray-900 border border-gray-700 rounded-xl overflow-hidden max-w-[90%]">
-                        {/* Header */}
-                        <div className="bg-gray-800 px-4 py-2 flex items-center justify-between">
-                          <span className="text-xs font-semibold text-green-400">📝 Article Draft Preview</span>
-                          <span className="text-[10px] text-gray-500">{preview.category}</span>
-                        </div>
-                        {/* Cover image */}
-                        {preview.coverImage && (
-                          <img src={preview.coverImage} alt="" className="w-full h-40 object-cover" />
+                      <div className="px-4 py-3 bg-gray-800 border-t border-gray-700 flex justify-end gap-2">
+                        {m.activated ? (
+                          <button
+                            onClick={() => { onClose?.(); onGoToArticles?.(); }}
+                            className="px-4 py-1.5 rounded text-xs font-bold bg-gray-600 hover:bg-gray-500 text-white flex items-center gap-1"
+                          >
+                            <ExternalLink size={12} /> View in Articles
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => activateArticle(m.id, preview)}
+                            className={`px-4 py-1.5 rounded text-xs font-bold ${theme.resultBtn}`}
+                          >
+                            ✓ Activate & Save as Draft
+                          </button>
                         )}
-                        {/* Content */}
-                        <div className="p-4">
-                          <h3 className="text-lg font-bold text-white mb-1">{preview.title}</h3>
-                          {preview.subtitle && <p className="text-sm text-gray-400 mb-3">{preview.subtitle}</p>}
-                          <div 
-                            className="text-sm text-gray-300 max-h-60 overflow-y-auto prose prose-invert prose-sm"
-                            dangerouslySetInnerHTML={{ __html: preview.content }}
-                          />
-                          {preview.tags && preview.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-3">
-                              {preview.tags.map((tag, i) => (
-                                <span key={i} className="px-2 py-0.5 bg-gray-800 rounded text-[10px] text-gray-400">
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        {/* Actions */}
-                        <div className="px-4 py-3 bg-gray-800 border-t border-gray-700 flex justify-end gap-2">
-                          {m.activated ? (
-                            <button
-                              onClick={() => { onClose?.(); onGoToArticles?.(); }}
-                              className="px-4 py-1.5 rounded text-xs font-bold bg-gray-600 hover:bg-gray-500 text-white flex items-center gap-1"
-                            >
-                              <ExternalLink size={12} /> View in Articles
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => activateArticle(m.id, preview)}
-                              className={`px-4 py-1.5 rounded text-xs font-bold ${theme.resultBtn}`}
-                            >
-                              ✓ Activate & Save as Draft
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  }
-                  
-                  // Menschen check (person data before saving)
-                  if (m.from === 'menschen-check' && m.menschenCheck) {
-                    const data = m.menschenCheck;
-                    return (
-                      <div key={m.id} className="bg-gray-900 border border-purple-500/30 rounded-xl overflow-hidden max-w-md">
-                        <div className="bg-purple-500/10 px-4 py-2 flex items-center gap-2">
-                          <User size={14} className="text-purple-400" />
-                          <span className="text-xs font-semibold text-purple-400">Person not in database</span>
-                        </div>
-                        <div className="p-4 space-y-2">
-                          <div className="grid grid-cols-2 gap-2 text-sm">
-                            <div>
-                              <span className="text-gray-500 text-xs">Name</span>
-                              <p className="text-white font-medium">{data.name}</p>
-                            </div>
-                            <div>
-                              <span className="text-gray-500 text-xs">Birthday</span>
-                              <p className="text-white">{data.birthday || '—'}</p>
-                            </div>
-                            <div>
-                              <span className="text-gray-500 text-xs">Country</span>
-                              <p className="text-white">{data.country || '—'}</p>
-                            </div>
-                            <div>
-                              <span className="text-gray-500 text-xs">Profession</span>
-                              <p className="text-white">{data.profession || '—'}</p>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="px-4 py-3 bg-gray-800 border-t border-gray-700 flex justify-end gap-2">
-                          {m.menschenSaved ? (
-                            <span className="text-xs text-green-400 flex items-center gap-1">
-                              <CheckCircle size={12} /> Saved to Menschen
-                            </span>
-                          ) : (
-                            <button
-                              onClick={() => saveMensch(m.id, data)}
-                              className="px-4 py-1.5 rounded text-xs font-bold bg-purple-500 hover:bg-purple-400 text-white"
-                            >
-                              👤 Save to Menschen
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  }
-                  
-                  // Regular chat messages
-                  const isMe = m.from === 'me';
-                  const nameColor = isMe ? "text-gray-400" : colorFor(m.from).text;
-                  return (
-                    <div key={m.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[75%] ${isMe ? "text-right" : "text-left"}`}>
-                        <div className={`text-xs font-semibold mb-0.5 ${nameColor}`}>{m.name}</div>
-                        <div
-                          className={`inline-block rounded-lg px-3 py-2 text-sm leading-snug whitespace-pre-wrap ${
-                            isMe ? "bg-gray-800 text-gray-100" : "bg-gray-900 border border-gray-800 text-gray-100"
-                          }`}
-                          dangerouslySetInnerHTML={{ __html: m.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }}
-                        />
                       </div>
                     </div>
                   );
                 })}
-                {typing && <div className="text-xs text-gray-500 font-mono italic">{typing === 'multiple' ? 'Reporters are typing…' : `${typing} is typing…`}</div>}
+                
+                {/* Menschen check (person data before saving) */}
+                {messages.filter(m => m.from === 'menschen-check' && m.menschenCheck).map(m => {
+                  const data = m.menschenCheck!;
+                  return (
+                    <div key={m.id} className="bg-gray-900 border border-purple-500/30 rounded-xl overflow-hidden max-w-md">
+                      <div className="bg-purple-500/10 px-4 py-2 flex items-center gap-2">
+                        <User size={14} className="text-purple-400" />
+                        <span className="text-xs font-semibold text-purple-400">Person not in database</span>
+                      </div>
+                      <div className="p-4 space-y-2">
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <span className="text-gray-500 text-xs">Name</span>
+                            <p className="text-white font-medium">{data.name}</p>
+                          </div>
+                          <div>
+                            <span className="text-gray-500 text-xs">Birthday</span>
+                            <p className="text-white">{data.birthday || '—'}</p>
+                          </div>
+                          <div>
+                            <span className="text-gray-500 text-xs">Country</span>
+                            <p className="text-white">{data.country || '—'}</p>
+                          </div>
+                          <div>
+                            <span className="text-gray-500 text-xs">Profession</span>
+                            <p className="text-white">{data.profession || '—'}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="px-4 py-3 bg-gray-800 border-t border-gray-700 flex justify-end gap-2">
+                        {m.menschenSaved ? (
+                          <span className="text-xs text-green-400 flex items-center gap-1">
+                            <CheckCircle size={12} /> Saved to Menschen
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => saveMensch(m.id, data)}
+                            className="px-4 py-1.5 rounded text-xs font-bold bg-purple-500 hover:bg-purple-400 text-white"
+                          >
+                            👤 Save to Menschen
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="flex-1 flex items-center justify-center">
@@ -2092,125 +2402,67 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
               </div>
             )}
 
-            {/* Template panel */}
-            {showTemplates && currentPiece && (
-              <TemplatePanel 
-                onSelect={(prompt) => { setDraft(prompt); setShowTemplates(false); }}
-                onClose={() => setShowTemplates(false)}
-              />
-            )}
 
-            {/* Prompts row */}
-            {showPrompts && currentPiece && (
-              <div className="px-4 pb-2 flex flex-wrap gap-2">
-                {PROMPT_SUGGESTIONS.map(p => (
-                  <button
-                    key={p}
-                    onClick={() => sendMessage(p)}
-                    className={`text-xs px-3 py-1.5 rounded-full border border-gray-700 bg-gray-900 transition-colors ${theme.hoverBorder} ${theme.hoverText}`}
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Template Buttons + Category/Country Filters + Input */}
-            {currentPiece && (
-              <div className="border-t border-gray-800 bg-gray-950">
-                {/* Template buttons row */}
-                <div className="px-3 pt-3 pb-2">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-[10px] text-gray-500 uppercase tracking-wider shrink-0">Templates:</span>
-                    <div className="flex flex-wrap gap-1">
-                      {PROMPT_TEMPLATES.filter(t => t.id !== 'custom').map(t => (
-                        <button
-                          key={t.id}
-                          onClick={() => {
-                            setSelectedTemplate(t.id);
-                            setDraft(t.prompt);
-                          }}
-                          disabled={!!typing}
-                          className={`px-3 py-1.5 rounded text-xs font-medium transition-colors shrink-0 ${
-                            selectedTemplate === t.id 
-                              ? 'bg-[#D4873A] text-black' 
-                              : 'bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-50'
-                          }`}
-                        >
-                          {t.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  {/* Category and Country filters */}
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-gray-500 uppercase">Category:</span>
-                      <select
-                        value={globalCategory}
-                        onChange={e => setGlobalCategory(e.target.value)}
-                        className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-300"
-                      >
-                        {SEARCH_CATEGORIES.map(c => (
-                          <option key={c.id} value={c.id}>{c.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-gray-500 uppercase">Country:</span>
-                      <select
-                        value={globalCountry}
-                        onChange={e => setGlobalCountry(e.target.value)}
-                        className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-300"
-                      >
-                        {SEARCH_COUNTRIES.map(c => (
-                          <option key={c.id} value={c.id}>{c.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Input row */}
-                <div className="px-3 pb-3">
-                  <div className="flex items-end gap-2">
-                    <textarea
-                      value={draft}
-                      onChange={e => setDraft(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder={`Message this ${CONTENT_TYPES.find(t => t.id === currentPiece.type)?.label.toLowerCase()} conference…`}
-                      rows={2}
-                      disabled={!!typing}
-                      className={`flex-1 resize-none bg-gray-900 border border-gray-800 rounded px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none disabled:opacity-50 ${theme.focusBorder}`}
-                    />
-                    <div className="flex flex-col gap-1.5 shrink-0">
-                      <button
-                        onClick={() => { setShowTemplates(v => !v); setShowPrompts(false); }}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded border text-xs font-semibold transition-colors ${showTemplates ? 'bg-[#D4873A] border-[#D4873A] text-black' : 'bg-gray-800 border-gray-700 hover:border-[#D4873A] text-[#D4873A]'}`}
-                      >
-                        <FileText size={13} /> Templates
-                      </button>
-                      <button
-                        onClick={() => sendMessage()}
-                        disabled={!!typing || !draft.trim()}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded text-xs font-bold disabled:opacity-50 ${theme.sendBtn}`}
-                      >
-                        {typing ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />} Send
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
 
-      {/* Article Editor Modal - Full Featured */}
+      {/* Created Articles & Rankrolls Tabs - shown below chat */}
+      {(createdArticles.length > 0 || createdRankrolls.length > 0) && (
+        <div className="fixed bottom-0 left-0 right-0 z-[55] bg-gray-900 border-t border-gray-700">
+          <div className="flex items-center gap-1 px-4 py-2 overflow-x-auto">
+            {createdArticles.length > 0 && (
+              <>
+                <span className="text-[10px] text-gray-500 mr-2">Articles:</span>
+                {createdArticles.map(article => (
+                  <button
+                    key={article.id}
+                    onClick={() => {
+                      setArticleDraft(article.draft);
+                      setSelectedArticleTab(article.id);
+                      setSelectedRankrollTab(null);
+                    }}
+                    className={`px-3 py-1.5 rounded text-xs font-medium whitespace-nowrap transition-all ${
+                      selectedArticleTab === article.id 
+                        ? 'bg-[#D4873A] text-white' 
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                  >
+                    📝 {article.title.slice(0, 25)}{article.title.length > 25 ? '...' : ''}
+                  </button>
+                ))}
+              </>
+            )}
+            {createdRankrolls.length > 0 && (
+              <>
+                <span className="text-[10px] text-gray-500 mx-2">Rankings:</span>
+                {createdRankrolls.map(rankroll => (
+                  <button
+                    key={rankroll.id}
+                    onClick={() => {
+                      setSelectedRankrollTab(rankroll.id);
+                      setSelectedArticleTab(null);
+                      setArticleDraft(null);
+                    }}
+                    className={`px-3 py-1.5 rounded text-xs font-medium whitespace-nowrap transition-all ${
+                      selectedRankrollTab === rankroll.id 
+                        ? 'bg-purple-600 text-white' 
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                  >
+                    🏆 {rankroll.title.slice(0, 25)}{rankroll.title.length > 25 ? '...' : ''}
+                  </button>
+                ))}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Article Editor Modal - Full Width */}
       {articleDraft && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80">
-          <div className="bg-gray-800 rounded-xl w-full max-w-5xl max-h-[95vh] overflow-y-auto">
+        <div className="fixed inset-0 z-[60] bg-black/90">
+          <div className="bg-gray-800 w-full h-full overflow-y-auto">
             {/* Header */}
             <div className="px-4 py-2.5 border-b border-gray-700 flex items-center justify-between sticky top-0 bg-gray-800 z-10">
               <h3 className="text-sm font-bold">Edit Article</h3>
@@ -2220,133 +2472,183 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
             </div>
 
             <div className="p-4 space-y-4">
-              {/* Title & Subtitle Row */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Top Section: Cover left, Title/Subtitle center, Meta right */}
+              <div className="grid grid-cols-[180px_1fr_280px] gap-4">
+                {/* Cover Image */}
                 <div>
-                  <label className="block text-[10px] text-gray-400 mb-1">Title *</label>
-                  <input
-                    type="text"
-                    value={articleDraft.title}
-                    onChange={e => setArticleDraft({ ...articleDraft, title: e.target.value })}
-                    className="w-full bg-gray-700 px-2 py-1.5 rounded text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-gray-400 mb-1">Subtitle</label>
-                  <input
-                    type="text"
-                    value={articleDraft.subtitle}
-                    onChange={e => setArticleDraft({ ...articleDraft, subtitle: e.target.value })}
-                    className="w-full bg-gray-700 px-2 py-1.5 rounded text-sm"
-                  />
-                </div>
-              </div>
-
-              {/* Content & Sidebar */}
-              <div className="grid grid-cols-[1fr_280px] gap-4">
-                {/* Content Editor */}
-                <div>
-                  <label className="block text-[10px] text-gray-400 mb-1">Content (Block Editor)</label>
-                  <div className="min-w-0">
-                    <BlockEditor
-                      value={articleDraft.content || ''}
-                      onChange={(content: string) => setArticleDraft({ ...articleDraft, content })}
-                    />
-                  </div>
-                </div>
-
-                {/* Sidebar */}
-                <div className="space-y-3">
-                  {/* Cover Image */}
-                  <div>
-                    <label className="block text-[10px] text-gray-400 mb-1">Cover Image</label>
-                    <div 
-                      onClick={() => setShowImagePicker(true)}
-                      className="aspect-video bg-gray-700 rounded overflow-hidden cursor-pointer hover:ring-2 hover:ring-[#D4873A] transition-all"
-                    >
-                      {articleDraft.coverImage ? (
-                        <img 
-                          src={articleDraft.coverImage} 
-                          alt="Cover" 
-                          className="w-full h-full object-cover"
-                          style={{ objectPosition: `${articleDraft.imagePosX ?? 50}% ${articleDraft.imagePosY ?? 50}%` }}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs">
-                          Click to add image
-                        </div>
-                      )}
-                    </div>
-                    {articleDraft.coverImage && (
-                      <div className="mt-2 space-y-1.5">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-gray-400 w-6">X:</span>
-                          <input type="range" min="0" max="100" value={articleDraft.imagePosX ?? 50} onChange={(e) => setArticleDraft({ ...articleDraft, imagePosX: Number(e.target.value) })} className="flex-1 h-1.5 accent-[#D4873A]" />
-                          <span className="text-[10px] text-gray-500 w-8">{articleDraft.imagePosX ?? 50}%</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-gray-400 w-6">Y:</span>
-                          <input type="range" min="0" max="100" value={articleDraft.imagePosY ?? 50} onChange={(e) => setArticleDraft({ ...articleDraft, imagePosY: Number(e.target.value) })} className="flex-1 h-1.5 accent-[#D4873A]" />
-                          <span className="text-[10px] text-gray-500 w-8">{articleDraft.imagePosY ?? 50}%</span>
-                        </div>
+                  <label className="block text-[10px] text-gray-400 mb-1">Cover Image</label>
+                  <div 
+                    onClick={() => setShowImagePicker(true)}
+                    className="aspect-[16/10] bg-gray-700 rounded overflow-hidden cursor-pointer hover:ring-2 hover:ring-[#D4873A] transition-all"
+                  >
+                    {articleDraft.coverImage ? (
+                      <img 
+                        src={articleDraft.coverImage} 
+                        alt="Cover" 
+                        className="w-full h-full object-cover"
+                        style={{ objectPosition: `${articleDraft.imagePosX ?? 50}% ${articleDraft.imagePosY ?? 50}%` }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs">
+                        Click to add
                       </div>
                     )}
                   </div>
+                </div>
 
-                  {/* Category */}
+                {/* Title + Subtitle (stacked) */}
+                <div className="space-y-2">
                   <div>
-                    <label className="block text-[10px] text-gray-400 mb-1">Category</label>
-                    <select
-                      value={articleDraft.category}
-                      onChange={e => setArticleDraft({ ...articleDraft, category: e.target.value })}
-                      className="w-full bg-gray-700 px-2 py-1.5 rounded text-xs"
-                    >
-                      <option value="culture">Culture</option>
-                      <option value="music">Music</option>
-                      <option value="movies-tv">Movies & TV</option>
-                      <option value="sports">Sports</option>
-                      <option value="gaming">Gaming</option>
-                      <option value="tech">Tech</option>
-                      <option value="genx-icons">GenX Icons</option>
-                      <option value="rip">RIP</option>
-                      <option value="lifestyle">Lifestyle</option>
-                      <option value="news">News</option>
-                    </select>
-                  </div>
-
-                  {/* Author */}
-                  <div>
-                    <label className="block text-[10px] text-gray-400 mb-1">Author</label>
-                    <div className="bg-gray-700 px-2 py-1.5 rounded text-xs text-gray-300">
-                      {articleDraft.reporterName}
-                    </div>
-                  </div>
-
-                  {/* Tags */}
-                  <div>
-                    <label className="block text-[10px] text-gray-400 mb-1">Tags</label>
-                    <div className="flex flex-wrap gap-1 mb-2">
-                      {articleDraft.tags.map((tag, i) => (
-                        <span key={i} className="px-2 py-0.5 bg-gray-600 rounded text-[10px] flex items-center gap-1">
-                          {tag}
-                          <button onClick={() => setArticleDraft({ ...articleDraft, tags: articleDraft.tags.filter((_, j) => j !== i) })} className="text-gray-400 hover:text-white">×</button>
-                        </span>
-                      ))}
-                    </div>
+                    <label className="block text-[10px] text-gray-400 mb-1">Title *</label>
                     <input
                       type="text"
-                      value={articleTagInput}
-                      onChange={e => setArticleTagInput(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' && articleTagInput.trim()) {
-                          setArticleDraft({ ...articleDraft, tags: [...articleDraft.tags, articleTagInput.trim()] });
-                          setArticleTagInput('');
-                        }
-                      }}
-                      placeholder="Add tag (Enter)"
-                      className="w-full bg-gray-700 px-2 py-1 rounded text-[10px]"
+                      value={articleDraft.title}
+                      onChange={e => setArticleDraft({ ...articleDraft, title: e.target.value })}
+                      className="w-full bg-gray-700 px-3 py-2 rounded text-base font-semibold"
+                      placeholder="Article title..."
                     />
                   </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-400 mb-1">Subtitle</label>
+                    <input
+                      type="text"
+                      value={articleDraft.subtitle}
+                      onChange={e => setArticleDraft({ ...articleDraft, subtitle: e.target.value })}
+                      className="w-full bg-gray-700 px-3 py-2 rounded text-sm text-gray-300"
+                      placeholder="Subtitle or tagline..."
+                    />
+                  </div>
+                </div>
+
+                {/* Meta: Category, Author, Tags */}
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] text-gray-400 mb-1">Category</label>
+                      <select
+                        value={articleDraft.category}
+                        onChange={e => setArticleDraft({ ...articleDraft, category: e.target.value })}
+                        className="w-full bg-gray-700 px-2 py-1.5 rounded text-xs"
+                      >
+                        <option value="culture">Culture</option>
+                        <option value="music">Music</option>
+                        <option value="movies-tv">Movies & TV</option>
+                        <option value="sports">Sports</option>
+                        <option value="gaming">Gaming</option>
+                        <option value="tech">Tech</option>
+                        <option value="genx-icons">GenX Icons</option>
+                        <option value="rip">RIP</option>
+                        <option value="lifestyle">Lifestyle</option>
+                        <option value="news">News</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-gray-400 mb-1">Author</label>
+                      <select
+                        value={articleDraft.reporterId}
+                        onChange={e => {
+                          const newReporter = roster.find(r => r.id === e.target.value);
+                          if (newReporter) {
+                            setArticleDraft({ 
+                              ...articleDraft, 
+                              reporterId: newReporter.id, 
+                              reporterName: newReporter.name 
+                            });
+                          }
+                        }}
+                        className="w-full bg-gray-700 px-2 py-1.5 rounded text-xs"
+                      >
+                        {roster.map(r => (
+                          <option key={r.id} value={r.id}>{r.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  {/* Rewrite Button */}
+                  <button
+                    onClick={async () => {
+                      if (!articleDraft.personName) return;
+                      setSavingArticle(true);
+                      try {
+                        const res = await fetch('/api/editorial/chat', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            reporterUserId: articleDraft.reporterId,
+                            message: `Rewrite this article about ${articleDraft.personName} in YOUR voice and style. Keep the same facts but make it sound like YOU wrote it.\n\nCurrent content:\n${articleDraft.content}`,
+                            userId,
+                            skipSave: true,
+                          }),
+                        });
+                        const data = await res.json();
+                        if (data.success && data.articleData) {
+                          setArticleDraft({
+                            ...articleDraft,
+                            title: data.articleData.title || articleDraft.title,
+                            subtitle: data.articleData.subtitle || articleDraft.subtitle,
+                            content: data.articleData.content || articleDraft.content,
+                          });
+                        }
+                      } catch (err) {
+                        console.error('Rewrite failed:', err);
+                      } finally {
+                        setSavingArticle(false);
+                      }
+                    }}
+                    disabled={savingArticle}
+                    className={`w-full py-1.5 rounded text-[10px] font-medium flex items-center justify-center gap-1 ${
+                      savingArticle 
+                        ? 'bg-blue-600 text-white animate-pulse' 
+                        : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                    }`}
+                  >
+                    {savingArticle ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        Rewriting...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-3 h-3" />
+                        Rewrite in {articleDraft.reporterName.split(' ')[0]}'s voice
+                      </>
+                    )}
+                  </button>
+                  <div>
+                    <label className="block text-[10px] text-gray-400 mb-1">Tags</label>
+                    <div className="flex flex-wrap gap-1 bg-gray-700 px-2 py-1.5 rounded min-h-[32px]">
+                      {articleDraft.tags.map((tag, i) => (
+                        <span key={i} className="px-2 py-0.5 bg-[#D4873A]/20 text-[#D4873A] rounded text-[10px] flex items-center gap-1">
+                          {tag}
+                          <button onClick={() => setArticleDraft({ ...articleDraft, tags: articleDraft.tags.filter((_, j) => j !== i) })} className="hover:text-white">×</button>
+                        </span>
+                      ))}
+                      <input
+                        type="text"
+                        value={articleTagInput}
+                        onChange={e => setArticleTagInput(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && articleTagInput.trim()) {
+                            setArticleDraft({ ...articleDraft, tags: [...articleDraft.tags, articleTagInput.trim()] });
+                            setArticleTagInput('');
+                          }
+                        }}
+                        placeholder="+ Add tag"
+                        className="bg-transparent text-[10px] flex-1 min-w-[60px] outline-none text-gray-400"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Content Editor - Full Width */}
+              <div>
+                <label className="block text-[10px] text-gray-400 mb-1">Content</label>
+                <div className="min-w-0">
+                  <BlockEditor
+                    value={articleDraft.content || ''}
+                    onChange={(content: string) => setArticleDraft({ ...articleDraft, content })}
+                  />
                 </div>
               </div>
 
@@ -2362,14 +2664,18 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                   Cancel
                 </button>
                 <button
+                  disabled={savingArticle || !articleDraft.title}
                   onClick={async () => {
+                    if (savingArticle) return;
+                    setSavingArticle(true);
                     try {
+                      console.log('Saving article:', articleDraft.title);
                       // Always POST to create new article (skipSave means it wasn't saved before)
                       const res = await fetch('/api/articles', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                          userId, // Required by API
+                          userId, // Required by API (caller)
                           title: articleDraft.title,
                           subtitle: articleDraft.subtitle,
                           content: articleDraft.content,
@@ -2379,12 +2685,17 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                           imagePosX: articleDraft.imagePosX,
                           imagePosY: articleDraft.imagePosY,
                           author: articleDraft.reporterId,
+                          authorName: articleDraft.reporterName, // Skip extra DB lookup
                           status: 'draft',
                         }),
                       });
                       const data = await res.json();
+                      console.log('Save response:', data);
                       if (data.success || data._id || data.article) {
                         const savedId = data._id || data.article?._id;
+                        // Remove from tabs
+                        setCreatedArticles(prev => prev.filter(a => a.draft?.title !== articleDraft.title));
+                        setSelectedArticleTab(null);
                         setArticleDraft(null);
                         if (currentPiece) {
                           updatePieceMessages(currentPiece.id, msgs => [
@@ -2392,7 +2703,7 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                             {
                               id: generateId(),
                               from: 'result',
-                              text: `Article "${articleDraft.title}" saved to Articles.`,
+                              text: `✅ Article "${articleDraft.title}" saved to Articles.`,
                               resultType: 'article',
                               articleDraftId: savedId,
                               activated: true,
@@ -2400,16 +2711,34 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                           ]);
                         }
                       } else {
-                        alert('Save failed: ' + (data.error || 'Unknown error'));
+                        console.error('Save failed:', data);
+                        alert('Save failed: ' + (data.error || JSON.stringify(data)));
                       }
                     } catch (err) {
                       console.error('Failed to save article:', err);
                       alert('Save failed: ' + err);
+                    } finally {
+                      setSavingArticle(false);
                     }
                   }}
-                  className="px-4 py-1.5 bg-[#D4873A] hover:bg-[#c07830] rounded text-xs font-bold text-white flex items-center gap-1"
+                  className={`px-4 py-1.5 rounded text-xs font-bold text-white flex items-center gap-1 ${
+                    savingArticle 
+                      ? 'bg-green-600 animate-pulse cursor-wait' 
+                      : !articleDraft.title
+                        ? 'bg-gray-600 cursor-not-allowed'
+                        : 'bg-[#D4873A] hover:bg-[#c07830]'
+                  }`}
                 >
-                  <Check size={12} /> Save
+                  {savingArticle ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Check size={12} /> Save
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -2447,15 +2776,14 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
             </div>
 
             <div className="p-4 space-y-4">
-              {/* Nationality */}
+              {/* Name (read-only for now) */}
               <div>
-                <label className="block text-[10px] text-gray-400 mb-1 uppercase">Nationality</label>
+                <label className="block text-[10px] text-gray-400 mb-1 uppercase">Name</label>
                 <input
                   type="text"
-                  value={editingReporter.nationality}
-                  onChange={e => setEditingReporter({ ...editingReporter, nationality: e.target.value })}
-                  placeholder="e.g. British, American, Japanese..."
-                  className="w-full bg-gray-700 border border-gray-600 px-3 py-2 rounded text-sm focus:border-[#D4873A] focus:outline-none"
+                  value={editingReporter.name}
+                  disabled
+                  className="w-full bg-gray-700/50 border border-gray-600 px-3 py-2 rounded text-sm text-gray-400"
                 />
               </div>
 
@@ -2473,60 +2801,31 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                 </select>
               </div>
 
-              {/* Specialty */}
-              <div>
-                <label className="block text-[10px] text-gray-400 mb-1 uppercase">Specialty</label>
-                <select
-                  value={editingReporter.specialty}
-                  onChange={e => setEditingReporter({ ...editingReporter, specialty: e.target.value })}
-                  className="w-full bg-gray-700 border border-gray-600 px-3 py-2 rounded text-sm focus:border-[#D4873A] focus:outline-none"
-                >
-                  <option value="">— Any —</option>
-                  <option value="sports">🏆 Sports</option>
-                  <option value="music">🎵 Music</option>
-                  <option value="movies-tv">📺 Movies/TV</option>
-                  <option value="gaming">🎮 Gaming</option>
-                  <option value="politics">🏛️ Politics</option>
-                  <option value="lifestyle">✨ Lifestyle</option>
-                  <option value="tech">💻 Tech</option>
-                  <option value="rip">🕯️ RIP/Obituaries</option>
-                </select>
-              </div>
-
               {/* Writing Style */}
               <div>
                 <label className="block text-[10px] text-gray-400 mb-1 uppercase">Writing Style</label>
-                <input
-                  type="text"
+                <select
                   value={editingReporter.writingStyle}
                   onChange={e => setEditingReporter({ ...editingReporter, writingStyle: e.target.value })}
-                  placeholder="e.g. nick-hornby, hunter-s-thompson..."
                   className="w-full bg-gray-700 border border-gray-600 px-3 py-2 rounded text-sm focus:border-[#D4873A] focus:outline-none"
-                />
-              </div>
-
-              {/* Personality */}
-              <div>
-                <label className="block text-[10px] text-gray-400 mb-1 uppercase">Personality</label>
-                <textarea
-                  value={editingReporter.personality}
-                  onChange={e => setEditingReporter({ ...editingReporter, personality: e.target.value })}
-                  placeholder="Describe their personality, tone, quirks..."
-                  rows={2}
-                  className="w-full bg-gray-700 border border-gray-600 px-3 py-2 rounded text-sm focus:border-[#D4873A] focus:outline-none resize-none"
-                />
-              </div>
-
-              {/* Responsibilities */}
-              <div>
-                <label className="block text-[10px] text-gray-400 mb-1 uppercase">Responsibilities</label>
-                <textarea
-                  value={editingReporter.responsibilities}
-                  onChange={e => setEditingReporter({ ...editingReporter, responsibilities: e.target.value })}
-                  placeholder="What topics do they cover?"
-                  rows={2}
-                  className="w-full bg-gray-700 border border-gray-600 px-3 py-2 rounded text-sm focus:border-[#D4873A] focus:outline-none resize-none"
-                />
+                >
+                  <option value="">— Select Style —</option>
+                  <option value="nick-hornby">Nick Hornby (conversational, witty)</option>
+                  <option value="hunter-s-thompson">Hunter S. Thompson (gonzo, intense)</option>
+                  <option value="nora-ephron">Nora Ephron (warm, observant)</option>
+                  <option value="charles-bukowski">Charles Bukowski (raw, direct)</option>
+                  <option value="murakami">Haruki Murakami (dreamy, surreal)</option>
+                  <option value="irvine-welsh">Irvine Welsh (gritty, energetic)</option>
+                  <option value="joan-didion">Joan Didion (precise, cool)</option>
+                  <option value="david-sedaris">David Sedaris (humorous, self-deprecating)</option>
+                  <option value="tom-wolfe">Tom Wolfe (flamboyant, detailed)</option>
+                  <option value="zadie-smith">Zadie Smith (sharp, multicultural)</option>
+                  <option value="slavenka-drakulic">Slavenka Drakulić (political, Eastern European)</option>
+                  <option value="benjamin-stuckrad-barre">Benjamin v. Stuckrad-Barre (pop culture, ironic)</option>
+                  <option value="bret-easton-ellis">Bret Easton Ellis (detached, satirical)</option>
+                  <option value="chuck-palahniuk">Chuck Palahniuk (dark, transgressive)</option>
+                  <option value="douglas-coupland">Douglas Coupland (GenX voice, observational)</option>
+                </select>
               </div>
             </div>
 
@@ -2550,6 +2849,84 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
           </div>
         </div>
       )}
+
+      {/* Rankroll Editor Modal */}
+      {selectedRankrollTab && (() => {
+        const rankroll = createdRankrolls.find(r => r.id === selectedRankrollTab);
+        if (!rankroll) return null;
+        return (
+          <div className="fixed inset-0 z-[60] bg-black/90">
+            <div className="bg-gray-800 w-full h-full overflow-y-auto">
+              {/* Header */}
+              <div className="px-4 py-2.5 border-b border-gray-700 flex items-center justify-between sticky top-0 bg-gray-800 z-10">
+                <h3 className="text-sm font-bold">🏆 {rankroll.title}</h3>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={async () => {
+                      if (savingRankroll) return;
+                      setSavingRankroll(true);
+                      try {
+                        const res = await fetch('/api/polls', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            title: rankroll.title,
+                            subtitle: rankroll.subtitle,
+                            type: 'ranking',
+                            items: rankroll.items,
+                            category: 'ranking',
+                            status: 'inactive',
+                          }),
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                          setCreatedRankrolls(prev => prev.filter(r => r.id !== rankroll.id));
+                          setSelectedRankrollTab(null);
+                          alert('Ranking saved!');
+                        } else {
+                          alert('Save failed: ' + (data.error || 'Unknown error'));
+                        }
+                      } catch (err) {
+                        alert('Save failed: ' + err);
+                      } finally {
+                        setSavingRankroll(false);
+                      }
+                    }}
+                    disabled={savingRankroll}
+                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 rounded text-xs font-bold text-white flex items-center gap-1 disabled:opacity-50"
+                  >
+                    {savingRankroll ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                    Save Ranking
+                  </button>
+                  <button onClick={() => setSelectedRankrollTab(null)} className="text-gray-400 hover:text-white">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-4">
+                <p className="text-sm text-gray-400 mb-4">{rankroll.subtitle}</p>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                  {rankroll.items.map((item, idx) => (
+                    <div key={item.id} className="bg-gray-700 rounded-lg overflow-hidden">
+                      {item.image && (
+                        <img src={item.image} alt={item.title} className="w-full h-24 object-cover" />
+                      )}
+                      <div className="p-2">
+                        <span className="text-[10px] text-purple-400 font-bold">#{idx + 1}</span>
+                        <p className="text-xs font-medium text-white line-clamp-2">{item.title}</p>
+                        {item.description && (
+                          <p className="text-[10px] text-gray-400 line-clamp-2 mt-1">{item.description}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

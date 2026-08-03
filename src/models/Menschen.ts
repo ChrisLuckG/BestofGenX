@@ -2,8 +2,12 @@ import mongoose, { Schema, Document, Model } from 'mongoose';
 
 export interface IMensch extends Document {
   // Basic info
-  name: string;
+  firstName?: string;
+  lastName?: string;
+  name: string; // Full name
   birthday: string; // DD.MM.YYYY format
+  birthYear?: number;
+  birthPlace?: string; // City/town of birth
   deathday?: string; // DD.MM.YYYY format (for RIP)
   causeOfDeath?: string;
   country: string;
@@ -13,7 +17,6 @@ export interface IMensch extends Document {
   category: string; // sports, music, movies-tv, politics, gaming, lifestyle, culture
   profession?: string;
   isGenX: boolean; // born 1965-1980
-  birthYear?: number;
   
   // Description & content
   description: string;
@@ -47,8 +50,12 @@ export interface IMensch extends Document {
 
 const MenschSchema = new Schema<IMensch>({
   // Basic info
+  firstName: { type: String },
+  lastName: { type: String },
   name: { type: String, required: true, index: true },
   birthday: { type: String, required: true },
+  birthYear: { type: Number },
+  birthPlace: { type: String },
   deathday: { type: String },
   causeOfDeath: { type: String },
   country: { type: String, required: true },
@@ -62,7 +69,6 @@ const MenschSchema = new Schema<IMensch>({
   },
   profession: { type: String },
   isGenX: { type: Boolean, default: true },
-  birthYear: { type: Number },
   
   // Description & content
   description: { type: String, required: true },

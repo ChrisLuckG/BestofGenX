@@ -20,11 +20,14 @@ let _liveCtxCache: { key: string; value: string } | null = null; // Cache cleare
 let _deathsCache: { key: string; value: string } | null = null;
 
 async function fetchLiveContext(month: number, day: number): Promise<string> {
-  const cacheKey = `genx-${month}-${day}`; // Changed key to force cache refresh
+  const cacheKey = `genxALL-${month}-${day}`; // Changed key to force cache refresh (ALL births now)
   if (_liveCtxCache?.key === cacheKey) return _liveCtxCache.value;
   try {
+    // Wikipedia API REQUIRES zero-padded month and day (e.g. 08/03, NOT 8/3)
+    const mm = String(month).padStart(2, '0');
+    const dd = String(day).padStart(2, '0');
     const res = await fetch(
-      `https://en.wikipedia.org/api/rest_v1/feed/onthisday/all/${month}/${day}`,
+      `https://en.wikipedia.org/api/rest_v1/feed/onthisday/all/${mm}/${dd}`,
       { headers: { 'User-Agent': 'BOGX-Editorial/1.0' }, signal: AbortSignal.timeout(4000) }
     );
     if (!res.ok) return '';
@@ -33,11 +36,43 @@ async function fetchLiveContext(month: number, day: number): Promise<string> {
     const lines: string[] = [];
 
     // Notable births today (filter for GenX ONLY: born 1965-1980)
-    const births = (data.births || [])
-      .filter((b: any) => b.year >= 1965 && b.year <= 1980)
-      .slice(0, 10)
+    // Get ALL GenX births - Wikipedia has hundreds per day!
+    const allGenXBirths = (data.births || [])
+      .filter((b: any) => b.year >= 1965 && b.year <= 1980);
+    
+    // Categorize births for better filtering
+    const categoryPatterns: Record<string, RegExp> = {
+      'sports': /\b(football|basketball|baseball|hockey|soccer|tennis|golf|boxer|wrestler|athlete|swimmer|cyclist|racer|player|coach|gymnast|skier|MMA|UFC)\b/i,
+      'music': /\b(singer|musician|rapper|DJ|guitarist|drummer|bassist|songwriter|composer|pianist|violinist|conductor)\b/i,
+      'movies-tv': /\b(actor|actress|director|producer|screenwriter|filmmaker|television|TV|comedian|host|presenter|model)\b/i,
+      'politics': /\b(politician|senator|governor|president|minister|mayor|diplomat|activist|political)\b/i,
+      'gaming': /\b(game designer|video game|esports|streamer)\b/i,
+      'authors': /\b(author|writer|novelist|poet|journalist)\b/i,
+    };
+    
+    // Count by category
+    const categoryCounts: Record<string, number> = {};
+    for (const birth of allGenXBirths) {
+      const text = birth.text || '';
+      for (const [cat, pattern] of Object.entries(categoryPatterns)) {
+        if (pattern.test(text)) {
+          categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+          break;
+        }
+      }
+    }
+    
+    const births = allGenXBirths
       .map((b: any) => `  - ${b.text?.split('.')[0]} (born ${b.year})`);
-    if (births.length) lines.push(`BIRTHDAYS TODAY (GenX relevant):\n${births.join('\n')}`);
+    
+    // Add category summary
+    const categoryInfo = Object.entries(categoryCounts)
+      .map(([cat, count]) => `${cat}: ${count}`)
+      .join(', ');
+    
+    if (births.length) {
+      lines.push(`BIRTHDAYS TODAY (GenX relevant) - Total: ${births.length}\nCategories available: ${categoryInfo || 'mixed'}\n${births.join('\n')}`);
+    }
 
     // Deaths today
     const deaths = (data.deaths || [])
@@ -285,7 +320,7 @@ export async function POST(request: NextRequest) {
     await dbConnect();
 
     const body = await request.json();
-    const { reporterUserId, message, conversationId, autoPublish } = body;
+    const { reporterUserId, message, conversationId, autoPublish, overrideCategory, overrideCountry, proposalOnly } = body;
 
     if (!reporterUserId || !message) {
       return NextResponse.json({ success: false, error: 'reporterUserId and message required' }, { status: 400 });
@@ -342,10 +377,36 @@ export async function POST(request: NextRequest) {
       fetchRecentDeaths(now),
     ]);
 
+    // Map country codes to full names
+    const countryNames: Record<string, string> = {
+      'US': 'United States', 'CA': 'Canada', 'MX': 'Mexico', 'BR': 'Brazil',
+      'AR': 'Argentina', 'UK': 'United Kingdom', 'DE': 'Germany', 'FR': 'France',
+      'IT': 'Italy', 'ES': 'Spain', 'NL': 'Netherlands', 'SE': 'Sweden',
+      'NO': 'Norway', 'PL': 'Poland', 'RU': 'Russia', 'JP': 'Japan',
+      'CN': 'China', 'KR': 'South Korea', 'IN': 'India', 'AU': 'Australia',
+      'NZ': 'New Zealand', 'ZA': 'South Africa', 'EG': 'Egypt', 'NG': 'Nigeria',
+      'AT': 'Austria', 'CH': 'Switzerland', 'BE': 'Belgium', 'PT': 'Portugal',
+      'GR': 'Greece', 'IE': 'Ireland', 'CZ': 'Czech Republic', 'HU': 'Hungary',
+    };
+    const countryFullName = overrideCountry ? (countryNames[overrideCountry] || overrideCountry) : '';
+
+    // Build override instructions if category/country filters are set
+    const overrideInstructions = (overrideCategory || countryFullName) ? `
+================================================================================
+⚠️⚠️⚠️ EDITOR OVERRIDE — HIGHEST PRIORITY ⚠️⚠️⚠️
+================================================================================
+The editor has set MANDATORY filters. These OVERRIDE your specialty/region:
+${overrideCategory ? `CATEGORY FILTER: You MUST find someone in "${overrideCategory}" category ONLY.` : ''}
+${countryFullName ? `COUNTRY FILTER: You MUST find someone from "${countryFullName}" ONLY.` : ''}
+
+IGNORE your normal specialty. Follow the editor's filters above.
+================================================================================
+` : '';
+
     // Combine: reporter persona first (their identity), then full BOGX knowledge
     const systemPrompt = `TODAY'S DATE: ${dateStr}
 You know today's exact date. Never guess or make up the date.
-
+${overrideInstructions}
 SINGLE-TURN RULE — BE PRODUCTIVE, NEVER STALL:
 This chat is a single request/response. You CANNOT "get back later" or do work in the background.
 NEVER reply with empty promises like "let me check and I'll get back to you", "one moment", "lass mich nachschauen", "ich melde mich gleich", "einen Moment bitte". Such replies are useless.
@@ -401,7 +462,6 @@ ${bogxKnowledge}`;
     // Handle article generation — always try to parse JSON in case reporter generated it
     // (reporter's system prompt controls when it outputs JSON, not just the mode flag)
     // BUT: if proposalOnly is true, skip article creation entirely
-    const proposalOnly = body.proposalOnly === true;
     const looksLikeJson = rawResponse.trim().startsWith('{') || rawResponse.includes('"title"') && rawResponse.includes('"content"');
     if (!proposalOnly && (articleMode || looksLikeJson)) {
       try {
