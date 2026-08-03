@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Vote } from "lucide-react";
+import { Vote, Filter } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import PollCard from "./PollCard";
 import QuizPollCard from "./QuizPoll";
@@ -57,6 +57,8 @@ export default function RankrollPage({ onOpenArticle, onOpenRankroll, onCoinAnim
   const [polls, setPolls] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [visitorId, setVisitorId] = useState<string | undefined>(undefined);
+  const [filterNotVoted, setFilterNotVoted] = useState(false);
+  const [votedPolls, setVotedPolls] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     // Stable anonymous id for vote de-duplication
@@ -86,10 +88,38 @@ export default function RankrollPage({ onOpenArticle, onOpenRankroll, onCoinAnim
     load();
   }, []);
 
+  // Check which polls user has voted on
+  useEffect(() => {
+    const checkVotes = async () => {
+      if (polls.length === 0) return;
+      const vid = localStorage.getItem('bogx-visitor-id');
+      if (!user?.id && !vid) return;
+
+      const voted = new Set<string>();
+      for (const poll of polls) {
+        try {
+          const params = new URLSearchParams();
+          if (user?.id) params.set('userId', user.id);
+          else if (vid) params.set('visitorId', vid);
+
+          const res = await fetch(`/api/polls/${poll._id}/vote?${params}`);
+          const data = await res.json();
+          if (data.success && data.votes && Object.keys(data.votes).length > 0) {
+            voted.add(poll._id);
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+      setVotedPolls(voted);
+    };
+    checkVotes();
+  }, [polls, user?.id]);
+
   return (
     <div className="h-full flex flex-col bg-cream overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-cream">
         <div className="flex items-center gap-3">
           <Vote className="w-5 h-5 text-[#D4873A]" />
           <div>
@@ -97,6 +127,17 @@ export default function RankrollPage({ onOpenArticle, onOpenRankroll, onCoinAnim
             <span className="text-[10px] text-gray-500 -mt-0.5 block">Vote & rank your favorites</span>
           </div>
         </div>
+        <button
+          onClick={() => setFilterNotVoted(!filterNotVoted)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            filterNotVoted 
+              ? 'bg-[#D4873A] text-white' 
+              : 'bg-[#D4873A]/10 text-[#D4873A] hover:bg-[#D4873A]/20'
+          }`}
+        >
+          <Filter className="w-3.5 h-3.5" />
+          Not Voted
+        </button>
       </div>
 
       {/* Content */}
@@ -111,17 +152,33 @@ export default function RankrollPage({ onOpenArticle, onOpenRankroll, onCoinAnim
             <p className="text-gray-400 text-xs mt-1">New votes drop regularly — check back soon!</p>
           </div>
         ) : (
-          polls.map((poll) => (
-            <div key={poll._id}>
-              {poll.type === "quiz" ? (
-                <QuizPollCard poll={poll} userId={user?.id} visitorId={visitorId} onOpenArticle={onOpenArticle} />
-              ) : poll.type === "ranking" ? (
-                <RankingListCard poll={poll} userId={user?.id} visitorId={visitorId} onOpenArticle={onOpenArticle} onOpenRankroll={onOpenRankroll} onCoinAnimation={onCoinAnimation} />
-              ) : (
-                <PollCard poll={poll} userId={user?.id} visitorId={visitorId} onOpenArticle={onOpenArticle} />
-              )}
-            </div>
-          ))
+          (() => {
+            const filteredPolls = filterNotVoted 
+              ? polls.filter(poll => !votedPolls.has(poll._id))
+              : polls;
+            
+            if (filteredPolls.length === 0 && filterNotVoted) {
+              return (
+                <div className="text-center py-12">
+                  <Vote className="w-10 h-10 text-[#D4873A] mx-auto mb-3" />
+                  <p className="text-gray-600 text-sm font-medium">All caught up!</p>
+                  <p className="text-gray-400 text-xs mt-1">You've voted on all available Rankrolls.</p>
+                </div>
+              );
+            }
+            
+            return filteredPolls.map((poll) => (
+              <div key={poll._id}>
+                {poll.type === "quiz" ? (
+                  <QuizPollCard poll={poll} userId={user?.id} visitorId={visitorId} onOpenArticle={onOpenArticle} />
+                ) : poll.type === "ranking" ? (
+                  <RankingListCard poll={poll} userId={user?.id} visitorId={visitorId} onOpenArticle={onOpenArticle} onOpenRankroll={onOpenRankroll} onCoinAnimation={onCoinAnimation} />
+                ) : (
+                  <PollCard poll={poll} userId={user?.id} visitorId={visitorId} onOpenArticle={onOpenArticle} />
+                )}
+              </div>
+            ));
+          })()
         )}
       </div>
     </div>

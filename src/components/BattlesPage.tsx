@@ -149,8 +149,10 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     return () => clearInterval(interval);
   }, []);
   
-  // Screen state - start with setup screen like Solo Trivia
-  const [screen, setScreen] = useState<GameScreen>('setup');
+  // Screen state - start with setup screen, but if a battle was passed in via
+  // pendingBattleId (e.g. clicking "Play Now" from Open Battles), skip setup
+  // and go straight to the intro screen instead of flashing setup first.
+  const [screen, setScreen] = useState<GameScreen>(pendingBattleId ? 'intro' : 'setup');
   const [selectedGameType, setSelectedGameType] = useState('quiz');
   const [topicFilter, setTopicFilter] = useState('all');
   const [wagerFilter, setWagerFilter] = useState<number | 'all'>('all');
@@ -309,9 +311,11 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
               onPendingBattleHandled?.();
               return;
             }
-            // Show the battle intro
+            // "Play Now" is a single decisive action — accept (if needed) and
+            // start the battle immediately instead of showing a redundant
+            // intro/confirmation screen first.
             setCurrentBattle(battle);
-            setScreen('intro');
+            beginBattle(battle);
           }
         } catch (error) {
           console.error('Failed to load pending battle:', error);
@@ -615,12 +619,16 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     setScreen('intro');
   };
 
-  // Accept battle (called when clicking ACCEPT THE CHALLENGE)
-  const handleAcceptBattle = async (): Promise<boolean> => {
-    if (!currentBattle || !user) return false;
+  // Accept battle (called when clicking ACCEPT THE CHALLENGE).
+  // Takes the battle explicitly instead of reading currentBattle from state,
+  // since callers may invoke this synchronously right after setCurrentBattle
+  // (before the state update has propagated) — using stale state here would
+  // accept the WRONG battle or silently no-op.
+  const handleAcceptBattle = async (battle: Battle): Promise<boolean> => {
+    if (!user) return false;
     
     try {
-      const res = await fetch(`/api/battles/${currentBattle._id}/accept`, {
+      const res = await fetch(`/api/battles/${battle._id}/accept`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ opponentId: user.id })
@@ -632,7 +640,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
       if (data.success) {
         setCurrentBattle(data.battle);
         // Wager already deducted on server - update local coins and trigger animation
-        const wagerAmount = toBOGX(currentBattle.wager);
+        const wagerAmount = toBOGX(battle.wager);
         setCoins(prev => prev - wagerAmount);
         onCoinAnimation?.(-wagerAmount, 'hold');
         // Sync coins + pending wager indicator instantly (mobile & desktop)
@@ -649,7 +657,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         } else if (data.error === 'Not enough coins') {
           alertType = 'coins';
           const available = data.details?.available ?? '?';
-          message = `You need ${formatCurrency(toBOGX(currentBattle.wager))} coins but only have ${formatCurrency(available)} in your account. Try refreshing the page to sync your coins.`;
+          message = `You need ${formatCurrency(toBOGX(battle.wager))} coins but only have ${formatCurrency(available)} in your account. Try refreshing the page to sync your coins.`;
           // Force sync coins from server
           if (data.details?.available !== undefined) {
             setCoins(() => data.details.available);
@@ -701,37 +709,57 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     }
   };
 
-  // Start battle after accepting (as opponent)
-  const startBattle = async () => {
-    // Show accepting modal
-    setIsAccepting(true);
-    
-    // First accept the battle via API
-    const accepted = await handleAcceptBattle();
-    
-    if (!accepted) {
+  // Begin gameplay for a given battle. If it's still 'open', accept it first
+  // (joining as opponent). If it's already 'active' (e.g. opened via
+  // pendingBattleId for a battle you already matched into — either as
+  // creator or opponent), skip the accept call entirely: calling accept on
+  // an already-active battle always fails with "Battle is not open", which
+  // was incorrectly surfaced to the user as "Someone was faster" even though
+  // nothing was actually stolen.
+  // Takes the battle explicitly (rather than reading currentBattle from
+  // closure) so it can be called immediately after loading a fresh battle,
+  // without waiting for a state update to propagate.
+  const beginBattle = async (battle: Battle) => {
+    if (!user) return;
+    const alreadyActive = battle.status === 'active';
+    // Defensive check: creator may be a populated object OR a raw ID string
+    // depending on the code path that loaded this battle.
+    const creatorField: any = battle.creator;
+    const iAmCreator = creatorField?._id === user.id || creatorField === user.id;
+
+    if (!alreadyActive) {
+      // Show accepting modal
+      setIsAccepting(true);
+
+      // First accept the battle via API
+      const accepted = await handleAcceptBattle(battle);
+
+      if (!accepted) {
+        setIsAccepting(false);
+        return;
+      }
+
+      // Small delay for visual feedback
+      await new Promise(r => setTimeout(r, 800));
       setIsAccepting(false);
-      return;
     }
-    
-    // Small delay for visual feedback
-    await new Promise(r => setTimeout(r, 800));
-    setIsAccepting(false);
-    
-    // Then start the game as opponent
-    setIsCreator(false); // Mark as opponent
+
+    // Determine role correctly instead of assuming opponent
+    setIsCreator(iAmCreator);
     setCurrentRound(0);
     setMyResults([]);
-    // Load creator's results from battle
+    // Load the OTHER player's existing results (if any) as "opponent" progress
     // Normalize old points (>1) to BOGX (<1) - legacy data had points like 100, 150
-    if (currentBattle?.creatorResults) {
-      const normalizedResults = currentBattle.creatorResults.map(r => ({
+    const otherResults = iAmCreator ? battle.opponentResults : battle.creatorResults;
+    const otherTotalPoints = iAmCreator ? battle.opponentTotalPoints : battle.creatorTotalPoints;
+    if (otherResults && otherResults.length > 0) {
+      const normalizedResults = otherResults.map(r => ({
         correct: r.correct,
         timeMs: r.timeMs,
         points: r.points > 1 ? r.points / 1000 : r.points // Convert legacy points to BOGX
       }));
       setOpponentResults(normalizedResults);
-      const totalPts = currentBattle.creatorTotalPoints || 0;
+      const totalPts = otherTotalPoints || 0;
       setOpponentTotalPoints(totalPts > 1 ? totalPts / 1000 : totalPts);
     } else {
       setOpponentResults([]);
@@ -740,6 +768,13 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     setMyTotalPoints(0);
     setScreen('countdown');
     runCountdown();
+  };
+
+  // Called from the intro screen's "START BATTLE" button (browsing the open
+  // pool and previewing before committing).
+  const startBattle = async () => {
+    if (!currentBattle) return;
+    await beginBattle(currentBattle);
   };
 
   // Countdown
@@ -1704,7 +1739,15 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   // INTRO SCREEN
   // ═══════════════════════════════════════════════════════════════
   const renderIntroScreen = () => {
-    if (!currentBattle) return null;
+    // Show loading state while battle is being fetched (e.g. from pendingBattleId)
+    if (!currentBattle) {
+      return (
+        <div className="flex flex-col h-full bg-cream items-center justify-center">
+          <LogoLoader />
+          <p className="text-gray-500 text-sm mt-4">Loading battle...</p>
+        </div>
+      );
+    }
     const topic = getTopicConfig(currentBattle.topic);
     const potAmount = toBOGX(currentBattle.wager) * 2;
     

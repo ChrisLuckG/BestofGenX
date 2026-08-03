@@ -10,6 +10,15 @@ interface CardMoodReactionsProps {
   isLoggedIn: boolean;
   onShowLogin?: () => void;
   size?: 'xs' | 'sm' | 'md';
+  // When true, NEVER fire the individual fetch — the parent (e.g. WelcomeReel)
+  // is responsible for loading all reaction data in a single batched request
+  // and passing it down via initialReactions/initialUserReaction once ready.
+  // This must be a static flag (not derived from whether data has arrived
+  // yet), otherwise every card fires its own request during the brief window
+  // before the batched fetch resolves (N+1 request storm / ERR_INSUFFICIENT_RESOURCES).
+  useExternalData?: boolean;
+  initialReactions?: Record<string, number>;
+  initialUserReaction?: string | null;
 }
 
 const SIZES = {
@@ -30,19 +39,34 @@ function CardMoodReactionsInner({
   isLoggedIn,
   onShowLogin,
   size = 'sm',
+  useExternalData = false,
+  initialReactions,
+  initialUserReaction,
 }: CardMoodReactionsProps) {
-  const [reactions, setReactions] = useState<Record<string, number>>({});
-  const [userReaction, setUserReaction] = useState<string | null>(null);
+  const [reactions, setReactions] = useState<Record<string, number>>(initialReactions || {});
+  const [userReaction, setUserReaction] = useState<string | null>(initialUserReaction ?? null);
   const [showPicker, setShowPicker] = useState(false);
   const [loading, setLoading] = useState(false);
-  const fetchedRef = useRef<string | null>(null);
+  const fetchedRef = useRef<string | null>(useExternalData ? articleId : null);
   const isMountedRef = useRef(true);
 
   const imgSize = SIZES[size];
   const textSize = TEXT_SIZES[size];
 
-  // Fetch reactions on mount - only once per articleId
+  // When in external-data mode, sync local state whenever the parent's
+  // batched data updates/refreshes (e.g. once the batch fetch resolves).
   useEffect(() => {
+    if (useExternalData) {
+      setReactions(initialReactions || {});
+      setUserReaction(initialUserReaction ?? null);
+    }
+  }, [articleId, useExternalData, initialReactions, initialUserReaction]);
+
+  // Fetch reactions on mount - only once per articleId, and NEVER when the
+  // parent has taken over data loading via useExternalData (e.g. WelcomeReel
+  // batches all cards' reactions into one request instead of N).
+  useEffect(() => {
+    if (useExternalData) return;
     isMountedRef.current = true;
     
     // Skip if already fetched for this articleId
@@ -64,7 +88,7 @@ function CardMoodReactionsInner({
     fetchReactions();
     
     return () => { isMountedRef.current = false; };
-  }, [articleId]); // Only depend on articleId, not userId
+  }, [articleId, useExternalData]); // Only depend on articleId, not userId
 
   const totalReactions = Object.values(reactions).reduce((sum, count) => sum + count, 0);
 
@@ -236,10 +260,13 @@ function CardMoodReactionsInner({
 
 // Memoize to prevent re-renders when parent re-renders
 const CardMoodReactions = memo(CardMoodReactionsInner, (prevProps, nextProps) => {
-  // Only re-render if articleId changes
+  // Only re-render if articleId, userId, isLoggedIn, or the pre-fetched data changes
   return prevProps.articleId === nextProps.articleId && 
          prevProps.userId === nextProps.userId &&
-         prevProps.isLoggedIn === nextProps.isLoggedIn;
+         prevProps.isLoggedIn === nextProps.isLoggedIn &&
+         prevProps.useExternalData === nextProps.useExternalData &&
+         prevProps.initialReactions === nextProps.initialReactions &&
+         prevProps.initialUserReaction === nextProps.initialUserReaction;
 });
 
 export default CardMoodReactions;

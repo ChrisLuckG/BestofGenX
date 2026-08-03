@@ -91,7 +91,8 @@ export default function RankingListCard({ poll, onOpenArticle, onOpenRankroll, o
     findLinkedArticle();
   }, [poll._id]);
 
-  // Check if user has voted
+  // Check if user has voted and how many
+  const [votedCount, setVotedCount] = useState(0);
   useEffect(() => {
     const checkVotes = async () => {
       const visitorId = localStorage.getItem('bogx-visitor-id');
@@ -104,8 +105,12 @@ export default function RankingListCard({ poll, onOpenArticle, onOpenRankroll, o
 
         const res = await fetch(`/api/polls/${poll._id}/vote?${params}`);
         const data = await res.json();
-        if (data.success && data.votes && Object.keys(data.votes).length > 0) {
-          setHasVoted(true);
+        if (data.success && data.votes) {
+          const count = Object.keys(data.votes).length;
+          if (count > 0) {
+            setHasVoted(true);
+            setVotedCount(count);
+          }
         }
       } catch (e) {
         console.error('Failed to check votes:', e);
@@ -150,15 +155,14 @@ export default function RankingListCard({ poll, onOpenArticle, onOpenRankroll, o
             </span>
             {hasVoted ? (
               <div className="h-6 flex items-center gap-1 bg-[#D4873A] px-2 rounded transition-colors border border-white/30">
-                <Check className="w-2.5 h-2.5 text-white" />
-                <span className="text-xs font-display text-white uppercase tracking-wider">Voted</span>
+                <span className="text-sm">🪙</span><span className="text-xs font-display text-white">{(votedCount * 0.01).toFixed(2)}/{((poll.items?.length || 0) * 0.01).toFixed(2)} BOGX</span>
                 <span className="text-white/60">·</span>
                 <Vote className="w-2.5 h-2.5 text-white" />
                 <span className="text-xs font-display text-white">{poll.totalVotes}</span>
               </div>
             ) : (
               <div className="h-6 flex items-center gap-1 bg-white/20 backdrop-blur-sm hover:bg-[#D4873A] px-2 rounded transition-all duration-300 border border-white/30">
-                <span className="text-xs font-display text-white uppercase tracking-wider">Vote Now</span>
+                <span className="text-sm">🪙</span><span className="text-xs font-display text-white">0/{((poll.items?.length || 0) * 0.01).toFixed(2)} BOGX</span>
                 <span className="text-white/60">·</span>
                 <Vote className="w-2.5 h-2.5 text-white/80" />
                 <span className="text-xs font-display text-white">{poll.totalVotes}</span>

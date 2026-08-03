@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Vote, ChevronRight, Clock, Check } from "lucide-react";
+import { Vote, ChevronRight, Clock, Check, Filter } from "lucide-react";
 import { PollsSkeleton } from "./DesktopSkeletons";
 import { useAuth } from "@/context/AuthContext";
 
@@ -65,7 +65,7 @@ function useCountdown(endsAt?: string) {
 }
 
 // Ranking Card - Image block left, content right
-function RankingCard({ poll, onOpenArticle, onOpenRankroll }: { poll: Poll; onOpenArticle?: (articleId: string) => void; onOpenRankroll?: (pollId: string) => void }) {
+function RankingCard({ poll, onOpenArticle, onOpenRankroll }: { poll: Poll; onOpenArticle?: (articleId: string) => void; onOpenRankroll?: (poll: Poll) => void }) {
   const { user } = useAuth();
   const countdown = useCountdown(poll.closesAt);
   const top3 = [...(poll.items || [])].sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0)).slice(0, 3);
@@ -117,7 +117,9 @@ function RankingCard({ poll, onOpenArticle, onOpenRankroll }: { poll: Poll; onOp
     if (linkedArticleId && onOpenArticle) {
       onOpenArticle(linkedArticleId);
     } else if (onOpenRankroll) {
-      onOpenRankroll(poll._id);
+      // Pass the already-loaded poll object directly — no need to refetch
+      // the same data we already have, which was causing a 1-2s delay.
+      onOpenRankroll(poll);
     }
   };
   
@@ -368,14 +370,17 @@ function SimplePollCard({ poll, onClick }: { poll: Poll; onClick: () => void }) 
 
 interface DesktopRankrollPageProps {
   onOpenArticle?: (articleId: string) => void;
-  onOpenRankroll?: (pollId: string) => void;
+  onOpenRankroll?: (poll: Poll) => void;
   onShowLogin?: () => void;
   onCoinAnimation?: (amount: number) => void;
 }
 
 export default function DesktopRankrollPage({ onOpenArticle, onOpenRankroll }: DesktopRankrollPageProps) {
+  const { user } = useAuth();
   const [polls, setPolls] = useState<Poll[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filterNotVoted, setFilterNotVoted] = useState(false);
+  const [votedPolls, setVotedPolls] = useState<Set<string>>(new Set());
 
   const loadPolls = async () => {
     try {
@@ -395,9 +400,45 @@ export default function DesktopRankrollPage({ onOpenArticle, onOpenRankroll }: D
     loadPolls();
   }, []);
 
+  // Check which polls user has voted on
+  useEffect(() => {
+    const checkVotes = async () => {
+      if (polls.length === 0) return;
+      const vid = localStorage.getItem('bogx-visitor-id');
+      if (!user?.id && !vid) return;
+
+      const voted = new Set<string>();
+      for (const poll of polls) {
+        try {
+          const params = new URLSearchParams();
+          if (user?.id) params.set('userId', user.id);
+          else if (vid) params.set('visitorId', vid);
+
+          const res = await fetch(`/api/polls/${poll._id}/vote?${params}`);
+          const data = await res.json();
+          if (data.success && data.votes && Object.keys(data.votes).length > 0) {
+            voted.add(poll._id);
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+      setVotedPolls(voted);
+    };
+    checkVotes();
+  }, [polls, user?.id]);
+
   // Filter to only show ranking type polls
-  const rankingPolls = polls.filter(p => p.type === 'ranking');
-  const otherPolls = polls.filter(p => p.type !== 'ranking');
+  const allRankingPolls = polls.filter(p => p.type === 'ranking');
+  const allOtherPolls = polls.filter(p => p.type !== 'ranking');
+  
+  // Apply not-voted filter
+  const rankingPolls = filterNotVoted 
+    ? allRankingPolls.filter(p => !votedPolls.has(p._id))
+    : allRankingPolls;
+  const otherPolls = filterNotVoted 
+    ? allOtherPolls.filter(p => !votedPolls.has(p._id))
+    : allOtherPolls;
 
   return (
     <div className="h-full flex flex-col bg-[#F5F0E8] overflow-hidden">
@@ -410,7 +451,17 @@ export default function DesktopRankrollPage({ onOpenArticle, onOpenRankroll }: D
             <span className="text-[10px] text-gray-500 -mt-0.5 block">Vote & rank your favorites</span>
           </div>
         </div>
-        <div className="w-48" />
+        <button
+          onClick={() => setFilterNotVoted(!filterNotVoted)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            filterNotVoted 
+              ? 'bg-[#D4873A] text-white' 
+              : 'bg-[#D4873A]/10 text-[#D4873A] hover:bg-[#D4873A]/20'
+          }`}
+        >
+          <Filter className="w-3.5 h-3.5" />
+          Not Voted
+        </button>
       </div>
 
       {/* Content */}
@@ -420,9 +471,18 @@ export default function DesktopRankrollPage({ onOpenArticle, onOpenRankroll }: D
           <PollsSkeleton />
         ) : rankingPolls.length === 0 && otherPolls.length === 0 ? (
           <div className="text-center py-12">
-            <Vote className="w-10 h-10 text-[#D4873A]/30 mx-auto mb-3" />
-            <p className="text-gray-500 text-sm">No Rankrolls open right now.</p>
-            <p className="text-gray-400 text-xs mt-1">New votes drop regularly — check back soon!</p>
+            <Vote className={`w-10 h-10 mx-auto mb-3 ${filterNotVoted ? 'text-[#D4873A]' : 'text-[#D4873A]/30'}`} />
+            {filterNotVoted ? (
+              <>
+                <p className="text-gray-600 text-sm font-medium">All caught up!</p>
+                <p className="text-gray-400 text-xs mt-1">You've voted on all available Rankrolls.</p>
+              </>
+            ) : (
+              <>
+                <p className="text-gray-500 text-sm">No Rankrolls open right now.</p>
+                <p className="text-gray-400 text-xs mt-1">New votes drop regularly — check back soon!</p>
+              </>
+            )}
           </div>
         ) : (
           <>

@@ -9,6 +9,7 @@ import { useBogxCoins } from "@/hooks/useBogxCoins";
 import { usePendingWager } from "@/hooks/usePendingWager";
 import GenXLoader from "@/components/GenXLoader";
 import { formatCurrency, getCurrencySymbol } from "@/utils/currency";
+import { getUserLevel, getLevelIndex, getLevelProgress, getBogxToNextLevel, LEVELS } from "@/utils/levels";
 
 // Import real components
 import { NavTab } from "@/components/BottomNav";
@@ -37,6 +38,7 @@ import DesktopContentWrapper from "@/components/desktop/DesktopContentWrapper";
 import DesktopBattlesPage from "@/components/desktop/DesktopBattlesPage";
 import DesktopRankWidget from "@/components/desktop/DesktopRankWidget";
 import RadioPage from "@/components/RadioPage";
+import CommunitySoundPage from "@/components/CommunitySoundPage";
 import WelcomeBackModal, { WelcomeBackRankChange } from "@/components/WelcomeBackModal";
 import CheckoutSuccessModal from "@/components/CheckoutSuccessModal";
 import StaticPageInline from "@/components/StaticPageInline";
@@ -81,6 +83,7 @@ export default function DesktopPage() {
   const [arcadeGame, setArcadeGame] = useState<string | null>(null);
   const [showLoginPage, setShowLoginPage] = useState(false);
   const [openArticleId, setOpenArticleId] = useState<string | null>(null);
+  const [showCommunitySound, setShowCommunitySound] = useState(false);
   const [openRankrollId, setOpenRankrollId] = useState<string | null>(null);
   const [openRankrollData, setOpenRankrollData] = useState<any>(null);
   const [feedRefreshKey, setFeedRefreshKey] = useState(0); // Increment to force feed refresh
@@ -147,9 +150,9 @@ export default function DesktopPage() {
       setActiveBattleCount(0);
       return;
     }
-    const badgeSeenKey = `arcade_badge_seen_${user.id}`;
     const fetchBattleCounts = async () => {
-      if (sessionStorage.getItem(badgeSeenKey)) return;
+      // Always refresh — the badge should reflect the true pending count
+      // at all times, even after the user has already visited Arcade once.
       try {
         const res = await fetch(`/api/battles?userId=${user.id}&countOnly=true`);
         const data = await res.json();
@@ -294,7 +297,8 @@ export default function DesktopPage() {
     }
   }, [user?.id]);
 
-  // Show welcome back message after login
+  // Show welcome back message ONLY right after an actual login action — not on every
+  // page load/refresh/new-tab while already authenticated via persisted localStorage.
   useEffect(() => {
     if (!mounted || !isLoggedIn || !user?.id) return;
     
@@ -302,14 +306,13 @@ export default function DesktopPage() {
     const checkout = searchParams.get('checkout');
     if (checkout === 'success' || checkout === 'cancelled') return;
     
-    // Check if we already showed welcome this session
-    const sessionKey = `welcome_shown_${user.id}_${new Date().toDateString()}`;
-    if (sessionStorage.getItem(sessionKey)) return;
+    // Only fires if login() just set this flag (a real login action just happened).
+    if (sessionStorage.getItem('bogx_just_logged_in') !== '1') return;
+    sessionStorage.removeItem('bogx_just_logged_in');
     
     // Show modal immediately with loading state, then fetch data
     setWelcomeLoading(true);
     setShowWelcomeBack(true);
-    sessionStorage.setItem(sessionKey, 'true');
     
     // Fetch personalized welcome data + current leader in parallel
     const fetchWelcomeMessage = async () => {
@@ -329,11 +332,15 @@ export default function DesktopPage() {
           setWelcomeEvents(welcomeRes.whileAwayEvents ?? []);
           setWelcomeLastSeenAt(welcomeRes.lastSeenAt ?? null);
           setWelcomeDailyReward(welcomeRes.dailyRewardReady ?? false);
-          // Level data
-          setWelcomeLevel(welcomeRes.level ?? 1);
-          setWelcomeLevelName(welcomeRes.levelName ?? 'Rookie');
-          setWelcomeLevelProgress(welcomeRes.levelProgress ?? 0);
-          setWelcomePointsToNextLevel(welcomeRes.pointsToNextLevel ?? 0);
+          // Level data — compute from the LIVE client-side bogxCoins (same source
+          // the Rankings page uses) instead of the server snapshot, so the two
+          // screens can never disagree on the percentage.
+          const liveBogx = user.bogxCoins ?? welcomeRes.totalPoints ?? 0;
+          const liveLevelIndex = getLevelIndex(liveBogx);
+          setWelcomeLevel(liveLevelIndex + 1);
+          setWelcomeLevelName(LEVELS[liveLevelIndex]?.name ?? 'Rookie');
+          setWelcomeLevelProgress(getLevelProgress(liveBogx));
+          setWelcomePointsToNextLevel(getBogxToNextLevel(liveBogx));
           setWelcomeAvatar(welcomeRes.avatar || undefined);
         }
         if (leaderRes?.success && leaderRes.leaderboard?.[0]) {
@@ -472,6 +479,8 @@ export default function DesktopPage() {
     setActiveTab(tab);
     setArcadeGame(null);
     setOpenArticleId(null);
+    setOpenRankrollData(null);
+    setShowCommunitySound(false);
     setStaticPageSlug(null); // Close static page when changing tabs
     // Scroll to top when changing tabs
     contentRef.current?.scrollTo(0, 0);
@@ -549,6 +558,11 @@ export default function DesktopPage() {
     setShowLoginPage(true);
   }, []);
 
+  const handleOpenCommunitySound = useCallback(() => {
+    setShowCommunitySound(true);
+    contentRef.current?.scrollTo(0, 0);
+  }, []);
+
   if (!mounted) {
     return null;
   }
@@ -573,15 +587,24 @@ export default function DesktopPage() {
                 {navTabs.map((tab) => {
                   const isActive = activeTab === tab.id;
                   const Icon = tab.icon;
+                  const battleAlertCount = pendingChallengeCount + activeBattleCount;
+                  const showBattleBadge = tab.id === 'arcade' && battleAlertCount > 0 && !isActive;
                   return (
                     <button
                       key={tab.id}
                       onClick={() => handleTabChange(tab.id)}
                       className="relative flex flex-col items-center px-2.5 py-2.5 rounded-xl group hover:bg-[#D4873A]/5 transition-all"
                     >
-                      <Icon className={`w-6 h-6 transition-colors ${
-                        isActive ? 'text-[#D4873A]' : 'text-gray-900 group-hover:text-[#D4873A]'
-                      }`} />
+                      <div className="relative">
+                        <Icon className={`w-6 h-6 transition-colors ${
+                          isActive ? 'text-[#D4873A]' : 'text-gray-900 group-hover:text-[#D4873A]'
+                        }`} />
+                        {showBattleBadge && (
+                          <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-0.5 bg-red-500 rounded-full flex items-center justify-center text-white text-[9px] font-black shadow animate-pulse">
+                            {battleAlertCount > 9 ? '9+' : battleAlertCount}
+                          </span>
+                        )}
+                      </div>
                       <span className={`font-display text-[11px] tracking-widest uppercase leading-none mt-1.5 transition-colors ${
                         isActive ? 'text-[#D4873A]' : 'text-gray-900 group-hover:text-[#D4873A]'
                       }`}>
@@ -666,6 +689,9 @@ export default function DesktopPage() {
                     <span className="font-display text-sm tracking-wider uppercase text-gray-900">
                       {isBreakTime ? "Yesterday's Winners" : 'Today'}
                     </span>
+                    {rankingsLoading && (
+                      <div className="w-3 h-3 border-2 border-[#D4873A]/30 border-t-[#D4873A] rounded-full animate-spin" />
+                    )}
                   </div>
                   <button onClick={() => handleTabChange('rankings')} className="text-[10px] font-semibold text-[#D4873A] hover:underline uppercase">View All</button>
                 </div>
@@ -687,13 +713,20 @@ export default function DesktopPage() {
                 )}
               </div>
               <div className="relative divide-y divide-warm/50">
-                {rankingsLoading ? (
-                  <div className="flex items-center justify-center py-10">
-                    <div className="w-6 h-6 border-2 border-[#D4873A]/30 border-t-[#D4873A] rounded-full animate-spin" />
-                  </div>
-                ) : (
-                  // Always show 10 slots - fill with placeholders if needed
+                {
+                  // Always show all 10 slots immediately (layout never collapses to a spinner).
+                  // While loading, every slot shows a pulsing skeleton instead of real data.
                   Array.from({ length: 10 }).map((_, i) => {
+                    if (rankingsLoading) {
+                      return (
+                        <div key={`skeleton-${i}`} className="w-full flex items-center gap-3 px-4 py-2.5 animate-pulse">
+                          <span className="text-sm font-bold tabular-nums w-4 text-center text-[#D4873A]/40">{i + 1}</span>
+                          <div className="w-8 h-8 rounded-full bg-warm" />
+                          <div className="flex-1 h-3 rounded bg-warm" />
+                          <div className="w-8 h-3 rounded bg-warm" />
+                        </div>
+                      );
+                    }
                     const r = rankings[i];
                     if (r) {
                       return (
@@ -729,18 +762,20 @@ export default function DesktopPage() {
                     }
                     // Placeholder for empty slot
                     return (
-                      <div key={`empty-${i}`} className="w-full flex items-center gap-3 px-4 py-2.5 opacity-40">
-                        <span className="text-sm font-bold tabular-nums w-4 text-center text-gray-300">{i + 1}</span>
-                        <div className="w-8 h-8 rounded-full bg-gray-200 border border-gray-200" />
-                        <span className="flex-1 text-left font-display text-[13px] tracking-wide text-gray-400">—</span>
+                      <div key={`empty-${i}`} className="w-full flex items-center gap-3 px-4 py-2.5">
+                        <span className="text-sm font-bold tabular-nums w-4 text-center text-[#D4873A]/60">{i + 1}</span>
+                        <div className="w-8 h-8 rounded-full bg-warm border border-warm flex items-center justify-center">
+                          <span className="text-sm font-semibold text-[#D4873A]">?</span>
+                        </div>
+                        <span className="flex-1 text-left font-display text-[13px] tracking-wide text-gray-800">—</span>
                         <div className="flex items-center gap-1">
-                          <img src="/images/bogxcoin.png" alt="" className="w-4 h-4 opacity-30" />
-                          <span className="font-display text-[13px] tracking-wide text-gray-300">—</span>
+                          <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
+                          <span className="font-display text-[13px] tracking-wide font-semibold text-[#D4873A]">—</span>
                         </div>
                       </div>
                     );
                   })
-                )}
+                }
               </div>
             </div>
 
@@ -821,7 +856,8 @@ export default function DesktopPage() {
               {/* Static Page View */}
               {staticPageSlug && <StaticPageInline slug={staticPageSlug} defaultTitle={staticPageSlug} onClose={() => { setStaticPageSlug(null); contentRef.current?.scrollTo(0, 0); }} />}
               {/* Content Tabs */}
-              {!staticPageSlug && activeTab === "feed" && !openArticleId && <WelcomeReel onOpenArticle={handleOpenArticle} readArticles={readArticles} isDesktop={true} onShowLogin={handleShowLogin} />}
+              {!staticPageSlug && activeTab === "feed" && !openArticleId && !showCommunitySound && <WelcomeReel onOpenArticle={handleOpenArticle} readArticles={readArticles} isDesktop={true} onShowLogin={handleShowLogin} onOpenCommunitySound={handleOpenCommunitySound} />}
+              {!staticPageSlug && showCommunitySound && <CommunitySoundPage isDesktop={true} onBack={() => setShowCommunitySound(false)} onOpenRadio={() => { setShowCommunitySound(false); handleTabChange('radio'); }} />}
               {!staticPageSlug && openArticleId && <ArticlePage articleId={openArticleId} onBack={() => {
                 setOpenArticleId(null);
                 // Refresh read articles from DB after viewing
@@ -858,11 +894,11 @@ export default function DesktopPage() {
                     <BogxInvadersGame onBack={() => setArcadeGame(null)} onCoinsChange={(amount) => animateCoins(amount)} isLoggedIn={isLoggedIn} userId={user?.id} onShowLogin={() => setShowLoginPage(true)} />
                   </div>
                 ) : (
-                  <DesktopContentWrapper><DesktopArcadePage onSelectGame={(game) => setArcadeGame(game)} onShowRankings={() => handleTabChange('rankings')} userId={user?.id} onCoinsChange={(amount) => animateCoins(amount)} onShowLogin={() => setShowLoginPage(true)} /></DesktopContentWrapper>
+                  <DesktopContentWrapper><DesktopArcadePage onSelectGame={(game) => setArcadeGame(game)} onShowRankings={() => handleTabChange('rankings')} userId={user?.id} onCoinsChange={(amount) => animateCoins(amount)} onShowLogin={() => setShowLoginPage(true)} onPlaySpecificBattle={(battleId) => { setPendingBattleId(battleId); setArcadeGame('quizzbattle'); }} /></DesktopContentWrapper>
                 )
               )}
               {!staticPageSlug && activeTab === "articles" && !openArticleId && <DesktopArticlesPage onOpenArticle={(id: string) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onShowLogin={() => setShowLoginPage(true)} />}
-              {!staticPageSlug && activeTab === "voting" && !openArticleId && !openRankrollData && <DesktopRankrollPage onOpenArticle={(id: string) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onOpenRankroll={async (pollId: string) => { try { const res = await fetch(`/api/polls/${pollId}`); const data = await res.json(); if (data.success && data.poll) { setOpenRankrollData(data.poll); contentRef.current?.scrollTo(0, 0); } } catch (e) { console.error('Failed to load rankroll:', e); } }} onShowLogin={() => setShowLoginPage(true)} onCoinAnimation={(amount) => { animateCoins(amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} />}
+              {!staticPageSlug && activeTab === "voting" && !openArticleId && !openRankrollData && <DesktopRankrollPage onOpenArticle={(id: string) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onOpenRankroll={(poll: any) => { setOpenRankrollData(poll); contentRef.current?.scrollTo(0, 0); }} onShowLogin={() => setShowLoginPage(true)} onCoinAnimation={(amount) => { animateCoins(amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} />}
               {!staticPageSlug && activeTab === "voting" && openRankrollData && <DesktopRankingDetailPage poll={openRankrollData} onBack={() => setOpenRankrollData(null)} onOpenArticle={(id: string) => { setOpenArticleId(id); }} onShowLogin={() => setShowLoginPage(true)} onCoinAnimation={(amount) => { animateCoins(amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} />}
               {!staticPageSlug && activeTab === "shop" && <DesktopContentWrapper><ShopPage coins={coins} onCoinsUsed={(amount) => { setCoins(prev => prev - amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount: -amount }); }} /></DesktopContentWrapper>}
               {!staticPageSlug && activeTab === "tv" && <DesktopContentWrapper><TVPage /></DesktopContentWrapper>}

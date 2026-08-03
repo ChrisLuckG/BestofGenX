@@ -192,16 +192,57 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
 
   // Auto-save template as draft when it changes
   const templateInitialized = useRef(false);
+  const templateItemsRef = useRef(templateItems);
+  const templateDirtyRef = useRef(false); // true whenever there's an unsaved change pending
+  useEffect(() => {
+    templateItemsRef.current = templateItems;
+  }, [templateItems]);
   useEffect(() => {
     if (!templateInitialized.current) {
       templateInitialized.current = true;
       return;
     }
+    templateDirtyRef.current = true;
     const timer = setTimeout(() => {
       saveTemplate();
+      templateDirtyRef.current = false;
     }, 1500);
     return () => clearTimeout(timer);
   }, [templateItems]);
+
+  // Flush any unsaved container/template changes when the admin switches tabs
+  // (component unmounts) — otherwise the debounced save above gets cancelled
+  // by clearTimeout and newly added containers are silently lost.
+  useEffect(() => {
+    return () => {
+      if (templateDirtyRef.current) {
+        fetch('/api/template', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ template: templateItemsRef.current }),
+          keepalive: true,
+        }).catch(() => {});
+      }
+    };
+  }, []);
+
+  // Also flush + warn on browser tab close/refresh/navigation away from the whole app —
+  // sendBeacon is guaranteed to complete even as the page unloads (unlike a normal fetch).
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!templateDirtyRef.current) return;
+      try {
+        navigator.sendBeacon(
+          '/api/template',
+          new Blob([JSON.stringify({ template: templateItemsRef.current })], { type: 'application/json' })
+        );
+      } catch { /* ignore */ }
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
 
   const adFileInputRef = useRef<HTMLInputElement>(null);
   const [currentAdIndex, setCurrentAdIndex] = useState<number | null>(null);
@@ -292,8 +333,11 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
     try {
       const res = await fetch('/api/template');
       const data = await res.json();
+      console.log('fetchTemplate response:', res.status, data);
       if (data.success && data.template?.length > 0) {
         setTemplateItems(data.template);
+      } else if (!data.success) {
+        console.error('fetchTemplate FAILED:', data);
       }
     } catch (e) {
       console.error('Failed to fetch template:', e);
@@ -631,7 +675,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
 
   // Template functions - only Container (size 12) is used now
   const addTemplateItem = (size: 12) => {
-    setTemplateItems([...templateItems, { size: 12, articleId: null, containerName: 'NEW SECTION', containerBlocks: [] }]);
+    persistTemplateItems([...templateItems, { size: 12, articleId: null, containerName: 'NEW SECTION', containerBlocks: [] }]);
   };
 
   const updateTemplateItem = (index: number, articleId: string | null) => {
@@ -641,7 +685,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
   };
 
   const removeTemplateItem = (index: number) => {
-    setTemplateItems(templateItems.filter((_, i) => i !== index));
+    persistTemplateItems(templateItems.filter((_, i) => i !== index));
   };
 
   // Container functions
@@ -665,14 +709,14 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
     if (index === 0) return;
     const newItems = [...templateItems];
     [newItems[index - 1], newItems[index]] = [newItems[index], newItems[index - 1]];
-    setTemplateItems(newItems);
+    persistTemplateItems(newItems);
   };
 
   const moveContainerDown = (index: number) => {
     if (index >= templateItems.length - 1) return;
     const newItems = [...templateItems];
     [newItems[index], newItems[index + 1]] = [newItems[index + 1], newItems[index]];
-    setTemplateItems(newItems);
+    persistTemplateItems(newItems);
   };
 
   const addBlockToContainer = (index: number, blockType: 'MAIN' | '2H' | 'FIXED' | 'SLIDER' | 'VERTICAL' | 'SOCIAL') => {
@@ -692,7 +736,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
       newBlock.articleId = null;
     }
     newItems[index] = { ...item, containerBlocks: [...blocks, newBlock] };
-    setTemplateItems(newItems);
+    persistTemplateItems(newItems);
   };
 
   const removeBlockFromContainer = (index: number, blockIndex: number) => {
@@ -700,7 +744,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
     const item = newItems[index];
     const blocks = item.containerBlocks || [];
     newItems[index] = { ...item, containerBlocks: blocks.filter((_, i) => i !== blockIndex) };
-    setTemplateItems(newItems);
+    persistTemplateItems(newItems);
   };
 
   const updateBlockInContainer = (index: number, blockIndex: number, updates: Partial<NonNullable<typeof templateItems[0]['containerBlocks']>[0]>) => {
@@ -719,7 +763,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
     if (targetIndex < 0 || targetIndex >= blocks.length) return;
     [blocks[blockIndex], blocks[targetIndex]] = [blocks[targetIndex], blocks[blockIndex]];
     newItems[index] = { ...newItems[index], containerBlocks: blocks };
-    setTemplateItems(newItems);
+    persistTemplateItems(newItems);
   };
 
   // Helper to check if URL is a video
@@ -751,6 +795,33 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
       // Silent save - no alert needed
     } catch (e) {
       console.error('Failed to save template:', e);
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  // Structural changes (add/remove container, add/remove block, reorder) save
+  // IMMEDIATELY instead of waiting for the 1.5s debounce — refreshing the page
+  // right after one of these actions must never lose it.
+  const persistTemplateItems = async (newItems: typeof templateItems) => {
+    setTemplateItems(newItems);
+    templateItemsRef.current = newItems;
+    templateDirtyRef.current = false;
+    setSavingTemplate(true);
+    try {
+      const res = await fetch('/api/template', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template: newItems }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        console.error('Template save FAILED:', res.status, data);
+        alert(`Failed to save layout: ${data?.error || res.statusText}`);
+      }
+    } catch (e) {
+      console.error('Failed to save template:', e);
+      alert('Failed to save layout — network error. See console for details.');
     } finally {
       setSavingTemplate(false);
     }

@@ -45,6 +45,9 @@ const CONFIG_TABS: { id: TabType; label: string }[] = [
 export default function AdminPage() {
   const { user, isLoggedIn } = useAuth();
   const [authChecked, setAuthChecked] = useState(false);
+  // When a reporter's rankroll proposal is saved as a draft from the Newsroom Conference,
+  // this holds the poll id so RankrollTab auto-opens the real editor for it.
+  const [pendingRankrollPollId, setPendingRankrollPollId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>(() => {
     // Restore last active tab from localStorage
     if (typeof window !== 'undefined') {
@@ -185,7 +188,13 @@ export default function AdminPage() {
         {activeTab === 'articles' && <ArticlesTab userId={user?.id} />}
         {activeTab === 'users' && <UsersTab userId={user?.id} onGoToArticles={() => setActiveTab('articles')} />}
         {activeTab === 'rewards' && <RewardsTab />}
-        {activeTab === 'rankroll' && <RankrollTab />}
+        {(activeTab === 'rankroll' || pendingRankrollPollId) && (
+          <RankrollTab
+            initialEditPollId={pendingRankrollPollId}
+            onProposalHandled={() => setPendingRankrollPollId(null)}
+            hideListView={activeTab !== 'rankroll'}
+          />
+        )}
         {activeTab === 'currency' && <CurrencyTab />}
         {activeTab === 'costs' && <CostsTab />}
         {activeTab === 'requests' && <RequestsTab onArticleCreated={() => setActiveTab('articles')} onStatusChange={fetchNewRequestsCount} />}
@@ -193,7 +202,15 @@ export default function AdminPage() {
         {activeTab === 'tv' && <TVTab />}
         {activeTab === 'mike' && <MikeTab />}
         {activeTab === 'menschen' && <MenschenTab userId={user?.id} />}
-        {activeTab === 'conference' && <NewsroomConference userId={user?.id} />}
+        {activeTab === 'conference' && (
+          <NewsroomConference
+            userId={user?.id}
+            onRankrollProposed={(pollId: string) => {
+              // Stay on the Conference tab — the editor opens as an overlay on top of it.
+              setPendingRankrollPollId(pollId);
+            }}
+          />
+        )}
       </div>
     </div>
   );

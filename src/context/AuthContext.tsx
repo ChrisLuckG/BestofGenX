@@ -209,6 +209,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Clear guest coin data - logged-in balance comes from server
       localStorage.removeItem('bogx_guest_coins');
       localStorage.removeItem('bogx_guest_read');
+      // Mark that this is a REAL login action (not just an already-authenticated page
+      // load from persisted localStorage) — the Welcome Back modal uses this flag to
+      // decide whether to show, so it only appears right after actually logging in.
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('bogx_just_logged_in', '1');
+      }
       return { success: true };
     } catch (error) {
       console.error('Login error:', error);
@@ -217,9 +223,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    // Clear welcome screen sessionStorage so it shows again on next login
-    if (user?.id) {
-      sessionStorage.removeItem(`welcome_shown_${user.id}_${new Date().toDateString()}`);
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('bogx_just_logged_in');
     }
     setUser(null);
     localStorage.removeItem("sporttock_user");

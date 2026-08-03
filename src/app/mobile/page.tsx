@@ -44,6 +44,7 @@ import DevLockScreen from "@/components/DevLockScreen";
 import StaticPageInline from "@/components/StaticPageInline";
 import InstallBanner from "@/components/InstallBanner";
 import ArticlePage from "@/components/ArticlePage";
+import CommunitySoundPage from "@/components/CommunitySoundPage";
 import AuthorPage from "@/components/AuthorPage";
 import RankrollPage from "@/components/RankrollPage";
 import RankingPollCard from "@/components/RankingPollCard";
@@ -186,6 +187,15 @@ export default function MobilePage() {
     }
   }, [activeTab, tabRestored]);
   const [arcadeGame, setArcadeGame] = useState<string | null>(null); // Which game is active in Arcade (e.g. 'quizzbattle')
+  // When true, header + bottom nav slide away so a game (e.g. BOGX Invaders)
+  // can go fullscreen, seamlessly in sync with its own intro/outro animation.
+  const [gameFullscreen, setGameFullscreen] = useState(false);
+  // Safety net: if the game unmounts/changes without cleanly resetting
+  // fullscreen (e.g. navigating away mid-game via some other means), make
+  // sure the header/footer are never permanently stuck hidden.
+  useEffect(() => {
+    if (arcadeGame !== 'bogxinvaders') setGameFullscreen(false);
+  }, [arcadeGame]);
   const [radioOpen, setRadioOpen] = useState(false);
   const eqBarsMobile = useMemo(() =>
     Array.from({ length: 40 }).map((_, i) => ({
@@ -214,6 +224,12 @@ export default function MobilePage() {
   const [notificationAutoEnable, setNotificationAutoEnable] = useState<'email' | 'sms' | null>(null);
   const [hasShownJustForFun, setHasShownJustForFun] = useState(false);
   const [challengeActive, setChallengeActive] = useState(false);
+  // Pull-to-refresh (mobile): swipe down at the very top of the feed to reload.
+  // Must live HERE (not inside WelcomeReel) because `scrollContainerRef` below is
+  // the element that actually scrolls on mobile — WelcomeReel renders inside it.
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const PULL_THRESHOLD = 70; // px of pull needed to trigger the reload
   const [swipeBlocked, setSwipeBlocked] = useState(false);
   const [showSwipeWarning, setShowSwipeWarning] = useState(false);
   const [pendingSwipeIndex, setPendingSwipeIndex] = useState<number | null>(null);
@@ -253,15 +269,26 @@ export default function MobilePage() {
   const [pendingBattleId, setPendingBattleId] = useState<string | null>(null);
   const [pushToast, setPushToast] = useState<{ title: string; body: string; url?: string } | null>(null);
   const [openArticleId, setOpenArticleId] = useState<string | null>(null);
+  const [showCommunitySound, setShowCommunitySound] = useState(false);
   const [staticPageSlug, setStaticPageSlug] = useState<string | null>(null);
   const [openAuthorName, setOpenAuthorName] = useState<string | null>(null);
   const [openRankrollId, setOpenRankrollId] = useState<string | null>(null);
   const [openRankrollData, setOpenRankrollData] = useState<any>(null);
   const [rankrollLoading, setRankrollLoading] = useState(false);
+  const [rankrollVotedCount, setRankrollVotedCount] = useState(0);
+  const [rankrollTotalItems, setRankrollTotalItems] = useState(0);
   // RankrollPage stays mounted while the detail overlay is shown (only openRankrollData
   // toggles, not activeTab), so its poll list goes stale after voting. Bumping this key
   // forces a full remount (and thus a fresh fetch) whenever we navigate back from a poll.
   const [rankrollRefreshKey, setRankrollRefreshKey] = useState(0);
+  
+  // Close Rankroll detail view when switching away from voting tab
+  useEffect(() => {
+    if (activeTab !== 'voting') {
+      setOpenRankrollData(null);
+    }
+  }, [activeTab]);
+  
   const [rewardedArticles, setRewardedArticles] = useState<Set<string>>(new Set()); // Track which articles already gave reward
   const [feedRefreshKey, setFeedRefreshKey] = useState(0); // Increment to force feed refresh
   const [showRankingsOverlay, setShowRankingsOverlay] = useState(false); // Rankings overlay (opened via score click)
@@ -602,17 +629,6 @@ export default function MobilePage() {
       setPlayedCards(new Set());
       setGameStats({ totalQuestions: 0, correctAnswers: 0, totalTime: 0 });
       setCoins(0);
-      // Clear welcome_shown keys so Welcome Screen shows on next login
-      try {
-        const keysToRemove: string[] = [];
-        for (let i = 0; i < sessionStorage.length; i++) {
-          const key = sessionStorage.key(i);
-          if (key?.startsWith('welcome_shown_')) {
-            keysToRemove.push(key);
-          }
-        }
-        keysToRemove.forEach(k => sessionStorage.removeItem(k));
-      } catch { /* ignore */ }
       // Go to home tab with welcome reel
       setActiveTab('home');
       // Show logout toast
@@ -897,10 +913,9 @@ export default function MobilePage() {
       setActiveBattleCount(0);
       return;
     }
-    const badgeSeenKey = `arcade_badge_seen_${user.id}`;
     const fetchBattleCounts = async () => {
-      // If user already visited arcade this session, don't re-show the badge
-      if (sessionStorage.getItem(badgeSeenKey)) return;
+      // Always refresh — the badge should reflect the true pending count
+      // at all times, even after the user has already visited Arcade once.
       try {
         const res = await fetch(`/api/battles?userId=${user.id}&countOnly=true`);
         const data = await res.json();
@@ -1105,7 +1120,8 @@ export default function MobilePage() {
     setActiveTab('notifications');
   };
 
-  // Show welcome back message after login
+  // Show welcome back message ONLY right after an actual login action — not on every
+  // page load/refresh/new-tab while already authenticated via persisted localStorage.
   useEffect(() => {
     if (!mounted || !isLoggedIn || !user?.id) return;
     
@@ -1113,14 +1129,13 @@ export default function MobilePage() {
     const checkout = searchParams.get('checkout');
     if (checkout === 'success' || checkout === 'cancelled') return;
     
-    // Check if we already showed welcome this session
-    const sessionKey = `welcome_shown_${user.id}_${new Date().toDateString()}`;
-    if (sessionStorage.getItem(sessionKey)) return;
+    // Only fires if login() just set this flag (a real login action just happened).
+    if (sessionStorage.getItem('bogx_just_logged_in') !== '1') return;
+    sessionStorage.removeItem('bogx_just_logged_in');
     
     // Show welcome modal immediately with loading, then enrich with API data
     setWelcomeLoading(true);
     setShowWelcomeBack(true);
-    sessionStorage.setItem(sessionKey, 'true');
 
     const fetchWelcomeMessage = async () => {
       try {
@@ -1437,6 +1452,7 @@ export default function MobilePage() {
         readArticles={rewardedArticles}
         onShowLogin={() => { closeAllOverlays(); setShowLoginRequired(true); }}
         onOpenStaticPage={(slug) => setStaticPageSlug(slug)}
+        onOpenCommunitySound={() => setShowCommunitySound(true)}
       /> 
     )},
   ];
@@ -1451,6 +1467,68 @@ export default function MobilePage() {
   }] : []),
   // Quiz cards, BonusAdCard, SummaryCard - see git history for full implementation
   */
+
+  // ── PULL-TO-REFRESH (mobile) ──
+  // Attached natively with { passive: false } because React's onTouchMove is always
+  // passive, which makes preventDefault() a no-op — the browser's own overscroll
+  // gesture would win and our handler would never see the full gesture.
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    // Only on the home feed, and never while a quiz has swiping locked.
+    if (activeTab !== 'home' || swipeBlocked) return;
+
+    let startY = 0;
+    let dragging = false;
+    let pull = 0; // local mirror — avoids firing setState on every touchmove
+    let refreshing = false;
+
+    const applyPull = (next: number) => {
+      if (next === pull) return;
+      pull = next;
+      setPullDistance(next);
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      dragging = el.scrollTop <= 0;
+      startY = e.touches[0].clientY;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (refreshing || !dragging) return;
+      const diff = e.touches[0].clientY - startY;
+      if (diff <= 0 || el.scrollTop > 0) {
+        applyPull(0);
+        return;
+      }
+      e.preventDefault(); // block native overscroll, we own this gesture now
+      applyPull(Math.min(diff * 0.5, PULL_THRESHOLD * 1.5));
+    };
+
+    const onTouchEnd = () => {
+      if (!dragging) return;
+      dragging = false;
+      if (pull >= PULL_THRESHOLD && !refreshing) {
+        refreshing = true;
+        setIsRefreshing(true);
+        applyPull(PULL_THRESHOLD);
+        window.location.reload(); // real reload = it actually feels like a refresh
+        return;
+      }
+      applyPull(0);
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+    el.addEventListener('touchcancel', onTouchEnd, { passive: true });
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+      el.removeEventListener('touchcancel', onTouchEnd);
+    };
+  }, [activeTab, swipeBlocked]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const container = e.currentTarget;
@@ -1715,7 +1793,8 @@ export default function MobilePage() {
         </div>
       )}
       
-      {/* Header */}
+      {/* Header - collapses away smoothly when a game (e.g. BOGX Invaders) goes fullscreen */}
+      <div className={`flex-shrink-0 overflow-hidden transition-all duration-500 ease-in-out ${gameFullscreen ? 'max-h-0 opacity-0' : 'max-h-24 opacity-100'}`}>
       <Header 
         coins={coins} 
         username={user?.username || "Guest"} 
@@ -1799,6 +1878,7 @@ export default function MobilePage() {
         unreadCount={unreadNotifications}
         coinAnimation={coinAnimation.show ? { amount: coinAnimation.amount } : null}
       />
+      </div>
 
       {/* Coin Animation */}
       {coinAnimation.show && (
@@ -1832,37 +1912,56 @@ export default function MobilePage() {
       {/* Rankroll Detail Page - true root-level sibling of Header, guarantees it renders above it */}
       {openRankrollData && (
         <div className="absolute inset-x-0 bottom-0 top-16 z-[60] bg-cream overflow-y-auto">
-          {/* Header - not sticky, scrolls away with content */}
-          <div className="bg-cream border-b border-warm">
-            <div className="flex items-center gap-3 px-4 py-3">
+          {/* Header - sticky like other pages */}
+          <div className="sticky top-0 z-10 flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-cream">
+            <div className="flex items-center gap-3">
               <button 
                 onClick={() => { setOpenRankrollData(null); setRankrollRefreshKey(k => k + 1); }}
-                className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"
+                className="w-8 h-8 rounded-lg bg-cream border border-warm flex items-center justify-center flex-shrink-0 hover:bg-[#D4873A]/10 transition-colors"
               >
                 <ChevronLeft className="w-5 h-5 text-gray-600" />
               </button>
-              <div className="flex-1 min-w-0">
-                <h1 className="font-display text-lg text-gray-900 truncate">{openRankrollData.title}</h1>
-                {openRankrollData.subtitle && (
-                  <p className="text-xs text-gray-500 truncate">{openRankrollData.subtitle}</p>
-                )}
+              <div>
+                <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Rankroll</span>
+                <span className="text-[10px] text-gray-500 -mt-0.5 block">Vote & rank your favorites</span>
               </div>
             </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#D4873A] rounded-lg shadow-sm">
+              <span className="text-sm">🪙</span>
+              <span className="text-xs font-bold text-white">
+                {(rankrollVotedCount * 0.01).toFixed(2)} of {(rankrollTotalItems * 0.01).toFixed(2)} BOGX
+              </span>
+            </div>
           </div>
-          {/* Content */}
+          {/* Content - Title inside same container as ranking items */}
           <div className="p-4 pb-20">
-            {openRankrollData.description && (
-              <p className="text-sm text-gray-600 mb-4">{openRankrollData.description}</p>
-            )}
-            <RankingPollCard 
-              poll={openRankrollData}
-              onShowLogin={() => openOverlay('login', { loginView: 'login' })}
-              onCoinAnimation={(amount) => {
-                setCoins(prev => prev + amount);
-                setCoinAnimKey(k => k + 1);
-                setCoinAnimation({ show: true, amount, variant: 'gain' });
-              }}
-            />
+            <div className="rounded-2xl border border-warm overflow-hidden">
+              {/* Title header */}
+              <div className="px-4 py-3 border-b border-warm">
+                <h1 className="font-display text-xl text-gray-900 uppercase">{openRankrollData.title}</h1>
+                {openRankrollData.subtitle && (
+                  <p className="text-sm text-gray-500 mt-1">{openRankrollData.subtitle}</p>
+                )}
+                {openRankrollData.description && (
+                  <p className="text-sm text-gray-600 mt-2">{openRankrollData.description}</p>
+                )}
+              </div>
+              {/* Voting section */}
+              <RankingPollCard 
+                poll={openRankrollData}
+                onShowLogin={() => openOverlay('login', { loginView: 'login' })}
+                onCoinAnimation={(amount) => {
+                  setCoins(prev => prev + amount);
+                  setCoinAnimKey(k => k + 1);
+                  setCoinAnimation({ show: true, amount, variant: 'gain' });
+                }}
+                onVotedCountChange={(voted, total) => {
+                  setRankrollVotedCount(voted);
+                  setRankrollTotalItems(total);
+                }}
+                embedded
+              />
+            </div>
           </div>
         </div>
       )}
@@ -1892,6 +1991,16 @@ export default function MobilePage() {
                 embedded={true}
               />
             )}
+          </div>
+        )}
+
+        {/* Community Sound Page - Overlay when open */}
+        {showCommunitySound && (
+          <div className="absolute inset-x-0 bottom-0 top-2 z-50 bg-cream">
+            <CommunitySoundPage
+              onBack={() => setShowCommunitySound(false)}
+              onOpenRadio={() => { setShowCommunitySound(false); setRadioOpen(true); }}
+            />
           </div>
         )}
 
@@ -1955,15 +2064,43 @@ export default function MobilePage() {
 
         {/* Home - Always rendered, hidden when not active */}
         <div className={`h-full absolute inset-0 ${activeTab === "home" ? "z-10" : "z-0 pointer-events-none opacity-0"}`}>
+          {/* Pull-to-refresh spinner. Always mounted (opacity-driven) so its
+              transition can always play — conditionally unmounting it would make
+              it snap/freeze mid-animation. */}
+          <div
+            className="absolute left-0 right-0 flex items-center justify-center z-40 pointer-events-none"
+            style={{
+              top: 8,
+              opacity: isRefreshing ? 1 : Math.min(pullDistance / PULL_THRESHOLD, 1),
+              transform: `translateY(${Math.min(pullDistance, PULL_THRESHOLD) - PULL_THRESHOLD}px) scale(${isRefreshing ? 1 : 0.6 + 0.4 * Math.min(pullDistance / PULL_THRESHOLD, 1)})`,
+              transition: isRefreshing ? 'none' : 'opacity 0.15s ease-out, transform 0.15s ease-out',
+            }}
+          >
+            <div className="w-9 h-9 rounded-full bg-[#D4873A] text-white shadow-lg flex items-center justify-center">
+              <svg
+                className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`}
+                style={{ transform: isRefreshing ? 'none' : `rotate(${Math.min(pullDistance / PULL_THRESHOLD * 180, 180)}deg)` }}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </div>
+          </div>
           <div
             ref={scrollContainerRef}
             data-scroll-container
             className="phone-scroll h-full overflow-y-auto"
-            style={swipeBlocked ? { overflow: 'hidden', touchAction: 'none', overscrollBehavior: 'none' } : {}}
+            style={swipeBlocked ? { overflow: 'hidden', touchAction: 'none', overscrollBehavior: 'none' } : { overscrollBehaviorY: 'contain' }}
             onScroll={handleScroll}
           >
             {content.map((item, index) => (
-              <div key={index} className="w-full h-full">
+              <div
+                key={index}
+                className="w-full h-full"
+                style={index === 0 ? { transform: `translateY(${Math.min(pullDistance, PULL_THRESHOLD)}px)`, transition: isRefreshing ? 'none' : 'transform 0.15s ease-out' } : undefined}
+              >
                 {item.component}
               </div>
             ))}
@@ -2016,7 +2153,13 @@ export default function MobilePage() {
             ) : arcadeGame === 'bogxinvaders' ? (
               <BogxInvadersGame 
                 onBack={() => setArcadeGame(null)}
-                onCoinsChange={(amount) => { setCoins(prev => prev + amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }}
+                // Real balance is credited silently per-kill (no per-kill
+                // animation — the header is hidden during fullscreen play
+                // anyway). The nice "count up" animation instead plays once
+                // via onGameOverCoinsEarned, right as the header reappears.
+                onCoinsChange={(amount) => setCoins(prev => prev + amount)}
+                onGameOverCoinsEarned={(total) => { if (total > 0) { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount: total, variant: 'gain' }); } }}
+                onFullscreenChange={setGameFullscreen}
                 isLoggedIn={isLoggedIn}
                 userId={user?.id}
                 onShowLogin={() => setShowLoginPage(true)}
@@ -2393,8 +2536,8 @@ export default function MobilePage() {
         </div>
       </div>
 
-      {/* Bottom Navigation - fixed at bottom */}
-      <div className="flex-shrink-0 relative z-50">
+      {/* Bottom Navigation - fixed at bottom, collapses away for fullscreen games */}
+      <div className={`flex-shrink-0 relative z-50 overflow-hidden transition-all duration-500 ease-in-out ${gameFullscreen ? 'max-h-0 opacity-0' : 'max-h-24 opacity-100'}`}>
         <BottomNav 
           activeTab={activeTab} 
           onTabChange={(tab) => {
@@ -2419,12 +2562,6 @@ export default function MobilePage() {
             if (activeTab === 'arcade' && tab !== 'arcade') {
               setArcadeGame(null);
             }
-            // Mark battle badge as seen when entering arcade (won't re-show on refresh)
-            // But keep the actual counts - they should persist until battles are resolved
-            if (tab === 'arcade') {
-              if (user?.id) sessionStorage.setItem(`arcade_badge_seen_${user.id}`, '1');
-            }
-            
             // Track previous tab before switching (for login close behavior)
             setPreviousTab(activeTab);
             

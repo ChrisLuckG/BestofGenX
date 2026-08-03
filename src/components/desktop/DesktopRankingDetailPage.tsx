@@ -235,31 +235,42 @@ export default function DesktopRankingDetailPage({ poll, onBack, onOpenArticle, 
 
   return (
     <div className="h-full flex flex-col bg-[#F5F0E8] overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
-        <button
-          onClick={onBack}
-          className="w-8 h-8 flex items-center justify-center rounded-lg bg-cream border border-warm hover:bg-[#D4873A]/10 transition-colors"
-        >
-          <ChevronLeft className="w-5 h-5 text-gray-600" />
-        </button>
-        <div className="flex-1 min-w-0">
-          <span className="text-[10px] font-bold text-[#D4873A] uppercase tracking-wider">RANKING</span>
-          <h1 className="font-display text-2xl text-gray-900 truncate uppercase">{poll.title}</h1>
-        </div>
-        {poll.linkedArticleId && onOpenArticle && (
+      {/* Header - sticky like other pages */}
+      <div className="sticky top-0 z-10 flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-[#F5F0E8]">
+        <div className="flex items-center gap-3">
           <button
-            onClick={() => onOpenArticle(String(poll.linkedArticleId))}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#D4873A]/10 text-[#D4873A] text-xs font-semibold rounded-lg hover:bg-[#D4873A]/20 transition-colors"
+            onClick={onBack}
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-cream border border-warm hover:bg-[#D4873A]/10 transition-colors"
           >
-            <BookOpen className="w-4 h-4" />
-            Read Story
+            <ChevronLeft className="w-5 h-5 text-gray-600" />
           </button>
-        )}
+          <div>
+            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Rankroll</span>
+            <span className="text-[10px] text-gray-500 -mt-0.5 block">Vote & rank your favorites</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#D4873A] rounded-lg shadow-sm">
+            <span className="text-sm">🪙</span>
+            <span className="text-xs font-bold text-white">
+              {(Object.keys(userVotes).length * 0.01).toFixed(2)} of {((poll.items?.length || 0) * 0.01).toFixed(2)} BOGX
+            </span>
+          </div>
+          {poll.linkedArticleId && onOpenArticle && (
+            <button
+              onClick={() => onOpenArticle(String(poll.linkedArticleId))}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#D4873A]/10 text-[#D4873A] text-xs font-semibold rounded-lg hover:bg-[#D4873A]/20 transition-colors"
+            >
+              <BookOpen className="w-4 h-4" />
+              Read Story
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Subtitle/Description with Image */}
-      <div className="px-4 py-3 border-b border-warm bg-[#D4873A]/[0.02]">
+      {/* Title + Subtitle/Description with Image */}
+      <div className="px-4 py-3 border-b border-warm">
+        <h1 className="font-display text-2xl text-gray-900 uppercase mb-3">{poll.title}</h1>
         <div className="flex items-start gap-4">
           {/* Article Image */}
           {poll.articleImage && (
@@ -277,7 +288,7 @@ export default function DesktopRankingDetailPage({ poll, onBack, onOpenArticle, 
       </div>
 
       {/* Items List */}
-      <div className="flex-1 overflow-y-auto bg-gradient-to-b from-transparent to-[#D4873A]/[0.03]" style={{ scrollbarWidth: 'none' }}>
+      <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
         <div className="divide-y divide-warm">
           {sortedItems.map((item, index) => (
             <RankingItemRow

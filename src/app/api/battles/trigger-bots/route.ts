@@ -97,10 +97,31 @@ async function ensureShadowHunterBattle(): Promise<{ created: boolean; joined: b
   
   if (openUserBattle) {
     const creator = openUserBattle.creator as any;
-    // Only join if creator is NOT a bot (real user)
-    if (!creator?.isBot) {
+    // Only join if creator is NOT a bot (real user), and it can afford the wager
+    if (!creator?.isBot && (shadowHunter.bogxCoins || 0) >= openUserBattle.wager) {
       openUserBattle.opponent = shadowHunter._id;
       openUserBattle.status = 'active';
+      openUserBattle.acceptedAt = new Date();
+
+      // CRITICAL: simulate the bot's answers immediately upon joining.
+      // Without this, the bot becomes "opponent" but never actually plays,
+      // leaving the real creator's battle permanently stuck waiting for an
+      // opponent who can never finish (they'd submit their side and just
+      // get "waiting for opponent" forever, with no way to ever see a result).
+      const botSkill = 0.5 + Math.random() * 0.4; // 50-90% accuracy
+      const opponentResults = openUserBattle.questions.map((_: any, idx: number) => {
+        const correct = Math.random() < botSkill;
+        const timeMs = 2000 + Math.random() * 6000;
+        const pct = Math.max(10000 - timeMs, 0) / 10000;
+        const points = correct ? Math.round(300 * pct) : 0;
+        return { round: idx, correct, timeMs, points };
+      });
+      openUserBattle.opponentResults = opponentResults;
+      openUserBattle.opponentTotalPoints = opponentResults.reduce((sum: number, r: any) => sum + r.points, 0);
+
+      // Deduct the bot's wager, matching every other bot-join path
+      await User.findByIdAndUpdate(shadowHunter._id, { $inc: { bogxCoins: -openUserBattle.wager } });
+
       await openUserBattle.save();
       result.joined = true;
     }
@@ -246,6 +267,22 @@ export async function POST(request: NextRequest) {
           if (!creator?.isBot) {
             openBattle.opponent = bot._id;
             openBattle.status = 'active';
+            openBattle.acceptedAt = new Date();
+
+            // Simulate the bot's answers immediately upon joining — without
+            // this the battle gets permanently stuck waiting for an
+            // opponent who can never finish (same bug as ShadowHunter's join path).
+            const botSkill = 0.5 + Math.random() * 0.4;
+            const opponentResults = openBattle.questions.map((_: any, idx: number) => {
+              const correct = Math.random() < botSkill;
+              const timeMs = 2000 + Math.random() * 6000;
+              const pct = Math.max(10000 - timeMs, 0) / 10000;
+              const points = correct ? Math.round(300 * pct) : 0;
+              return { round: idx, correct, timeMs, points };
+            });
+            openBattle.opponentResults = opponentResults;
+            openBattle.opponentTotalPoints = opponentResults.reduce((sum: number, r: any) => sum + r.points, 0);
+
             await openBattle.save();
             
             // Deduct wager

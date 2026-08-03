@@ -12,6 +12,8 @@ interface FeedItem {
   subtitle?: string;
   description?: string;
   image?: string;
+  imagePosX?: number;
+  imagePosY?: number;
   createdAt: Date;
   order: number;
   category?: string;
@@ -59,6 +61,8 @@ export async function GET() {
         title: article.title,
         subtitle: article.subtitle,
         image: article.coverImage,
+        imagePosX: article.imagePosX,
+        imagePosY: article.imagePosY,
         createdAt: article.publishedAt || article.createdAt || new Date(),
         order: article.order || 0,
         category: article.category,

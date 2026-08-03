@@ -20,6 +20,7 @@ interface Battle {
   declinedBy?: { _id: string; username: string; avatar?: string };
   declinedAt?: string;
   createdAt: string;
+  acceptedAt?: string;
   creatorResults?: { round: number }[];
   opponentResults?: { round: number }[];
 }
@@ -486,12 +487,41 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <p className="text-gray-900 text-sm font-bold truncate">vs {otherPlayer?.username || "?"}</p>
+                                    <p className="text-[10px] text-gray-400 -mt-0.5">
+                                      {isCreator ? 'You created this — your wager was taken at creation' : 'You accepted this challenge'}
+                                    </p>
                                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                                       <span className={`px-2 py-0.5 ${colors.bgLight} ${colors.text} text-xs font-bold rounded-full flex items-center gap-1`}>
                                         <img src="/images/bogxcoin.png" alt="" className="w-3 h-3" />
                                         {formatCurrency(battle.wager)}
                                       </span>
                                       <span className="px-2 py-0.5 bg-gray-200 text-gray-600 text-xs font-medium rounded-full">{battle.topic || "Mixed"}</span>
+                                      <span
+                                        className="flex items-center gap-1 text-gray-400 text-xs"
+                                        title={new Date(battle.createdAt).toLocaleString()}
+                                      >
+                                        <Clock className="w-3 h-3" />
+                                        {isCreator ? 'Created' : 'Sent'} {new Date(battle.createdAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })} · {new Date(battle.createdAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                                      </span>
+                                      {/* Proof of when YOU accepted (wager deducted from you) — only
+                                          relevant/shown when you're the opponent, since the accept
+                                          endpoint is what deducted your wager in that case. If you're
+                                          the creator, your wager was taken at creation instead (see
+                                          "Created" timestamp above) — acceptedAt doesn't apply to you. */}
+                                      {!isCreator && battle.acceptedAt && (
+                                        <span
+                                          className="flex items-center gap-1 text-[10px] text-green-600 font-medium"
+                                          title={new Date(battle.acceptedAt).toLocaleString()}
+                                        >
+                                          <Check className="w-3 h-3" />
+                                          You accepted {new Date(battle.acceptedAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })} · {new Date(battle.acceptedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                      )}
+                                      {!isCreator && !battle.acceptedAt && (
+                                        <span className="flex items-center gap-1 text-[10px] text-red-600 font-bold">
+                                          ⚠️ No accept record found — please report this
+                                        </span>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
@@ -502,14 +532,14 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
                                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-100 border border-gray-300 text-gray-700 rounded-lg text-xs font-bold hover:bg-gray-200 transition-colors disabled:opacity-50"
                                   >
                                     {cancelling === battle._id ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
-                                    Cancel
+                                    {isCreator ? 'Cancel' : 'Deny'}
                                   </button>
                                   <button
                                     onClick={() => { onClose(); onPlayBattle(battle._id); }}
                                     className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 ${colors.bg} text-white rounded-lg text-xs font-bold hover:opacity-80 transition-colors shadow-sm`}
                                   >
                                     <Play className="w-3 h-3 fill-current" />
-                                    Play Now
+                                    {isCreator ? 'Play Now' : 'Accept'}
                                   </button>
                                 </div>
                               </div>

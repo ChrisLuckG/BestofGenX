@@ -28,9 +28,14 @@ function getSystemPrompt(): string {
 }
 
 // Generate image using the existing /api/generate-image endpoint
-async function generateArticleImage(title: string, subtitle: string, baseUrl: string, dayNumber: number): Promise<string | null> {
+async function generateArticleImage(title: string, subtitle: string, baseUrl: string, dayNumber: number, monthName: string, eventKeywords: string[]): Promise<string | null> {
   try {
-    const prompt = `Nostalgic 80s 90s retro calendar page design. Large bold number "${dayNumber}" prominently displayed in the center. Vintage paper texture, retro typography, warm nostalgic colors. The number ${dayNumber} should be the main focus, like a vintage wall calendar. Gen X aesthetic, cinematic lighting.`;
+    // Build event description for the prompt
+    const eventsDescription = eventKeywords.length > 0 
+      ? `Subtle visual references to: ${eventKeywords.slice(0, 3).join(', ')}.` 
+      : '';
+    
+    const prompt = `A dramatic cinematic collage for "${monthName} ${dayNumber}" in history. The large number "${dayNumber}" prominently displayed in elegant vintage typography, slightly weathered. ${eventsDescription} Historical newspaper clippings, old photographs, and vintage memorabilia artfully arranged. Sepia and warm golden tones, nostalgic 80s/90s aesthetic, museum exhibition quality, dramatic lighting, film grain texture. The composition should feel like opening a time capsule. 8K photorealistic, editorial magazine cover style.`;
     
     const response = await fetch(`${baseUrl}/api/generate-image`, {
       method: 'POST',
@@ -246,18 +251,44 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: "AI did not return valid article data" });
     }
 
-    // Generate cover image using the same API as the admin panel
+    // Generate cover image using AI - ALWAYS required for history articles
     let coverImage: string | undefined;
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL 
       ? `https://${process.env.VERCEL_URL}` 
       : 'http://localhost:3000';
     
-    if (articleData.title) {
-      const dayNumber = now.getDate(); // 1-31
-      const imageUrl = await generateArticleImage(articleData.title, articleData.subtitle, baseUrl, dayNumber);
+    const dayNumber = now.getDate(); // 1-31
+    const monthName = MONTHS[now.getMonth()]; // January, February, etc.
+    
+    // Extract event keywords from article content (h2 headings contain the main events)
+    const h2Matches = articleData.content.match(/<h2[^>]*>([^<]+)<\/h2>/gi) || [];
+    const eventKeywords = h2Matches
+      .map(h2 => h2.replace(/<[^>]+>/g, '').trim())
+      .filter(text => text.length > 3 && text.length < 100);
+    
+    console.log(`Event keywords for image: ${eventKeywords.join(', ')}`);
+    
+    // Try up to 3 times to generate an AI image
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      console.log(`AI image generation attempt ${attempt}/3 for ${monthName} ${dayNumber}`);
+      const imageUrl = await generateArticleImage(articleData.title, articleData.subtitle, baseUrl, dayNumber, monthName, eventKeywords);
       if (imageUrl) {
         coverImage = imageUrl;
+        console.log(`AI image generated successfully on attempt ${attempt}`);
+        break;
       }
+      // Wait a bit before retrying
+      if (attempt < 3) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+    
+    // If AI image generation failed after all retries, fail the article creation
+    if (!coverImage) {
+      return NextResponse.json({ 
+        success: false, 
+        error: "Failed to generate AI cover image after 3 attempts. Article not created." 
+      });
     }
 
     // Find or use a system author (first admin user)

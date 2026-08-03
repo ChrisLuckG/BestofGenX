@@ -19,19 +19,29 @@ export function useBogxCoins(userId?: string) {
   const [coins, setCoins] = useState(0);
   const userIdRef = useRef(userId);
   userIdRef.current = userId;
+  // Monotonically increasing request counter. If multiple syncFromServer()
+  // calls overlap (e.g. rapidly cancelling several battles in a row, each
+  // firing a 'bogx-updated' event), responses can resolve OUT OF ORDER —
+  // an older request's response arriving after a newer one would otherwise
+  // overwrite the correct latest balance with a stale value. Only the
+  // response matching the most recently issued request is allowed to apply.
+  const requestIdRef = useRef(0);
 
   // Fetch authoritative balance from server
   const syncFromServer = useCallback(async () => {
     const id = userIdRef.current;
+    const myRequestId = ++requestIdRef.current;
     if (!id) {
       // Guest: load from localStorage
       const guestCoins = parseFloat(localStorage.getItem('bogx_guest_coins') || '0');
-      setCoins(guestCoins);
+      if (myRequestId === requestIdRef.current) setCoins(guestCoins);
       return;
     }
     try {
       const res = await fetch(`/api/user/${id}`);
       const data = await res.json();
+      // Discard this response if a newer sync has been kicked off meanwhile.
+      if (myRequestId !== requestIdRef.current) return;
       if (data.user) {
         const bogx = data.user.bogxCoins || 0;
         const legacyBogx = (data.user.coins || 0) / 100;

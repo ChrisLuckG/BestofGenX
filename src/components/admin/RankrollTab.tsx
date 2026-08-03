@@ -7,7 +7,20 @@ import ImagePickerModal from "./ImagePickerModal";
 import { LANGUAGES, DEFAULT_LANGUAGE } from "@/config/languages";
 import { AUTHOR_STYLES, DEFAULT_AUTHOR_STYLE } from "@/config/authorStyles";
 
-export default function RankrollTab() {
+interface RankrollTabProps {
+  // When set, RankrollTab auto-opens the editor for this poll (used when a reporter's
+  // rankroll proposal was pre-saved as a draft from the Newsroom Conference).
+  initialEditPollId?: string | null;
+  // Called once the auto-opened editor has been closed (saved OR discarded), so the
+  // parent can clear its pending-poll-id state.
+  onProposalHandled?: () => void;
+  // When true, only the editor modal (overlay) is rendered — the main poll list view is
+  // hidden. Used to show the "Edit Ranking List" editor on top of another tab (e.g. the
+  // Newsroom Conference) without navigating away from it.
+  hideListView?: boolean;
+}
+
+export default function RankrollTab({ initialEditPollId, onProposalHandled, hideListView }: RankrollTabProps = {}) {
   const [polls, setPolls] = useState<any[]>([]);
   const [pollsLoading, setPollsLoading] = useState(false);
   const [editingPoll, setEditingPoll] = useState<any | null>(null);
@@ -198,6 +211,29 @@ export default function RankrollTab() {
     fetch('/api/articles?admin=true').then(r => r.json()).then(d => { if (d.success) setArticles(d.articles.map((a: any) => ({ _id: a._id, title: a.title }))); }).catch(() => {});
   }, []);
 
+  // Auto-open the editor for a poll pre-saved from a reporter proposal (Newsroom Conference)
+  useEffect(() => {
+    if (!initialEditPollId || polls.length === 0) return;
+    const poll = polls.find(p => p._id === initialEditPollId);
+    if (poll) {
+      setEditingPoll({ ...poll, _fromProposal: true });
+    }
+  }, [initialEditPollId, polls]);
+
+  // Close the editor. If it was opened from a reporter proposal and was never actually
+  // saved by the admin, DELETE the draft poll instead of leaving it orphaned.
+  const closeEditorDiscardIfProposal = async () => {
+    if (editingPoll?._fromProposal && editingPoll._id) {
+      try {
+        await fetch(`/api/polls/${editingPoll._id}`, { method: 'DELETE' });
+        fetchPolls();
+      } catch { /* ignore */ }
+    }
+    setEditingPoll(null);
+    setGeneratedArticle(null);
+    onProposalHandled?.();
+  };
+
   const fetchPolls = async () => {
     setPollsLoading(true);
     try {
@@ -339,6 +375,7 @@ export default function RankrollTab() {
         fetchPolls();
         setEditingPoll(null);
         setGeneratedArticle(null);
+        onProposalHandled?.();
         alert(publishWithArticle ? 'Poll & Article published successfully!' : 'Poll saved successfully!');
       } else {
         alert('Error: ' + (data.error || 'Failed to save poll'));
@@ -471,6 +508,7 @@ export default function RankrollTab() {
 
   return (
     <>
+      {!hideListView && (
       <div>
         {/* Header like Predictions */}
         <div className="flex items-center gap-2 mb-4">
@@ -626,6 +664,7 @@ export default function RankrollTab() {
           </div>
         )}
       </div>
+      )}
 
       {/* Poll Editor Modal - Extra Wide for Desktop */}
       {editingPoll && (
@@ -660,7 +699,7 @@ export default function RankrollTab() {
                   </div>
                 )}
               </div>
-              <button onClick={() => { setEditingPoll(null); setGeneratedArticle(null); }} className="p-1 hover:bg-gray-700 rounded">
+              <button onClick={closeEditorDiscardIfProposal} className="p-1 hover:bg-gray-700 rounded">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -1262,10 +1301,10 @@ export default function RankrollTab() {
 
             <div className="p-3 border-t border-gray-700 flex justify-end gap-2 flex-shrink-0">
               <button
-                onClick={() => { setEditingPoll(null); setGeneratedArticle(null); }}
+                onClick={closeEditorDiscardIfProposal}
                 className="px-2 py-1 bg-gray-700 rounded hover:bg-gray-600 text-xs"
               >
-                Cancel
+                {editingPoll._fromProposal ? 'Discard' : 'Cancel'}
               </button>
               <button
                 onClick={() => savePoll(false)}

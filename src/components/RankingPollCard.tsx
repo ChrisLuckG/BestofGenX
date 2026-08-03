@@ -32,9 +32,11 @@ interface RankingPollCardProps {
   onShowLogin?: () => void; // Callback to show login modal
   onCoinAnimation?: (amount: number) => void; // Callback for coin animation
   isDesktop?: boolean; // Desktop uses compact single-row layout
+  embedded?: boolean; // If true, renders without outer container (for embedding in parent container)
+  onVotedCountChange?: (votedCount: number, totalItems: number) => void; // Callback when vote count changes
 }
 
-export default function RankingPollCard({ poll, onPointsAwarded, onShowLogin, onCoinAnimation, isDesktop = false }: RankingPollCardProps) {
+export default function RankingPollCard({ poll, onPointsAwarded, onShowLogin, onCoinAnimation, isDesktop = false, embedded = false, onVotedCountChange }: RankingPollCardProps) {
   const { user } = useAuth();
   const [localPoll, setLocalPoll] = useState(poll);
   const [userVotes, setUserVotes] = useState<Record<string, 'up' | 'down'>>({});
@@ -49,9 +51,13 @@ export default function RankingPollCard({ poll, onPointsAwarded, onShowLogin, on
     console.log('RankingPollCard received poll:', { _id: poll._id, title: poll.title, itemCount: poll.items?.length });
   }, [poll]);
 
-  // Keep original order from initial load (don't re-sort during session)
-  // The items are already sorted by the server
-  const sortedItems = localPoll.items || [];
+  // Sort items by upvotes (highest first) - reorders dynamically after voting
+  const sortedItems = [...(localPoll.items || [])].sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0));
+
+  // Notify parent of voted count changes
+  useEffect(() => {
+    onVotedCountChange?.(Object.keys(userVotes).length, sortedItems.length);
+  }, [userVotes, sortedItems.length, onVotedCountChange]);
 
   // Load existing votes
   useEffect(() => {
@@ -176,18 +182,11 @@ export default function RankingPollCard({ poll, onPointsAwarded, onShowLogin, on
   };
 
 
-  return (
-    <div className="bg-cream rounded-2xl border border-warm overflow-hidden">
+  const content = (
+    <>
       {/* Vote count header */}
       <div className="px-4 py-2 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-500">{localPoll.totalVotes} total votes</span>
-          {Object.keys(userVotes).length > 0 && (
-            <span className="text-xs text-[#D4873A] font-medium flex items-center gap-1">
-              ✓ You voted
-            </span>
-          )}
-        </div>
+        <span className="text-xs text-gray-500">{localPoll.totalVotes} total votes</span>
       </div>
 
       {/* Items */}
@@ -219,6 +218,16 @@ export default function RankingPollCard({ poll, onPointsAwarded, onShowLogin, on
         }}
         embedded
       />
+    </>
+  );
+
+  if (embedded) {
+    return content;
+  }
+
+  return (
+    <div className="bg-cream rounded-2xl border border-warm overflow-hidden">
+      {content}
     </div>
   );
 }

@@ -70,14 +70,42 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Get reactions for an article
+// Get reactions for an article (or batch of articles via articleIds=id1,id2,...)
 export async function GET(request: NextRequest) {
   try {
     await dbConnect();
     
     const { searchParams } = new URL(request.url);
     const articleId = searchParams.get('articleId');
+    const articleIdsParam = searchParams.get('articleIds');
     const userId = searchParams.get('userId');
+
+    // Batch mode: return reactions for many articles in a single query,
+    // avoiding the N+1 request storm from rendering many cards at once.
+    if (articleIdsParam) {
+      const articleIds = articleIdsParam.split(',').map(s => s.trim()).filter(Boolean);
+      if (articleIds.length === 0) {
+        return NextResponse.json({ success: true, byArticle: {} });
+      }
+
+      const allReactions = await Reaction.find({ articleId: { $in: articleIds } });
+      const byArticle: Record<string, { reactions: Record<string, number>; userReaction: string | null }> = {};
+
+      for (const id of articleIds) {
+        byArticle[id] = { reactions: {}, userReaction: null };
+      }
+
+      for (const r of allReactions) {
+        const id = r.articleId.toString();
+        if (!byArticle[id]) byArticle[id] = { reactions: {}, userReaction: null };
+        byArticle[id].reactions[r.emojiId] = (byArticle[id].reactions[r.emojiId] || 0) + 1;
+        if (userId && r.userId.toString() === userId) {
+          byArticle[id].userReaction = r.emojiId;
+        }
+      }
+
+      return NextResponse.json({ success: true, byArticle });
+    }
     
     if (!articleId) {
       return NextResponse.json({ success: false, error: 'Missing articleId' }, { status: 400 });

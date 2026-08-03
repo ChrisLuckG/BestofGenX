@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import TVVideo from '@/models/TVVideo';
-import Article from '@/models/Article';
 
 // GET - Fetch all videos
 export async function GET(request: Request) {
@@ -44,27 +43,6 @@ export async function POST(request: Request) {
       language: data.language || 'en',
       featured: data.featured || false,
       active: true,
-    });
-
-    // Auto-create Article entry for this TV video
-    await Article.create({
-      title: data.title,
-      subtitle: data.description || 'Watch now on GenX TV',
-      content: `<p>${data.description || 'Watch this video on GenX TV.'}</p>`,
-      coverImage: data.thumbnail || (data.youtubeId ? `https://img.youtube.com/vi/${data.youtubeId}/hqdefault.jpg` : ''),
-      contentType: 'tv',
-      linkedContentId: video._id.toString(),
-      mainCategory: 'articles',
-      category: 'movies-tv',
-      author: data.authorId || '000000000000000000000000',
-      authorName: 'BOGX Team',
-      status: 'draft',
-      layout: 'standard',
-      order: 0,
-      featured: false,
-      trending: false,
-      views: 0,
-      likes: 0,
     });
 
     return NextResponse.json({ success: true, video });

@@ -1,7 +1,49 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Loader2, Search, X, Link, Upload, Image as ImageIcon, Sparkles, Wand2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
+import { Loader2, Search, X, Link, Upload, Image as ImageIcon, Sparkles, Wand2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, RotateCcw, Youtube } from "lucide-react";
+
+// Extract the 11-char video ID from any YouTube URL format (watch, youtu.be, embed, shorts)
+function getYoutubeId(url: string): string | null {
+  if (!url) return null;
+  const match = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  return match ? match[1] : null;
+}
+
+// True for uploaded video files, generic "/video/" URLs, AND YouTube links —
+// all treated as "video" throughout this picker.
+function isVideoUrl(url: string): boolean {
+  if (!url) return false;
+  return /\.(mp4|webm|mov)($|\?)/i.test(url) || url.includes('/video/') || !!getYoutubeId(url);
+}
+
+// Static thumbnail to display for a video URL (YouTube uses its thumbnail image,
+// uploaded video files are rendered with an actual <video> tag instead).
+function getYoutubeThumbnail(url: string): string | null {
+  const id = getYoutubeId(url);
+  return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : null;
+}
+
+// Autoplaying, muted, looping embed — used so YouTube videos actually play inside the small preview squares.
+function getYoutubeEmbedUrl(url: string): string | null {
+  const id = getYoutubeId(url);
+  return id ? `https://www.youtube.com/embed/${id}?autoplay=1&mute=1&loop=1&playlist=${id}&controls=0&modestbranding=1&rel=0` : null;
+}
+
+// Reusable embed used everywhere a YouTube video needs to play inside a small preview box.
+function YoutubeEmbedPreview({ url, className }: { url: string; className: string }) {
+  const embedUrl = getYoutubeEmbedUrl(url);
+  if (!embedUrl) return null;
+  return (
+    <iframe
+      src={embedUrl}
+      className={className}
+      style={{ pointerEvents: 'none' }}
+      allow="autoplay; encrypted-media"
+      frameBorder={0}
+    />
+  );
+}
 
 interface ImagePickerModalProps {
   isOpen: boolean;
@@ -44,7 +86,7 @@ export default function ImagePickerModal({
   dimensions,
   aspectRatio,
 }: ImagePickerModalProps) {
-  const [activeTab, setActiveTab] = useState<'wikimedia' | 'tenor' | 'url' | 'upload' | 'ai'>('upload');
+  const [activeTab, setActiveTab] = useState<'wikimedia' | 'tenor' | 'url' | 'upload' | 'ai' | 'youtube'>('upload');
   const [tenorResults, setTenorResults] = useState<string[]>([]);
   const [tenorSearching, setTenorSearching] = useState(false);
   const [tenorSearch, setTenorSearch] = useState(searchTerm);
@@ -55,6 +97,8 @@ export default function ImagePickerModal({
   const [selectedThumbnail, setSelectedThumbnail] = useState<string>(currentThumbnail || '');
   const [thumbnailSameAsCover, setThumbnailSameAsCover] = useState(!currentThumbnail || currentThumbnail === currentImage);
   const [urlInput, setUrlInput] = useState('');
+  const [youtubeInput, setYoutubeInput] = useState('');
+  const [youtubeError, setYoutubeError] = useState('');
   const [error, setError] = useState('');
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
@@ -130,6 +174,17 @@ export default function ImagePickerModal({
     if (urlInput.trim()) {
       setSelectedImage(urlInput.trim());
     }
+  };
+
+  // Handle YouTube link input — validated and treated as a video, just like an uploaded video file
+  const handleYoutubeSubmit = () => {
+    const id = getYoutubeId(youtubeInput.trim());
+    if (!id) {
+      setYoutubeError('Invalid YouTube link');
+      return;
+    }
+    setYoutubeError('');
+    setSelectedImage(`https://www.youtube.com/watch?v=${id}`);
   };
 
   // AI Generate image
@@ -227,10 +282,14 @@ export default function ImagePickerModal({
   // Confirm selection
   const handleConfirm = () => {
     if (selectedImage) {
+      // YouTube links can't be rendered by a plain <img> tag anywhere downstream
+      // (Rankroll list, frontend feed, etc.) — so we store the static thumbnail
+      // image instead of the raw watch URL.
+      const finalImage = getYoutubeId(selectedImage) ? (getYoutubeThumbnail(selectedImage) || selectedImage) : selectedImage;
       const thumbnail = showThumbnail 
-        ? (thumbnailSameAsCover ? selectedImage : selectedThumbnail)
+        ? (thumbnailSameAsCover ? finalImage : selectedThumbnail)
         : undefined;
-      onSelect(selectedImage, imagePosition, thumbnail);
+      onSelect(finalImage, imagePosition, thumbnail);
       onClose();
     }
   };
@@ -300,6 +359,16 @@ export default function ImagePickerModal({
             }`}
           >
             🔗 URL
+          </button>
+          <button
+            onClick={() => setActiveTab('youtube')}
+            className={`flex-1 px-2 py-2 text-xs font-medium flex items-center justify-center gap-1 ${
+              activeTab === 'youtube' 
+                ? 'text-white border-b-2 border-red-500' 
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <Youtube className="w-3.5 h-3.5" /> YouTube
           </button>
           {showAiGenerate && (
             <button
@@ -531,6 +600,45 @@ export default function ImagePickerModal({
             </div>
           )}
 
+          {/* YouTube Tab */}
+          {activeTab === 'youtube' && (
+            <div>
+              <p className="text-xs text-gray-400 mb-3">
+                Paste a YouTube link — it will be treated as a video, just like an uploaded video file.
+              </p>
+              <div className="flex gap-2 mb-3">
+                <div className="relative flex-1">
+                  <Youtube className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <input
+                    type="text"
+                    value={youtubeInput}
+                    onChange={e => setYoutubeInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleYoutubeSubmit()}
+                    placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..."
+                    className="w-full pl-8 pr-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm text-white placeholder-gray-500"
+                  />
+                </div>
+                <button
+                  onClick={handleYoutubeSubmit}
+                  disabled={!youtubeInput.trim()}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded disabled:opacity-50"
+                >
+                  Load
+                </button>
+              </div>
+
+              {youtubeError && (
+                <div className="text-center py-2 text-red-400 text-sm">{youtubeError}</div>
+              )}
+
+              {getYoutubeId(selectedImage) && (
+                <div className="flex justify-center">
+                  <YoutubeEmbedPreview url={selectedImage} className="w-full max-w-md aspect-video rounded border border-gray-600" />
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Upload Tab */}
           {activeTab === 'upload' && (
             <div className="text-center py-6">
@@ -607,8 +715,12 @@ export default function ImagePickerModal({
               <div className="text-[9px] text-gray-500 mb-1 uppercase tracking-wider">List / Thumbnail</div>
               <div className="mx-auto w-10 h-8 rounded bg-gray-700 border border-gray-600 overflow-hidden">
                 {selectedImage ? (
-                  selectedImage.match(/\.(mp4|webm|mov)($|\?)/i) || selectedImage.includes('/video/') ? (
-                    <video src={selectedImage} className="w-full h-full object-cover" muted autoPlay loop playsInline style={{ objectPosition: `${imagePosition.x}% ${imagePosition.y}%` }} />
+                  isVideoUrl(selectedImage) ? (
+                    getYoutubeId(selectedImage) ? (
+                      <YoutubeEmbedPreview url={selectedImage} className="w-full h-full" />
+                    ) : (
+                      <video src={selectedImage} className="w-full h-full object-cover" muted autoPlay loop playsInline style={{ objectPosition: `${imagePosition.x}% ${imagePosition.y}%` }} />
+                    )
                   ) : (
                     <img src={selectedImage} alt="" className="w-full h-full object-cover" style={{ objectPosition: `${imagePosition.x}% ${imagePosition.y}%` }} />
                   )
@@ -622,8 +734,12 @@ export default function ImagePickerModal({
               <div className="text-[9px] text-gray-500 mb-1 uppercase tracking-wider">Mobile Article</div>
               <div className="mx-auto w-full aspect-[2/1] rounded bg-gray-700 border border-gray-600 overflow-hidden">
                 {selectedImage ? (
-                  selectedImage.includes('.mp4') || selectedImage.includes('.webm') ? (
-                    <video src={selectedImage} className="w-full h-full object-cover" muted autoPlay loop playsInline style={{ objectPosition: `${imagePosition.x}% ${imagePosition.y}%` }} />
+                  isVideoUrl(selectedImage) ? (
+                    getYoutubeId(selectedImage) ? (
+                      <YoutubeEmbedPreview url={selectedImage} className="w-full h-full" />
+                    ) : (
+                      <video src={selectedImage} className="w-full h-full object-cover" muted autoPlay loop playsInline style={{ objectPosition: `${imagePosition.x}% ${imagePosition.y}%` }} />
+                    )
                   ) : (
                     <img src={selectedImage} alt="" className="w-full h-full object-cover" style={{ objectPosition: `${imagePosition.x}% ${imagePosition.y}%` }} />
                   )
@@ -637,8 +753,12 @@ export default function ImagePickerModal({
               <div className="text-[9px] text-gray-500 mb-1 uppercase tracking-wider">Desktop Banner</div>
               <div className="mx-auto w-full aspect-[3/1] rounded bg-gray-700 border border-gray-600 overflow-hidden">
                 {selectedImage ? (
-                  selectedImage.match(/\.(mp4|webm|mov)($|\?)/i) || selectedImage.includes('/video/') ? (
-                    <video src={selectedImage} className="w-full h-full object-cover" muted autoPlay loop playsInline style={{ objectPosition: `${imagePosition.x}% ${imagePosition.y}%` }} />
+                  isVideoUrl(selectedImage) ? (
+                    getYoutubeId(selectedImage) ? (
+                      <YoutubeEmbedPreview url={selectedImage} className="w-full h-full" />
+                    ) : (
+                      <video src={selectedImage} className="w-full h-full object-cover" muted autoPlay loop playsInline style={{ objectPosition: `${imagePosition.x}% ${imagePosition.y}%` }} />
+                    )
                   ) : (
                     <img src={selectedImage} alt="" className="w-full h-full object-cover" style={{ objectPosition: `${imagePosition.x}% ${imagePosition.y}%` }} />
                   )
@@ -655,8 +775,12 @@ export default function ImagePickerModal({
               {/* small square for position arrows */}
               <div className="relative w-12 h-12 rounded bg-gray-700 border border-gray-600 overflow-hidden">
                 {selectedImage ? (
-                  selectedImage.match(/\.(mp4|webm|mov)($|\?)/i) || selectedImage.includes('/video/') ? (
-                    <video src={selectedImage} className="w-full h-full object-cover" muted autoPlay loop playsInline style={{ objectPosition: `${imagePosition.x}% ${imagePosition.y}%` }} />
+                  isVideoUrl(selectedImage) ? (
+                    getYoutubeId(selectedImage) ? (
+                      <YoutubeEmbedPreview url={selectedImage} className="w-full h-full" />
+                    ) : (
+                      <video src={selectedImage} className="w-full h-full object-cover" muted autoPlay loop playsInline style={{ objectPosition: `${imagePosition.x}% ${imagePosition.y}%` }} />
+                    )
                   ) : (
                     <img src={selectedImage} alt="" className="w-full h-full object-cover" style={{ objectPosition: `${imagePosition.x}% ${imagePosition.y}%` }} />
                   )
@@ -712,8 +836,8 @@ export default function ImagePickerModal({
             <div className="flex-1 text-xs text-gray-400">
               {selectedImage ? (
                 <div>
-                  <span className="text-green-400">✓ {selectedImage.includes('.mp4') || selectedImage.includes('.webm') || selectedImage.includes('video') ? 'Video' : 'Bild'} ausgewählt</span>
-                  {!selectedImage.includes('.mp4') && !selectedImage.includes('.webm') && !selectedImage.includes('video') && (
+                  <span className="text-green-400">✓ {isVideoUrl(selectedImage) ? (getYoutubeId(selectedImage) ? 'YouTube-Video' : 'Video') : 'Bild'} ausgewählt</span>
+                  {!isVideoUrl(selectedImage) && (
                     <div className="text-[10px] text-gray-500 mt-0.5">
                       Position: {imagePosition.x}% / {imagePosition.y}%
                     </div>

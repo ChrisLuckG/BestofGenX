@@ -41,6 +41,13 @@ export async function POST(
     if (battle.creator.toString() === opponentId) {
       return NextResponse.json({ success: false, error: 'Cannot accept your own battle' }, { status: 400 });
     }
+
+    // Personal/private challenges (challengedUser set) can only be accepted
+    // by the intended opponent — otherwise anyone could "steal" a challenge
+    // meant for someone else.
+    if (battle.challengedUser && battle.challengedUser.toString() !== opponentId) {
+      return NextResponse.json({ success: false, error: 'This battle was challenged to a specific player' }, { status: 403 });
+    }
     
     // Check opponent has enough points
     const opponent = await User.findById(opponentId);

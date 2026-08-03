@@ -22,13 +22,14 @@ export async function PUT(request: NextRequest, { params }: { params: { userId: 
   try {
     await dbConnect();
     const body = await request.json();
-    const { name, avatar, role, nationality, responsibilities, writingStyle, politicalTendency, personality, memories, systemPrompt: customPrompt } = body;
+    const { name, avatar, role, region, specialty, responsibilities, writingStyle, politicalTendency, personality, memories, systemPrompt: customPrompt } = body;
 
     const profile = await ReporterProfile.findOne({ userId: params.userId });
     if (!profile) return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
 
     if (role) profile.role = role;
-    if (nationality !== undefined) profile.nationality = nationality;
+    if (region !== undefined) profile.region = region;
+    if (specialty !== undefined) profile.specialty = specialty;
     if (politicalTendency !== undefined) profile.politicalTendency = politicalTendency;
     if (responsibilities !== undefined) profile.responsibilities = responsibilities;
     if (writingStyle !== undefined) profile.writingStyle = writingStyle;
@@ -44,7 +45,7 @@ export async function PUT(request: NextRequest, { params }: { params: { userId: 
       profile.systemPrompt = generateReporterSystemPrompt({
         name: displayName,
         role: profile.role,
-        nationality: profile.nationality,
+        region: profile.region,
         responsibilities: profile.responsibilities,
         writingStyle: profile.writingStyle,
         politicalTendency: profile.politicalTendency,

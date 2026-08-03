@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, memo } from "react";
+import { useEffect, useState, useRef, memo, useCallback } from "react";
 import { Clock, Play, Share2, MoreHorizontal, MessageCircle, Check, Bookmark, Flag, ChevronLeft, ChevronRight, BookOpen, Music, Gamepad2, Trophy, Sparkles, Cross, Newspaper, Clapperboard, PartyPopper } from "lucide-react";
 import PollCard from "@/components/PollCard";
 import QuizPollCard from "@/components/QuizPoll";
@@ -105,11 +105,12 @@ interface LandingPageProps {
   isDesktop?: boolean;
   onShowLogin?: () => void;
   onOpenStaticPage?: (slug: string) => void;
+  onOpenCommunitySound?: () => void;
 }
 
 const EMPTY_SET = new Set<string>();
 
-function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop = false, onShowLogin, onOpenStaticPage }: LandingPageProps) {
+function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop = false, onShowLogin, onOpenStaticPage, onOpenCommunitySound }: LandingPageProps) {
   const { user, isLoggedIn } = useAuth();
   const [articles, setArticles] = useState<Article[]>([]);
   const [polls, setPolls] = useState<any[]>([]);
@@ -142,6 +143,10 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
   const [isLoading, setIsLoading] = useState(true);
   const [toast, setToast] = useState<{ message: string; icon: 'check' | 'bookmark' | 'flag' } | null>(null);
   const [loadingArticleId, setLoadingArticleId] = useState<string | null>(null);
+  // Batched mood-reaction data, keyed by articleId. Fetched ONCE for all loaded
+  // articles instead of each card firing its own request (was causing an N+1
+  // request storm / ERR_INSUFFICIENT_RESOURCES with 100 articles on screen).
+  const [reactionsMap, setReactionsMap] = useState<Record<string, { reactions: Record<string, number>; userReaction: string | null }>>({});
 
   const showToast = (message: string, icon: 'check' | 'bookmark' | 'flag' = 'check') => {
     setToast({ message, icon });
@@ -157,42 +162,61 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
     setTimeout(() => setLoadingArticleId(null), 3000);
   };
 
+  // Reusable fetch function for initial load and pull-to-refresh
+  const fetchData = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setIsLoading(true);
+    try {
+      // Fetch articles, polls and template in parallel
+      const [articlesRes, pollsRes, templateRes] = await Promise.all([
+        fetch('/api/articles?status=published&limit=100'),
+        fetch('/api/polls?status=active'),
+        fetch('/api/template')
+      ]);
+      
+      const articlesData = await articlesRes.json();
+      const pollsData = await pollsRes.json();
+      const templateData = await templateRes.json();
+      
+      if (articlesData.success && articlesData.articles?.length > 0) {
+        setArticles(articlesData.articles);
+      }
+      
+      if (pollsData.success && pollsData.polls?.length > 0) {
+        setPolls(pollsData.polls);
+      }
+      
+      if (templateData.success && templateData.template?.length > 0) {
+        setTemplateItems(templateData.template);
+      }
+      // No fallback — empty feed surfaces that the template needs to be configured
+    } catch (e) {
+      console.error('Failed to fetch data:', e);
+    } finally {
+      if (!isRefresh) setIsLoading(false);
+    }
+  }, []);
+
   // Fetch articles, polls and template from database
   useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        // Fetch articles, polls and template in parallel
-        const [articlesRes, pollsRes, templateRes] = await Promise.all([
-          fetch('/api/articles?status=published&limit=100'),
-          fetch('/api/polls?status=active'),
-          fetch('/api/template')
-        ]);
-        
-        const articlesData = await articlesRes.json();
-        const pollsData = await pollsRes.json();
-        const templateData = await templateRes.json();
-        
-        if (articlesData.success && articlesData.articles?.length > 0) {
-          setArticles(articlesData.articles);
-        }
-        
-        if (pollsData.success && pollsData.polls?.length > 0) {
-          setPolls(pollsData.polls);
-        }
-        
-        if (templateData.success && templateData.template?.length > 0) {
-          setTemplateItems(templateData.template);
-        }
-        // No fallback — empty feed surfaces that the template needs to be configured
-      } catch (e) {
-        console.error('Failed to fetch data:', e);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchData();
-  }, []);
+  }, [fetchData]);
+
+  // Batch-fetch mood reactions for all loaded articles in ONE request instead
+  // of letting each card fetch its own (was causing an N+1 request storm /
+  // ERR_INSUFFICIENT_RESOURCES with ~100 articles rendered at once). Re-runs
+  // when the article list changes or once the logged-in user becomes known,
+  // so "your reaction" highlighting is correct after login too.
+  useEffect(() => {
+    if (articles.length === 0) return;
+    const ids = articles.map(a => a._id).join(',');
+    if (!ids) return;
+    fetch(`/api/articles/react?articleIds=${ids}&userId=${user?.id || ''}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.byArticle) setReactionsMap(data.byArticle);
+      })
+      .catch(() => {});
+  }, [articles, user?.id]);
 
   // Card Actions Component - handles like, comment, share independently
   const CardActions = ({ article, size = 'normal' }: { article: Article; size?: 'small' | 'normal' }) => {
@@ -261,6 +285,9 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
             isLoggedIn={isLoggedIn} 
             onShowLogin={onShowLogin}
             size="sm" 
+            useExternalData
+            initialReactions={reactionsMap[article._id]?.reactions}
+            initialUserReaction={reactionsMap[article._id]?.userReaction}
           />
         <button onClick={handleComment} className="flex items-center gap-1.5 hover:text-[#D4873A] transition-colors">
           <MessageCircle className={iconSize} />
@@ -460,7 +487,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           </div>
           {/* Mood Reactions & Comments inline */}
           <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-            <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="sm" />
+            <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="sm" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} />
             <span className="flex items-center gap-1">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -615,7 +642,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         <div className="flex items-center justify-end gap-1 text-[10px] text-white/70">
           {/* Moods & Comments inline */}
           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-            <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" />
+            <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} />
             <span className="flex items-center gap-0.5">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -674,7 +701,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                       </div>
           {/* Likes & Comments inline */}
           <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-            <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" />
+            <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} />
             <span className="flex items-center gap-0.5">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -722,7 +749,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         <h3 onClick={() => handleArticleClick(article._id)} className={`font-display text-[20px] tracking-wide leading-tight line-clamp-2 transition-colors ${hasColorTheme ? 'text-white group-hover:text-gray-900' : 'text-gray-900 group-hover:text-[#D4873A]'}`}>{article.title}</h3>
         {/* Likes & Comments */}
         <div className={`flex items-center gap-2 mt-1 text-[8px] ${hasColorTheme ? 'text-gray-700' : 'text-gray-500'}`} onClick={(e) => e.stopPropagation()}>
-          <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" />
+          <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} />
           <span className="flex items-center gap-0.5">
             <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -992,7 +1019,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         </div>
         <h3 className={`font-display tracking-wide text-gray-900 group-hover:text-[#D4873A] leading-tight line-clamp-1 transition-colors ${isDesktop ? 'text-[20px]' : 'text-[20px]'}`}>{article.title}</h3>
         <div className="flex items-center gap-3 text-[10px] text-gray-500 mt-0.5" onClick={(e) => e.stopPropagation()}>
-          <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" />
+          <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} />
           <span className="flex items-center gap-0.5">
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -1336,6 +1363,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                               key={blockIdx}
                               type="button"
                               onClick={() => {
+                                if (autoCategory === 'music' && onOpenCommunitySound) { onOpenCommunitySound(); return; }
                                 if (fixedArticle) { onOpenArticle?.(fixedArticle._id); return; }
                                 if (bannerLink) {
                                   if (/^https?:\/\//.test(bannerLink)) window.open(bannerLink, '_blank');

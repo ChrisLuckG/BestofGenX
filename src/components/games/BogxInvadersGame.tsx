@@ -11,6 +11,15 @@ interface BogxInvadersGameProps {
   isLoggedIn?: boolean;
   userId?: string;
   onShowLogin?: () => void;
+  // Called with `true` right as the ship-flying-in intro starts (so the
+  // parent can seamlessly slide the header/footer away in sync), and with
+  // `false` once the game ends (so the parent can slide them back in).
+  onFullscreenChange?: (fullscreen: boolean) => void;
+  // Called once at game over with the TOTAL coins earned this run, purely so
+  // the parent can play a nice "count up" animation in the header once it
+  // reappears. This is separate from onCoinsChange (which already updates
+  // the real wallet balance in real-time per kill) — do not double-credit.
+  onGameOverCoinsEarned?: (total: number) => void;
 }
 
 // Game constants
@@ -62,7 +71,9 @@ export default function BogxInvadersGame({
   onCoinsChange, 
   isLoggedIn = false, 
   userId,
-  onShowLogin 
+  onShowLogin,
+  onFullscreenChange,
+  onGameOverCoinsEarned
 }: BogxInvadersGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -96,6 +107,12 @@ export default function BogxInvadersGame({
   const userIdRef = useRef(userId);
   const soundEnabledRef = useRef(soundEnabled);
   const highScoreRef = useRef(highScore);
+  const onFullscreenChangeRef = useRef(onFullscreenChange);
+  const onGameOverCoinsEarnedRef = useRef(onGameOverCoinsEarned);
+  // Tracks total coins earned THIS run, independent of React state timing,
+  // so finalizeGameOver (inside the game loop closure) always reads the
+  // up-to-date total instead of a possibly-stale `tokens` state value.
+  const tokensEarnedRef = useRef(0);
   
   // Load ship image
   useEffect(() => {
@@ -111,6 +128,8 @@ export default function BogxInvadersGame({
   useEffect(() => { userIdRef.current = userId; }, [userId]);
   useEffect(() => { soundEnabledRef.current = soundEnabled; }, [soundEnabled]);
   useEffect(() => { highScoreRef.current = highScore; }, [highScore]);
+  useEffect(() => { onFullscreenChangeRef.current = onFullscreenChange; }, [onFullscreenChange]);
+  useEffect(() => { onGameOverCoinsEarnedRef.current = onGameOverCoinsEarned; }, [onGameOverCoinsEarned]);
   
   // Load high score
   useEffect(() => {
@@ -227,6 +246,7 @@ export default function BogxInvadersGame({
       const newTotal = prev + amount;
       return Math.round(newTotal * 100) / 100;
     });
+    tokensEarnedRef.current = Math.round((tokensEarnedRef.current + amount) * 100) / 100;
     onCoinsChangeRef.current?.(amount);
     
     // Only track for logged in users - use awardBogx via API
@@ -457,6 +477,12 @@ export default function BogxInvadersGame({
     // Finalize (save high score + submit to leaderboard + show game over screen)
     const finalizeGameOver = () => {
       setGameState('gameover');
+      // Slide the header/footer back in, then trigger the coin count-up
+      // animation for the total earned this run (real balance was already
+      // credited incrementally per-kill via onCoinsChange — this is purely
+      // the visual "topping up" animation once the header is visible again).
+      onFullscreenChangeRef.current?.(false);
+      onGameOverCoinsEarnedRef.current?.(tokensEarnedRef.current);
 
       // Save high score
       if (game.currentScore > highScoreRef.current) {
@@ -1043,6 +1069,11 @@ export default function BogxInvadersGame({
     };
 
     // Cursor left / re-entered the play area → toggle the "come back" alert.
+    // Desktop (mouse) only — touch devices have no concept of "leaving" the
+    // play area while dragging a finger, and browsers can fire spurious
+    // mouseleave/mouseenter events during touch scrolling, which was
+    // incorrectly showing "move your cursor back" on mobile.
+    const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
     const handleMouseLeave = () => { setOutOfBounds(true); sfxAlarm(); };
     const handleMouseEnter = () => setOutOfBounds(false);
 
@@ -1065,8 +1096,10 @@ export default function BogxInvadersGame({
     };
 
     canvas.addEventListener('mousemove', handleMouseMove);
-    canvas.addEventListener('mouseleave', handleMouseLeave);
-    canvas.addEventListener('mouseenter', handleMouseEnter);
+    if (!isTouchDevice) {
+      canvas.addEventListener('mouseleave', handleMouseLeave);
+      canvas.addEventListener('mouseenter', handleMouseEnter);
+    }
     canvas.addEventListener('click', handleClick);
     canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
     canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
@@ -1116,11 +1149,14 @@ export default function BogxInvadersGame({
     ensureAudio();
     setScore(0);
     setTokens(0);
+    tokensEarnedRef.current = 0;
     setLives(3);
     setWave(1);
     setTimeLeft(WAVE_TIME);
     setOutOfBounds(false);
     setGameState('intro');
+    // Seamlessly slide the header/footer away right as the ship flies in.
+    onFullscreenChangeRef.current?.(true);
     sfxWave();
     setTimeout(() => setGameState('playing'), 1150);
   };
@@ -1303,7 +1339,10 @@ export default function BogxInvadersGame({
       {/* Header - dark space theme, matches start screen for seamless transition */}
       <div className="relative z-10 px-4 pt-4 pb-3 border-b border-white/10">
         <div className="flex items-center gap-3">
-          <button onClick={onBack} className="p-1 hover:bg-white/10 rounded transition-colors">
+          <button
+            onClick={() => { onFullscreenChangeRef.current?.(false); onBack(); }}
+            className="p-1 hover:bg-white/10 rounded transition-colors"
+          >
             <ChevronLeft className="w-5 h-5 text-white/70" />
           </button>
           <div>

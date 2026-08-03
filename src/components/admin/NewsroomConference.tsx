@@ -53,8 +53,11 @@ interface Proposal {
   description: string;
   reporterId: string;
   reporterName: string;
+  reporterSpecialty?: string;
   category?: string; // sports, music, movies-tv, etc.
   isRIP?: boolean; // True if this is a death anniversary, not birthday
+  isEvent?: boolean; // True if this is an ON THIS DAY event, not a person
+  isError?: boolean; // True if reporter couldn't find anyone
 }
 
 interface ConferenceMessage {
@@ -105,6 +108,7 @@ interface NewsroomConferenceProps {
   userId?: string;
   onClose?: () => void;
   onGoToArticles?: () => void;
+  onRankrollProposed?: (pollId: string) => void;
 }
 
 // ---- Constants ------------------------------------------------------------
@@ -200,16 +204,18 @@ const COLOR_CYCLE = [
 ];
 
 const PROMPT_TEMPLATES = [
-  { id: 'birthday', label: '🎂 Birthday', prompt: 'Birthday — find GenX celebrities (born 1965-1980) who were BORN ON THIS DAY and write about their life and achievements' },
-  { id: 'movie', label: '🎬 Movie/TV', prompt: 'Movie/TV — write about an iconic 80s/90s movie or TV show, its cast, plot, and cultural impact' },
-  { id: 'music', label: '🎵 Music', prompt: 'Music — write about a classic song, album, or artist from the GenX era' },
-  { id: 'sport', label: '⚽ Sport', prompt: 'Sport — write about a legendary athlete, match, or sports moment from the 80s/90s' },
-  { id: 'history', label: '📜 History', prompt: 'History — write about a significant historical event or moment from the GenX era' },
-  { id: 'band', label: '💎 Band', prompt: 'Band — write about an iconic band from the 80s/90s, their music, members, and legacy' },
-  { id: 'album', label: '💿 Album', prompt: 'Album — write about a classic album, its tracks, production, and cultural significance' },
-  { id: 'tvseries', label: '📺 TV Series', prompt: 'TV Series — write about a beloved TV series from the GenX era' },
-  { id: 'rip', label: '🕯️ RIP', prompt: 'RIP — find GenX celebrities (born 1965-1980) who DIED ON THIS DAY and write a tribute honoring their life and legacy' },
-  { id: 'game', label: '🎮 Game', prompt: 'Game — write about a classic video game from the 80s/90s arcade or console era' },
+  // Person-based templates (Birthday/RIP)
+  { id: 'birthday', label: '🎂 Birthday', prompt: 'BORN ON THIS DAY — find a GenX celebrity (born 1965-1980) who was BORN ON THIS EXACT DATE. Include their birth date, country, and why they matter to GenX.' },
+  { id: 'rip', label: '🕯️ RIP', prompt: 'DIED ON THIS DAY — find a GenX celebrity (born 1965-1980) who DIED ON THIS EXACT DATE. Include their birth date, death date, country, and a tribute to their legacy.' },
+  // Event-based templates (ON THIS DAY)
+  { id: 'movie', label: '🎬 Movie/TV', prompt: 'ON THIS DAY — find a movie or TV show that PREMIERED or had a significant event ON THIS EXACT DATE (any year 1975-2000). Could be: a film premiere, a TV series finale, a famous episode airing, an Oscar win, etc. Give the exact date, title, and why it mattered to GenX. NOT a person — an EVENT.' },
+  { id: 'music', label: '🎵 Music', prompt: 'ON THIS DAY — find a music event that happened ON THIS EXACT DATE (any year 1975-2000). Could be: an album release, a legendary concert, a #1 hit, a band forming/breaking up, an award show moment, etc. Give the exact date, artist/song, and why it mattered to GenX. NOT a person — an EVENT.' },
+  { id: 'sport', label: '⚽ Sport', prompt: 'ON THIS DAY — find a sports event that happened ON THIS EXACT DATE (any year 1975-2000). Could be: a championship game, a world record, a legendary match, an upset, a retirement, etc. Give the exact date, teams/athletes, scores, and why it became folklore. NOT a birthday — an EVENT.' },
+  { id: 'history', label: '📜 History', prompt: 'ON THIS DAY — find a historical event that happened ON THIS EXACT DATE (any year 1975-2000). Could be: a political moment, a cultural shift, a tragedy, a triumph, a tech launch, etc. Give the exact date, what happened, and why it shaped GenX. NOT a person — an EVENT.' },
+  { id: 'band', label: '💎 Band', prompt: 'ON THIS DAY — find a band-related event that happened ON THIS EXACT DATE (any year 1975-2000). Could be: a band forming, breaking up, a legendary concert, a debut album release, etc. Give the exact date, band name, and why it mattered. NOT a person — an EVENT.' },
+  { id: 'album', label: '💿 Album', prompt: 'ON THIS DAY — find an album that was RELEASED ON THIS EXACT DATE (any year 1975-2000). Give the exact release date, artist, album name, and why it was significant to GenX. NOT a person — an EVENT.' },
+  { id: 'tvseries', label: '📺 TV Series', prompt: 'ON THIS DAY — find a TV series event that happened ON THIS EXACT DATE (any year 1975-2000). Could be: a series premiere, a finale, a famous episode, etc. Give the exact date, show name, and why it mattered. NOT a person — an EVENT.' },
+  { id: 'game', label: '🎮 Game', prompt: 'ON THIS DAY — find a video game that was RELEASED ON THIS EXACT DATE (any year 1975-2000). Could be: an arcade game debut, a console launch, a legendary game release, etc. Give the exact date, game name, and why it mattered to GenX. NOT a person — an EVENT.' },
   { id: 'custom', label: '✏️ Custom', prompt: '' },
 ];
 
@@ -317,6 +323,7 @@ export default function NewsroomConference({
   userId,
   onClose,
   onGoToArticles,
+  onRankrollProposed,
 }: NewsroomConferenceProps) {
   // Department state
   const [activeDept, setActiveDept] = useState<string>("authors");
@@ -429,6 +436,14 @@ export default function NewsroomConference({
   const [showTemplates, setShowTemplates] = useState(false);
   const [typing, setTyping] = useState<string | false>(false); // false or reporter name
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  
+  // Global search filters
+  const [globalCategory, setGlobalCategory] = useState<string>('');
+  const [globalCountry, setGlobalCountry] = useState<string>('');
+  
+  // Pending reporters (for proposal loading states)
+  const [pendingReporters, setPendingReporters] = useState<Array<{id: string; name: string; status: 'searching' | 'done' | 'error'; error?: string}>>([]);
   
   // Reporter category assignments (reporterId -> category)
   const [reporterCategories, setReporterCategories] = useState<Record<string, string>>({});
@@ -440,6 +455,60 @@ export default function NewsroomConference({
     { id: 'lifestyle', label: '✨ Lifestyle' },
     { id: 'politics', label: '🏛️ Politics' },
     { id: 'tech', label: '💻 Tech' },
+    { id: 'gaming', label: '🎮 Gaming' },
+  ];
+  const SEARCH_COUNTRIES = [
+    { id: '', label: 'Any Country' },
+    { id: 'US', label: '🇺🇸 USA' },
+    { id: 'UK', label: '🇬🇧 UK' },
+    { id: 'DE', label: '🇩🇪 Germany' },
+    { id: 'FR', label: '🇫🇷 France' },
+    { id: 'IT', label: '🇮🇹 Italy' },
+    { id: 'ES', label: '🇪🇸 Spain' },
+    { id: 'NL', label: '🇳🇱 Netherlands' },
+    { id: 'BE', label: '🇧🇪 Belgium' },
+    { id: 'AT', label: '🇦🇹 Austria' },
+    { id: 'CH', label: '🇨🇭 Switzerland' },
+    { id: 'PL', label: '🇵🇱 Poland' },
+    { id: 'SE', label: '🇸🇪 Sweden' },
+    { id: 'NO', label: '🇳🇴 Norway' },
+    { id: 'DK', label: '🇩🇰 Denmark' },
+    { id: 'FI', label: '🇫🇮 Finland' },
+    { id: 'PT', label: '🇵🇹 Portugal' },
+    { id: 'GR', label: '🇬🇷 Greece' },
+    { id: 'IE', label: '🇮🇪 Ireland' },
+    { id: 'CZ', label: '🇨🇿 Czech Republic' },
+    { id: 'HU', label: '🇭🇺 Hungary' },
+    { id: 'RO', label: '🇷🇴 Romania' },
+    { id: 'RU', label: '🇷🇺 Russia' },
+    { id: 'UA', label: '🇺🇦 Ukraine' },
+    { id: 'CA', label: '🇨🇦 Canada' },
+    { id: 'MX', label: '🇲🇽 Mexico' },
+    { id: 'BR', label: '🇧🇷 Brazil' },
+    { id: 'AR', label: '🇦🇷 Argentina' },
+    { id: 'CL', label: '🇨🇱 Chile' },
+    { id: 'CO', label: '🇨🇴 Colombia' },
+    { id: 'PE', label: '🇵🇪 Peru' },
+    { id: 'VE', label: '🇻🇪 Venezuela' },
+    { id: 'JP', label: '🇯🇵 Japan' },
+    { id: 'KR', label: '🇰🇷 South Korea' },
+    { id: 'CN', label: '🇨🇳 China' },
+    { id: 'IN', label: '🇮🇳 India' },
+    { id: 'AU', label: '🇦🇺 Australia' },
+    { id: 'NZ', label: '🇳🇿 New Zealand' },
+    { id: 'ZA', label: '🇿🇦 South Africa' },
+    { id: 'EG', label: '🇪🇬 Egypt' },
+    { id: 'NG', label: '🇳🇬 Nigeria' },
+    { id: 'IL', label: '🇮🇱 Israel' },
+    { id: 'TR', label: '🇹🇷 Turkey' },
+    { id: 'SA', label: '🇸🇦 Saudi Arabia' },
+    { id: 'AE', label: '🇦🇪 UAE' },
+    { id: 'TH', label: '🇹🇭 Thailand' },
+    { id: 'PH', label: '🇵🇭 Philippines' },
+    { id: 'ID', label: '🇮🇩 Indonesia' },
+    { id: 'MY', label: '🇲🇾 Malaysia' },
+    { id: 'SG', label: '🇸🇬 Singapore' },
+    { id: 'VN', label: '🇻🇳 Vietnam' },
   ];
   const [apiStatus, setApiStatus] = useState<{ status: string; message: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -817,10 +886,30 @@ DO NOT write the article yet, just the proposal.`;
     const dayMonth = `${today.getDate()}.${(today.getMonth() + 1).toString().padStart(2, '0')}`;
     
     // Detect if this is a RIP request (death anniversary) vs Birthday
-    const isRIPRequest = actualMessage.toLowerCase().includes('rip') || 
-                         actualMessage.toLowerCase().includes('died') || 
-                         actualMessage.toLowerCase().includes('death') ||
-                         actualMessage.toLowerCase().includes('todestag');
+    const lowerMsg = actualMessage.toLowerCase();
+    const isRIPRequest = lowerMsg.includes('rip') || 
+                         lowerMsg.includes('died') || 
+                         lowerMsg.includes('death') ||
+                         lowerMsg.includes('todestag') ||
+                         lowerMsg.includes('gestorben');
+    
+    // EVENT request (ON THIS DAY) - not a person, but an event like movie premiere, album release
+    // IMPORTANT: "BORN ON THIS DAY" is NOT an event request - it's a birthday request!
+    const hasOnThisDay = lowerMsg.includes('on this day');
+    const isBirthdayOrRIP = lowerMsg.includes('born') || lowerMsg.includes('died') || lowerMsg.includes('death') || lowerMsg.includes('rip');
+    const isEventRequest = !isBirthdayOrRIP && (
+      hasOnThisDay ||
+      lowerMsg.includes('premiered') ||
+      lowerMsg.includes('this exact date') ||
+      lowerMsg.includes('happened on') ||
+      lowerMsg.includes('not a person') ||
+      lowerMsg.includes('an event') ||
+      lowerMsg.includes('film premiere') ||
+      lowerMsg.includes('series finale') ||
+      lowerMsg.includes('oscar win') ||
+      lowerMsg.includes('album release') ||
+      lowerMsg.includes('game release')
+    );
     
     // Simple prompt - the system prompt already has birthday data from Wikipedia
     const getProposalPrompt = (reporter: typeof activePeople[0], index: number) => {
@@ -876,6 +965,9 @@ DESCRIPTION: [1-2 sentences]`;
     };
 
     try {
+      // Set pending reporters for loading UI
+      setPendingReporters(targetReporters.map(r => ({ id: r.id, name: r.name, status: 'searching' as const })));
+      
       // Ask target reporters in parallel (all active, or just the @mentioned one)
       const results = await Promise.all(
         targetReporters.map(async (reporter, index) => {
@@ -887,9 +979,17 @@ DESCRIPTION: [1-2 sentences]`;
               message: getProposalPrompt(reporter, index),
               userId,
               proposalOnly: true, // Don't auto-create articles from this response
+              contentType: currentPiece.type,
+              overrideCategory: globalCategory || undefined,
+              overrideCountry: globalCountry || undefined,
+              isEventRequest, // Flag for ON THIS DAY event requests (not people)
             }),
           });
           const data = await res.json();
+          // Update pending status
+          setPendingReporters(prev => prev.map(r => 
+            r.id === reporter.id ? { ...r, status: 'done' as const } : r
+          ));
           return {
             reporter,
             response: data.response || data.message || 'No response',
@@ -924,23 +1024,28 @@ DESCRIPTION: [1-2 sentences]`;
         const assignedCategory = reporterCategories[result.reporter.id] || autoCategory;
         console.log(`[${result.reporter.name}] (${assignedCategory}) Response:`, text);
         
-        // Parse structured format: NAME: / BORN: / DIED: / CAUSE: / COUNTRY: / DESCRIPTION:
-        const nameMatch = text.match(/NAME:\s*(.+)/i);
-        const bornMatch = text.match(/BORN:\s*(\d{1,2}\.\d{1,2}\.\d{4})/i);
+        // Parse structured format: NAME/EVENT: / BORN/DATE: / DIED: / CAUSE: / COUNTRY/CATEGORY: / DESCRIPTION:
+        const nameMatch = text.match(/(?:NAME|EVENT|TITLE):\s*(.+)/i);
+        const bornMatch = text.match(/(?:BORN|DATE):\s*(\d{1,2}\.\d{1,2}\.\d{4})/i);
         const diedMatch = text.match(/DIED:\s*(\d{1,2}\.\d{1,2}\.\d{4})/i);
         const causeMatch = text.match(/CAUSE:\s*(.+)/i);
         const countryMatch = text.match(/COUNTRY:\s*(.+)/i);
-        const descMatch = text.match(/DESCRIPTION:\s*([\s\S]+?)(?=\n(?:NAME|BORN|DIED|CAUSE|COUNTRY|CATEGORY):|$)/i);
+        const categoryMatch = text.match(/CATEGORY:\s*(.+)/i);
+        const descMatch = text.match(/DESCRIPTION:\s*([\s\S]+?)(?=\n(?:NAME|EVENT|TITLE|BORN|DATE|DIED|CAUSE|COUNTRY|CATEGORY):|$)/i);
         
         const name = nameMatch ? nameMatch[1].trim() : 'Unknown';
         const birthday = bornMatch ? bornMatch[1].trim() : '';
         const deathday = diedMatch ? diedMatch[1].trim() : undefined;
         const causeOfDeath = causeMatch ? causeMatch[1].trim().split('\n')[0].trim() : undefined;
         const country = countryMatch ? countryMatch[1].trim().split('\n')[0].trim() : '';
+        const parsedCategory = categoryMatch ? categoryMatch[1].trim().split('\n')[0].trim().toLowerCase() : '';
         let description = descMatch ? descMatch[1].trim() : '';
         
         // Clean description
         description = description.slice(0, 300);
+        
+        // Determine if this is an event based on the response format or the request type
+        const isEvent = isEventRequest || text.toLowerCase().includes('event:') || text.toLowerCase().includes('title:');
         
         proposals.push({
           name,
@@ -952,15 +1057,21 @@ DESCRIPTION: [1-2 sentences]`;
           description,
           reporterId: result.reporter.id,
           reporterName: result.reporter.name,
-          category: assignedCategory,
+          category: parsedCategory || assignedCategory,
           isRIP: !!deathday, // Mark as RIP if we have a death date
+          isEvent, // Mark as event if this was an event request
         });
       }
 
-      // Filter out empty/failed proposals and non-GenX
+      // Filter out empty/failed proposals
+      // For events: just need name and date
+      // For people: need GenX birth year (1965-1980)
       const validProposals = proposals.filter(p => {
-        // Must have name and birthday
+        // Must have name and date
         if (p.name === 'Unknown' || !p.birthday) return false;
+        
+        // Events don't need GenX validation - any year is fine
+        if (p.isEvent) return true;
         
         // Check if description says "outside" GenX range
         if (p.description.toLowerCase().includes('outside')) return false;
@@ -998,9 +1109,13 @@ DESCRIPTION: [1-2 sentences]`;
           { id: generateId(), from: 'system', text: `No valid GenX proposals found. Try asking for "Another" or add more reporters.` },
         ]);
       }
+      
+      // Clear pending reporters
+      setPendingReporters([]);
 
     } catch (err) {
       setTyping(false);
+      setPendingReporters([]);
       updatePieceMessages(currentPiece.id, msgs => [
         ...msgs,
         { id: generateId(), from: 'system', text: 'Connection error. Please try again.' },
@@ -1009,18 +1124,44 @@ DESCRIPTION: [1-2 sentences]`;
   }
 
   // Ask a specific reporter for another suggestion
-  async function askForAnother(reporterId: string, reporterName: string) {
+  async function askForAnother(reporterId: string, reporterName: string, isRIP: boolean = false) {
     if (!currentPiece) return;
 
     const today = new Date();
     const dayMonth = `${today.getDate()}.${(today.getMonth() + 1).toString().padStart(2, '0')}`;
 
+    const requestType = isRIP ? 'RIP (died on this day)' : 'birthday';
     updatePieceMessages(currentPiece.id, msgs => [
       ...msgs,
-      { id: generateId(), from: 'me', name: 'Editor', text: `${reporterName}, give me a different person from your region.` },
+      { id: generateId(), from: 'me', name: 'Editor', text: `${reporterName}, give me a different ${requestType} person from your region.` },
     ]);
 
     setTyping(reporterName);
+
+    // Build the retry message based on request type
+    const retryMessage = isRIP 
+      ? `Give me a DIFFERENT GenX celebrity (born 1965-1980) who DIED on ${dayMonth}. Not the same one as before!
+
+YOU MUST FIND SOMEONE DIFFERENT who passed away on this date. Search harder - actors, musicians, athletes, directors, TV hosts, comedians, models, authors, politicians.
+
+Reply in EXACTLY this format:
+NAME: [full name]
+BORN: [DD.MM.YYYY]
+DIED: ${dayMonth}.[YYYY]
+CAUSE: [cause of death]
+COUNTRY: [country]
+DESCRIPTION: [1-2 sentences about their life and legacy]`
+      : `Give me a DIFFERENT celebrity from your CONTINENT/REGION born on ${dayMonth}. Not the same one as before!
+
+YOU MUST FIND SOMEONE DIFFERENT. Search harder - actors, musicians, athletes, directors, TV hosts, comedians, models, authors, politicians, business leaders.
+
+Birth year MUST be 1965-1980 (GenX). Search ALL countries in your continent.
+
+Reply in EXACTLY this format:
+NAME: [name]
+BORN: ${dayMonth}.[YYYY]
+COUNTRY: [country]
+DESCRIPTION: [1-2 sentences]`;
 
     try {
       const res = await fetch('/api/editorial/chat', {
@@ -1028,14 +1169,12 @@ DESCRIPTION: [1-2 sentences]`;
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           reporterUserId: reporterId,
-          message: `Give me a DIFFERENT celebrity from your CONTINENT/REGION born on ${dayMonth}. Not the same one as before!
-
-YOU MUST FIND SOMEONE DIFFERENT. Search harder - actors, musicians, athletes, directors, TV hosts, comedians, models, authors, politicians, business leaders.
-
-Birth year MUST be 1965-1980 (GenX). Search ALL countries in your continent.
-
-Format: **Name** (DD.MM.YYYY) - Country - 2-3 sentences about their achievements.`,
+          message: retryMessage,
           userId,
+          proposalOnly: true,
+          contentType: currentPiece.type,
+          overrideCategory: globalCategory || undefined,
+          overrideCountry: globalCountry || undefined,
         }),
       });
       const data = await res.json();
@@ -1043,26 +1182,48 @@ Format: **Name** (DD.MM.YYYY) - Country - 2-3 sentences about their achievements
 
       const text = data.response || '';
       
-      // Parse the response
-      const dateMatch = text.match(/(\d{1,2}\.\d{1,2}\.\d{4})/);
-      const birthday = dateMatch ? dateMatch[1] : '';
+      // Parse structured format: NAME: / BORN: / DIED: / CAUSE: / COUNTRY: / DESCRIPTION:
+      const nameMatch = text.match(/NAME:\s*(.+)/i);
+      const bornMatch = text.match(/BORN:\s*(\d{1,2}\.\d{1,2}\.\d{4})/i);
+      const diedMatch = text.match(/DIED:\s*(\d{1,2}\.\d{1,2}\.\d{4})/i);
+      const causeMatch = text.match(/CAUSE:\s*(.+)/i);
+      const countryMatch = text.match(/COUNTRY:\s*(.+)/i);
+      const descMatch = text.match(/DESCRIPTION:\s*([\s\S]+?)(?=\n(?:NAME|BORN|DIED|CAUSE|COUNTRY):|$)/i);
       
-      let name = 'Unknown';
-      const boldNameMatch = text.match(/\*\*([A-ZÀ-Ž][a-zà-ž']+(?:[-\s]+[A-ZÀ-Ž]?[a-zà-ž']+)*)\*\*/);
-      if (boldNameMatch) {
-        name = boldNameMatch[1].trim();
-      } else {
-        const anyNameDate = text.match(/([A-ZÀ-Ž][a-zà-ž']+(?:\s+[A-ZÀ-Ž][a-zà-ž']+)+)\s*\(\d{1,2}\.\d{1,2}\.\d{4}\)/);
-        if (anyNameDate) name = anyNameDate[1].trim();
+      // Fallback to legacy parsing if structured format not found
+      let name = nameMatch ? nameMatch[1].trim() : 'Unknown';
+      let birthday = bornMatch ? bornMatch[1].trim() : '';
+      const deathday = diedMatch ? diedMatch[1].trim() : undefined;
+      const causeOfDeath = causeMatch ? causeMatch[1].trim().split('\n')[0].trim() : undefined;
+      let country = countryMatch ? countryMatch[1].trim().split('\n')[0].trim() : '';
+      let description = descMatch ? descMatch[1].trim().slice(0, 300) : '';
+      
+      // Legacy fallback parsing
+      if (name === 'Unknown') {
+        const boldNameMatch = text.match(/\*\*([A-ZÀ-Ž][a-zà-ž']+(?:[-\s]+[A-ZÀ-Ž]?[a-zà-ž']+)*)\*\*/);
+        if (boldNameMatch) {
+          name = boldNameMatch[1].trim();
+        } else {
+          const anyNameDate = text.match(/([A-ZÀ-Ž][a-zà-ž']+(?:\s+[A-ZÀ-Ž][a-zà-ž']+)+)\s*\(\d{1,2}\.\d{1,2}\.\d{4}\)/);
+          if (anyNameDate) name = anyNameDate[1].trim();
+        }
+      }
+      if (!birthday) {
+        const dateMatch = text.match(/(\d{1,2}\.\d{1,2}\.\d{4})/);
+        birthday = dateMatch ? dateMatch[1] : '';
+      }
+      if (!country) {
+        const reporter = activePeople.find(p => p.id === reporterId);
+        country = reporter?.regionLabel || '';
+      }
+      if (!description) {
+        description = text.replace(/\*\*/g, '').slice(0, 250);
       }
 
-      const reporter = activePeople.find(p => p.id === reporterId);
-      const country = reporter?.regionLabel || '';
-      const description = text.replace(/\*\*/g, '').slice(0, 250);
-
       // Check if valid GenX (1965-1980) and not rejected
-      let isValidGenX = name !== 'Unknown' && birthday;
-      if (isValidGenX) {
+      // For RIP, we also accept if they have a death date
+      let isValidGenX = name !== 'Unknown' && (birthday || deathday);
+      if (isValidGenX && birthday) {
         const yearMatch = birthday.match(/(\d{4})/);
         if (yearMatch) {
           const year = parseInt(yearMatch[1]);
@@ -1072,31 +1233,75 @@ Format: **Name** (DD.MM.YYYY) - Country - 2-3 sentences about their achievements
         if (description.toLowerCase().includes('not genx')) isValidGenX = false;
         if (description.toLowerCase().includes('baby boomer')) isValidGenX = false;
       }
+      // For RIP requests, must have died date
+      if (isRIP && !deathday) isValidGenX = false;
 
       if (isValidGenX) {
-        // Add as new proposal
-        updatePieceMessages(currentPiece.id, msgs => [
-          ...msgs,
-          {
-            id: generateId(),
-            from: 'proposals',
-            text: '1 new proposal',
-            proposals: [{
-              name,
-              birthday,
-              country,
-              profession: '',
-              description,
-              reporterId,
-              reporterName,
-            }],
-          },
-        ]);
+        // Remove old proposals from this reporter and add the new one
+        updatePieceMessages(currentPiece.id, msgs => {
+          // Filter out old proposals from this reporter
+          const filtered = msgs.map(m => {
+            if (m.from === 'proposals' && m.proposals) {
+              const remainingProposals = m.proposals.filter(p => p.reporterId !== reporterId);
+              if (remainingProposals.length === 0) return null; // Remove entire message if no proposals left
+              return { ...m, proposals: remainingProposals };
+            }
+            return m;
+          }).filter(Boolean) as typeof msgs;
+          
+          // Add new proposal
+          return [
+            ...filtered,
+            {
+              id: generateId(),
+              from: 'proposals',
+              text: '1 new proposal',
+              proposals: [{
+                name,
+                birthday,
+                deathday,
+                causeOfDeath,
+                country,
+                profession: '',
+                description,
+                reporterId,
+                reporterName,
+                isRIP: !!deathday,
+              }],
+            },
+          ];
+        });
       } else {
-        updatePieceMessages(currentPiece.id, msgs => [
-          ...msgs,
-          { id: generateId(), from: 'system', text: `${reporterName} couldn't find another person.` },
-        ]);
+        // Remove old proposals from this reporter and show error
+        updatePieceMessages(currentPiece.id, msgs => {
+          const filtered = msgs.map(m => {
+            if (m.from === 'proposals' && m.proposals) {
+              const remainingProposals = m.proposals.filter(p => p.reporterId !== reporterId);
+              if (remainingProposals.length === 0) return null;
+              return { ...m, proposals: remainingProposals };
+            }
+            return m;
+          }).filter(Boolean) as typeof msgs;
+          
+          return [
+            ...filtered,
+            {
+              id: generateId(),
+              from: 'proposals',
+              text: `${reporterName} couldn't find another person`,
+              proposals: [{
+                name: '❌ No match found',
+                birthday: '',
+                country,
+                profession: '',
+                description: `${reporterName} couldn't find a valid person.`,
+                reporterId,
+                reporterName,
+                isError: true,
+              }],
+            },
+          ];
+        });
       }
     } catch (err) {
       setTyping(false);
@@ -1552,54 +1757,123 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                     );
                   }
 
-                  // Proposals (selectable cards)
+                  // Proposals (selectable cards) - NEW GRID LAYOUT
                   if (m.from === 'proposals' && m.proposals) {
+                    const allProposals = m.proposals;
+                    const hasEvents = allProposals.some(p => p.isEvent);
                     return (
-                      <div key={m.id} className="space-y-2">
-                        <div className="text-xs text-gray-500 font-mono">Select a person to write about:</div>
-                        <div className="grid gap-2">
-                          {m.proposals.map((p, idx) => (
+                      <div key={m.id} className="space-y-3">
+                        {/* Header */}
+                        {allProposals.filter(p => !p.isError).length > 0 && (
+                          <div className="text-xs text-gray-500 font-mono">
+                            {hasEvents 
+                              ? `Select an event to write about (${allProposals.filter(p => !p.isError).length} proposals):`
+                              : `Select a person to write about (${allProposals.filter(p => !p.isError).length} proposals):`
+                            }
+                          </div>
+                        )}
+                        
+                        {/* Pending reporters (searching) */}
+                        {pendingReporters.filter(r => r.status === 'searching').length > 0 && (
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                            {pendingReporters.filter(r => r.status === 'searching').map(r => (
+                              <div key={r.id} className="bg-gray-900 border border-gray-700 rounded-xl p-4 flex flex-col items-center justify-center min-h-[180px]">
+                                <Loader2 className="w-6 h-6 text-[#D4873A] animate-spin mb-2" />
+                                <div className="text-xs text-gray-400">{r.name}</div>
+                                <div className="text-[10px] text-gray-500">searching...</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* Proposal Cards Grid */}
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                          {allProposals.map((p, idx) => (
                             <div 
                               key={idx}
-                              className="bg-gray-900 border border-gray-700 rounded-lg p-3 hover:border-[#D4873A] transition-colors"
+                              className={`rounded-xl p-4 flex flex-col ${
+                                p.isError 
+                                  ? 'bg-red-950/30 border border-red-900/50' 
+                                  : 'bg-gray-900 border border-gray-700 hover:border-[#D4873A] transition-colors'
+                              }`}
                             >
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                    {p.isRIP ? (
-                                      <>
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-900/50 text-red-300">🕯️ RIP</span>
-                                        <span className="text-xs text-gray-500 font-mono">Born: {p.birthday}</span>
-                                        {p.deathday && <span className="text-xs text-red-400 font-mono">Died: {p.deathday}</span>}
-                                      </>
-                                    ) : (
-                                      <span className="text-xs text-gray-500 font-mono">{p.birthday}</span>
-                                    )}
-                                    <span className="font-bold text-white">{p.name}</span>
-                                    <span className="text-xs text-gray-400">• {p.country}</span>
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">
-                                      {p.category === 'sports' ? '🏆 sports' : p.category === 'music' ? '🎵 music' : p.category === 'movies-tv' ? '📺 movies-tv' : p.category === 'lifestyle' ? '✨ lifestyle' : p.category === 'politics' ? '🏛️ politics' : p.category === 'tech' ? '💻 tech' : '🔍 any'}
-                                    </span>
+                              {p.isError ? (
+                                /* Error card */
+                                <>
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-2xl">❌</span>
+                                    <h4 className="font-bold text-red-400 text-sm">No match</h4>
                                   </div>
-                                  {p.causeOfDeath && <p className="text-xs text-red-400 mb-1">Cause: {p.causeOfDeath}</p>}
-                                  <p className="text-sm text-gray-300 line-clamp-2">{p.description}</p>
-                                  <div className="text-[10px] text-gray-500 mt-1">proposed by {p.reporterName}</div>
-                                </div>
-                                <div className="flex flex-col gap-1 shrink-0">
+                                  <p className="text-xs text-gray-400 flex-1 mb-3">{p.description}</p>
+                                  <div className="text-[9px] text-gray-500 mb-3">by {p.reporterName}</div>
                                   <button
-                                    onClick={() => selectProposal(p)}
-                                    className="px-3 py-1.5 bg-[#D4873A] hover:bg-[#c07830] rounded text-xs font-bold text-white"
+                                    onClick={() => askForAnother(p.reporterId, p.reporterName, selectedTemplate === 'rip')}
+                                    className="w-full py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-300 transition-colors"
                                   >
-                                    Select
+                                    ↻ Try again
                                   </button>
-                                  <button
-                                    onClick={() => askForAnother(p.reporterId, p.reporterName)}
-                                    className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-[10px] text-gray-300"
-                                  >
-                                    Another
-                                  </button>
-                                </div>
-                              </div>
+                                </>
+                              ) : (
+                                /* Normal proposal card */
+                                <>
+                                  {/* Category badge */}
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-700 text-gray-300">
+                                      {p.isEvent ? '📅 Event' : p.category === 'sports' ? '🏆 Sports' : p.category === 'music' ? '🎵 Music' : p.category === 'movies-tv' ? '📺 Movies/TV' : p.category === 'lifestyle' ? '✨ Lifestyle' : p.category === 'politics' ? '🏛️ Politics' : p.category === 'gaming' ? '🎮 Gaming' : '🔍 Any'}
+                                    </span>
+                                    {p.isRIP && <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-900/50 text-red-300">🕯️ RIP</span>}
+                                  </div>
+                                  
+                                  {/* Flag + Date */}
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-lg">{p.country === 'USA' || p.country === 'US' ? '🇺🇸' : p.country === 'UK' ? '🇬🇧' : p.country === 'Germany' || p.country === 'DE' ? '🇩🇪' : p.country === 'France' || p.country === 'FR' ? '🇫🇷' : p.country === 'Japan' || p.country === 'JP' ? '🇯🇵' : p.country === 'Canada' || p.country === 'CA' ? '🇨🇦' : p.country === 'Australia' || p.country === 'AU' ? '🇦🇺' : '🌍'}</span>
+                                    <div>
+                                      <div className="text-[10px] text-[#D4873A] font-medium">📅 {p.birthday}</div>
+                                      <div className="text-[10px] text-gray-500">{p.country}</div>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Name/Title */}
+                                  <h4 className="font-bold text-white text-sm mb-2 line-clamp-2">{p.name}</h4>
+                                  
+                                  {/* Death info for RIP */}
+                                  {p.isRIP && p.deathday && (
+                                    <div className="text-xs text-red-400 mb-2">
+                                      Died: {p.deathday}
+                                      {p.causeOfDeath && <span className="text-gray-500"> • {p.causeOfDeath}</span>}
+                                    </div>
+                                  )}
+                                  
+                                  {/* Description */}
+                                  <p className="text-xs text-gray-400 flex-1 mb-3 line-clamp-3">{p.description}</p>
+                                  
+                                  {/* Reporter */}
+                                  <div className="text-[9px] text-gray-500 mb-3">by {p.reporterName}</div>
+                                  
+                                  {/* Action buttons */}
+                                  <div className="flex gap-2 mt-auto">
+                                    <button
+                                      onClick={() => selectProposal(p)}
+                                      disabled={!!typing}
+                                      className={`flex-1 py-2 rounded-lg text-xs font-bold text-white transition-colors ${
+                                        typing === p.reporterName 
+                                          ? 'bg-[#D4873A]/50 cursor-wait' 
+                                          : 'bg-[#D4873A] hover:bg-[#c07830]'
+                                      }`}
+                                    >
+                                      {typing === p.reporterName ? 'Working...' : 'Select'}
+                                    </button>
+                                    <button
+                                      onClick={() => askForAnother(p.reporterId, p.reporterName, selectedTemplate === 'rip')}
+                                      disabled={!!typing}
+                                      className="px-2 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs text-gray-300 transition-colors disabled:opacity-50"
+                                      title="Get another suggestion"
+                                    >
+                                      ↻
+                                    </button>
+                                  </div>
+                                </>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -1815,33 +2089,90 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
               </div>
             )}
 
-            {/* Input */}
+            {/* Template Buttons + Category/Country Filters + Input */}
             {currentPiece && (
-              <div className="border-t border-gray-800 bg-gray-950 p-3">
-                <div className="flex items-end gap-2">
-                  <textarea
-                    value={draft}
-                    onChange={e => setDraft(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder={`Message this ${CONTENT_TYPES.find(t => t.id === currentPiece.type)?.label.toLowerCase()} conference…`}
-                    rows={2}
-                    disabled={!!typing}
-                    className={`flex-1 resize-none bg-gray-900 border border-gray-800 rounded px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none disabled:opacity-50 ${theme.focusBorder}`}
-                  />
-                  <div className="flex flex-col gap-1.5 shrink-0">
-                    <button
-                      onClick={() => { setShowTemplates(v => !v); setShowPrompts(false); }}
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded border text-xs font-semibold transition-colors ${showTemplates ? 'bg-[#D4873A] border-[#D4873A] text-black' : 'bg-gray-800 border-gray-700 hover:border-[#D4873A] text-[#D4873A]'}`}
-                    >
-                      <FileText size={13} /> Templates
-                    </button>
-                    <button
-                      onClick={() => sendMessage()}
-                      disabled={!!typing || !draft.trim()}
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded text-xs font-bold disabled:opacity-50 ${theme.sendBtn}`}
-                    >
-                      {typing ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />} Send
-                    </button>
+              <div className="border-t border-gray-800 bg-gray-950">
+                {/* Template buttons row */}
+                <div className="px-3 pt-3 pb-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-[10px] text-gray-500 uppercase tracking-wider shrink-0">Templates:</span>
+                    <div className="flex flex-wrap gap-1">
+                      {PROMPT_TEMPLATES.filter(t => t.id !== 'custom').map(t => (
+                        <button
+                          key={t.id}
+                          onClick={() => {
+                            setSelectedTemplate(t.id);
+                            setDraft(t.prompt);
+                          }}
+                          disabled={!!typing}
+                          className={`px-3 py-1.5 rounded text-xs font-medium transition-colors shrink-0 ${
+                            selectedTemplate === t.id 
+                              ? 'bg-[#D4873A] text-black' 
+                              : 'bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-50'
+                          }`}
+                        >
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Category and Country filters */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-gray-500 uppercase">Category:</span>
+                      <select
+                        value={globalCategory}
+                        onChange={e => setGlobalCategory(e.target.value)}
+                        className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-300"
+                      >
+                        {SEARCH_CATEGORIES.map(c => (
+                          <option key={c.id} value={c.id}>{c.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-gray-500 uppercase">Country:</span>
+                      <select
+                        value={globalCountry}
+                        onChange={e => setGlobalCountry(e.target.value)}
+                        className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-300"
+                      >
+                        {SEARCH_COUNTRIES.map(c => (
+                          <option key={c.id} value={c.id}>{c.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Input row */}
+                <div className="px-3 pb-3">
+                  <div className="flex items-end gap-2">
+                    <textarea
+                      value={draft}
+                      onChange={e => setDraft(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder={`Message this ${CONTENT_TYPES.find(t => t.id === currentPiece.type)?.label.toLowerCase()} conference…`}
+                      rows={2}
+                      disabled={!!typing}
+                      className={`flex-1 resize-none bg-gray-900 border border-gray-800 rounded px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none disabled:opacity-50 ${theme.focusBorder}`}
+                    />
+                    <div className="flex flex-col gap-1.5 shrink-0">
+                      <button
+                        onClick={() => { setShowTemplates(v => !v); setShowPrompts(false); }}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded border text-xs font-semibold transition-colors ${showTemplates ? 'bg-[#D4873A] border-[#D4873A] text-black' : 'bg-gray-800 border-gray-700 hover:border-[#D4873A] text-[#D4873A]'}`}
+                      >
+                        <FileText size={13} /> Templates
+                      </button>
+                      <button
+                        onClick={() => sendMessage()}
+                        disabled={!!typing || !draft.trim()}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded text-xs font-bold disabled:opacity-50 ${theme.sendBtn}`}
+                      >
+                        {typing ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />} Send
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
