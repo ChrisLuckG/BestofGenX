@@ -18,6 +18,67 @@ function loadBogxSystemPrompt(): string {
 // re-downloading them on every chat message (major latency win).
 let _liveCtxCache: { key: string; value: string } | null = null; // Cache cleared on code change
 let _deathsCache: { key: string; value: string } | null = null;
+let _wikidataDeathsCache: { key: string; value: string } | null = null;
+
+// Fetch GenX deaths from Wikidata SPARQL (more complete than Wikipedia "On This Day")
+async function fetchWikidataDeaths(month: number, day: number): Promise<string> {
+  const cacheKey = `wikidata-deaths-${month}-${day}`;
+  if (_wikidataDeathsCache?.key === cacheKey) return _wikidataDeathsCache.value;
+  
+  try {
+    const query = `
+SELECT ?person ?personLabel ?birthDate ?deathDate ?occupationLabel ?countryLabel WHERE {
+  ?person wdt:P31 wd:Q5;
+          wdt:P569 ?birthDate;
+          wdt:P570 ?deathDate.
+  OPTIONAL { ?person wdt:P106 ?occupation. }
+  OPTIONAL { ?person wdt:P27 ?country. }
+  FILTER(MONTH(?deathDate) = ${month} && DAY(?deathDate) = ${day})
+  FILTER(YEAR(?birthDate) >= 1965 && YEAR(?birthDate) <= 1980)
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}
+LIMIT 50
+`;
+    const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(query)}&format=json`;
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'BOGX-Editorial/1.0', 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(8000),
+    });
+    
+    if (!res.ok) return '';
+    const data = await res.json();
+    
+    const results = data.results?.bindings || [];
+    if (results.length === 0) return '';
+    
+    // Deduplicate by person (Wikidata can return multiple rows per person for multiple occupations)
+    const seen = new Set<string>();
+    const deaths: string[] = [];
+    
+    for (const r of results) {
+      const name = r.personLabel?.value;
+      if (!name || seen.has(name)) continue;
+      seen.add(name);
+      
+      const birthYear = r.birthDate?.value?.substring(0, 4) || '?';
+      const deathYear = r.deathDate?.value?.substring(0, 4) || '?';
+      const occupation = r.occupationLabel?.value || 'person';
+      const country = r.countryLabel?.value || '';
+      
+      deaths.push(`  - ${name}, ${occupation}${country ? ` (${country})` : ''} — born ${birthYear}, died ${deathYear}`);
+    }
+    
+    const value = deaths.length > 0 
+      ? `\nGENX DEATHS ON THIS DAY (from Wikidata - born 1965-1980):\n${deaths.join('\n')}\n`
+      : '';
+    
+    if (value) _wikidataDeathsCache = { key: cacheKey, value };
+    return value;
+  } catch (err) {
+    console.error('Wikidata fetch failed:', err);
+    return ''; // Fail silently
+  }
+}
 
 async function fetchLiveContext(month: number, day: number): Promise<string> {
   const cacheKey = `genxALL-${month}-${day}`; // Changed key to force cache refresh (ALL births now)
@@ -372,9 +433,10 @@ export async function POST(request: NextRequest) {
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     // Both are cached per day, so after the first request they resolve instantly.
-    const [liveContext, deathsContext] = await Promise.all([
+    const [liveContext, deathsContext, wikidataDeaths] = await Promise.all([
       fetchLiveContext(now.getMonth() + 1, now.getDate()),
       fetchRecentDeaths(now),
+      fetchWikidataDeaths(now.getMonth() + 1, now.getDate()),
     ]);
 
     // Map country codes to full names
@@ -415,7 +477,7 @@ The sections below already contain LIVE, up-to-date data (today-in-history + the
 USE THEM as your source for any recent-events / "who died" question — interpret the editor's intent from MEANING,
 ignoring typos/spelling/language (e.g. "gestroben" still means "gestorben"). Never claim you have no recent
 information when the data below answers it. If the data truly contains nothing relevant, say so honestly.
-${liveContext}${deathsContext}
+${liveContext}${deathsContext}${wikidataDeaths}
 ${reporterPersona}
 
 ================================================================================

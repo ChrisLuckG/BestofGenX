@@ -42,6 +42,9 @@ interface Article {
   titleFont?: 'default' | 'display' | 'serif' | 'mono';
   subtitleColor?: string;
   contentColor?: string;
+  // Country info
+  personCountry?: string;
+  personCountryCode?: string;
 }
 
 // Main category labels for frontend display
@@ -452,9 +455,12 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       {/* Gradient overlay - only at bottom for text readability */}
       <div className={`absolute inset-0 bg-gradient-to-t ${article.category === 'rip' ? 'from-white/80 via-white/20 to-transparent' : 'from-black via-black/30 to-transparent'}`} />
       
-      {/* Category badge */}
+      {/* Category badge only (flag is above headline) */}
       <div className="absolute top-3 left-3 z-20">
-        <CategoryBadge category={article.category || article.mainCategory} size="md" />
+        <CategoryBadge 
+          category={article.category || article.mainCategory} 
+          size="md" 
+        />
       </div>
       
       {/* Read badge - only show green check when read */}
@@ -471,6 +477,18 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       )}
       {/* Content - fixed at bottom */}
       <div className="absolute bottom-0 left-0 right-0 z-10 p-4">
+        {/* Flag + Country Name above headline */}
+        {article.personCountryCode && (
+          <div className="flex items-center gap-2 mb-2">
+            <img 
+              src={`https://flagcdn.com/48x36/${article.personCountryCode.toLowerCase()}.png`}
+              alt={article.personCountry || ''}
+              className="w-8 h-6 object-cover rounded shadow-lg"
+              style={{ border: '1px solid rgba(255,255,255,0.4)' }}
+            />
+            <span className="text-white/90 text-sm font-medium drop-shadow-lg">{article.personCountry}</span>
+          </div>
+        )}
         <h2 className={`font-display text-[28px] lg:text-[32px] tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} group-hover:text-[#D4873A] leading-tight mb-1.5 line-clamp-2 transition-colors`}>{article.title}</h2>
         <div className="flex items-center justify-between gap-2 text-[11px] text-white/70">
           <div className="flex items-center gap-2 min-w-0">
@@ -564,18 +582,32 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         ) : (
           <div className="w-full h-full bg-gray-200" />
         )}
-        {/* Dark gradient for text readability - only on desktop */}
-        {isDesktop && <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />}
-        {/* Category badge - top left on mobile, bottom left on desktop */}
-        <div className={`absolute ${isDesktop ? 'bottom-14 md:bottom-16' : 'top-3'} left-3 z-20 flex items-center gap-2`}>
-          <CategoryBadge category={article.category || article.mainCategory} size="md" />
+        {/* Dark gradient for text readability */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+        {/* Category badge only - top left */}
+        <div className="absolute top-3 left-3 z-20">
+          <CategoryBadge 
+            category={article.category || article.mainCategory} 
+            size="md" 
+          />
         </div>
-        {/* Title ON the image - only on desktop */}
-        {isDesktop && (
-          <h2 className="absolute bottom-3 left-3 right-3 font-display text-[26px] lg:text-3xl tracking-wide text-white group-hover:text-[#D4873A] leading-tight line-clamp-2 drop-shadow-lg transition-colors z-10">
+        {/* Flag + Country ABOVE Title at bottom */}
+        <div className="absolute bottom-3 left-3 right-3 z-10">
+          {article.personCountryCode && (
+            <div className="flex items-center gap-2 mb-2">
+              <img 
+                src={`https://flagcdn.com/40x30/${article.personCountryCode.toLowerCase()}.png`}
+                alt={article.personCountry || ''}
+                className="w-8 h-6 object-cover rounded shadow-lg"
+                style={{ border: '1px solid rgba(255,255,255,0.4)' }}
+              />
+              <span className="text-white/90 text-sm font-medium drop-shadow-lg">{article.personCountry}</span>
+            </div>
+          )}
+          <h2 className="font-display text-[22px] lg:text-[26px] tracking-wide text-white group-hover:text-[#D4873A] leading-tight line-clamp-2 drop-shadow-lg transition-colors">
             {article.title}
           </h2>
-        )}
+        </div>
         {/* Read badge - only show green check when read */}
         {readArticles.has(article._id) && (
           <div className="absolute top-3 right-3 z-20">
@@ -619,9 +651,12 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       {/* Gradient overlay */}
       <div className={`absolute inset-0 bg-gradient-to-t ${article.category === 'rip' ? 'from-white/80 via-white/20 to-transparent' : 'from-black via-black/40 to-transparent'}`} />
       
-      {/* Category badge - top left */}
+      {/* Category badge only - top left */}
       <div className="absolute top-2 left-2 z-20">
-        <CategoryBadge category={article.category || article.mainCategory} size="sm" />
+        <CategoryBadge 
+          category={article.category || article.mainCategory} 
+          size="sm" 
+        />
       </div>
       
       {/* Read badge - only show green check when read */}
@@ -636,8 +671,19 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       {article.category === 'rip' && (
         <div className="absolute bottom-8 right-2 z-20 text-white text-2xl leading-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]" style={{fontFamily:'Georgia,serif'}}>✝</div>
       )}
-      {/* Content - bottom */}
+      {/* Content - bottom: Flag + Country ABOVE headline */}
       <div className="absolute bottom-2 left-2 right-2 z-10">
+        {article.personCountryCode && (
+          <div className="flex items-center gap-1.5 mb-1">
+            <img 
+              src={`https://flagcdn.com/24x18/${article.personCountryCode.toLowerCase()}.png`}
+              alt={article.personCountry || ''}
+              className="w-5 h-[14px] object-cover rounded-sm shadow"
+              style={{ border: '1px solid rgba(255,255,255,0.3)' }}
+            />
+            <span className="text-white/80 text-[10px] font-medium drop-shadow">{article.personCountry}</span>
+          </div>
+        )}
         <h3 className={`font-display text-[18px] lg:text-xl tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} leading-tight mb-1 line-clamp-2`}>{article.title}</h3>
         <div className="flex items-center justify-end gap-1 text-[10px] text-white/70">
           {/* Moods & Comments inline */}
@@ -675,9 +721,12 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       {/* Gradient overlay */}
       <div className={`absolute inset-0 bg-gradient-to-t ${article.category === 'rip' ? 'from-white/80 via-white/20 to-transparent' : 'from-black via-black/50 to-transparent'}`} />
       
-      {/* Category badge - top left */}
+      {/* Category badge only - top left */}
       <div className="absolute top-2 left-2 z-20">
-        <CategoryBadge category={article.category || article.mainCategory} size="sm" />
+        <CategoryBadge 
+          category={article.category || article.mainCategory} 
+          size="sm" 
+        />
       </div>
       
       {/* Read badge - only show green check when read */}
@@ -692,8 +741,19 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       {article.category === 'rip' && (
         <div className="absolute bottom-10 right-3 z-20 text-white text-2xl leading-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]" style={{fontFamily:'Georgia,serif'}}>✝</div>
       )}
-      {/* Content - fixed at bottom */}
+      {/* Content - fixed at bottom: Flag + Country ABOVE headline */}
       <div className="absolute bottom-0 left-0 right-0 z-10 p-3">
+        {article.personCountryCode && (
+          <div className="flex items-center gap-1.5 mb-1">
+            <img 
+              src={`https://flagcdn.com/24x18/${article.personCountryCode.toLowerCase()}.png`}
+              alt={article.personCountry || ''}
+              className="w-5 h-[14px] object-cover rounded-sm shadow"
+              style={{ border: '1px solid rgba(255,255,255,0.3)' }}
+            />
+            <span className="text-white/80 text-[10px] font-medium drop-shadow">{article.personCountry}</span>
+          </div>
+        )}
         <h3 className={`font-display text-[19px] lg:text-xl tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} group-hover:text-[#D4873A] leading-tight mb-1 line-clamp-2 transition-colors`}>{article.title}</h3>
         <div className="flex items-center justify-between gap-2 text-[10px] text-white/70">
           <div className="flex items-center gap-2 min-w-0">
@@ -910,15 +970,31 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           )}
           {/* Dark gradient for text readability - only on desktop */}
           {isDesktop && <div className={`absolute inset-0 bg-gradient-to-t ${article.category === 'rip' ? 'from-white/80 via-white/20 to-transparent' : 'from-black/70 via-black/20 to-transparent'}`} />}
-          {/* Category badge - top left */}
+          {/* Category badge only - top left */}
           <div className="absolute top-2 left-2 z-20">
-            <CategoryBadge category={article.category || article.mainCategory} size="sm" />
+            <CategoryBadge 
+              category={article.category || article.mainCategory} 
+              size="sm" 
+            />
           </div>
-          {/* Title ON the image - only on desktop */}
+          {/* Flag + Country + Title ON the image - only on desktop */}
           {isDesktop && (
-            <h3 className={`absolute bottom-2 left-2 right-2 font-display text-lg lg:text-3xl tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} group-hover:text-[#D4873A] leading-tight line-clamp-3 drop-shadow-lg transition-colors`}>
-              {article.title}
-            </h3>
+            <div className="absolute bottom-2 left-2 right-2 z-10">
+              {article.personCountryCode && (
+                <div className="flex items-center gap-1.5 mb-1">
+                  <img 
+                    src={`https://flagcdn.com/24x18/${article.personCountryCode.toLowerCase()}.png`}
+                    alt={article.personCountry || ''}
+                    className="w-5 h-[14px] object-cover rounded-sm shadow"
+                    style={{ border: '1px solid rgba(255,255,255,0.3)' }}
+                  />
+                  <span className="text-white/80 text-[10px] font-medium drop-shadow">{article.personCountry}</span>
+                </div>
+              )}
+              <h3 className={`font-display text-lg lg:text-3xl tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} group-hover:text-[#D4873A] leading-tight line-clamp-3 drop-shadow-lg transition-colors`}>
+                {article.title}
+              </h3>
+            </div>
           )}
           {/* Read badge - only show green check when read */}
           {readArticles.has(article._id) && (
@@ -1014,6 +1090,16 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       {/* Content - vertically centered */}
       <div className="flex-1 min-w-0 flex flex-col justify-center h-20">
         <div className="flex items-center gap-2 mb-0.5">
+          {/* Flag FIRST, then category */}
+          {article.personCountryCode && (
+            <span className="flex items-center" title={article.personCountry}>
+              <img 
+                src={`https://flagcdn.com/20x15/${article.personCountryCode.toLowerCase()}.png`}
+                alt={article.personCountry || ''}
+                className="w-5 h-[15px] object-cover border border-gray-300 rounded-sm"
+              />
+            </span>
+          )}
           <span className="text-[#D4873A] text-[10px] font-bold uppercase">{article.category ? getSubCategoryLabel(article.category) : getCategoryLabel(article.mainCategory)}</span>
           <span className="text-gray-500 text-[10px]">• {article.createdAt ? new Date(article.createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}</span>
         </div>

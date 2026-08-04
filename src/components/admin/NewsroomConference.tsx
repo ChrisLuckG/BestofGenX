@@ -899,7 +899,11 @@ export default function NewsroomConference({
   // Send a message - asks reporters ONE BY ONE (sequential)
   async function sendMessage(text?: string) {
     const messageText = text ?? draft;
-    if (!messageText.trim() || !currentPiece) return;
+    console.log('[sendMessage] called with:', { text, draft, messageText, currentPiece: currentPiece?.type, activePeopleCount: activePeople.length });
+    if (!messageText.trim() || !currentPiece) {
+      console.log('[sendMessage] EARLY RETURN - no message or no currentPiece');
+      return;
+    }
 
     // Check for @mention to target specific reporter: "@Frank find sports" or "Frank, find sports"
     const mentionMatch = messageText.match(/^@?(\w+)[,:]?\s+(.+)$/i);
@@ -2799,6 +2803,13 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                           author: articleDraft.reporterId,
                           authorName: articleDraft.reporterName, // Skip extra DB lookup
                           status: 'draft',
+                          // Person data for Menschen database
+                          personName: articleDraft.personName,
+                          personBirthday: articleDraft.personBirthday,
+                          personDeathday: articleDraft.personDeathday,
+                          personCauseOfDeath: articleDraft.personCauseOfDeath,
+                          personCountry: articleDraft.personCountry,
+                          isRIP: articleDraft.isRIP,
                         }),
                       });
                       const data = await res.json();

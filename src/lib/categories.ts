@@ -55,9 +55,9 @@ export const CATEGORIES: CategoryDef[] = [
   },
   {
     slug: 'news',
-    label: 'News',
+    label: 'Politics',
     color: '#374151',
-    keywords: /news|breaking|update|current|politic|election|world/,
+    keywords: /news|breaking|update|current|politic|election|world|politik/,
   },
   {
     slug: 'rip',

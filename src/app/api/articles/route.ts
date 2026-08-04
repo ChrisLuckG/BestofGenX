@@ -4,6 +4,7 @@ import clientPromise from '@/lib/mongodb';
 import Article from '@/models/Article';
 import User from '@/models/User';
 import Comment from '@/models/Comment';
+import Menschen from '@/models/Menschen';
 import { getAutoFillSlugs } from '@/lib/categories';
 import mongoose from 'mongoose';
 
@@ -266,6 +267,63 @@ export async function POST(request: NextRequest) {
     // Auto-set thumbnailUrl if coverImage is a URL (not base64)
     const thumbnailUrl = coverImage?.startsWith('http') ? coverImage : '';
 
+    // Country code mapping for flags
+    const countryToCode: Record<string, string> = {
+      'United States': 'US', 'USA': 'US', 'America': 'US',
+      'United Kingdom': 'GB', 'UK': 'GB', 'England': 'GB', 'Britain': 'GB',
+      'Germany': 'DE', 'Deutschland': 'DE',
+      'France': 'FR', 'Frankreich': 'FR',
+      'Italy': 'IT', 'Italien': 'IT',
+      'Spain': 'ES', 'Spanien': 'ES',
+      'Canada': 'CA', 'Kanada': 'CA',
+      'Australia': 'AU', 'Australien': 'AU',
+      'Japan': 'JP',
+      'China': 'CN',
+      'South Korea': 'KR', 'Korea': 'KR',
+      'Brazil': 'BR', 'Brasilien': 'BR',
+      'Mexico': 'MX', 'Mexiko': 'MX',
+      'Argentina': 'AR', 'Argentinien': 'AR',
+      'Netherlands': 'NL', 'Holland': 'NL',
+      'Belgium': 'BE', 'Belgien': 'BE',
+      'Sweden': 'SE', 'Schweden': 'SE',
+      'Norway': 'NO', 'Norwegen': 'NO',
+      'Denmark': 'DK', 'Dänemark': 'DK',
+      'Finland': 'FI', 'Finnland': 'FI',
+      'Poland': 'PL', 'Polen': 'PL',
+      'Russia': 'RU', 'Russland': 'RU',
+      'Austria': 'AT', 'Österreich': 'AT',
+      'Switzerland': 'CH', 'Schweiz': 'CH',
+      'Ireland': 'IE', 'Irland': 'IE',
+      'Scotland': 'GB', 'Wales': 'GB',
+      'Portugal': 'PT',
+      'Greece': 'GR', 'Griechenland': 'GR',
+      'Turkey': 'TR', 'Türkei': 'TR',
+      'India': 'IN', 'Indien': 'IN',
+      'South Africa': 'ZA', 'Südafrika': 'ZA',
+      'New Zealand': 'NZ', 'Neuseeland': 'NZ',
+      'Jamaica': 'JM', 'Jamaika': 'JM',
+      'Cuba': 'CU', 'Kuba': 'CU',
+      'Puerto Rico': 'PR',
+      'Cameroon': 'CM', 'Kamerun': 'CM',
+      'Nigeria': 'NG',
+      'Ghana': 'GH',
+      'Senegal': 'SN',
+      'Iceland': 'IS', 'Island': 'IS',
+      'Croatia': 'HR', 'Kroatien': 'HR',
+      'Serbia': 'RS', 'Serbien': 'RS',
+      'Ukraine': 'UA',
+      'Czech Republic': 'CZ', 'Tschechien': 'CZ',
+      'Hungary': 'HU', 'Ungarn': 'HU',
+      'Romania': 'RO', 'Rumänien': 'RO',
+      'Colombia': 'CO', 'Kolumbien': 'CO',
+      'Chile': 'CL',
+      'Peru': 'PE',
+      'Venezuela': 'VE',
+    };
+    
+    const personCountryRaw = body.personCountry;
+    const personCountryCode = personCountryRaw ? (countryToCode[personCountryRaw] || '') : '';
+
     const article = await Article.create({
       title,
       subtitle: subtitle || '',
@@ -283,9 +341,64 @@ export async function POST(request: NextRequest) {
       featured: featured || false,
       trending: trending || false,
       publishedAt: status === 'published' ? new Date() : undefined,
+      personCountry: personCountryRaw || undefined,
+      personCountryCode: personCountryCode || undefined,
     });
     
-    return NextResponse.json({ success: true, article });
+    // Auto-create Menschen entry if person data is provided
+    const { personName, personBirthday, personDeathday, personCauseOfDeath, isRIP } = body;
+    const personCountry = personCountryRaw;
+    let menschCreated = false;
+    
+    if (personName && personBirthday) {
+      try {
+        // Check if person already exists (by name + birthday)
+        const existing = await Menschen.findOne({ name: personName, birthday: personBirthday });
+        
+        if (existing) {
+          // Update existing entry with article link
+          await Menschen.findByIdAndUpdate(existing._id, {
+            hasArticle: true,
+            articleId: article._id,
+            articleCreatedAt: new Date(),
+            articleCreatedBy: userId,
+            // Update deathday if this is a RIP article and we have new info
+            ...(isRIP && personDeathday && !existing.deathday ? { deathday: personDeathday, causeOfDeath: personCauseOfDeath } : {}),
+          });
+          menschCreated = true;
+        } else {
+          // Create new Menschen entry
+          await Menschen.create({
+            name: personName,
+            birthday: personBirthday,
+            deathday: personDeathday || undefined,
+            causeOfDeath: personCauseOfDeath || undefined,
+            country: personCountry || 'Unknown',
+            category: resolvedCategory === 'rip' ? 'unknown' : resolvedCategory,
+            profession: '', // Could be extracted from article content later
+            isGenX: true,
+            description: subtitle || title,
+            imageUrl: coverImage || '',
+            discoveredBy: authorId || 'system',
+            discoveredByName: authorName,
+            discoveredAt: new Date(),
+            discoveredFor: isRIP ? 'rip' : 'birthday',
+            hasArticle: true,
+            articleId: article._id,
+            articleCreatedAt: new Date(),
+            articleCreatedBy: userId,
+            isVerified: false,
+            isRejected: false,
+          });
+          menschCreated = true;
+        }
+      } catch (menschErr: any) {
+        // Don't fail article creation if Menschen creation fails (e.g., duplicate key)
+        console.error('Menschen creation failed (non-fatal):', menschErr.message);
+      }
+    }
+    
+    return NextResponse.json({ success: true, article, menschCreated });
   } catch (error: unknown) {
     console.error('Failed to create article:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';

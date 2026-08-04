@@ -44,6 +44,9 @@ interface Article {
   titleFont?: 'default' | 'display' | 'serif' | 'mono';
   subtitleColor?: string;
   contentColor?: string;
+  // Country info
+  personCountry?: string;
+  personCountryCode?: string;
 }
 
 interface ArticlePageProps {
@@ -673,9 +676,14 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
 
         {/* Title & Meta - Bottom of Hero */}
         <div className={`absolute bottom-0 left-0 right-0 z-10 ${isDesktop ? 'p-6' : 'p-4'}`}>
-          {/* Category Badge + Read Time + Trending Badge */}
+          {/* Category Badge with integrated Flag + Trending Badge */}
           <div className="flex items-center gap-2 mb-3 flex-wrap">
-            <CategoryBadge category={article.category} size="lg" />
+            <CategoryBadge 
+              category={article.category} 
+              size="lg" 
+              countryCode={article.personCountryCode}
+              countryName={article.personCountry}
+            />
             {/* Countdown Timer Badge - if poll has endsAt */}
             {countdown && (
               <span

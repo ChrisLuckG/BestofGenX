@@ -5,6 +5,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import { resolveContainer } from "@/lib/containerFill";
+import { CATEGORIES } from "@/lib/categories";
 
 const ImagePickerModal = dynamic(() => import("./ImagePickerModal"), { ssr: false });
 
@@ -522,18 +523,9 @@ export default function ContainerBlock({
                           className="bg-gray-700 text-[9px] text-white px-2 py-1 rounded border border-cyan-500/50 flex-1"
                         >
                           <option value="">-- Wähle Kategorie --</option>
-                          <option value="history">History</option>
-                          <option value="movies-tv">Movies & TV</option>
-                          <option value="music">Music</option>
-                          <option value="gaming">Gaming</option>
-                          <option value="rewind">Rewind</option>
-                          <option value="sports">Sports</option>
-                          <option value="tech">Tech</option>
-                          <option value="culture">Culture</option>
-                          <option value="news">News</option>
-                          <option value="lifestyle">Lifestyle</option>
-                          <option value="rip">RIP</option>
-                          <option value="eastercorn">Eastercorn</option>
+                          {CATEGORIES.map(cat => (
+                            <option key={cat.slug} value={cat.slug}>{cat.label}</option>
+                          ))}
                         </select>
                         <select
                           value={block.autoFillLimit || 10}
@@ -630,18 +622,9 @@ export default function ContainerBlock({
                         className="bg-gray-700 text-[8px] text-white px-1 py-0.5 rounded border border-indigo-500/50 flex-1"
                       >
                         <option value="">Manuell</option>
-                        <option value="history">History</option>
-                        <option value="movies-tv">Movies & TV</option>
-                        <option value="music">Music</option>
-                        <option value="gaming">Gaming</option>
-                        <option value="rewind">Rewind</option>
-                        <option value="sports">Sports</option>
-                        <option value="tech">Tech</option>
-                        <option value="culture">Culture</option>
-                        <option value="news">News</option>
-                        <option value="lifestyle">Lifestyle</option>
-                        <option value="rip">RIP</option>
-                        <option value="eastercorn">Eastercorn</option>
+                        {CATEGORIES.map(cat => (
+                          <option key={cat.slug} value={cat.slug}>{cat.label}</option>
+                        ))}
                       </select>
                       {cat && (
                         <select

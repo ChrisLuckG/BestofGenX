@@ -27,6 +27,8 @@ interface Article {
   likes?: number;
   comments?: number;
   createdAt?: string;
+  personCountry?: string;
+  personCountryCode?: string;
 }
 
 const formatDate = (dateStr?: string): string => {
@@ -284,9 +286,21 @@ export default function DesktopArticlesPage({ onOpenArticle, onShowLogin }: Desk
                         )}
                       </div>
                       <div className="flex-1 min-w-0 cursor-pointer" onClick={() => handleArticleClick(article._id)}>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#D4873A]">
-                          {CATEGORY_LABELS[article.category] || article.category}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          {/* Flag FIRST, then category */}
+                          {article.personCountryCode && (
+                            <span className="flex items-center" title={article.personCountry}>
+                              <img 
+                                src={`https://flagcdn.com/20x15/${article.personCountryCode.toLowerCase()}.png`}
+                                alt={article.personCountry || ''}
+                                className="w-5 h-[15px] object-cover border border-gray-300 rounded-sm"
+                              />
+                            </span>
+                          )}
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#D4873A]">
+                            {CATEGORY_LABELS[article.category] || article.category}
+                          </span>
+                        </div>
                         <h4 className="font-display text-xl tracking-wide text-gray-900 group-hover:text-[#D4873A] transition-colors line-clamp-2 uppercase">{article.title}</h4>
                         <div className="text-xs text-gray-400 mt-1 truncate">
                           {article.authorName || 'BOGX Team'} · {formatDate(article.createdAt)}

@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { isVideoUrl } from "@/utils/media";
 import CardMoodReactions from "@/components/CardMoodReactions";
+import CategoryBadge from "@/components/CategoryBadge";
 
 interface ArticleCardProps {
   article: {
@@ -19,6 +20,8 @@ interface ArticleCardProps {
     trending?: boolean;
     commentCount?: number;
     reactions?: Record<string, number>;
+    personCountry?: string;
+    personCountryCode?: string;
   };
   onClick?: () => void;
   onShowLogin?: () => void;
@@ -98,11 +101,14 @@ export default function ArticleCard({ article, onClick, onShowLogin, variant = '
 
       {/* Content - Middle */}
       <div className="flex-1 flex flex-col justify-center min-w-0 cursor-pointer" onClick={onClick}>
-        {/* Category Badge */}
+        {/* Category Badge with integrated Flag */}
         <div className="mb-1">
-          <span className="px-2 py-0.5 bg-[#D4873A] rounded text-[9px] font-semibold text-white uppercase tracking-wider">
-            {CATEGORY_LABELS[article.category] || article.category}
-          </span>
+          <CategoryBadge 
+            category={article.category} 
+            size="sm" 
+            countryCode={article.personCountryCode}
+            countryName={article.personCountry}
+          />
         </div>
         
         {/* Title */}
