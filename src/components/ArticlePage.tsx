@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
-import { ArrowLeft, Clock, Eye, Share2, TrendingUp, Facebook, Linkedin, MessageCircle, Mail, Link2, Check } from "lucide-react";
+import { ArrowLeft, Clock, Eye, Share2, TrendingUp, Facebook, Linkedin, MessageCircle, Mail, Link2, Check, FileText, Music, Gamepad2, Trophy, Tv, ShoppingBag, Vote } from "lucide-react";
 import EmojiReactions from "./EmojiReactions";
 import CategoryBadge from "./CategoryBadge";
 import { useBackButton } from "@/hooks/useBackButton";
@@ -13,6 +13,7 @@ import CommentSection from "./CommentSection";
 import { useAuth } from "@/context/AuthContext";
 import { isVideoUrl } from "@/utils/media";
 import MusicSongList from './games/MusicSongList';
+import { getFlagUrl } from "@/lib/countryFlags";
 
 interface Article {
   _id: string;
@@ -82,6 +83,20 @@ const MAIN_CATEGORY_LABELS: Record<string, string> = {
   'voting': 'Voting',
 };
 
+const MAIN_CATEGORY_ICONS: Record<string, typeof FileText> = {
+  'articles': FileText,
+  'shop': ShoppingBag,
+  'arcade': Gamepad2,
+  'voting': Vote,
+};
+
+const MAIN_CATEGORY_SUBTITLES: Record<string, string> = {
+  'articles': 'Stories & insights',
+  'shop': 'GenX merchandise',
+  'arcade': 'Challenge yourself',
+  'voting': 'Have your say',
+};
+
 /**
  * Process raw article HTML from Quill editor:
  * - Wrap embedded videos (iframe) in responsive 16:9 container
@@ -106,46 +121,92 @@ function processArticleHtml(raw: string): string {
     '$1'
   );
 
-  // 3. Wrap iframes (YouTube/Vimeo) in a card-style container with source attribution
-  // Matches BOTH <iframe ...></iframe> AND <iframe ... /> (self-closing)
+  // 3. First, extract all videos and store them
+  const videos: string[] = [];
   html = html.replace(
     /<iframe([^>]*?)(?:\s*\/>|>\s*<\/iframe>)/gi,
     (_match, attrs) => {
       let cleanAttrs = String(attrs);
-      // Extract src URL for source attribution
       const srcMatch = String(attrs).match(/src="([^"]+)"/i);
       const embedUrl = srcMatch?.[1] || '';
-      // Convert embed URL back to watchable URL + detect source
+      const titleMatch = String(attrs).match(/title="([^"]+)"/i);
+      const videoTitle = titleMatch?.[1] || '';
       let watchUrl = embedUrl;
-      let sourceName = 'Source';
-      let sourceIcon = '🔗';
+      let sourceName = 'YouTube';
       const ytMatch = embedUrl.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/);
       const vmMatch = embedUrl.match(/player\.vimeo\.com\/video\/(\d+)/);
       if (ytMatch) {
         watchUrl = `https://www.youtube.com/watch?v=${ytMatch[1]}`;
-        sourceName = 'Watch on YouTube';
-        sourceIcon = '▶';
+        sourceName = 'YouTube';
       } else if (vmMatch) {
         watchUrl = `https://vimeo.com/${vmMatch[1]}`;
-        sourceName = 'Watch on Vimeo';
-        sourceIcon = '▶';
+        sourceName = 'Vimeo';
       }
-      // Remove width/height/style from iframe
       cleanAttrs = cleanAttrs.replace(/\s(width|height)="[^"]*"/gi, '');
       cleanAttrs = cleanAttrs.replace(/style="[^"]*"/gi, '');
-      return `<div class="article-video-card my-6 rounded-xl overflow-hidden" style="background:#1A1A1A;border:1px solid rgba(255,255,255,0.1);box-shadow:0 4px 20px rgba(0,0,0,0.3);">
-        <div style="position:relative;">
-          <iframe${cleanAttrs} width="720" height="405" style="width:100%;aspect-ratio:16/9;height:auto;border:0;display:block;" frameborder="0" allowfullscreen></iframe>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:rgba(0,0,0,0.3);">
-          <a href="${watchUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:6px;color:#D4873A;text-decoration:none;font-size:11px;font-weight:500;">
-            <span style="font-size:14px;">${sourceIcon}</span><span>${sourceName}</span>
-          </a>
-          <button onclick="navigator.clipboard.writeText('${watchUrl}');this.innerText='✓';setTimeout(()=>{this.innerText='Copy'},1500);" style="background:rgba(212,135,58,0.15);border:none;color:#D4873A;padding:4px 8px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;">Copy</button>
-        </div>
-      </div>`;
+      const caption = videoTitle || 'Watch the clip';
+      
+      // Store video HTML for later injection - use thumbnail image instead of iframe to avoid double play button
+      // Extract YouTube video ID for thumbnail
+      const thumbnailUrl = ytMatch 
+        ? `https://img.youtube.com/vi/${ytMatch[1]}/mqdefault.jpg`
+        : vmMatch 
+          ? `https://vumbnail.com/${vmMatch[1]}.jpg`
+          : '';
+      
+      // Use thumbnail with click-to-play that replaces with iframe
+      const videoId = ytMatch ? ytMatch[1] : (vmMatch ? vmMatch[1] : '');
+      const embedSrc = ytMatch 
+        ? `https://www.youtube.com/embed/${videoId}?autoplay=1`
+        : vmMatch 
+          ? `https://player.vimeo.com/video/${videoId}?autoplay=1`
+          : '';
+      
+      videos.push(`<div class="article-video-card" style="width:380px;max-width:380px;border-radius:6px;overflow:hidden;margin-top:-10px;"><div style="position:relative;width:380px;height:214px;cursor:pointer;" onclick="this.outerHTML='<iframe src=\\'${embedSrc}\\' style=\\'width:380px;height:214px;border:0;display:block;\\' frameborder=\\'0\\' allow=\\'autoplay; encrypted-media\\' allowfullscreen></iframe>'"><img src="${thumbnailUrl}" alt="" style="width:380px;height:214px;object-fit:cover;display:block;" /><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;"><div style="width:52px;height:52px;border-radius:50%;background:rgba(212,135,58,0.9);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.3);"><span style="color:white;font-size:22px;margin-left:3px;">▶</span></div></div></div></div>`);
+      
+      return ''; // Remove video from original position
     }
   );
+  
+  // 3b. Inject videos right after H2/H3 headings, alternating left/right
+  // Also add separator line before headings (except first)
+  let videoIdx = 0;
+  let headingCount = 0;
+  html = html.replace(
+    /(<h[23][^>]*>[\s\S]*?<\/h[23]>)/gi,
+    (match) => {
+      const video = videos[videoIdx] || '';
+      const isLeft = videoIdx % 2 === 0;
+      const floatDir = isLeft ? 'left' : 'right';
+      const marginStyle = isLeft ? 'margin:0 20px 16px 0' : 'margin:0 0 16px 20px';
+      
+      // Add separator before heading (except first one)
+      const separator = headingCount > 0 
+        ? '<div style="clear:both;"></div><hr style="border:none;border-top:1px solid #E8E4DC;margin:32px 0 24px 0;" />' 
+        : '';
+      
+      headingCount++;
+      
+      if (video) {
+        videoIdx++;
+        // Inject video with float right after heading
+        const styledVideo = video.replace(
+          'style="width:380px;',
+          `style="float:${floatDir};${marginStyle};width:380px;`
+        );
+        return `${separator}${match}${styledVideo}`;
+      }
+      return `${separator}${match}`;
+    }
+  );
+  
+  // 3c. Add clearfix at end and responsive styles
+  html += `<div style="clear:both;"></div>
+  <style>
+    @media(max-width:767px){
+      .article-video-card{float:none!important;width:100%!important;margin:16px 0!important;}
+    }
+  </style>`;
 
   // 4. Wrap standalone images - full width, no max-width restriction
   html = html.replace(
@@ -165,7 +226,12 @@ function processArticleHtml(raw: string): string {
   html = html.replace(/<h2([^>]*)>/gi, '<h2$1 style="font-family:var(--font-display),Bebas Neue,sans-serif;font-size:24px;font-weight:bold;line-height:1.3;margin:28px 0 14px 0;color:#111827;text-transform:uppercase;letter-spacing:0.02em;">');
   html = html.replace(/<h3([^>]*)>/gi, '<h3$1 style="font-family:var(--font-display),Bebas Neue,sans-serif;font-size:20px;font-weight:600;line-height:1.4;margin:24px 0 12px 0;color:#111827;text-transform:uppercase;letter-spacing:0.02em;">');
 
-  // 6. Normalize empty paragraphs to spacing
+  // 6. Style paragraphs with proper spacing and normalize empty ones
+  // Add margin-bottom to all paragraphs for proper spacing between them
+  html = html.replace(/<p([^>]*)>/gi, '<p$1 style="margin-bottom:1em;line-height:1.7;">');
+  // Remove duplicate style attributes if paragraph already had style
+  html = html.replace(/style="([^"]*)" style="/gi, 'style="$1 ');
+  // Normalize empty paragraphs to spacing
   html = html.replace(/<p[^>]*><br\s*\/?><\/p>/gi, '<div style="height:1em;"></div>');
   html = html.replace(/<p[^>]*>\s*<\/p>/gi, '<div style="height:1em;"></div>');
 
@@ -592,27 +658,37 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
     );
   }
 
+  const mainCategory = article.mainCategory || 'articles';
+  const HeaderIcon = MAIN_CATEGORY_ICONS[mainCategory] || FileText;
+
   return (
     <div ref={containerRef} className="h-full bg-black text-gray-900 overflow-y-auto overflow-x-hidden relative">
-      {/* Desktop Header - Clean header bar without buttons (buttons moved to image) */}
+      {/* Desktop Header - same style as Feed/Articles/Arcade */}
       {isDesktop && (
-        <div className="sticky top-0 left-0 right-0 z-50 bg-cream border-b border-warm px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button 
-                onClick={onBack} 
-                className="p-2 hover:bg-[#D4873A]/10 rounded-lg transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5 text-gray-900" />
-              </button>
-              <div>
-                <h1 className="font-display text-lg text-gray-900 uppercase tracking-wider">
-                  {article.mainCategory ? (MAIN_CATEGORY_LABELS[article.mainCategory] || article.mainCategory) : 'Articles'}
-                </h1>
-                <p className="text-xs text-gray-500">{CATEGORY_LABELS[article.category] || article.category}</p>
-              </div>
+        <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent bg-cream">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={onBack} 
+              className="p-2 hover:bg-[#D4873A]/10 rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5 text-gray-900" />
+            </button>
+            <HeaderIcon className="w-5 h-5 text-[#D4873A]" />
+            <div>
+              <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">
+                {MAIN_CATEGORY_LABELS[mainCategory] || 'Articles'}
+              </span>
+              <span className="text-[10px] text-gray-500 -mt-0.5 block">
+                {MAIN_CATEGORY_SUBTITLES[mainCategory] || 'Stories & insights'}
+              </span>
             </div>
           </div>
+          <button 
+            onClick={handleShare} 
+            className="p-2 hover:bg-[#D4873A]/10 rounded-lg transition-colors"
+          >
+            <Share2 className="w-5 h-5 text-gray-700" />
+          </button>
         </div>
       )}
 
@@ -645,7 +721,7 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
             <video
               src={article.coverImage}
               className="absolute inset-0 w-full h-full object-cover z-0"
-              style={{ objectPosition: `${article.coverPosition?.x ?? article.imagePosX ?? 50}% ${article.coverPosition?.y ?? article.imagePosY ?? 50}%` }}
+              style={{ objectPosition: `${article.imagePosX ?? article.coverPosition?.x ?? 50}% ${article.imagePosY ?? article.coverPosition?.y ?? 50}%` }}
               muted autoPlay loop playsInline
             />
           ) : (
@@ -653,7 +729,7 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
               src={article.coverImage}
               alt={article.title}
               className="absolute inset-0 w-full h-full object-cover z-0"
-              style={{ objectPosition: `${article.coverPosition?.x ?? article.imagePosX ?? 50}% ${article.coverPosition?.y ?? article.imagePosY ?? 50}%` }}
+              style={{ objectPosition: `${article.imagePosX ?? article.coverPosition?.x ?? 50}% ${article.imagePosY ?? article.coverPosition?.y ?? 50}%` }}
             />
           )
         )}
@@ -662,15 +738,15 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
         <div className="absolute inset-x-0 bottom-0 h-[35%] bg-gradient-to-t from-black via-black/60 to-transparent z-[1]" />
 
 
-        {/* Desktop: Share Button on image - top right */}
-        {isDesktop && (
+        {/* Desktop: Country Flag on image - top right */}
+        {isDesktop && getFlagUrl(article.personCountryCode, article.personCountry) && (
           <div className="absolute top-4 right-4 z-20">
-            <button 
-              onClick={handleShare} 
-              className="p-2 bg-white/90 hover:bg-white rounded-lg text-gray-700 transition-colors shadow-md"
-            >
-              <Share2 className="w-4 h-4" />
-            </button>
+            <img 
+              src={getFlagUrl(article.personCountryCode, article.personCountry)}
+              alt={article.personCountry || ''}
+              title={article.personCountry}
+              className="w-12 h-9 object-cover rounded shadow-lg"
+            />
           </div>
         )}
 
@@ -681,8 +757,6 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
             <CategoryBadge 
               category={article.category} 
               size="lg" 
-              countryCode={article.personCountryCode}
-              countryName={article.personCountry}
             />
             {/* Countdown Timer Badge - if poll has endsAt */}
             {countdown && (

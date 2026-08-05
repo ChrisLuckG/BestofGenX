@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { 
   X, Send, Loader2, ListOrdered, FileText, Tv, Radio, Plus, Check, ChevronDown, 
   CheckCircle, AlertCircle, Users, Sparkles, ExternalLink, User, Eye, Pencil, Save,
-  RefreshCw, Trash2, Calendar
+  RefreshCw, Trash2, Calendar, Square, BookOpen, Play, RotateCcw, Video
 } from "lucide-react";
 import BlockEditor from "@/components/admin/BlockEditor";
 import ImagePickerModal from "@/components/admin/ImagePickerModal";
@@ -62,6 +62,7 @@ interface Proposal {
   isEvent?: boolean; // True if this is an ON THIS DAY event, not a person
   isError?: boolean; // True if reporter couldn't find anyone
   errorReason?: string; // Why the proposal failed
+  savedToMenschen?: boolean; // True if successfully saved to Menschen DB
 }
 
 interface ConferenceMessage {
@@ -99,7 +100,7 @@ interface ConferenceMessage {
 
 interface Piece {
   id: string;
-  type: 'article' | 'rankroll' | 'tv' | 'radio';
+  type: 'article' | 'rankroll' | 'tv' | 'radio' | 'history';
   date: string;
   completed: boolean;
   messages: ConferenceMessage[];
@@ -122,6 +123,7 @@ const CONTENT_TYPES = [
   { id: "rankroll", label: "Rankroll", icon: ListOrdered },
   { id: "tv", label: "TV", icon: Tv },
   { id: "radio", label: "Radio", icon: Radio },
+  { id: "history", label: "History", icon: BookOpen },
 ] as const;
 
 const DEPARTMENTS = [
@@ -447,6 +449,16 @@ export default function NewsroomConference({
   const [globalCategory, setGlobalCategory] = useState<string>('');
   const [globalCountry, setGlobalCountry] = useState<string>('');
   const [rankrollInput, setRankrollInput] = useState<string>(''); // Free text for Rank template
+  const [tvSearchInput, setTvSearchInput] = useState<string>(''); // Search term for TV videos
+  const [tvSearching, setTvSearching] = useState(false);
+  const [tvResults, setTvResults] = useState<Array<{
+    youtubeId: string;
+    title: string;
+    description: string;
+    duration: string;
+    thumbnail: string;
+  }>>([]);
+  const [tvSaving, setTvSaving] = useState<number | null>(null); // Position being saved (1, 2, or 3)
   
   // Pending reporters (for proposal loading states)
   const [pendingReporters, setPendingReporters] = useState<Array<{id: string; name: string; status: 'searching' | 'done' | 'error'; error?: string}>>([]);
@@ -566,6 +578,7 @@ export default function NewsroomConference({
   const [selectingProposal, setSelectingProposal] = useState<string | null>(null); // Track which proposal is being selected
   const [retryingReporter, setRetryingReporter] = useState<string | null>(null); // Track which reporter is retrying
   const [savingArticle, setSavingArticle] = useState(false); // Track article save
+  const [abortController, setAbortController] = useState<AbortController | null>(null); // For cancelling article generation
   
   // Created rankrolls tabs (shown below chat, like articles)
   const [createdRankrolls, setCreatedRankrolls] = useState<Array<{
@@ -587,6 +600,79 @@ export default function NewsroomConference({
     items: Array<{ title: string; description: string; image: string }>;
     category: string;
   } | null>(null);
+
+  // History mode state - restore from localStorage
+  const [historyEvents, setHistoryEvents] = useState<Array<{
+    id: string;
+    title: string;
+    year: number;
+    date: string;
+    description: string;
+    category: string;
+    youtubeSearch: string;
+    youtubeVideoId?: string;
+    reporterId: string;
+    reporterName: string;
+    selected: boolean;
+    loading: boolean;
+    error?: string;
+  }>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('newsroom-historyEvents');
+      if (saved) {
+        try { 
+          const parsed = JSON.parse(saved);
+          // Reset loading states on restore
+          return parsed.map((e: any) => ({ ...e, loading: false }));
+        } catch { /* ignore */ }
+      }
+    }
+    return [];
+  });
+  const [historySearching, setHistorySearching] = useState(false);
+  const [historyCompiling, setHistoryCompiling] = useState(false);
+  const [historyBanner, setHistoryBanner] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('newsroom-historyBanner') || null;
+    }
+    return null;
+  });
+  const [historyBannerGenerating, setHistoryBannerGenerating] = useState(false);
+  const [showHistoryBannerModal, setShowHistoryBannerModal] = useState(false);
+  const [historyHeadline, setHistoryHeadline] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('newsroom-historyHeadline') || null;
+    }
+    return null;
+  });
+
+  // Save history events to localStorage
+  useEffect(() => {
+    // Don't save if all events are loading (initial state)
+    if (historyEvents.length > 0 && !historyEvents.every(e => e.loading)) {
+      localStorage.setItem('newsroom-historyEvents', JSON.stringify(historyEvents));
+    } else if (historyEvents.length === 0) {
+      localStorage.removeItem('newsroom-historyEvents');
+    }
+  }, [historyEvents]);
+
+  // Save history banner to localStorage
+  useEffect(() => {
+    if (historyBanner) {
+      localStorage.setItem('newsroom-historyBanner', historyBanner);
+    } else {
+      localStorage.removeItem('newsroom-historyBanner');
+    }
+  }, [historyBanner]);
+
+  // Save history headline to localStorage
+  useEffect(() => {
+    if (historyHeadline) {
+      localStorage.setItem('newsroom-historyHeadline', historyHeadline);
+    } else {
+      localStorage.removeItem('newsroom-historyHeadline');
+    }
+  }, [historyHeadline]);
 
   // Current piece
   const deptPieces = pieces[activeDept] || [];
@@ -686,8 +772,17 @@ export default function NewsroomConference({
     setActiveReporters(prev => ({ ...prev, [personId]: !prev[personId] }));
   }
 
-  // Create a new piece
+  // Create a new piece OR switch to existing piece of same type
   function createPiece(typeId: string) {
+    // Check if there's already a piece of this type for today
+    const existingPiece = deptPieces.find(p => p.type === typeId);
+    if (existingPiece) {
+      // Switch to existing piece instead of creating new one
+      setActivePieceId(prev => ({ ...prev, [activeDept]: existingPiece.id }));
+      setTypeMenuOpen(false);
+      return;
+    }
+    
     const typeLabel = CONTENT_TYPES.find(t => t.id === typeId)?.label || typeId;
     const newId = `${activeDept}-${typeId}-${Date.now()}`;
     const newPiece: Piece = {
@@ -707,6 +802,26 @@ export default function NewsroomConference({
 
   // Close/delete a piece (red X button)
   function closePiece(pieceId: string) {
+    const piece = pieces[activeDept].find(p => p.id === pieceId);
+    const pieceType = piece?.type || 'piece';
+    
+    // For History pieces, check if there are events and ask for confirmation
+    if (pieceType === 'history' && historyEvents.length > 0) {
+      const confirmed = window.confirm(
+        `Delete History session?\n\nThis will remove ${historyEvents.length} event(s) and the banner image.`
+      );
+      if (!confirmed) return;
+      
+      // Clear history data
+      setHistoryEvents([]);
+      setHistoryBanner(null);
+      setHistoryHeadline(null);
+    } else if (pieceType !== 'history') {
+      // For other piece types, simple confirmation
+      const confirmed = window.confirm(`Delete this ${pieceType} session?`);
+      if (!confirmed) return;
+    }
+    
     const remaining = pieces[activeDept].filter(p => p.id !== pieceId);
     
     setPieces(prev => ({
@@ -1444,6 +1559,43 @@ DESCRIPTION: [1 sentence about them]`;
             })() : 'Missing birth date'
           ) : undefined,
       };
+
+      // AUTO-SAVE to Menschen database if valid proposal found
+      console.log('[Menschen] Checking save conditions:', { isValidGenX, isDuplicate, name, birthday, country, description });
+      if (isValidGenX && !isDuplicate && name !== 'Unknown') {
+        try {
+          const payload = {
+            name,
+            birthday: birthday || '',
+            deathday: deathday || '',
+            causeOfDeath: causeOfDeath || '',
+            country: country || 'Unknown',
+            category: category || 'culture',
+            description: description || `${name} - GenX personality`,
+            discoveredBy: reporterId,
+            discoveredByName: reporterName,
+            discoveredFor: isRIP ? 'rip' : 'birthday',
+          };
+          console.log('[Menschen] Saving with payload:', payload);
+          const saveRes = await fetch('/api/menschen', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const saveData = await saveRes.json();
+          console.log('[Menschen] Save response:', saveData);
+          if (saveData.success) {
+            newProposal.savedToMenschen = true;
+            console.log(`[Menschen] ✅ Auto-saved: ${name}`, saveData.alreadyExists ? '(already existed)' : '(new)');
+          } else {
+            console.error('[Menschen] ❌ Save failed:', saveData.error);
+          }
+        } catch (e) {
+          console.error('[Menschen] ❌ Auto-save exception:', e);
+        }
+      } else {
+        console.log('[Menschen] ⏭️ Skipping save - conditions not met');
+      }
       
       // Update existing proposal for this reporter (replace, don't add new)
       updatePieceMessages(currentPiece.id, msgs => {
@@ -1606,6 +1758,10 @@ Make them FUN and ENGAGING - not boring Wikipedia summaries!`,
     }
     
     setSelectingProposal(proposal.reporterId); // Show loading on this card
+    
+    // Create abort controller for this request
+    const controller = new AbortController();
+    setAbortController(controller);
 
     // Add selection message
     updatePieceMessages(currentPiece.id, msgs => [
@@ -1638,49 +1794,131 @@ This is a memorial article honoring their life and legacy. Create the full artic
           userId,
           skipSave: true, // Don't save to DB yet - user will review first
         }),
+        signal: controller.signal, // Allow cancellation
       });
       const data = await res.json();
       setTyping(false);
 
       if (data.success && data.articleData) {
-        // Article content ready - add to tabs (NOT saved yet)
+        // Article content ready - AUTO-SAVE directly to database
         // For RIP articles, use 'rip' category
         const articleCategory = proposal.isRIP ? 'rip' : (data.articleData.category || 'culture');
-        const newArticleId = generateId();
-        const newDraft = {
-          title: data.articleData.title || '',
-          subtitle: data.articleData.subtitle || '',
-          content: data.articleData.content || '',
-          category: articleCategory,
-          tags: data.articleData.tags || [],
-          coverImage: data.articleData.coverImage || '',
-          imagePosX: 50,
-          imagePosY: 50,
-          reporterId: proposal.reporterId,
-          reporterName: proposal.reporterName,
-          personName: proposal.name,
-          personBirthday: proposal.birthday,
-          personDeathday: proposal.deathday,
-          personCauseOfDeath: proposal.causeOfDeath,
-          personCountry: proposal.country,
-          isRIP: proposal.isRIP,
-        };
-        // Add to tabs
-        setCreatedArticles(prev => [...prev, {
-          id: newArticleId,
-          title: data.articleData.title || proposal.name,
-          reporterName: proposal.reporterName,
-          draft: newDraft,
-        }]);
-        // Show message that article is ready for review
-        updatePieceMessages(currentPiece.id, msgs => [
-          ...msgs,
-          {
-            id: generateId(),
-            from: 'system',
-            text: `✅ Article "${data.articleData.title}" created. Click tab below to review.`,
-          },
-        ]);
+        
+        // Save article directly to database
+        try {
+          const saveRes = await fetch('/api/articles', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId,
+              title: data.articleData.title || '',
+              subtitle: data.articleData.subtitle || '',
+              content: data.articleData.content || '',
+              category: articleCategory,
+              tags: data.articleData.tags || [],
+              coverImage: data.articleData.coverImage || '',
+              imagePosX: 50,
+              imagePosY: 50,
+              author: proposal.reporterId,
+              authorName: proposal.reporterName,
+              status: 'draft',
+              personName: proposal.name,
+              personBirthday: proposal.birthday,
+              personDeathday: proposal.deathday,
+              personCauseOfDeath: proposal.causeOfDeath,
+              personCountry: proposal.country,
+              isRIP: proposal.isRIP,
+            }),
+          });
+          const saveData = await saveRes.json();
+          
+          if (saveData.success || saveData._id || saveData.article) {
+            const savedId = saveData._id || saveData.article?._id;
+            // Show as result message (same as after manual save)
+            updatePieceMessages(currentPiece.id, msgs => [
+              ...msgs,
+              {
+                id: generateId(),
+                from: 'result',
+                text: `✅ Article "${data.articleData.title}" saved to Articles.`,
+                resultType: 'article',
+                articleDraftId: savedId,
+                activated: true,
+              },
+            ]);
+          } else {
+            // Save failed - fall back to showing in tabs
+            const newArticleId = generateId();
+            const newDraft = {
+              title: data.articleData.title || '',
+              subtitle: data.articleData.subtitle || '',
+              content: data.articleData.content || '',
+              category: articleCategory,
+              tags: data.articleData.tags || [],
+              coverImage: data.articleData.coverImage || '',
+              imagePosX: 50,
+              imagePosY: 50,
+              reporterId: proposal.reporterId,
+              reporterName: proposal.reporterName,
+              personName: proposal.name,
+              personBirthday: proposal.birthday,
+              personDeathday: proposal.deathday,
+              personCauseOfDeath: proposal.causeOfDeath,
+              personCountry: proposal.country,
+              isRIP: proposal.isRIP,
+            };
+            setCreatedArticles(prev => [...prev, {
+              id: newArticleId,
+              title: data.articleData.title || proposal.name,
+              reporterName: proposal.reporterName,
+              draft: newDraft,
+            }]);
+            updatePieceMessages(currentPiece.id, msgs => [
+              ...msgs,
+              {
+                id: generateId(),
+                from: 'system',
+                text: `⚠️ Article "${data.articleData.title}" created but auto-save failed. Click tab below to save manually.`,
+              },
+            ]);
+          }
+        } catch (saveErr) {
+          console.error('Auto-save failed:', saveErr);
+          // Fall back to tabs on error
+          const newArticleId = generateId();
+          const newDraft = {
+            title: data.articleData.title || '',
+            subtitle: data.articleData.subtitle || '',
+            content: data.articleData.content || '',
+            category: articleCategory,
+            tags: data.articleData.tags || [],
+            coverImage: data.articleData.coverImage || '',
+            imagePosX: 50,
+            imagePosY: 50,
+            reporterId: proposal.reporterId,
+            reporterName: proposal.reporterName,
+            personName: proposal.name,
+            personBirthday: proposal.birthday,
+            personDeathday: proposal.deathday,
+            personCauseOfDeath: proposal.causeOfDeath,
+            personCountry: proposal.country,
+            isRIP: proposal.isRIP,
+          };
+          setCreatedArticles(prev => [...prev, {
+            id: newArticleId,
+            title: data.articleData.title || proposal.name,
+            reporterName: proposal.reporterName,
+            draft: newDraft,
+          }]);
+          updatePieceMessages(currentPiece.id, msgs => [
+            ...msgs,
+            {
+              id: generateId(),
+              from: 'system',
+              text: `⚠️ Article "${data.articleData.title}" created but auto-save failed. Click tab below to save manually.`,
+            },
+          ]);
+        }
       } else if (data.response) {
         // Reporter responded but didn't create an article (maybe person is not GenX, etc.)
         const reporter = roster.find(r => r.id === proposal.reporterId);
@@ -1700,14 +1938,33 @@ This is a memorial article honoring their life and legacy. Create the full artic
           { id: generateId(), from: 'system', text: 'Could not generate article. Try again.' },
         ]);
       }
-    } catch (err) {
+    } catch (err: any) {
       setTyping(false);
-      updatePieceMessages(currentPiece.id, msgs => [
-        ...msgs,
-        { id: generateId(), from: 'system', text: 'Error creating article. Please try again.' },
-      ]);
+      // Check if this was a user-initiated abort
+      if (err.name === 'AbortError') {
+        updatePieceMessages(currentPiece.id, msgs => [
+          ...msgs,
+          { id: generateId(), from: 'system', text: '⏹️ Article generation cancelled.' },
+        ]);
+      } else {
+        updatePieceMessages(currentPiece.id, msgs => [
+          ...msgs,
+          { id: generateId(), from: 'system', text: 'Error creating article. Please try again.' },
+        ]);
+      }
     } finally {
       setSelectingProposal(null); // Clear loading state
+      setAbortController(null); // Clear abort controller
+    }
+  }
+
+  // Cancel ongoing article generation
+  function cancelGeneration() {
+    if (abortController) {
+      abortController.abort();
+      setAbortController(null);
+      setSelectingProposal(null);
+      setTyping(false);
     }
   }
 
@@ -2179,6 +2436,677 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
             </div>
           )}
 
+          {/* TV Row - shows when TV type is selected */}
+          {currentPiece?.type === 'tv' && (
+            <div className="border-b border-gray-800 bg-gray-900/50 px-3 py-3">
+              {/* Search Input */}
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xs text-gray-400 shrink-0">📺 Find YouTube videos for:</span>
+                <input
+                  type="text"
+                  value={tvSearchInput}
+                  onChange={e => setTvSearchInput(e.target.value)}
+                  onKeyDown={async e => {
+                    if (e.key === 'Enter' && tvSearchInput.trim() && !tvSearching) {
+                      setTvSearching(true);
+                      setTvResults([]);
+                      try {
+                        const res = await fetch('/api/editorial/tv-search', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ topic: tvSearchInput.trim(), count: 6, searchOnly: true }),
+                        });
+                        const data = await res.json();
+                        if (data.success && data.videos) {
+                          setTvResults(data.videos.map((v: any) => ({
+                            youtubeId: v.youtubeId,
+                            title: v.title,
+                            description: v.description || '',
+                            duration: v.duration || '',
+                            thumbnail: v.thumbnail || `https://img.youtube.com/vi/${v.youtubeId}/mqdefault.jpg`,
+                          })));
+                        }
+                      } catch (err) {
+                        console.error('TV search error:', err);
+                      }
+                      setTvSearching(false);
+                    }
+                  }}
+                  placeholder="e.g. Max Cavalera interview, Nirvana live, Brad Pitt movies..."
+                  className="flex-1 bg-gray-700 px-3 py-2 rounded text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                />
+                <button
+                  onClick={async () => {
+                    if (tvSearchInput.trim() && !tvSearching) {
+                      setTvSearching(true);
+                      setTvResults([]);
+                      try {
+                        const res = await fetch('/api/editorial/tv-search', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ topic: tvSearchInput.trim(), count: 6, searchOnly: true }),
+                        });
+                        const data = await res.json();
+                        if (data.success && data.videos) {
+                          setTvResults(data.videos.map((v: any) => ({
+                            youtubeId: v.youtubeId,
+                            title: v.title,
+                            description: v.description || '',
+                            duration: v.duration || '',
+                            thumbnail: v.thumbnail || `https://img.youtube.com/vi/${v.youtubeId}/mqdefault.jpg`,
+                          })));
+                        }
+                      } catch (err) {
+                        console.error('TV search error:', err);
+                      }
+                      setTvSearching(false);
+                    }
+                  }}
+                  disabled={!tvSearchInput.trim() || tvSearching}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded text-xs font-bold shrink-0 disabled:opacity-50 bg-green-600 hover:bg-green-500 text-white"
+                >
+                  {tvSearching ? <Loader2 size={12} className="animate-spin" /> : <Tv size={12} />} Search
+                </button>
+              </div>
+
+              {/* Results Grid */}
+              {tvResults.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {tvResults.map((video, idx) => (
+                    <div key={video.youtubeId} className="bg-gray-800 rounded-lg overflow-hidden border border-gray-700 hover:border-purple-500 transition-colors">
+                      {/* Thumbnail */}
+                      <div className="relative aspect-video">
+                        <img 
+                          src={video.thumbnail} 
+                          alt={video.title}
+                          className="w-full h-full object-cover"
+                        />
+                        {video.duration && (
+                          <span className="absolute bottom-1 right-1 bg-black/80 text-white text-[10px] px-1 rounded">
+                            {video.duration}
+                          </span>
+                        )}
+                        {/* Play button overlay */}
+                        <a 
+                          href={`https://www.youtube.com/watch?v=${video.youtubeId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 hover:opacity-100 transition-opacity"
+                        >
+                          <div className="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center">
+                            <svg className="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M8 5v14l11-7z"/>
+                            </svg>
+                          </div>
+                        </a>
+                      </div>
+                      {/* Info */}
+                      <div className="p-2">
+                        <h4 className="text-xs font-medium text-white line-clamp-2 mb-2">{video.title}</h4>
+                        {/* Save buttons */}
+                        <div className="flex gap-1">
+                          {[1, 2, 3].map(pos => (
+                            <button
+                              key={pos}
+                              onClick={async () => {
+                                setTvSaving(pos);
+                                try {
+                                  const res = await fetch('/api/editorial/tv-search', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ 
+                                      saveVideo: {
+                                        youtubeId: video.youtubeId,
+                                        title: video.title,
+                                        description: video.description,
+                                        duration: video.duration,
+                                      },
+                                      position: pos,
+                                    }),
+                                  });
+                                  const data = await res.json();
+                                  if (data.success) {
+                                    // Update the result to show it's saved
+                                    setTvResults(prev => prev.map((v, i) => 
+                                      i === idx ? { ...v, savedAt: pos } as any : v
+                                    ));
+                                  }
+                                } catch (err) {
+                                  console.error('Save error:', err);
+                                }
+                                setTvSaving(null);
+                              }}
+                              disabled={tvSaving !== null}
+                              className={`flex-1 py-1.5 rounded text-[10px] font-bold transition-colors ${
+                                (video as any).savedAt === pos
+                                  ? 'bg-green-600 text-white'
+                                  : 'bg-purple-600/50 hover:bg-purple-600 text-white'
+                              }`}
+                            >
+                              {tvSaving === pos ? (
+                                <Loader2 size={10} className="animate-spin mx-auto" />
+                              ) : (video as any).savedAt === pos ? (
+                                <Check size={10} className="mx-auto" />
+                              ) : (
+                                `#${pos}`
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Searching indicator */}
+              {tvSearching && (
+                <div className="flex items-center justify-center gap-2 py-8 text-purple-400">
+                  <Loader2 size={20} className="animate-spin" />
+                  <span className="text-sm">Searching YouTube...</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* History Row - shows when History type is selected */}
+          {currentPiece?.type === 'history' && (
+            <div className="border-b border-gray-800 bg-gray-900/50 px-3 py-3 flex flex-col max-h-[calc(100vh-300px)] overflow-hidden">
+              {/* Header with Start button */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <BookOpen size={16} className="text-gray-400" />
+                  <span className="text-sm font-medium text-gray-300">On This Day — {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</span>
+                  <span className="text-xs text-gray-500">Each reporter finds a historical event</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {historyEvents.length > 0 && (
+                    <span className="text-xs text-gray-400">
+                      {historyEvents.filter(e => e.selected).length} / {historyEvents.length} selected
+                    </span>
+                  )}
+                  <button
+                    onClick={async () => {
+                      const activeIds = roster.filter(r => activeReporters[r.id]).map(r => r.id);
+                      if (activeIds.length === 0) return;
+                      
+                      setHistorySearching(true);
+                      setHistoryEvents([]);
+                      
+                      // Initialize all reporters as loading
+                      const initialEvents = activeIds.map(id => {
+                        const r = roster.find(rep => rep.id === id);
+                        return {
+                          id: `${id}-${Date.now()}`,
+                          title: '',
+                          year: 0,
+                          date: '',
+                          description: '',
+                          category: '',
+                          youtubeSearch: '',
+                          reporterId: id,
+                          reporterName: r?.name || 'Reporter',
+                          selected: false,
+                          loading: true,
+                        };
+                      });
+                      setHistoryEvents(initialEvents);
+                      
+                      // Fetch events SEQUENTIALLY so each reporter knows what others found
+                      const foundEvents: string[] = []; // Track found event titles to avoid duplicates
+                      
+                      for (const reporterId of activeIds) {
+                        try {
+                          const res = await fetch('/api/editorial/history-event', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                              reporterId,
+                              excludeEvents: foundEvents, // Tell API what events to avoid
+                            }),
+                          });
+                          const data = await res.json();
+                          
+                          if (data.success && data.event) {
+                            // Add to found events list
+                            foundEvents.push(data.event.title);
+                            
+                            // Update this reporter's event immediately
+                            setHistoryEvents(prev => prev.map(e => 
+                              e.reporterId === reporterId 
+                                ? { ...e, ...data.event, loading: false, selected: true }
+                                : e
+                            ));
+                          } else {
+                            setHistoryEvents(prev => prev.map(e => 
+                              e.reporterId === reporterId 
+                                ? { ...e, loading: false, error: data.error || 'Failed' }
+                                : e
+                            ));
+                          }
+                        } catch (err) {
+                          setHistoryEvents(prev => prev.map(e => 
+                            e.reporterId === reporterId 
+                              ? { ...e, loading: false, error: 'Network error' }
+                              : e
+                          ));
+                        }
+                      }
+                      
+                      setHistorySearching(false);
+                    }}
+                    disabled={historySearching || roster.filter(r => activeReporters[r.id]).length === 0}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded text-xs font-bold shrink-0 disabled:opacity-50 bg-green-600 hover:bg-green-500 text-white"
+                  >
+                    {historySearching ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                    {historyEvents.length > 0 ? 'Search Again' : 'Start Search'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Events Grid - scrollable */}
+              {historyEvents.length > 0 && (
+                <div className="flex-1 overflow-y-auto pr-2 pb-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {historyEvents.map((event) => (
+                    <div 
+                      key={event.id}
+                      className={`rounded-lg p-3 border transition-all cursor-pointer ${
+                        event.loading 
+                          ? 'bg-gray-800 border-gray-600 animate-pulse'
+                          : event.error
+                            ? 'bg-red-950/30 border-red-900/50'
+                            : event.selected
+                              ? 'bg-gray-800 border-green-500'
+                              : 'bg-gray-900 border-gray-700 hover:border-gray-500'
+                      }`}
+                      onClick={() => {
+                        if (!event.loading && !event.error) {
+                          setHistoryEvents(prev => prev.map(e => 
+                            e.id === event.id ? { ...e, selected: !e.selected } : e
+                          ));
+                        }
+                      }}
+                    >
+                      {/* Reporter name */}
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs text-gray-300 font-medium">{event.reporterName}</span>
+                        {!event.loading && !event.error && (
+                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                            event.selected ? 'bg-green-500 border-green-500' : 'border-gray-600'
+                          }`}>
+                            {event.selected && <Check size={12} className="text-black" />}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {event.loading ? (
+                        <div className="flex items-center gap-2 py-4">
+                          <Loader2 size={16} className="animate-spin text-gray-400" />
+                          <span className="text-sm text-gray-400">Searching...</span>
+                        </div>
+                      ) : event.error ? (
+                        <div className="py-2">
+                          <p className="text-sm text-red-400">{event.error}</p>
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              // Retry this reporter
+                              setHistoryEvents(prev => prev.map(ev => 
+                                ev.id === event.id ? { ...ev, loading: true, error: undefined } : ev
+                              ));
+                              try {
+                                const res = await fetch('/api/editorial/history-event', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ reporterId: event.reporterId }),
+                                });
+                                const data = await res.json();
+                                if (data.success && data.event) {
+                                  setHistoryEvents(prev => prev.map(ev => 
+                                    ev.id === event.id ? { ...ev, ...data.event, loading: false, selected: true } : ev
+                                  ));
+                                } else {
+                                  setHistoryEvents(prev => prev.map(ev => 
+                                    ev.id === event.id ? { ...ev, loading: false, error: data.error || 'Failed' } : ev
+                                  ));
+                                }
+                              } catch {
+                                setHistoryEvents(prev => prev.map(ev => 
+                                  ev.id === event.id ? { ...ev, loading: false, error: 'Network error' } : ev
+                                ));
+                              }
+                            }}
+                            className="mt-2 text-xs text-gray-400 hover:text-gray-300 flex items-center gap-1"
+                          >
+                            <RotateCcw size={10} /> Try Again
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          {/* Event date and title */}
+                          <div className="text-xs text-gray-500 mb-1">{event.date}</div>
+                          <h4 className="text-base font-bold text-white mb-2">
+                            {event.title}
+                          </h4>
+                          <p className="text-sm text-gray-400 line-clamp-3 mb-3">{event.description}</p>
+                          
+                          {/* Video thumbnail */}
+                          {event.youtubeVideoId && (
+                            <a 
+                              href={`https://www.youtube.com/watch?v=${event.youtubeVideoId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              className="relative block mb-3 rounded overflow-hidden group"
+                            >
+                              <img 
+                                src={`https://img.youtube.com/vi/${event.youtubeVideoId}/mqdefault.jpg`}
+                                alt={event.title}
+                                className="w-full h-auto rounded"
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/50 transition-colors">
+                                <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center">
+                                  <Play size={18} className="text-white ml-0.5" fill="white" />
+                                </div>
+                              </div>
+                            </a>
+                          )}
+                          
+                          {/* Category */}
+                          <div className="flex items-center">
+                            <span className="text-xs px-2 py-1 rounded bg-gray-700 text-gray-300">
+                              {event.category}
+                            </span>
+                          </div>
+                          
+                          {/* Action buttons */}
+                          <div className="mt-2 flex items-center gap-3">
+                            {/* Different Event button */}
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                setHistoryEvents(prev => prev.map(ev => 
+                                  ev.id === event.id ? { ...ev, loading: true } : ev
+                                ));
+                                try {
+                                  // Get other events to exclude
+                                  const otherEvents = historyEvents
+                                    .filter(ev => ev.id !== event.id && ev.title)
+                                    .map(ev => ev.title);
+                                  
+                                  const res = await fetch('/api/editorial/history-event', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ 
+                                      reporterId: event.reporterId,
+                                      excludeEvents: otherEvents,
+                                    }),
+                                  });
+                                  const data = await res.json();
+                                  if (data.success && data.event) {
+                                    setHistoryEvents(prev => prev.map(ev => 
+                                      ev.id === event.id ? { ...ev, ...data.event, id: `${event.reporterId}-${Date.now()}`, loading: false, selected: true } : ev
+                                    ));
+                                  } else {
+                                    setHistoryEvents(prev => prev.map(ev => 
+                                      ev.id === event.id ? { ...ev, loading: false, error: data.error } : ev
+                                    ));
+                                  }
+                                } catch {
+                                  setHistoryEvents(prev => prev.map(ev => 
+                                    ev.id === event.id ? { ...ev, loading: false, error: 'Network error' } : ev
+                                  ));
+                                }
+                              }}
+                              className="text-[10px] text-gray-500 hover:text-gray-300 flex items-center gap-1"
+                            >
+                              <RotateCcw size={10} /> Different Event
+                            </button>
+                            
+                            {/* Different Video button */}
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                // Show loading state on video
+                                setHistoryEvents(prev => prev.map(ev => 
+                                  ev.id === event.id ? { ...ev, youtubeVideoId: undefined } : ev
+                                ));
+                                try {
+                                  const res = await fetch('/api/editorial/history-video', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ 
+                                      query: event.youtubeSearch || event.title,
+                                      year: event.year,
+                                      excludeVideoId: event.youtubeVideoId,
+                                    }),
+                                  });
+                                  const data = await res.json();
+                                  if (data.success && data.videoId) {
+                                    setHistoryEvents(prev => prev.map(ev => 
+                                      ev.id === event.id ? { ...ev, youtubeVideoId: data.videoId } : ev
+                                    ));
+                                  }
+                                } catch {
+                                  // Silently fail - video is optional
+                                }
+                              }}
+                              className="text-[10px] text-gray-500 hover:text-gray-300 flex items-center gap-1"
+                            >
+                              <Video size={10} /> Different Video
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                </div>
+              )}
+
+              {/* Banner Preview + Actions */}
+              {historyEvents.filter(e => e.selected && !e.error).length > 0 && (
+                <div className="pt-3 mt-3 border-t border-gray-700 shrink-0">
+                  {/* Headline display - always show, with generate button if no headline */}
+                  <div className="flex items-center gap-2 mb-3">
+                    {historyHeadline ? (
+                      <>
+                        <span className="text-sm font-bold text-white flex-1 truncate">{historyHeadline}</span>
+                        <button
+                          onClick={async () => {
+                            const selectedEvents = historyEvents.filter(e => e.selected && !e.error);
+                            if (selectedEvents.length === 0) return;
+                            
+                            try {
+                              const res = await fetch('/api/editorial/history-headline', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ 
+                                  events: selectedEvents.map(e => ({
+                                    title: e.title,
+                                    year: e.year,
+                                  }))
+                                }),
+                              });
+                              const data = await res.json();
+                              if (data.success && data.headline) {
+                                setHistoryHeadline(data.headline);
+                              }
+                            } catch {
+                              // Silently fail
+                            }
+                          }}
+                          className="text-xs text-gray-400 hover:text-white flex items-center gap-1"
+                          title="Generate new headline"
+                        >
+                          <Sparkles size={12} /> New
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={async () => {
+                          const selectedEvents = historyEvents.filter(e => e.selected && !e.error);
+                          if (selectedEvents.length === 0) return;
+                          
+                          try {
+                            const res = await fetch('/api/editorial/history-headline', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ 
+                                events: selectedEvents.map(e => ({
+                                  title: e.title,
+                                  year: e.year,
+                                }))
+                              }),
+                            });
+                            const data = await res.json();
+                            if (data.success && data.headline) {
+                              setHistoryHeadline(data.headline);
+                            }
+                          } catch {
+                            // Silently fail
+                          }
+                        }}
+                        className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                      >
+                        <Sparkles size={12} /> Generate Headline
+                      </button>
+                    )}
+                  </div>
+                  
+                  {/* Action buttons row */}
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      {/* Banner thumbnail preview */}
+                      {historyBanner && (
+                        <button
+                          onClick={() => setShowHistoryBannerModal(true)}
+                          className="relative w-24 h-14 rounded overflow-hidden border-2 border-green-500 hover:border-green-400 transition-colors"
+                          title="Click to view full banner"
+                        >
+                          <img src={historyBanner} alt="Banner" className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                            <Eye size={16} className="text-white" />
+                          </div>
+                        </button>
+                      )}
+                      
+                      <button
+                        onClick={async () => {
+                          const selectedEvents = historyEvents.filter(e => e.selected && !e.error);
+                          if (selectedEvents.length === 0) return;
+                          
+                          setHistoryBannerGenerating(true);
+                          try {
+                            const res = await fetch('/api/editorial/history-banner', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ 
+                                events: selectedEvents.map(e => ({
+                                  title: e.title,
+                                  year: e.year,
+                                  category: e.category,
+                                }))
+                              }),
+                            });
+                            const data = await res.json();
+                            if (data.success && data.imageUrl) {
+                              setHistoryBanner(data.imageUrl);
+                              setHistoryHeadline(data.headline || null);
+                              setShowHistoryBannerModal(true); // Show modal when generated
+                            } else {
+                              alert(`❌ Failed: ${data.error}`);
+                            }
+                          } catch (err) {
+                            alert('❌ Network error');
+                          }
+                          setHistoryBannerGenerating(false);
+                        }}
+                        disabled={historyBannerGenerating}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white disabled:opacity-50"
+                      >
+                        {historyBannerGenerating ? (
+                          <>
+                            <Loader2 size={12} className="animate-spin" />
+                            Generating... (60-90s)
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles size={12} />
+                            {historyBanner ? 'Regenerate Banner' : 'Generate Banner'}
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-gray-400">
+                        {historyEvents.filter(e => e.selected && !e.error).length} events selected
+                      </span>
+                      <button
+                        onClick={async () => {
+                          const selectedEvents = historyEvents.filter(e => e.selected && !e.error);
+                          if (selectedEvents.length === 0) return;
+                          
+                          setHistoryCompiling(true);
+                          try {
+                            const res = await fetch('/api/editorial/history-compile', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ 
+                                events: selectedEvents.map(e => ({
+                                  title: e.title,
+                                  year: e.year,
+                                  date: e.date,
+                                  description: e.description,
+                                  category: e.category,
+                                  youtubeSearch: e.youtubeSearch,
+                                  youtubeVideoId: e.youtubeVideoId,
+                                  reporterId: e.reporterId,
+                                  reporterName: e.reporterName,
+                                })),
+                                bannerImage: historyBanner, // Pass the banner image
+                                headline: historyHeadline, // Pass the headline
+                              }),
+                            });
+                            const data = await res.json();
+                            if (data.success) {
+                              // Clear events, banner and headline
+                              setHistoryEvents([]);
+                              setHistoryBanner(null);
+                              setHistoryHeadline(null);
+                              alert(`✅ History article created!\n\nTitle: ${data.title}\nEvents: ${data.eventCount}\n\nGo to Articles tab to review.`);
+                            } else {
+                              alert(`❌ Failed: ${data.error}`);
+                            }
+                          } catch (err) {
+                            alert('❌ Network error');
+                          }
+                          setHistoryCompiling(false);
+                        }}
+                        disabled={historyCompiling}
+                        className="flex items-center gap-1.5 px-5 py-2 rounded text-sm font-bold bg-green-600 hover:bg-green-500 text-white disabled:opacity-50"
+                      >
+                        {historyCompiling ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+                        Create History Article
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Empty state */}
+              {historyEvents.length === 0 && !historySearching && (
+                <div className="text-center py-6 text-gray-500">
+                  <BookOpen size={32} className="mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">Select reporters and click "Start Search"</p>
+                  <p className="text-xs mt-1">Each reporter will find a historical event for today's date</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Main Content Area */}
           <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
             {/* Proposals + Working indicators */}
@@ -2245,10 +3173,10 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                                 <span className="text-[10px] text-red-400 font-medium">No match</span>
                               </div>
                               {proposal.name !== 'Unknown' && (
-                                <div className="text-xs text-gray-300 mb-1 line-clamp-1">{proposal.name}</div>
+                                <div className="text-xs text-white mb-1 line-clamp-1">{proposal.name}</div>
                               )}
                               {proposal.birthday && (
-                                <div className="text-[9px] text-gray-500 mb-1">📅 {proposal.birthday?.length > 60 ? proposal.birthday.slice(0, 60) + '...' : proposal.birthday}</div>
+                                <div className="text-[9px] text-white/70 mb-1">📅 {proposal.birthday?.length > 60 ? proposal.birthday.slice(0, 60) + '...' : proposal.birthday}</div>
                               )}
                               <p className="text-[10px] text-red-400/80 flex-1">{proposal.errorReason}</p>
                               <button
@@ -2276,16 +3204,20 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                             /* Found state - compact layout */
                             <>
                               {/* Line 1: Finding Name + Birthday + Flag */}
-                              <div className="flex items-center gap-1.5 text-[11px] text-gray-300 mb-1">
+                              <div className="flex items-center gap-1.5 text-[11px] text-white mb-1">
                                 <span className="font-semibold text-white">{proposal.name}</span>
-                                <span className="text-gray-500">·</span>
-                                <span className="text-gray-400">{proposal.birthday?.length > 80 ? proposal.birthday.slice(0, 80) + '...' : proposal.birthday}</span>
+                                <span className="text-white/60">·</span>
+                                <span className="text-white/90">{proposal.birthday?.length > 80 ? proposal.birthday.slice(0, 80) + '...' : proposal.birthday}</span>
                                 {proposal.country && (
                                   <CountryFlag 
                                     flag={
                                       proposal.country === 'Canada' ? 'CA' : 
                                       proposal.country === 'USA' || proposal.country === 'United States' ? 'US' :
                                       proposal.country === 'UK' || proposal.country === 'United Kingdom' ? 'GB' :
+                                      proposal.country === 'Northern Ireland' || proposal.country?.includes('Northern Ireland') ? 'NI' :
+                                      proposal.country === 'Scotland' ? 'gb-sct' :
+                                      proposal.country === 'Wales' ? 'gb-wls' :
+                                      proposal.country === 'England' ? 'gb-eng' :
                                       proposal.country === 'Germany' ? 'DE' :
                                       proposal.country === 'France' ? 'FR' :
                                       proposal.country === 'Italy' ? 'IT' :
@@ -2305,34 +3237,44 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                                       proposal.country === 'China' ? 'CN' :
                                       proposal.country === 'South Korea' ? 'KR' :
                                       proposal.country === 'India' ? 'IN' :
+                                      proposal.country === 'Ireland' ? 'IE' :
                                       'US'
                                     } 
                                     className="w-4 h-3 rounded-[1px]"
                                   />
                                 )}
                               </div>
-                              <p className="text-[9px] text-gray-500 flex-1 line-clamp-2 mb-1">{proposal.description}</p>
+                              <p className="text-[9px] text-white/80 flex-1 line-clamp-2 mb-0.5">{proposal.description}</p>
+                              {proposal.savedToMenschen && (
+                                <div className="text-[8px] text-green-500 flex items-center gap-1 mb-1">
+                                  <Check className="w-2.5 h-2.5" />
+                                  <span>Saved to Menschen Database</span>
+                                </div>
+                              )}
                               <div className="flex gap-1">
-                                <button
-                                  onClick={() => selectProposal(proposal)}
-                                  disabled={!!selectingProposal}
-                                  className={`flex-1 py-1 rounded text-[10px] font-bold text-white flex items-center justify-center gap-1 ${
-                                    selectingProposal === proposal.reporterId
-                                      ? 'bg-green-600 animate-pulse'
-                                      : selectingProposal
+                                {selectingProposal === proposal.reporterId ? (
+                                  /* Stop button when writing */
+                                  <button
+                                    onClick={cancelGeneration}
+                                    className="flex-1 py-1 rounded text-[10px] font-bold text-white flex items-center justify-center gap-1 bg-red-600 hover:bg-red-700"
+                                  >
+                                    <Square className="w-3 h-3 fill-current" />
+                                    Stop
+                                  </button>
+                                ) : (
+                                  /* Select button when idle */
+                                  <button
+                                    onClick={() => selectProposal(proposal)}
+                                    disabled={!!selectingProposal}
+                                    className={`flex-1 py-1 rounded text-[10px] font-bold text-white flex items-center justify-center gap-1 ${
+                                      selectingProposal
                                         ? 'bg-gray-600 cursor-not-allowed'
                                         : 'bg-[#D4873A] hover:bg-[#c07830]'
-                                  }`}
-                                >
-                                  {selectingProposal === proposal.reporterId ? (
-                                    <>
-                                      <Loader2 className="w-3 h-3 animate-spin" />
-                                      Writing...
-                                    </>
-                                  ) : (
-                                    'Select'
-                                  )}
-                                </button>
+                                    }`}
+                                  >
+                                    Select
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => askForAnother(r.id, r.name, proposal.isRIP)}
                                   disabled={!!retryingReporter || !!selectingProposal}
@@ -2506,14 +3448,23 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
               </div>
             ) : (
               <div className="flex-1 flex items-center justify-center">
-                <div className="text-center text-gray-500">
-                  <p className="mb-2">No active piece.</p>
-                  <button
-                    onClick={() => createPiece('article')}
-                    className={`px-4 py-2 rounded text-sm font-semibold ${theme.sendBtn}`}
-                  >
-                    Start a new Article
-                  </button>
+                <div className="text-center">
+                  <p className="mb-4 text-gray-500">Select a content type to start:</p>
+                  <div className="flex flex-wrap justify-center gap-3">
+                    {CONTENT_TYPES.map(c => {
+                      const Icon = c.icon;
+                      return (
+                        <button
+                          key={c.id}
+                          onClick={() => createPiece(c.id)}
+                          className="flex items-center gap-2 px-5 py-3 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-green-500 transition-all"
+                        >
+                          <Icon size={18} className="text-green-400" />
+                          <span className="text-sm font-semibold text-white">Start {c.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             )}
@@ -3062,6 +4013,66 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
             initialNewCategory={rankrollEditorData.category}
             onProposalHandled={() => setRankrollEditorData(null)}
           />
+        </div>
+      )}
+
+      {/* History Banner Preview Modal */}
+      {showHistoryBannerModal && historyBanner && (
+        <div 
+          className="fixed inset-0 z-[70] bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setShowHistoryBannerModal(false)}
+        >
+          <div 
+            className="relative max-w-5xl w-full bg-gray-900 rounded-xl overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-white">History Banner Preview</h3>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setHistoryBanner(null);
+                    setHistoryHeadline(null);
+                    setShowHistoryBannerModal(false);
+                  }}
+                  className="px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded text-xs font-bold text-white"
+                >
+                  Delete
+                </button>
+                <button
+                  onClick={() => setShowHistoryBannerModal(false)}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+            
+            {/* Headline */}
+            {historyHeadline && (
+              <div className="px-4 pt-4">
+                <h2 className="text-xl font-bold text-white">{historyHeadline}</h2>
+              </div>
+            )}
+            
+            {/* Banner Image */}
+            <div className="p-4">
+              <img 
+                src={historyBanner} 
+                alt="History Banner" 
+                className="w-full h-auto rounded-lg"
+              />
+            </div>
+            
+            {/* Footer with info */}
+            <div className="px-4 py-3 border-t border-gray-700 bg-gray-800/50">
+              <p className="text-xs text-gray-400">
+                Headline and banner will be used for the History article.
+                Click "Regenerate Banner" to create new ones.
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>

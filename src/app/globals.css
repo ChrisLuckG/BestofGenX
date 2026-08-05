@@ -208,10 +208,11 @@ a:active {
   color: #D4873A;  /* Primary color on click */
 }
 
-/* Lovable Font Classes - using CSS variables from next/font */
+/* Font display class - extends Tailwind's font-display with additional styles */
 .font-display {
-  font-family: var(--font-display), 'Bebas Neue', sans-serif;
-  letter-spacing: 0.01em;
+  font-family: var(--font-display), 'Bebas Neue', Impact, sans-serif !important;
+  letter-spacing: 0.01em !important;
+  text-transform: uppercase !important;
 }
 
 .font-serif-i {

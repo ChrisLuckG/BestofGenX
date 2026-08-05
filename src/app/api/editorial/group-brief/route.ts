@@ -158,25 +158,69 @@ async function fetchTodayContext(month: number, day: number): Promise<{ contextS
     }))).catch(() => {});
 
     // Deaths: Filter for GenX-born people (born 1965-1980) who died on this day
-    // Also include notable deaths from 1990+ for broader coverage
     const allDeaths = deathsData.deaths || [];
+    console.log(`[Deaths] Total deaths from Wikipedia API: ${allDeaths.length}`);
+    
     const genxDeaths = allDeaths.filter((d: any) => {
-      // Calculate birth year from death year and age (if available in description)
-      const ageMatch = d.pages?.[0]?.description?.match(/\b(\d{2,3})\b/);
-      const estimatedBirthYear = ageMatch ? d.year - parseInt(ageMatch[1]) : null;
-      // Include if born 1965-1980 OR died 1990+ (for cultural relevance)
-      return (estimatedBirthYear && estimatedBirthYear >= 1965 && estimatedBirthYear <= 1980) || d.year >= 1990;
+      // Method 1: Extract birth year from text like "Name, profession (born 1977)"
+      const bornMatch = d.text?.match(/born\s*(?:c\.\s*)?(\d{4})/i);
+      if (bornMatch) {
+        const birthYear = parseInt(bornMatch[1]);
+        if (birthYear >= 1965 && birthYear <= 1980) return true;
+      }
+      
+      // Method 2: Check description for birth year pattern "(YYYY–YYYY)" or "(born YYYY)"
+      const desc = d.pages?.[0]?.description || '';
+      const descBornMatch = desc.match(/\((\d{4})[\–\-–]/);
+      if (descBornMatch) {
+        const birthYear = parseInt(descBornMatch[1]);
+        if (birthYear >= 1965 && birthYear <= 1980) return true;
+      }
+      
+      // Method 3: Calculate from death year and age in description like "aged 45" or "(1970-2020)"
+      const ageMatch = desc.match(/aged?\s*(\d{2,3})/i) || desc.match(/\((\d{4})–(\d{4})\)/);
+      if (ageMatch) {
+        let estimatedBirthYear: number | null = null;
+        if (ageMatch[2]) {
+          // Pattern: (1970-2020) - first group is birth year
+          estimatedBirthYear = parseInt(ageMatch[1]);
+        } else {
+          // Pattern: aged 45 - calculate from death year
+          estimatedBirthYear = d.year - parseInt(ageMatch[1]);
+        }
+        if (estimatedBirthYear && estimatedBirthYear >= 1965 && estimatedBirthYear <= 1980) return true;
+      }
+      
+      return false;
     });
+    
+    console.log(`[Deaths] GenX deaths found: ${genxDeaths.length}`);
+
+    // IMPORTANT: save every found GenX death person to the Menschen DB immediately (idempotent).
+    savePeopleToDB(genxDeaths.map((d: any) => {
+      const bornMatch = d.text?.match(/born\s*(?:c\.\s*)?(\d{4})/i);
+      const birthYear = bornMatch ? bornMatch[1] : '';
+      return {
+        name: cleanName(d.text),
+        born: birthYear ? `${birthYear}-01-01` : '', // Approximate birth date
+        died: `${d.year}-${mm}-${dd}`, // Exact death date
+        desc: d.pages?.[0]?.description || d.pages?.[0]?.extract?.split('.')?.[0] || '',
+      };
+    })).catch(() => {});
+
+    // ONLY GenX deaths - if none found, that's fine
     const deathList: string[] = genxDeaths
       .slice(0, 20)
       .map((d: any) => {
         const desc = d.pages?.[0]?.description || '';
-        return `${cleanName(d.text)} (died ${d.year}) — ${desc}`;
+        const bornMatch = d.text?.match(/born\s*(?:c\.\s*)?(\d{4})/i);
+        const birthYear = bornMatch ? bornMatch[1] : '?';
+        return `${cleanName(d.text)} (b. ${birthYear} † ${d.year}) — ${desc}`;
       });
 
     const sections: string[] = [];
     if (birthList.length) sections.push(`CONFIRMED GenX BIRTHDAYS TODAY (${dd}.${mm}) — born 1965–1980 STRICTLY:\n${birthList.map(b => `  - ${b}`).join('\n')}\n\n🚫 ABSOLUTE RULE: ONLY use names from this list. Anyone NOT on this list is FORBIDDEN.`);
-    if (deathList.length) sections.push(`⚰️ CONFIRMED DEATHS ON THIS DAY (${dd}.${mm}) — REAL PEOPLE WHO ACTUALLY DIED:\n${deathList.map(d => `  - ${d}`).join('\n')}\n\n🚫 ABSOLUTE RULE FOR RIP CAMPAIGNS: ONLY use names from this death list. These are REAL deaths. NEVER invent death dates. If someone is not on this list, they did NOT die on this day.`);
+    if (deathList.length) sections.push(`⚰️ GENX DEATHS ON THIS DAY (${dd}.${mm}) — born 1965–1980 ONLY:\n${deathList.map(d => `  - ${d}`).join('\n')}\n\n🚫 ABSOLUTE RULE: ONLY GenX deaths. If list is empty, NO RIP articles today.`);
 
     const contextStr = sections.length
       ? `\n================================================================================\nTODAY IN HISTORY (${dd}.${mm}) — GENX ONLY (1965–1980)\n================================================================================\n${sections.join('\n\n')}\n`

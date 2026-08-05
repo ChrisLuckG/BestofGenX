@@ -1,88 +1,119 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
 import dbConnect from '@/lib/mongoose';
 import TVVideo from '@/models/TVVideo';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Search YouTube Data API for real videos
+async function searchYouTube(query: string, maxResults: number = 6): Promise<any[]> {
+  const apiKey = process.env.YOUTUBE_API_KEY;
+  if (!apiKey) {
+    console.warn('YOUTUBE_API_KEY not set');
+    return [];
+  }
+  
+  try {
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=${maxResults}&key=${apiKey}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    
+    if (!res.ok) {
+      console.error('YouTube API error:', res.status);
+      return [];
+    }
+    
+    const data = await res.json();
+    return data.items || [];
+  } catch (err) {
+    console.error('YouTube search failed:', err);
+    return [];
+  }
+}
 
 // POST /api/editorial/tv-search
-// Body: { topic, count?, featuredStart?, category?, authorId? }
-// Uses GPT-4 knowledge to find real YouTube video IDs, saves to TV section
+// Body: { topic, count?, searchOnly?, saveVideo?, position?, category? }
+// searchOnly=true: just search, don't save
+// saveVideo: { youtubeId, title, description, duration } + position: save specific video to position
 export async function POST(request: NextRequest) {
   try {
-    const { topic, count: rawCount = 3, featuredStart = 1, category = 'Action', authorId } = await request.json();
-    const count = Math.min(Number(rawCount) || 3, 3); // max 3 TV clips
+    const body = await request.json();
+    const { topic, count: rawCount = 6, searchOnly = false, saveVideo, position, category = 'GenX' } = body;
 
+    await dbConnect();
+
+    // MODE 1: Save a specific video to a position
+    if (saveVideo && position) {
+      const { youtubeId, title, description, duration } = saveVideo;
+      if (!youtubeId || !position || position < 1 || position > 3) {
+        return NextResponse.json({ success: false, error: 'Invalid video or position' }, { status: 400 });
+      }
+
+      const thumbnail = `https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg`;
+      const youtubeUrl = `https://www.youtube.com/watch?v=${youtubeId}`;
+
+      const video = await TVVideo.findOneAndUpdate(
+        { featuredPosition: position },
+        {
+          title: title || topic,
+          description: description || '',
+          youtubeUrl,
+          youtubeId,
+          thumbnail,
+          category,
+          duration: duration || '',
+          language: 'en',
+          featured: true,
+          featuredPosition: position,
+          active: true,
+        },
+        { upsert: true, new: true }
+      );
+
+      return NextResponse.json({ success: true, video, position });
+    }
+
+    // MODE 2: Search for videos using real YouTube API
     if (!topic) {
       return NextResponse.json({ success: false, error: 'Missing topic' }, { status: 400 });
     }
 
-    // Ask GPT-4 for real, well-known YouTube videos about the topic
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'system',
-          content: `You are a YouTube curator. Return ONLY valid JSON — an array of ${count} real YouTube videos.
-Each item must have:
-- "youtubeId": the real 11-character YouTube video ID (e.g. "dQw4w9WgXcQ")
-- "title": the video title
-- "description": 1-2 sentence description
-- "duration": approximate runtime like "2:34" or "12:45"
-- "language": ISO 639-1 code ("en", "de", etc.)
+    const count = Math.min(Number(rawCount) || 6, 10); // max 10 results for search
 
-Rules:
-- Only use real, well-known videos that actually exist on YouTube
-- Prefer official clips, trailers, interviews, documentaries
-- No playlists, no live streams
-- Return ONLY the JSON array, no markdown, no extra text`,
-        },
-        {
-          role: 'user',
-          content: `Find ${count} great YouTube videos about: ${topic}`,
-        },
-      ],
-      temperature: 0.4,
-      max_tokens: 800,
-    });
-
-    const raw = completion.choices[0]?.message?.content || '[]';
-    let videos: any[];
-    try {
-      const cleaned = raw.replace(/```json|```/g, '').trim();
-      videos = JSON.parse(cleaned);
-    } catch {
-      return NextResponse.json({ success: false, error: 'AI returned invalid JSON' }, { status: 500 });
-    }
-
-    if (!Array.isArray(videos) || !videos.length) {
+    // Use real YouTube Data API
+    const youtubeResults = await searchYouTube(topic, count);
+    
+    if (!youtubeResults.length) {
       return NextResponse.json({ success: false, error: 'No videos found' }, { status: 404 });
     }
 
-    await dbConnect();
+    // Map YouTube API results to our format
+    const results = youtubeResults.map(item => ({
+      youtubeId: item.id?.videoId || '',
+      title: item.snippet?.title || '',
+      description: item.snippet?.description || '',
+      duration: '', // YouTube search API doesn't return duration
+      thumbnail: item.snippet?.thumbnails?.medium?.url || `https://img.youtube.com/vi/${item.id?.videoId}/mqdefault.jpg`,
+    })).filter(v => v.youtubeId);
+
+    // If searchOnly, just return results without saving
+    if (searchOnly) {
+      return NextResponse.json({ success: true, videos: results });
+    }
+
+    // Legacy mode: save to positions 1, 2, 3 (for backward compatibility)
     const saved: any[] = [];
+    for (let i = 0; i < Math.min(results.length, 3); i++) {
+      const v = results[i];
+      const pos = i + 1;
 
-    for (let i = 0; i < Math.min(videos.length, count); i++) {
-      const v = videos[i];
-      if (!v.youtubeId) continue;
-
-      const youtubeId = v.youtubeId.trim();
-      const thumbnail = `https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg`;
-      const youtubeUrl = `https://www.youtube.com/watch?v=${youtubeId}`;
-      const pos = featuredStart + i;
-
-      // Upsert: overwrite existing video at this featured position (no duplicates)
       const video = await TVVideo.findOneAndUpdate(
         { featuredPosition: pos },
         {
           title: v.title || topic,
           description: v.description || '',
-          youtubeUrl,
-          youtubeId,
-          thumbnail,
+          youtubeUrl: `https://www.youtube.com/watch?v=${v.youtubeId}`,
+          youtubeId: v.youtubeId,
+          thumbnail: v.thumbnail,
           category,
           duration: v.duration || '',
-          language: v.language || 'en',
+          language: 'en',
           featured: true,
           featuredPosition: pos,
           active: true,
@@ -93,7 +124,7 @@ Rules:
       saved.push(video);
     }
 
-    // Purge any stale positions above 3 (e.g. old pos 4 & 5 from before the cap)
+    // Purge any stale positions above 3
     await TVVideo.deleteMany({ featuredPosition: { $gt: 3 } });
 
     return NextResponse.json({ success: true, saved: saved.length, videos: saved });

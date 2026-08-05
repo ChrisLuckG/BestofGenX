@@ -356,7 +356,7 @@ export default function ContainerBlock({
                 <div className="relative h-[90px] rounded-lg overflow-hidden">
                   {art1?.coverImage ? (
                     <>
-                      <img src={art1.coverImage} className="absolute inset-0 w-full h-full object-cover" alt="" />
+                      <img src={art1.coverImage} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: `${(art1 as any).imagePosX ?? 50}% ${(art1 as any).imagePosY ?? 50}%` }} alt="" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                       <div className="absolute bottom-1 left-1 right-6">
                         <span className="text-[7px] font-bold text-[#D4873A] bg-black/50 px-1 rounded">MAIN</span>
@@ -391,7 +391,7 @@ export default function ContainerBlock({
                   <div className="relative rounded-lg overflow-hidden">
                     {art1?.coverImage ? (
                       <>
-                        <img src={art1.coverImage} className="absolute inset-0 w-full h-full object-cover" alt="" />
+                        <img src={art1.coverImage} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: `${(art1 as any).imagePosX ?? 50}% ${(art1 as any).imagePosY ?? 50}%` }} alt="" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
                         <div className="absolute bottom-0.5 left-0.5 right-0.5 text-[6px] text-white font-bold truncate">{art1.title}</div>
                       </>
@@ -404,7 +404,7 @@ export default function ContainerBlock({
                   <div className="relative rounded-lg overflow-hidden">
                     {art2?.coverImage ? (
                       <>
-                        <img src={art2.coverImage} className="absolute inset-0 w-full h-full object-cover" alt="" />
+                        <img src={art2.coverImage} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: `${(art2 as any).imagePosX ?? 50}% ${(art2 as any).imagePosY ?? 50}%` }} alt="" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
                         <div className="absolute bottom-0.5 left-0.5 right-0.5 text-[6px] text-white font-bold truncate">{art2.title}</div>
                       </>
@@ -428,7 +428,7 @@ export default function ContainerBlock({
                 <div className="relative h-[120px] rounded-lg overflow-hidden">
                   {art1?.coverImage ? (
                     <>
-                      <img src={art1.coverImage} className="absolute inset-0 w-full h-full object-cover" alt="" />
+                      <img src={art1.coverImage} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: `${(art1 as any).imagePosX ?? 50}% ${(art1 as any).imagePosY ?? 50}%` }} alt="" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                       <div className="absolute bottom-1 left-1 right-6">
                         <span className="text-[7px] font-bold text-teal-400 bg-black/50 px-1 rounded">SOCIAL</span>
@@ -489,13 +489,9 @@ export default function ContainerBlock({
 
               {/* SLIDER Block - with category selection */}
               {block.type === 'SLIDER' && (() => {
-                // Filter articles by selected category for preview
+                // Use shared resolver result (respects cross-container waterfall dedup)
                 const cat = block.autoFillCategory?.toLowerCase() || '';
-                const previewArticles = cat 
-                  ? articles
-                      .filter(a => a.category?.toLowerCase() === cat && a.status === 'published' && a.coverImage)
-                      .slice(0, 5)
-                  : [];
+                const previewArticles = ((resolved.vertical || []) as SimpleArticle[]).slice(0, 5);
                 
                 return (
                   <div className="relative rounded-lg overflow-hidden bg-gray-800 border border-cyan-500 p-2">

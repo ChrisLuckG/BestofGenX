@@ -39,7 +39,7 @@ export default function CategoryBadge({ category, size = 'md', className = '', c
             src={`https://flagcdn.com/${flagSize.width}x${flagSize.height}/${countryCode.toLowerCase()}.png`}
             alt={countryName || ''}
             className={`${flagSize.imgClass} object-cover rounded-sm shadow-lg drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]`}
-            style={{ border: '1px solid rgba(255,255,255,0.5)' }}
+            style={{ border: '1px solid rgba(212,135,58,0.5)' }}
           />
           {/* Tooltip on hover */}
           {countryName && (

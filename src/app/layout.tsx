@@ -1,27 +1,22 @@
 import type { Metadata } from "next";
-import { Manrope, Bebas_Neue, DM_Sans } from "next/font/google";
+import { Inter, Bebas_Neue } from "next/font/google";
 import "./globals.css";
 import Providers from "@/components/Providers";
 
-const manrope = Manrope({ 
+// Inter — body text, meta, small labels
+const inter = Inter({ 
   subsets: ["latin"],
   display: "swap",
   variable: "--font-body",
+  weight: ["400", "600", "700", "800"],
 });
 
-// Lovable Design System Fonts
+// Bebas Neue — headlines, nav labels, buttons, card titles
 const bebasNeue = Bebas_Neue({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-display",
   weight: "400",
-});
-
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-sans-lv",
-  weight: ["400", "500", "700"],
 });
 
 export const metadata: Metadata = {
@@ -49,7 +44,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="de" className={`${manrope.variable} ${bebasNeue.variable} ${dmSans.variable}`}>
+    <html lang="de" className={`${inter.variable} ${bebasNeue.variable}`}>
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black" />
@@ -67,7 +62,7 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
       </head>
-      <body className={manrope.className}>
+      <body className={inter.className}>
         <Providers>
           {children}
         </Providers>

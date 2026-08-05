@@ -1,9 +1,19 @@
 "use client";
 
+// Legacy codes that were persisted before the mapping was fixed.
+// 'ni' is Nicaragua in ISO 3166-1, but was used for Northern Ireland.
+const CODE_ALIASES: Record<string, string> = {
+  'ni': 'gb-nir',
+};
+
 // Convert a flag emoji (regional indicators) to ISO 3166-1 alpha-2 code.
 // Windows can't render flag emojis, so we map to real flag images via flagcdn.
 function flagEmojiToCode(flag?: string): string | null {
   if (!flag) return null;
+  // If it's a special multi-char code (like gb-sct), return as-is
+  if (flag.includes('-')) {
+    return flag.toLowerCase();
+  }
   // If it's already an ISO code (2 letters, ASCII)
   if (flag.length === 2 && flag.charCodeAt(0) < 127) {
     return flag.toLowerCase();
@@ -24,8 +34,11 @@ interface CountryFlagProps {
 }
 
 export default function CountryFlag({ flag, className = "w-5 h-4 rounded-[2px]" }: CountryFlagProps) {
-  const code = flagEmojiToCode(flag);
-  if (!code) return null;
+  const rawCode = flagEmojiToCode(flag);
+  if (!rawCode) return null;
+
+  const code = CODE_ALIASES[rawCode] || rawCode;
+
   return (
     <img
       src={`https://flagcdn.com/24x18/${code}.png`}

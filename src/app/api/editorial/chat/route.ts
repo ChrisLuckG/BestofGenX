@@ -135,12 +135,36 @@ async function fetchLiveContext(month: number, day: number): Promise<string> {
       lines.push(`BIRTHDAYS TODAY (GenX relevant) - Total: ${births.length}\nCategories available: ${categoryInfo || 'mixed'}\n${births.join('\n')}`);
     }
 
-    // Deaths today
-    const deaths = (data.deaths || [])
-      .filter((d: any) => d.year >= 1960)
-      .slice(0, 4)
-      .map((d: any) => `  - ${d.text?.split('.')[0]} (${d.year})`);
-    if (deaths.length) lines.push(`DEATHS ON THIS DAY:\n${deaths.join('\n')}`);
+    // Deaths today - filter for GenX (born 1965-1980) and recent deaths (2010+)
+    // Wikipedia deaths API gives death year, and description often contains birth year
+    const allDeaths = (data.deaths || []);
+    const recentDeaths = allDeaths
+      .filter((d: any) => d.year >= 2010) // Recent deaths only
+      .slice(0, 20) // Take more for GenX filtering
+      .map((d: any) => {
+        const text = d.text || '';
+        // Try to extract birth year from "born YYYY" pattern
+        const bornMatch = text.match(/born\s+(\d{4})/i);
+        const birthYear = bornMatch ? parseInt(bornMatch[1]) : null;
+        const isGenX = birthYear && birthYear >= 1965 && birthYear <= 1980;
+        return {
+          text: text.split('.')[0],
+          deathYear: d.year,
+          birthYear,
+          isGenX,
+        };
+      });
+    
+    // Separate GenX and other notable deaths
+    const genxDeaths = recentDeaths.filter(d => d.isGenX);
+    const otherDeaths = recentDeaths.filter(d => !d.isGenX).slice(0, 5);
+    
+    if (genxDeaths.length) {
+      lines.push(`GENX DEATHS ON THIS DAY (born 1965-1980) - PRIORITY FOR RIP ARTICLES:\n${genxDeaths.map(d => `  - ${d.text} (died ${d.deathYear}, born ${d.birthYear})`).join('\n')}`);
+    }
+    if (otherDeaths.length) {
+      lines.push(`OTHER NOTABLE DEATHS ON THIS DAY:\n${otherDeaths.map(d => `  - ${d.text} (${d.deathYear})`).join('\n')}`);
+    }
 
     // Notable events
     const events = (data.events || [])
@@ -189,32 +213,67 @@ const CTA_HTML: Record<string, string> = {
   rankroll: `<div class="cta-block rankroll-cta-banner" data-cta-type="rankroll" data-rankroll-id="" style="display:flex;flex-direction:column;gap:12px;padding:16px;background:linear-gradient(to right,rgba(212,135,58,0.15),rgba(212,135,58,0.05));border-radius:16px;border:1px solid rgba(212,135,58,0.2);margin:24px 0;cursor:pointer;"><div style="display:flex;align-items:center;gap:12px;"><div class="cta-icon" style="width:44px;height:44px;min-width:44px;background:#D4873A;border-radius:50%;display:flex;align-items:center;justify-content:center;" data-emoji="🗳️"><svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M18 13h-.68l-2 2h1.91L19 17H5l1.78-2h2.05l-2-2H6l-3 3v4c0 1.1.89 2 1.99 2H19c1.1 0 2-.89 2-2v-4l-3-3zm-1-5.05l-4.95 4.95-3.54-3.54 4.95-4.95 3.54 3.54zm-4.24-5.66L6.39 8.66a.996.996 0 000 1.41l4.95 4.95c.39.39 1.02.39 1.41 0l6.36-6.36a.996.996 0 000-1.41l-4.95-4.95a.996.996 0 00-1.41 0z"/></svg></div><div><div style="font-weight:700;color:#1a1a1a;font-size:14px;line-height:1.3;">Vote Now!</div><div style="font-size:12px;color:#666;line-height:1.4;">Cast your vote and rank your favorites.</div></div></div><span style="display:block;text-align:center;padding:10px 18px;background:#D4873A;color:white;border-radius:10px;font-weight:700;font-size:13px;">Go to Rankroll →</span></div>`,
 };
 
-// Ask GPT-4o for a real YouTube video ID for the given search term
+// Search YouTube Data API for a real video ID
 async function findYoutubeVideoId(searchTerm: string): Promise<string | null> {
+  const apiKey = process.env.YOUTUBE_API_KEY;
+  console.log('[YouTube] Searching for:', searchTerm, '| API Key exists:', !!apiKey);
+  
+  if (!apiKey) {
+    console.warn('[YouTube] YOUTUBE_API_KEY not set, skipping video search');
+    return null;
+  }
+  
   try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a YouTube expert. Return ONLY a single JSON object with one field: "youtubeId" (the real 11-character YouTube video ID). No markdown, no explanation. The video must actually exist on YouTube and be directly relevant to the search term.',
-        },
-        { role: 'user', content: `Find the best YouTube video for: ${searchTerm}` },
-      ],
-      temperature: 0.3,
-      max_tokens: 60,
-    });
-    const raw = (completion.choices[0]?.message?.content || '').replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(raw);
-    const id = parsed?.youtubeId?.trim();
-    return id && /^[a-zA-Z0-9_-]{11}$/.test(id) ? id : null;
-  } catch {
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(searchTerm)}&type=video&maxResults=1&key=${apiKey}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('[YouTube] API error:', res.status, errorText);
+      return null;
+    }
+    
+    const data = await res.json();
+    const videoId = data.items?.[0]?.id?.videoId;
+    console.log('[YouTube] Found video:', videoId);
+    
+    return videoId && /^[a-zA-Z0-9_-]{11}$/.test(videoId) ? videoId : null;
+  } catch (err) {
+    console.error('[YouTube] Search failed:', err);
     return null;
   }
 }
 
 function buildYoutubeIframe(youtubeId: string): string {
   return `<iframe src="https://www.youtube.com/embed/${youtubeId}" frameborder="0" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>`;
+}
+
+// Convert sections array to HTML content with YouTube videos after each section
+async function convertSectionsToContent(sections: Array<{heading: string | null; text: string; youtubeSearch?: string}>): Promise<string> {
+  console.log('[Sections] Converting', sections.length, 'sections to content');
+  const contentParts: string[] = [];
+  
+  for (const section of sections) {
+    // Add heading if present
+    if (section.heading) {
+      contentParts.push(`<h2>${section.heading}</h2>`);
+    }
+    
+    // Add text content
+    contentParts.push(section.text);
+    
+    // Find and add YouTube video if search term provided
+    if (section.youtubeSearch) {
+      console.log('[Sections] Section has youtubeSearch:', section.youtubeSearch);
+      const youtubeId = await findYoutubeVideoId(section.youtubeSearch);
+      if (youtubeId) {
+        console.log('[Sections] Adding video iframe:', youtubeId);
+        contentParts.push(buildYoutubeIframe(youtubeId));
+      }
+    }
+  }
+  
+  return contentParts.join('\n');
 }
 
 // Inject YouTube iframe after 2nd </p> and spread CTAs through content
@@ -488,7 +547,35 @@ ${bogxKnowledge}`;
     const articleMode = isArticleApproval(message);
 
     const userMessageContent = articleMode
-      ? `${message}\n\nEDITOR APPROVED. Output ONLY valid JSON, nothing else:\n{"title":"...","subtitle":"...","content":"<p>...</p><h2>...</h2><p>...</p>","tags":["..."],"category":"movies-tv|music|gaming|sports|history|lifestyle|rip|news|eastercorn","imageSearchTerm":"specific search term for Wikimedia cover image"}`
+      ? `${message}\n\n⚠️ EDITOR APPROVED — OUTPUT FORMAT IS MANDATORY ⚠️
+Output ONLY valid JSON. Use the SECTIONS array format (NOT the old "content" field):
+{
+  "title": "...",
+  "subtitle": "...",
+  "personCountry": "BIRTH country name (e.g. 'Brazil', 'South Korea')",
+  "personCountryCode": "ISO 2-letter BIRTH country code (e.g. 'BR', 'KR')",
+  "sections": [
+    {"heading": null, "text": "<p>Intro...</p>", "youtubeSearch": "Person Name famous moment official"},
+    {"heading": "Section Title", "text": "<p>Content...</p>", "youtubeSearch": "Person Name specific event year"}
+  ],
+  "tags": ["..."],
+  "category": "movies-tv|music|gaming|sports|history|lifestyle|rip|news|eastercorn",
+  "imageSearchTerm": "specific search term",
+  "ctas": ["articles", "tv"]
+}
+CRITICAL — YOUTUBE SEARCH RULES:
+- Each section MUST have a "youtubeSearch" field with a HIGHLY SPECIFIC search term.
+- ALWAYS include the person's FULL NAME + a SPECIFIC event/song/movie/match + year if known.
+- BAD: "David Healy goals" (too generic)
+- GOOD: "David Healy goal vs England 2005 Windsor Park"
+- GOOD: "Shawn Burr NHL highlights Detroit Red Wings"
+- GOOD: "Kurt Cobain Smells Like Teen Spirit live 1991"
+- For SPORTS: "Name + match/opponent + year" or "Name + best goals/plays + team"
+- For MUSIC: "Name + song title + official video" or "Name + live performance + venue year"
+- For ACTORS: "Name + movie title + scene" or "Name + interview + show year"
+- For RIP: "Name + tribute" or "Name + best moments compilation" or "Name + final performance"
+- personCountry and personCountryCode are REQUIRED - use the person's BIRTH country.
+- DO NOT use the old "content" field. Use "sections" array ONLY.`
       : message;
 
     const openaiMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
@@ -504,7 +591,7 @@ ${bogxKnowledge}`;
       model: 'gpt-4o',
       messages: openaiMessages,
       temperature: 0.85,
-      max_tokens: 2000,
+      max_tokens: articleMode ? 4000 : 2000, // More tokens for articles with sections
     });
 
     const rawResponse = completion.choices[0]?.message?.content || '';
@@ -540,6 +627,22 @@ ${bogxKnowledge}`;
             coverImage = (await searchWikimediaImage(searchTerm)) || '';
           }
 
+          // Convert sections to content with YouTube videos (new format)
+          // Falls back to legacy content field if sections not present
+          let finalContent = '';
+          console.log('[Article] Parsed JSON keys:', Object.keys(parsed));
+          console.log('[Article] Has sections:', !!parsed.sections, '| Has content:', !!parsed.content);
+          
+          if (parsed.sections && Array.isArray(parsed.sections)) {
+            // New format: sections array with youtubeSearch per section
+            console.log('[Article] Using NEW sections format with', parsed.sections.length, 'sections');
+            finalContent = await convertSectionsToContent(parsed.sections);
+          } else if (parsed.content) {
+            // Legacy format: plain HTML content
+            console.log('[Article] Using LEGACY content format (no videos will be added)');
+            finalContent = parsed.content;
+          }
+
           // Validate category
           const rawCategory = (parsed.category || '').split('|')[0].trim().toLowerCase();
           const safeCategory = VALID_CATEGORY_SLUGS.includes(rawCategory) ? rawCategory : 'culture';
@@ -552,7 +655,7 @@ ${bogxKnowledge}`;
             articleData = {
               title: parsed.title || 'Untitled',
               subtitle: parsed.subtitle || '',
-              content: parsed.content || '',
+              content: finalContent,
               coverImage,
               tags: parsed.tags || [],
               category: safeCategory,
@@ -566,7 +669,7 @@ ${bogxKnowledge}`;
             const article = await Article.create({
               title: parsed.title || 'Untitled',
               subtitle: parsed.subtitle || '',
-              content: parsed.content || '',
+              content: finalContent,
               coverImage,
               thumbnailUrl: coverImage,
               tags: parsed.tags || [],
@@ -579,15 +682,18 @@ ${bogxKnowledge}`;
               status: autoPublish ? 'published' : 'draft',
               layout: 'standard',
               autoGenerated: true,
+              personCountry: parsed.personCountry || '',
+              personCountryCode: parsed.personCountryCode?.toUpperCase() || '',
             });
 
             articleDraftId = article._id.toString();
             articleTitle = parsed.title || 'Untitled';
             profile.articleCount = (profile.articleCount || 0) + 1;
 
+            const videoCount = parsed.sections?.length || 0;
             finalResponse = `✅ **Draft saved:** "${articleTitle}"
 
-Category: ${safeCategory}${coverImage ? ' · Cover image found' : ' · No cover image'}
+Category: ${safeCategory}${coverImage ? ' · Cover image found' : ' · No cover image'}${videoCount > 0 ? ` · ${videoCount} YouTube videos embedded` : ''}
 
 It's in the Articles tab → Drafts. Add CTAs manually, then publish.`
           }

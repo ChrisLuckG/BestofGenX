@@ -6,6 +6,7 @@ import { FeedSkeleton } from "./DesktopSkeletons";
 import CardMoodReactions from "@/components/CardMoodReactions";
 import { useAuth } from "@/context/AuthContext";
 import { isVideoUrl } from "@/utils/media";
+import { getFlagUrl } from "@/lib/countryFlags";
 
 const ARTICLES_PER_PAGE = 7;
 
@@ -288,10 +289,10 @@ export default function DesktopArticlesPage({ onOpenArticle, onShowLogin }: Desk
                       <div className="flex-1 min-w-0 cursor-pointer" onClick={() => handleArticleClick(article._id)}>
                         <div className="flex items-center gap-2">
                           {/* Flag FIRST, then category */}
-                          {article.personCountryCode && (
+                          {getFlagUrl(article.personCountryCode, article.personCountry, '20x15') && (
                             <span className="flex items-center" title={article.personCountry}>
                               <img 
-                                src={`https://flagcdn.com/20x15/${article.personCountryCode.toLowerCase()}.png`}
+                                src={getFlagUrl(article.personCountryCode, article.personCountry, '20x15')}
                                 alt={article.personCountry || ''}
                                 className="w-5 h-[15px] object-cover border border-gray-300 rounded-sm"
                               />

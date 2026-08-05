@@ -248,6 +248,12 @@ export default function DesktopPage() {
       setActiveTab('shop');
       window.history.replaceState({}, '', '/desktop');
     }
+    
+    // Restore article from URL on page load/refresh
+    const articleId = searchParams.get('article');
+    if (articleId && !openArticleId) {
+      setOpenArticleId(articleId);
+    }
   }, [searchParams]);
 
   // Coins loading + syncing handled by useBogxCoins hook
@@ -551,6 +557,8 @@ export default function DesktopPage() {
   // Memoized callbacks to prevent re-renders
   const handleOpenArticle = useCallback((id: string) => {
     setOpenArticleId(id);
+    // Update URL so refresh keeps the article open
+    window.history.pushState({}, '', `/desktop?article=${id}`);
     contentRef.current?.scrollTo(0, 0);
   }, []);
 
@@ -860,6 +868,8 @@ export default function DesktopPage() {
               {!staticPageSlug && showCommunitySound && <CommunitySoundPage isDesktop={true} onBack={() => setShowCommunitySound(false)} onOpenRadio={() => { setShowCommunitySound(false); handleTabChange('radio'); }} />}
               {!staticPageSlug && openArticleId && <ArticlePage articleId={openArticleId} onBack={() => {
                 setOpenArticleId(null);
+                // Clear article from URL
+                window.history.pushState({}, '', '/desktop');
                 // Refresh read articles from DB after viewing
                 if (user?.id) {
                   fetch(`/api/user/read-article?userId=${user.id}`)

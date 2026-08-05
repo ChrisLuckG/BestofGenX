@@ -20,7 +20,7 @@ export interface ResolvedBlock {
   main?: FillArticle | null;     // MAIN / SOCIAL
   left?: FillArticle | null;     // 2H
   right?: FillArticle | null;    // 2H
-  vertical?: FillArticle[];      // VERTICAL
+  vertical?: FillArticle[];      // VERTICAL / SLIDER
 }
 
 interface ContainerBlockLike {
@@ -141,6 +141,23 @@ export function resolveContainer(
       }
       vertical.forEach(a => { if (a._id) localUsed.add(a._id); });
       return { type: 'VERTICAL', vertical };
+    }
+
+    // SLIDER: auto-fill from category, excluding already used articles (waterfall)
+    if (block.type === 'SLIDER') {
+      const cat = (block.autoFillCategory || '').toLowerCase();
+      let slider: FillArticle[] = [];
+      if (cat) {
+        slider = [...articles]
+          .filter(a => (a.category || '').toLowerCase() === cat && isFillable(a) && a.coverImage && !localUsed.has(a._id || ''))
+          .sort(byNewest)
+          .slice(0, block.autoFillLimit || 20);
+      } else if (block.articles && block.articles.length > 0) {
+        slider = (block.articles || []).map(id => byId(id)).filter(Boolean) as FillArticle[];
+        slider = slider.filter(a => !localUsed.has(a._id || ''));
+      }
+      slider.forEach(a => { if (a._id) localUsed.add(a._id); });
+      return { type: 'SLIDER', vertical: slider }; // reuse 'vertical' field for slider items
     }
 
     return { type: block.type };

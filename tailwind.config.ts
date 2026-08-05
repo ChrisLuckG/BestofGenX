@@ -8,6 +8,16 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        // Bebas Neue — headlines, nav labels, buttons, card titles
+        display: ['var(--font-display)', 'Bebas Neue', 'Impact', 'sans-serif'],
+        // Inter — body text, meta, small labels
+        sans: ['var(--font-body)', 'Inter', 'system-ui', 'sans-serif'],
+        body: ['var(--font-body)', 'Inter', 'system-ui', 'sans-serif'],
+      },
+      letterSpacing: {
+        'display': '0.01em',
+      },
       colors: {
         sport: {
           DEFAULT: '#FF0000',      // Sportradar Red - primary

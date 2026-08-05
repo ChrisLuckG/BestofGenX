@@ -1253,9 +1253,9 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                       >
                         {article.coverImage ? (
                           isVideoUrl(article.coverImage) ? (
-                            <video src={article.coverImage} className="w-8 h-6 rounded object-cover hover:ring-2 hover:ring-[#D4873A]" muted autoPlay loop playsInline />
+                            <video src={article.coverImage} className="w-8 h-6 rounded object-cover hover:ring-2 hover:ring-[#D4873A]" style={{ objectPosition: `${article.imagePosX ?? 50}% ${article.imagePosY ?? 50}%` }} muted autoPlay loop playsInline />
                           ) : (
-                            <img src={article.coverImage} alt="" className="w-8 h-6 rounded object-cover hover:ring-2 hover:ring-[#D4873A]" />
+                            <img src={article.coverImage} alt="" className="w-8 h-6 rounded object-cover hover:ring-2 hover:ring-[#D4873A]" style={{ objectPosition: `${article.imagePosX ?? 50}% ${article.imagePosY ?? 50}%` }} />
                           )
                         ) : (
                           <div className="w-8 h-6 rounded bg-gray-700 flex items-center justify-center text-gray-500 text-[8px] hover:bg-gray-600">+</div>
@@ -1560,9 +1560,9 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                     <div className="relative aspect-[16/10] bg-gray-700">
                       {article.coverImage ? (
                         isVideoUrl(article.coverImage) ? (
-                          <video src={article.coverImage} className="w-full h-full object-cover" muted autoPlay loop playsInline />
+                          <video src={article.coverImage} className="w-full h-full object-cover" style={{ objectPosition: `${article.imagePosX ?? 50}% ${article.imagePosY ?? 50}%` }} muted autoPlay loop playsInline />
                         ) : (
-                          <img src={article.coverImage} alt="" className="w-full h-full object-cover" />
+                          <img src={article.coverImage} alt="" className="w-full h-full object-cover" style={{ objectPosition: `${article.imagePosX ?? 50}% ${article.imagePosY ?? 50}%` }} />
                         )
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-600 text-[9px]">No img</div>
@@ -1713,10 +1713,10 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
         )}
       </div>
 
-      {/* Article Editor Modal */}
+      {/* Article Editor Modal - Full Width for Desktop */}
       {editingArticle && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-xl w-full max-w-5xl max-h-[95vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-2">
+          <div className="bg-gray-800 rounded-xl w-full max-w-[95vw] max-h-[95vh] overflow-hidden flex flex-col">
             <div className="px-4 py-2.5 border-b border-gray-700 flex items-center justify-between sticky top-0 bg-gray-800 z-10">
               <h3 className="text-sm font-bold">{editingArticle._id ? 'Edit Article' : 'New Article'}</h3>
               <button onClick={() => { setEditingArticle(null); setIsCreatingArticle(false); }} className="text-gray-400 hover:text-white">
@@ -1724,7 +1724,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
               </button>
             </div>
             
-            <div className="p-3 space-y-3">
+            <div className="p-3 space-y-3 overflow-y-auto flex-1">
               {/* AI Generate */}
               <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-2.5 space-y-2">
                 <div className="flex gap-2">
@@ -2444,14 +2444,19 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
           if (imageManagerArticle) {
             const posX = position?.x ?? 50;
             const posY = position?.y ?? 50;
-            console.log('Saving image position:', { posX, posY, position });
+            console.log('🖼️ Saving image position:', { posX, posY, position, articleId: imageManagerArticle._id });
             const res = await fetch(`/api/articles/${imageManagerArticle._id}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ userId, coverImage: url, imagePosX: posX, imagePosY: posY }),
             });
             const data = await res.json();
-            console.log('API response:', data);
+            console.log('🖼️ API response:', data);
+            if (data.success) {
+              alert(`✅ Bild gespeichert!\nPosition: ${posX}% / ${posY}%`);
+            } else {
+              alert(`❌ Fehler: ${data.error}`);
+            }
             setArticles(prev => prev.map(a => a._id === imageManagerArticle._id ? { ...a, coverImage: url, imagePosX: posX, imagePosY: posY } : a));
             setImageManagerArticle(null);
           }

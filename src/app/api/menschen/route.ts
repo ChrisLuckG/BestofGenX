@@ -81,20 +81,20 @@ export async function POST(request: NextRequest) {
       discoveredFor, // 'birthday' or 'rip'
     } = body;
     
-    if (!name || !birthday || !country || !description || !discoveredBy || !discoveredByName || !discoveredFor) {
+    if (!name || !discoveredBy || !discoveredByName || !discoveredFor) {
       return NextResponse.json({ 
         success: false, 
-        error: 'Missing required fields: name, birthday, country, description, discoveredBy, discoveredByName, discoveredFor' 
+        error: 'Missing required fields: name, discoveredBy, discoveredByName, discoveredFor' 
       }, { status: 400 });
     }
     
     // Extract birth year and check if GenX
-    const yearMatch = birthday.match(/(\d{4})$/);
+    const yearMatch = birthday?.match(/(\d{4})$/);
     const birthYear = yearMatch ? parseInt(yearMatch[1]) : null;
     const isGenX = birthYear ? (birthYear >= 1965 && birthYear <= 1980) : true;
     
     // Check if already exists (by name + birthday)
-    const existing = await Menschen.findOne({ name, birthday });
+    const existing = await Menschen.findOne({ name, birthday: birthday || '' });
     if (existing) {
       return NextResponse.json({
         success: true,
@@ -107,16 +107,16 @@ export async function POST(request: NextRequest) {
     // Create new Mensch
     const mensch = await Menschen.create({
       name,
-      birthday,
-      deathday,
-      causeOfDeath,
-      country,
-      countryCode,
+      birthday: birthday || '',
+      deathday: deathday || '',
+      causeOfDeath: causeOfDeath || '',
+      country: country || '',
+      countryCode: countryCode || '',
       category: category || 'unknown',
-      profession,
-      description,
-      imageUrl,
-      wikiUrl,
+      profession: profession || '',
+      description: description || '',
+      imageUrl: imageUrl || '',
+      wikiUrl: wikiUrl || '',
       discoveredBy,
       discoveredByName,
       discoveredFor,

@@ -53,12 +53,12 @@ const MenschSchema = new Schema<IMensch>({
   firstName: { type: String },
   lastName: { type: String },
   name: { type: String, required: true, index: true },
-  birthday: { type: String, required: true },
+  birthday: { type: String, default: '' },
   birthYear: { type: Number },
   birthPlace: { type: String },
   deathday: { type: String },
   causeOfDeath: { type: String },
-  country: { type: String, required: true },
+  country: { type: String, default: '' },
   countryCode: { type: String },
   
   // Classification
@@ -71,7 +71,7 @@ const MenschSchema = new Schema<IMensch>({
   isGenX: { type: Boolean, default: true },
   
   // Description & content
-  description: { type: String, required: true },
+  description: { type: String, default: '' },
   shortBio: { type: String },
   
   // Media
@@ -98,8 +98,8 @@ const MenschSchema = new Schema<IMensch>({
   timestamps: true,
 });
 
-// Compound index for finding duplicates
-MenschSchema.index({ name: 1, birthday: 1 }, { unique: true });
+// Compound index for finding duplicates (sparse to allow empty birthdays)
+MenschSchema.index({ name: 1, birthday: 1 }, { unique: true, sparse: true });
 
 // Index for birthday searches (day.month)
 MenschSchema.index({ birthday: 1 });

@@ -6,6 +6,7 @@ import User from '@/models/User';
 import Comment from '@/models/Comment';
 import Menschen from '@/models/Menschen';
 import { getAutoFillSlugs } from '@/lib/categories';
+import { countryNameToCode } from '@/lib/countryFlags';
 import mongoose from 'mongoose';
 
 // Build a map of category-slug -> FIXED-block bannerImage from the saved template, so that
@@ -267,62 +268,8 @@ export async function POST(request: NextRequest) {
     // Auto-set thumbnailUrl if coverImage is a URL (not base64)
     const thumbnailUrl = coverImage?.startsWith('http') ? coverImage : '';
 
-    // Country code mapping for flags
-    const countryToCode: Record<string, string> = {
-      'United States': 'US', 'USA': 'US', 'America': 'US',
-      'United Kingdom': 'GB', 'UK': 'GB', 'England': 'GB', 'Britain': 'GB',
-      'Germany': 'DE', 'Deutschland': 'DE',
-      'France': 'FR', 'Frankreich': 'FR',
-      'Italy': 'IT', 'Italien': 'IT',
-      'Spain': 'ES', 'Spanien': 'ES',
-      'Canada': 'CA', 'Kanada': 'CA',
-      'Australia': 'AU', 'Australien': 'AU',
-      'Japan': 'JP',
-      'China': 'CN',
-      'South Korea': 'KR', 'Korea': 'KR',
-      'Brazil': 'BR', 'Brasilien': 'BR',
-      'Mexico': 'MX', 'Mexiko': 'MX',
-      'Argentina': 'AR', 'Argentinien': 'AR',
-      'Netherlands': 'NL', 'Holland': 'NL',
-      'Belgium': 'BE', 'Belgien': 'BE',
-      'Sweden': 'SE', 'Schweden': 'SE',
-      'Norway': 'NO', 'Norwegen': 'NO',
-      'Denmark': 'DK', 'Dänemark': 'DK',
-      'Finland': 'FI', 'Finnland': 'FI',
-      'Poland': 'PL', 'Polen': 'PL',
-      'Russia': 'RU', 'Russland': 'RU',
-      'Austria': 'AT', 'Österreich': 'AT',
-      'Switzerland': 'CH', 'Schweiz': 'CH',
-      'Ireland': 'IE', 'Irland': 'IE',
-      'Scotland': 'GB', 'Wales': 'GB',
-      'Portugal': 'PT',
-      'Greece': 'GR', 'Griechenland': 'GR',
-      'Turkey': 'TR', 'Türkei': 'TR',
-      'India': 'IN', 'Indien': 'IN',
-      'South Africa': 'ZA', 'Südafrika': 'ZA',
-      'New Zealand': 'NZ', 'Neuseeland': 'NZ',
-      'Jamaica': 'JM', 'Jamaika': 'JM',
-      'Cuba': 'CU', 'Kuba': 'CU',
-      'Puerto Rico': 'PR',
-      'Cameroon': 'CM', 'Kamerun': 'CM',
-      'Nigeria': 'NG',
-      'Ghana': 'GH',
-      'Senegal': 'SN',
-      'Iceland': 'IS', 'Island': 'IS',
-      'Croatia': 'HR', 'Kroatien': 'HR',
-      'Serbia': 'RS', 'Serbien': 'RS',
-      'Ukraine': 'UA',
-      'Czech Republic': 'CZ', 'Tschechien': 'CZ',
-      'Hungary': 'HU', 'Ungarn': 'HU',
-      'Romania': 'RO', 'Rumänien': 'RO',
-      'Colombia': 'CO', 'Kolumbien': 'CO',
-      'Chile': 'CL',
-      'Peru': 'PE',
-      'Venezuela': 'VE',
-    };
-    
     const personCountryRaw = body.personCountry;
-    const personCountryCode = personCountryRaw ? (countryToCode[personCountryRaw] || '') : '';
+    const personCountryCode = countryNameToCode(personCountryRaw);
 
     const article = await Article.create({
       title,

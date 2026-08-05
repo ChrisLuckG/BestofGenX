@@ -9,6 +9,7 @@ import CategoryBadge from "@/components/CategoryBadge";
 import LazyImage from "@/components/LazyImage";
 import { useAuth } from "@/context/AuthContext";
 import { getAutoFillSlugs, getCategoryLabel as getSubCategoryLabel } from "@/lib/categories";
+import { getFlagUrl as resolveFlagUrl } from "@/lib/countryFlags";
 
 interface Article {
   _id: string;
@@ -55,6 +56,13 @@ const MAIN_CATEGORY_LABELS: Record<string, string> = {
   'shop': 'SHOP',
 };
 
+// Flag URL for an article - falls back to the country name for legacy
+// articles that were saved without a personCountryCode.
+const articleFlagUrl = (
+  article: { personCountryCode?: string; personCountry?: string },
+  size: string = '48x36'
+): string => resolveFlagUrl(article.personCountryCode, article.personCountry, size);
+
 // Helper to get frontend label from mainCategory
 const getCategoryLabel = (mainCategory: string): string => {
   return MAIN_CATEGORY_LABELS[mainCategory] || 'ARTICLES';
@@ -72,16 +80,17 @@ const isVideo = (url?: string): boolean => {
 
 // Helper to get object-position from article
 const getImagePosition = (article: Article, type: 'cover' | 'thumbnail' = 'cover'): string => {
-  // Use new position fields first
+  // Use thumbnail position for thumbnails
   if (type === 'thumbnail' && article.thumbnailPosition) {
     return `${article.thumbnailPosition.x}% ${article.thumbnailPosition.y}%`;
   }
-  if (article.coverPosition) {
-    return `${article.coverPosition.x}% ${article.coverPosition.y}%`;
-  }
-  // Fallback to legacy fields
+  // imagePosX/Y has priority (set by ImagePickerModal)
   if (article.imagePosX !== undefined || article.imagePosY !== undefined) {
     return `${article.imagePosX ?? 50}% ${article.imagePosY ?? 50}%`;
+  }
+  // Fallback to coverPosition
+  if (article.coverPosition) {
+    return `${article.coverPosition.x}% ${article.coverPosition.y}%`;
   }
   return article.imagePosition || 'center';
 };
@@ -455,7 +464,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       {/* Gradient overlay - only at bottom for text readability */}
       <div className={`absolute inset-0 bg-gradient-to-t ${article.category === 'rip' ? 'from-white/80 via-white/20 to-transparent' : 'from-black via-black/30 to-transparent'}`} />
       
-      {/* Category badge only (flag is above headline) */}
+      {/* Category badge - top left */}
       <div className="absolute top-3 left-3 z-20">
         <CategoryBadge 
           category={article.category || article.mainCategory} 
@@ -463,12 +472,15 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         />
       </div>
       
-      {/* Read badge - only show green check when read */}
-      {readArticles.has(article._id) && (
+      {/* Flag - top right */}
+      {articleFlagUrl(article) && (
         <div className="absolute top-3 right-3 z-20">
-          <span className="w-4 h-4 border border-emerald-600 bg-emerald-600/30 rounded-none flex items-center justify-center">
-            <Check className="w-2.5 h-2.5 text-white" />
-          </span>
+          <img 
+            src={articleFlagUrl(article, '48x36')}
+            alt={article.personCountry || ''}
+            title={article.personCountry}
+            className="w-10 h-[30px] object-cover rounded shadow-lg"
+          />
         </div>
       )}
       
@@ -477,19 +489,10 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       )}
       {/* Content - fixed at bottom */}
       <div className="absolute bottom-0 left-0 right-0 z-10 p-4">
-        {/* Flag + Country Name above headline */}
-        {article.personCountryCode && (
-          <div className="flex items-center gap-2 mb-2">
-            <img 
-              src={`https://flagcdn.com/48x36/${article.personCountryCode.toLowerCase()}.png`}
-              alt={article.personCountry || ''}
-              className="w-8 h-6 object-cover rounded shadow-lg"
-              style={{ border: '1px solid rgba(255,255,255,0.4)' }}
-            />
-            <span className="text-white/90 text-sm font-medium drop-shadow-lg">{article.personCountry}</span>
-          </div>
-        )}
-        <h2 className={`font-display text-[28px] lg:text-[32px] tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} group-hover:text-[#D4873A] leading-tight mb-1.5 line-clamp-2 transition-colors`}>{article.title}</h2>
+        {/* Read badge inline with title */}
+        <div className="flex items-start gap-2">
+          <h2 className={`font-display text-[28px] lg:text-[32px] tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} group-hover:text-[#D4873A] leading-tight mb-1.5 line-clamp-2 transition-colors flex-1`}>{article.title}</h2>
+        </div>
         <div className="flex items-center justify-between gap-2 text-[11px] text-white/70">
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-5 h-5 rounded-full overflow-hidden flex-shrink-0 border border-white/30">
@@ -584,38 +587,30 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         )}
         {/* Dark gradient for text readability */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-        {/* Category badge only - top left */}
+        {/* Category badge - top left */}
         <div className="absolute top-3 left-3 z-20">
           <CategoryBadge 
             category={article.category || article.mainCategory} 
             size="md" 
           />
         </div>
-        {/* Flag + Country ABOVE Title at bottom */}
+        {/* Flag - top right */}
+        {articleFlagUrl(article) && (
+          <div className="absolute top-3 right-3 z-20">
+            <img 
+              src={articleFlagUrl(article, '40x30')}
+              alt={article.personCountry || ''}
+              title={article.personCountry}
+              className="w-9 h-[27px] object-cover rounded shadow-lg"
+            />
+          </div>
+        )}
+        {/* Title at bottom with read badge */}
         <div className="absolute bottom-3 left-3 right-3 z-10">
-          {article.personCountryCode && (
-            <div className="flex items-center gap-2 mb-2">
-              <img 
-                src={`https://flagcdn.com/40x30/${article.personCountryCode.toLowerCase()}.png`}
-                alt={article.personCountry || ''}
-                className="w-8 h-6 object-cover rounded shadow-lg"
-                style={{ border: '1px solid rgba(255,255,255,0.4)' }}
-              />
-              <span className="text-white/90 text-sm font-medium drop-shadow-lg">{article.personCountry}</span>
-            </div>
-          )}
           <h2 className="font-display text-[22px] lg:text-[26px] tracking-wide text-white group-hover:text-[#D4873A] leading-tight line-clamp-2 drop-shadow-lg transition-colors">
             {article.title}
           </h2>
         </div>
-        {/* Read badge - only show green check when read */}
-        {readArticles.has(article._id) && (
-          <div className="absolute top-3 right-3 z-20">
-            <span className="w-4 h-4 border border-emerald-600 bg-emerald-600/30 rounded-none flex items-center justify-center">
-              <Check className="w-2.5 h-2.5 text-white" />
-            </span>
-          </div>
-        )}
       </div>
       
       {/* Content - title below image on mobile, subtitle on desktop */}
@@ -651,7 +646,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       {/* Gradient overlay */}
       <div className={`absolute inset-0 bg-gradient-to-t ${article.category === 'rip' ? 'from-white/80 via-white/20 to-transparent' : 'from-black via-black/40 to-transparent'}`} />
       
-      {/* Category badge only - top left */}
+      {/* Category badge - top left */}
       <div className="absolute top-2 left-2 z-20">
         <CategoryBadge 
           category={article.category || article.mainCategory} 
@@ -659,32 +654,26 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         />
       </div>
       
-      {/* Read badge - only show green check when read */}
-      {readArticles.has(article._id) && (
+      {/* Flag - top right */}
+      {articleFlagUrl(article) && (
         <div className="absolute top-2 right-2 z-20">
-          <span className="w-3.5 h-3.5 border border-emerald-600 bg-emerald-600/30 rounded-none flex items-center justify-center">
-            <Check className="w-2 h-2 text-white" />
-          </span>
+          <img 
+            src={articleFlagUrl(article, '32x24')}
+            alt={article.personCountry || ''}
+            title={article.personCountry}
+            className="w-7 h-5 object-cover rounded-sm shadow-lg"
+          />
         </div>
       )}
       
       {article.category === 'rip' && (
         <div className="absolute bottom-8 right-2 z-20 text-white text-2xl leading-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]" style={{fontFamily:'Georgia,serif'}}>✝</div>
       )}
-      {/* Content - bottom: Flag + Country ABOVE headline */}
+      {/* Content - bottom: Title with read badge */}
       <div className="absolute bottom-2 left-2 right-2 z-10">
-        {article.personCountryCode && (
-          <div className="flex items-center gap-1.5 mb-1">
-            <img 
-              src={`https://flagcdn.com/24x18/${article.personCountryCode.toLowerCase()}.png`}
-              alt={article.personCountry || ''}
-              className="w-5 h-[14px] object-cover rounded-sm shadow"
-              style={{ border: '1px solid rgba(255,255,255,0.3)' }}
-            />
-            <span className="text-white/80 text-[10px] font-medium drop-shadow">{article.personCountry}</span>
-          </div>
-        )}
-        <h3 className={`font-display text-[18px] lg:text-xl tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} leading-tight mb-1 line-clamp-2`}>{article.title}</h3>
+        <div className="flex items-start gap-1.5">
+          <h3 className={`font-display text-[18px] lg:text-xl tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} leading-tight mb-1 line-clamp-2 flex-1`}>{article.title}</h3>
+        </div>
         <div className="flex items-center justify-end gap-1 text-[10px] text-white/70">
           {/* Moods & Comments inline */}
           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
@@ -721,7 +710,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       {/* Gradient overlay */}
       <div className={`absolute inset-0 bg-gradient-to-t ${article.category === 'rip' ? 'from-white/80 via-white/20 to-transparent' : 'from-black via-black/50 to-transparent'}`} />
       
-      {/* Category badge only - top left */}
+      {/* Category badge - top left */}
       <div className="absolute top-2 left-2 z-20">
         <CategoryBadge 
           category={article.category || article.mainCategory} 
@@ -729,32 +718,26 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         />
       </div>
       
-      {/* Read badge - only show green check when read */}
-      {readArticles.has(article._id) && (
+      {/* Flag - top right */}
+      {articleFlagUrl(article) && (
         <div className="absolute top-2 right-2 z-20">
-          <span className="w-3.5 h-3.5 border border-emerald-600 bg-emerald-600/30 rounded-none flex items-center justify-center">
-            <Check className="w-2 h-2 text-white" />
-          </span>
+          <img 
+            src={articleFlagUrl(article, '32x24')}
+            alt={article.personCountry || ''}
+            title={article.personCountry}
+            className="w-7 h-5 object-cover rounded-sm shadow-lg"
+          />
         </div>
       )}
       
       {article.category === 'rip' && (
         <div className="absolute bottom-10 right-3 z-20 text-white text-2xl leading-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]" style={{fontFamily:'Georgia,serif'}}>✝</div>
       )}
-      {/* Content - fixed at bottom: Flag + Country ABOVE headline */}
+      {/* Content - fixed at bottom: Title with read badge */}
       <div className="absolute bottom-0 left-0 right-0 z-10 p-3">
-        {article.personCountryCode && (
-          <div className="flex items-center gap-1.5 mb-1">
-            <img 
-              src={`https://flagcdn.com/24x18/${article.personCountryCode.toLowerCase()}.png`}
-              alt={article.personCountry || ''}
-              className="w-5 h-[14px] object-cover rounded-sm shadow"
-              style={{ border: '1px solid rgba(255,255,255,0.3)' }}
-            />
-            <span className="text-white/80 text-[10px] font-medium drop-shadow">{article.personCountry}</span>
-          </div>
-        )}
-        <h3 className={`font-display text-[19px] lg:text-xl tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} group-hover:text-[#D4873A] leading-tight mb-1 line-clamp-2 transition-colors`}>{article.title}</h3>
+        <div className="flex items-start gap-1.5">
+          <h3 className={`font-display text-[19px] lg:text-xl tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} group-hover:text-[#D4873A] leading-tight mb-1 line-clamp-2 transition-colors flex-1`}>{article.title}</h3>
+        </div>
         <div className="flex items-center justify-between gap-2 text-[10px] text-white/70">
           <div className="flex items-center gap-2 min-w-0">
             <span className="truncate">{article.authorName}</span>
@@ -781,19 +764,12 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
     const bgClass = hasColorTheme ? 'bg-white/20 backdrop-blur-sm' : 'bg-cream';
     return (
     <div
-      className={`flex-shrink-0 w-40 rounded-none overflow-hidden ${bgClass} border ${cardTheme.border} text-left shadow-md hover:shadow-lg ${cardTheme.hoverBorder} transition-all duration-200 relative group cursor-pointer`}
+      onClick={() => handleArticleClick(article._id)}
+      className={`flex-shrink-0 w-40 rounded-none overflow-hidden ${bgClass} border ${cardTheme.border} text-left shadow-md hover:shadow-lg ${cardTheme.hoverBorder} transition-all duration-200 relative group cursor-pointer touch-manipulation`}
     >
-      {/* Read badge - only show green check when read */}
-      {readArticles.has(article._id) && (
-        <div className="absolute top-1 right-1 z-20">
-          <span className="w-3.5 h-3.5 border border-emerald-600 bg-emerald-600/30 rounded-none flex items-center justify-center">
-            <Check className="w-2 h-2 text-white" />
-          </span>
-        </div>
-      )}
       {/* Image/Video - shorter aspect ratio */}
       {article.coverImage && (
-        <div className="w-full aspect-[4/3] overflow-hidden relative" onClick={() => handleArticleClick(article._id)}>
+        <div className="w-full aspect-[4/3] overflow-hidden relative">
           {isVideo(article.coverImage) ? (
             <video src={article.coverImage} className="w-full h-full object-cover" style={{ objectPosition: getImagePosition(article), transform: `scale(${(article.imageScale || 100) / 100})` }} muted autoPlay loop playsInline />
           ) : (
@@ -806,7 +782,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       )}
       {/* Content - below image */}
       <div className="p-1.5">
-        <h3 onClick={() => handleArticleClick(article._id)} className={`font-display text-[20px] tracking-wide leading-tight line-clamp-2 transition-colors ${hasColorTheme ? 'text-white group-hover:text-gray-900' : 'text-gray-900 group-hover:text-[#D4873A]'}`}>{article.title}</h3>
+        <h3 className={`font-display text-[20px] tracking-wide leading-tight line-clamp-2 transition-colors ${hasColorTheme ? 'text-white group-hover:text-gray-900' : 'text-gray-900 group-hover:text-[#D4873A]'}`}>{article.title}</h3>
         {/* Likes & Comments */}
         <div className={`flex items-center gap-2 mt-1 text-[8px] ${hasColorTheme ? 'text-gray-700' : 'text-gray-500'}`} onClick={(e) => e.stopPropagation()}>
           <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} />
@@ -921,7 +897,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       tabIndex={0}
       onClick={() => handleArticleClick(article._id)}
       onKeyDown={(e) => e.key === 'Enter' && onOpenArticle?.(article._id)}
-      className={`w-full rounded-none overflow-hidden ${bgClass} border ${cardTheme.border} text-left shadow-md hover:shadow-lg ${cardTheme.hoverBorder} transition-all duration-200 group cursor-pointer relative ${loadingArticleId === article._id ? 'pointer-events-none' : ''}`}
+      className={`w-full rounded-none overflow-hidden ${bgClass} border ${cardTheme.border} text-left shadow-md hover:shadow-lg ${cardTheme.hoverBorder} transition-all duration-200 group cursor-pointer relative touch-manipulation ${loadingArticleId === article._id ? 'pointer-events-none' : ''}`}
     >
       <LoadingOverlay articleId={article._id} />
       {/* Header: Avatar + Name + Time + Menu */}
@@ -970,38 +946,30 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           )}
           {/* Dark gradient for text readability - only on desktop */}
           {isDesktop && <div className={`absolute inset-0 bg-gradient-to-t ${article.category === 'rip' ? 'from-white/80 via-white/20 to-transparent' : 'from-black/70 via-black/20 to-transparent'}`} />}
-          {/* Category badge only - top left */}
+          {/* Category badge - top left */}
           <div className="absolute top-2 left-2 z-20">
             <CategoryBadge 
               category={article.category || article.mainCategory} 
               size="sm" 
             />
           </div>
-          {/* Flag + Country + Title ON the image - only on desktop */}
+          {/* Flag - top right */}
+          {articleFlagUrl(article) && (
+            <div className="absolute top-2 right-2 z-20">
+              <img 
+                src={articleFlagUrl(article, '32x24')}
+                alt={article.personCountry || ''}
+                title={article.personCountry}
+                className="w-7 h-5 object-cover rounded-sm shadow-lg"
+              />
+            </div>
+          )}
+          {/* Title ON the image - only on desktop */}
           {isDesktop && (
             <div className="absolute bottom-2 left-2 right-2 z-10">
-              {article.personCountryCode && (
-                <div className="flex items-center gap-1.5 mb-1">
-                  <img 
-                    src={`https://flagcdn.com/24x18/${article.personCountryCode.toLowerCase()}.png`}
-                    alt={article.personCountry || ''}
-                    className="w-5 h-[14px] object-cover rounded-sm shadow"
-                    style={{ border: '1px solid rgba(255,255,255,0.3)' }}
-                  />
-                  <span className="text-white/80 text-[10px] font-medium drop-shadow">{article.personCountry}</span>
-                </div>
-              )}
               <h3 className={`font-display text-lg lg:text-3xl tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} group-hover:text-[#D4873A] leading-tight line-clamp-3 drop-shadow-lg transition-colors`}>
                 {article.title}
               </h3>
-            </div>
-          )}
-          {/* Read badge - only show green check when read */}
-          {readArticles.has(article._id) && (
-            <div className="absolute top-2 right-2 z-20">
-              <span className="w-3.5 h-3.5 border border-emerald-600 bg-emerald-600/30 rounded-none flex items-center justify-center">
-                <Check className="w-2 h-2 text-white" />
-              </span>
             </div>
           )}
         </div>
@@ -1054,18 +1022,9 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       role="button"
       tabIndex={0}
       onClick={() => handleArticleClick(article._id)}
-      onKeyDown={(e) => e.key === 'Enter' && onOpenArticle?.(article._id)}
-      className={`w-full flex items-center gap-3 p-2 bg-cream border border-warm rounded-none text-left shadow-md hover:shadow-lg hover:border-[#D4873A]/30 transition-all duration-200 relative group cursor-pointer ${loadingArticleId === article._id ? 'pointer-events-none' : ''}`}
+      className={`w-full flex items-center gap-3 p-2 bg-cream border border-warm rounded-none text-left shadow-md hover:shadow-lg hover:border-[#D4873A]/30 transition-all duration-200 relative group cursor-pointer touch-manipulation ${loadingArticleId === article._id ? 'pointer-events-none' : ''}`}
     >
       <LoadingOverlay articleId={article._id} />
-      {/* Read badge - only show green check when read */}
-      {readArticles.has(article._id) && (
-        <div className="absolute top-1.5 right-1.5 z-20">
-          <span className="w-3.5 h-3.5 border border-emerald-600 bg-emerald-600/30 rounded-none flex items-center justify-center">
-            <Check className="w-2 h-2 text-white" />
-          </span>
-        </div>
-      )}
       {/* Thumbnail - bigger */}
       {article.coverImage && (
         <div className="w-20 h-20 rounded-none overflow-hidden flex-shrink-0 border border-warm bg-gray-200">
@@ -1091,10 +1050,10 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       <div className="flex-1 min-w-0 flex flex-col justify-center h-20">
         <div className="flex items-center gap-2 mb-0.5">
           {/* Flag FIRST, then category */}
-          {article.personCountryCode && (
+          {articleFlagUrl(article) && (
             <span className="flex items-center" title={article.personCountry}>
               <img 
-                src={`https://flagcdn.com/20x15/${article.personCountryCode.toLowerCase()}.png`}
+                src={articleFlagUrl(article, '20x15')}
                 alt={article.personCountry || ''}
                 className="w-5 h-[15px] object-cover border border-gray-300 rounded-sm"
               />
@@ -1504,35 +1463,33 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                             const cat = block.autoFillCategory.toLowerCase();
                             
                             // Filter by category OR mainCategory and sort by date (newest first)
-                            // For history: check if container has a FIXED banner block - if so, exclude today's article
-                            const containerHasFixedBanner = item.containerBlocks?.some(b => b.type === 'FIXED');
-                            const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-                            
+                            // WATERFALL: exclude articles already used by MAIN/2H/FIXED blocks
                             const autoArticles = [...articles]
                               .filter(a => {
                                 if (a.status !== 'published') return false;
                                 if (a.contentType === 'music-community' || a.contentType === 'rankroll' || a.contentType === 'banner-page') return false;
+                                // Waterfall: skip articles already used in this container
+                                if (usedArticleIds.has(a._id)) return false;
                                 const artCat = a.category?.toLowerCase() || '';
                                 const artMain = a.mainCategory?.toLowerCase() || '';
                                 if (!( artCat === cat || artMain === cat || artCat.includes(cat) || artMain.includes(cat))) return false;
-                                // If container has a banner (showing today's article), exclude today's articles from slider
-                                // Banner always shows the latest; slider shows older articles
-                                if (containerHasFixedBanner && (cat === 'history' || cat === 'gaming')) {
-                                  const created = new Date(a.createdAt || 0);
-                                  if (created >= todayStart) return false;
-                                }
                                 return true;
                               })
                               .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
                               .slice(0, limit);
                             
-                            console.log(`SLIDER auto-fill: category=${cat}, found ${autoArticles.length} articles`);
+                            // Mark slider articles as used for waterfall
+                            autoArticles.forEach(a => usedArticleIds.add(a._id));
+                            
+                            console.log(`SLIDER auto-fill: category=${cat}, found ${autoArticles.length} articles (excluding ${usedArticleIds.size} used)`);
                             
                             if (autoArticles.length === 0) return null;
                             return <div key={blockIdx}><SliderContainer articleIds={autoArticles.map(a => a._id)} theme={containerTheme} /></div>;
                           }
-                          // Manual: use specified article IDs
-                          return <div key={blockIdx}><SliderContainer articleIds={block.articles || []} theme={containerTheme} /></div>;
+                          // Manual: use specified article IDs (also filter out used ones)
+                          const manualIds = (block.articles || []).filter(id => !usedArticleIds.has(id));
+                          manualIds.forEach(id => usedArticleIds.add(id));
+                          return <div key={blockIdx}><SliderContainer articleIds={manualIds} theme={containerTheme} /></div>;
                         }
                         if (block.type === 'VERTICAL') {
                           console.log('VERTICAL block found:', block);

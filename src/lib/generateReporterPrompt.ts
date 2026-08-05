@@ -66,13 +66,38 @@ When asked to write an article, ALWAYS respond with this exact JSON format:
 {
   "title": "Catchy headline, max 80 chars, NO HTML",
   "subtitle": "Teaser sentence, max 120 chars, NO HTML",
-  "content": "<p>Intro paragraph...</p><h2>Section Title</h2><p>Content...</p><h2>Section 2</h2><p>...</p>",
+  "personCountry": "Country where the person was BORN (e.g. 'Brazil', 'South Korea', 'United States')",
+  "personCountryCode": "ISO 2-letter code of BIRTH country (e.g. 'BR', 'KR', 'US')",
+  "sections": [
+    {
+      "heading": null,
+      "text": "<p>Intro paragraph 1...</p><p>Intro paragraph 2...</p>",
+      "youtubeSearch": "specific YouTube search for intro topic"
+    },
+    {
+      "heading": "The Early Days",
+      "text": "<p>Content about early career...</p><p>More details...</p>",
+      "youtubeSearch": "Artist Name early performance 1985"
+    },
+    {
+      "heading": "The Breakthrough",
+      "text": "<p>Content about breakthrough...</p>",
+      "youtubeSearch": "Artist Name famous song official video"
+    }
+  ],
   "tags": ["tag1", "tag2", "tag3"],
   "category": "PICK EXACTLY ONE — see rules below",
   "imageSearchTerm": "specific search term for finding a cover image on Wikimedia",
-  "ctas": ["rankroll", "shop", "arcade", "radio", "tv", "articles"],
-  "youtubeSearchTerm": "specific funny or iconic YouTube clip title related to the article topic"
+  "ctas": ["rankroll", "shop", "arcade", "radio", "tv", "articles"]
 }
+
+⚠️⚠️⚠️ SECTIONS WITH YOUTUBE VIDEOS — CRITICAL ⚠️⚠️⚠️
+Each section MUST have a "youtubeSearch" field with a SPECIFIC search term to find a relevant YouTube video:
+- For music: "Band Name Song Title official video" or "Artist Name live concert 1992"
+- For movies: "Movie Title trailer" or "Actor Name famous scene movie name"
+- For sports: "Athlete Name best moments" or "Match Name highlights year"
+- Be SPECIFIC: "Sepultura Inner Self live 1991" NOT just "Sepultura"
+- The video should directly relate to what that section discusses
 
 CATEGORY SELECTION RULES — pick the single most relevant slug:
 - "music"       → songs, bands, albums, concerts, artists, music videos
@@ -97,13 +122,12 @@ CTA SELECTION RULES (always include 1-3):
 - "tv" → movies, TV shows, cinema, streaming
 - "articles" → ALWAYS include — encourages reading more
 
-Always add youtubeSearchTerm: a very specific search for a funny/iconic clip (e.g. "Winona Ryder Beetlejuice graveyard scene", "Kurt Cobain Smells Like Teen Spirit MTV 1991").
-
-CONTENT STRUCTURE:
-- Start with 2-3 intro paragraphs (<p> tags, NO heading before first paragraph)
-- Then 6-8 sections, EACH with <h2>Title</h2> followed by 3-5 <p> paragraphs
+SECTION STRUCTURE:
+- First section: heading=null (intro), 2-3 paragraphs
+- Then 5-7 more sections, EACH with a heading and 3-5 <p> paragraphs
 - Use <strong> for important names/titles
 - DO NOT repeat the article title inside the content
+- EVERY section needs a youtubeSearch for a relevant video
 
 ⚠️⚠️⚠️ LENGTH IS CRITICAL — READ THIS ⚠️⚠️⚠️
 - MINIMUM 1500 words, ideally 2000+ words

@@ -748,10 +748,10 @@ export default function ImagePickerModal({
                 )}
               </div>
             </div>
-            {/* Desktop banner preview */}
+            {/* Desktop banner preview - matches ArticlePage aspect-[21/9] */}
             <div>
               <div className="text-[9px] text-gray-500 mb-1 uppercase tracking-wider">Desktop Banner</div>
-              <div className="mx-auto w-full aspect-[3/1] rounded bg-gray-700 border border-gray-600 overflow-hidden">
+              <div className="mx-auto w-full aspect-[21/9] rounded bg-gray-700 border border-gray-600 overflow-hidden">
                 {selectedImage ? (
                   isVideoUrl(selectedImage) ? (
                     getYoutubeId(selectedImage) ? (
