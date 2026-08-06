@@ -77,7 +77,7 @@ function SortableCategoryTab({
       ref={setNodeRef}
       style={style}
       className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
-        isActive ? 'bg-[#D4873A] text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+        isActive ? 'bg-[#E36B11] text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
       }`}
       onClick={onClick}
     >
@@ -480,7 +480,7 @@ export default function TVTab() {
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center py-12 gap-3">
-      <Loader2 className="w-8 h-8 animate-spin text-[#D4873A]" />
+      <Loader2 className="w-8 h-8 animate-spin text-[#E36B11]" />
       <p className="text-gray-400 text-sm">Loading videos...</p>
     </div>
   );
@@ -490,7 +490,7 @@ export default function TVTab() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Tv className="w-5 h-5 text-[#D4873A]" />
+          <Tv className="w-5 h-5 text-[#E36B11]" />
           <h2 className="text-lg font-bold">TV / Video Library</h2>
           <span className="text-gray-500 text-sm">({filteredVideos.length}/{videos.length})</span>
         </div>
@@ -502,21 +502,21 @@ export default function TVTab() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search videos..."
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-9 pr-3 py-1.5 text-sm focus:outline-none focus:border-[#D4873A]"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-9 pr-3 py-1.5 text-sm focus:outline-none focus:border-[#E36B11]"
             />
           </div>
           {/* View Toggle */}
           <div className="flex bg-gray-800 rounded-lg p-0.5">
             <button
               onClick={() => setViewMode('list')}
-              className={`p-1.5 rounded transition-colors ${viewMode === 'list' ? 'bg-[#D4873A] text-white' : 'text-gray-400 hover:text-white'}`}
+              className={`p-1.5 rounded transition-colors ${viewMode === 'list' ? 'bg-[#E36B11] text-white' : 'text-gray-400 hover:text-white'}`}
               title="List View"
             >
               <List className="w-4 h-4" />
             </button>
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded transition-colors ${viewMode === 'grid' ? 'bg-[#D4873A] text-white' : 'text-gray-400 hover:text-white'}`}
+              className={`p-1.5 rounded transition-colors ${viewMode === 'grid' ? 'bg-[#E36B11] text-white' : 'text-gray-400 hover:text-white'}`}
               title="Grid View"
             >
               <LayoutGrid className="w-4 h-4" />
@@ -530,7 +530,7 @@ export default function TVTab() {
           </button>
           <button
             onClick={() => setIsCreating(true)}
-            className="flex items-center gap-2 bg-[#D4873A] hover:bg-[#C4772A] px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap"
+            className="flex items-center gap-2 bg-[#E36B11] hover:bg-[#C4772A] px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap"
           >
             <Plus className="w-4 h-4" />
             Add Video
@@ -556,12 +556,12 @@ export default function TVTab() {
                 value={newCategoryName}
                 onChange={(e) => setNewCategoryName(e.target.value)}
                 placeholder="New category name..."
-                className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#D4873A]"
+                className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E36B11]"
                 onKeyDown={(e) => e.key === 'Enter' && addCategory()}
               />
               <button
                 onClick={addCategory}
-                className="px-4 py-2 bg-[#D4873A] hover:bg-[#C4772A] rounded-lg text-sm font-medium"
+                className="px-4 py-2 bg-[#E36B11] hover:bg-[#C4772A] rounded-lg text-sm font-medium"
               >
                 Add
               </button>
@@ -592,7 +592,7 @@ export default function TVTab() {
           <button
             onClick={() => setActiveFilter('all')}
             className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-              activeFilter === 'all' ? 'bg-[#D4873A] text-white' : 'text-gray-400 hover:text-white'
+              activeFilter === 'all' ? 'bg-[#E36B11] text-white' : 'text-gray-400 hover:text-white'
             }`}
           >
             All
@@ -620,7 +620,7 @@ export default function TVTab() {
           <button
             onClick={() => setCategoryFilter(null)}
             className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-              !categoryFilter ? 'bg-[#D4873A] text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+              !categoryFilter ? 'bg-[#E36B11] text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
             }`}
           >
             All Categories
@@ -659,19 +659,19 @@ export default function TVTab() {
                 value={newVideo.youtubeUrl}
                 onChange={(e) => handleYouTubeUrlChange(e.target.value)}
                 placeholder="https://youtube.com/watch?v=..."
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#D4873A]"
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E36B11]"
               />
             </div>
             <div>
               <label className="block text-gray-400 text-xs mb-1">
-                Title * {isFetchingMetadata && <span className="text-[#D4873A] text-[10px]">(Auto-fetching...)</span>}
+                Title * {isFetchingMetadata && <span className="text-[#E36B11] text-[10px]">(Auto-fetching...)</span>}
               </label>
               <input
                 type="text"
                 value={newVideo.title}
                 onChange={(e) => setNewVideo(prev => ({ ...prev, title: e.target.value }))}
                 placeholder={isFetchingMetadata ? "Loading from YouTube..." : "Video title"}
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#D4873A]"
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E36B11]"
               />
             </div>
             <div>
@@ -679,7 +679,7 @@ export default function TVTab() {
               <select
                 value={newVideo.category}
                 onChange={(e) => setNewVideo(prev => ({ ...prev, category: e.target.value }))}
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#D4873A]"
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E36B11]"
               >
                 {categoryNames.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
@@ -693,7 +693,7 @@ export default function TVTab() {
                 value={newVideo.duration}
                 onChange={(e) => setNewVideo(prev => ({ ...prev, duration: e.target.value }))}
                 placeholder="e.g. 3:45 or 1:23:45"
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#D4873A]"
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E36B11]"
               />
             </div>
             <div>
@@ -721,7 +721,7 @@ export default function TVTab() {
                 value={newVideo.description}
                 onChange={(e) => setNewVideo(prev => ({ ...prev, description: e.target.value }))}
                 placeholder="Video description..."
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#D4873A] h-20 resize-none"
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E36B11] h-20 resize-none"
               />
             </div>
             <div className="col-span-2">
@@ -889,7 +889,7 @@ export default function TVTab() {
                     <Play className="w-10 h-10 text-white fill-current" />
                   </div>
                   {video.featuredPosition && (
-                    <span className="absolute top-2 left-2 bg-[#D4873A] text-white text-sm w-6 h-6 rounded-full flex items-center justify-center font-bold shadow-lg">
+                    <span className="absolute top-2 left-2 bg-[#E36B11] text-white text-sm w-6 h-6 rounded-full flex items-center justify-center font-bold shadow-lg">
                       {video.featuredPosition}
                     </span>
                   )}
@@ -927,7 +927,7 @@ export default function TVTab() {
                       onChange={(e) => setFeaturedPosition(video, e.target.value ? Number(e.target.value) : null)}
                       className={`flex-1 py-1 px-2 rounded text-xs cursor-pointer ${
                         video.featuredPosition 
-                          ? 'bg-[#D4873A] text-white font-bold' 
+                          ? 'bg-[#E36B11] text-white font-bold' 
                           : 'bg-gray-700 text-gray-400'
                       }`}
                     >
@@ -987,7 +987,7 @@ export default function TVTab() {
                   <Play className="w-4 h-4 text-white fill-current" />
                 </div>
                 {video.featuredPosition && (
-                  <span className="absolute top-0.5 left-0.5 bg-[#D4873A] text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                  <span className="absolute top-0.5 left-0.5 bg-[#E36B11] text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
                     {video.featuredPosition}
                   </span>
                 )}
@@ -1015,7 +1015,7 @@ export default function TVTab() {
                   onChange={(e) => setFeaturedPosition(video, e.target.value ? Number(e.target.value) : null)}
                   className={`w-8 py-1 px-1 rounded text-[10px] cursor-pointer ${
                     video.featuredPosition 
-                      ? 'bg-[#D4873A] text-white font-bold' 
+                      ? 'bg-[#E36B11] text-white font-bold' 
                       : 'bg-gray-700 text-gray-400'
                   }`}
                 >

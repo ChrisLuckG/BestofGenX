@@ -66,7 +66,7 @@ export default function InviteModal({ isOpen, onClose, userId, username, referra
       <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={onClose} />
       <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="h-24 bg-gradient-to-br from-[#D4873A]/15 via-[#D4873A]/5 to-transparent relative">
+        <div className="h-24 bg-gradient-to-br from-[#E36B11]/15 via-[#E36B11]/5 to-transparent relative">
           <button
             onClick={onClose}
             aria-label="Close"
@@ -76,7 +76,7 @@ export default function InviteModal({ isOpen, onClose, userId, username, referra
           </button>
           <div className="absolute -bottom-7 left-1/2 -translate-x-1/2">
             <div className="w-14 h-14 rounded-2xl bg-white border border-warm shadow-md flex items-center justify-center">
-              <Share2 className="w-7 h-7 text-[#D4873A]" />
+              <Share2 className="w-7 h-7 text-[#E36B11]" />
             </div>
           </div>
         </div>
@@ -88,7 +88,7 @@ export default function InviteModal({ isOpen, onClose, userId, username, referra
           <p className="text-gray-500 text-[14px] leading-relaxed text-center mb-1">
             Share Best of GenX with your crew, {username}.
           </p>
-          <p className="text-[13px] text-[#D4873A] font-bold text-center mb-5">
+          <p className="text-[13px] text-[#E36B11] font-bold text-center mb-5">
             +5.00 BOGX for every friend who joins
           </p>
 
@@ -115,23 +115,23 @@ export default function InviteModal({ isOpen, onClose, userId, username, referra
             <div className="grid grid-cols-3 gap-2 mb-4">
               <button
                 onClick={shareEmail}
-                className="flex flex-col items-center gap-1.5 py-3 rounded-xl border border-warm bg-cream hover:bg-[#D4873A]/5 transition-colors"
+                className="flex flex-col items-center gap-1.5 py-3 rounded-xl border border-warm bg-cream hover:bg-[#E36B11]/5 transition-colors"
               >
-                <Mail className="w-5 h-5 text-[#D4873A]" />
+                <Mail className="w-5 h-5 text-[#E36B11]" />
                 <span className="text-[11px] font-bold text-gray-700">Email</span>
               </button>
               <button
                 onClick={shareWhatsApp}
-                className="flex flex-col items-center gap-1.5 py-3 rounded-xl border border-warm bg-cream hover:bg-[#D4873A]/5 transition-colors"
+                className="flex flex-col items-center gap-1.5 py-3 rounded-xl border border-warm bg-cream hover:bg-[#E36B11]/5 transition-colors"
               >
-                <MessageCircle className="w-5 h-5 text-[#D4873A]" />
+                <MessageCircle className="w-5 h-5 text-[#E36B11]" />
                 <span className="text-[11px] font-bold text-gray-700">WhatsApp</span>
               </button>
               <button
                 onClick={() => setShowQr(true)}
-                className="flex flex-col items-center gap-1.5 py-3 rounded-xl border border-warm bg-cream hover:bg-[#D4873A]/5 transition-colors"
+                className="flex flex-col items-center gap-1.5 py-3 rounded-xl border border-warm bg-cream hover:bg-[#E36B11]/5 transition-colors"
               >
-                <QrCode className="w-5 h-5 text-[#D4873A]" />
+                <QrCode className="w-5 h-5 text-[#E36B11]" />
                 <span className="text-[11px] font-bold text-gray-700">QR Code</span>
               </button>
             </div>
@@ -145,7 +145,7 @@ export default function InviteModal({ isOpen, onClose, userId, username, referra
               className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[12px] font-bold transition-colors ${
                 copied
                   ? "bg-green-500 text-white"
-                  : "bg-[#D4873A] text-white hover:bg-[#C4772A]"
+                  : "bg-[#E36B11] text-white hover:bg-[#C4772A]"
               }`}
             >
               {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}

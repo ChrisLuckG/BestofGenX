@@ -84,7 +84,7 @@ function VerifyEmailContent() {
         <p className="text-gray-500 mb-6">{error}</p>
         <a
           href="/"
-          className="inline-block px-6 py-3 bg-[#D4873A] hover:bg-[#C4772A] text-white font-semibold rounded-xl transition-colors"
+          className="inline-block px-6 py-3 bg-[#E36B11] hover:bg-[#C4772A] text-white font-semibold rounded-xl transition-colors"
         >
           Go to Homepage
         </a>

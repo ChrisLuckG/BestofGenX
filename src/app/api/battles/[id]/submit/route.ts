@@ -65,7 +65,7 @@ function createBattleChallengeEmail(
       <h1 style="font-family: 'Impact', 'Arial Black', sans-serif; font-size: 42px; color: #ffffff; margin: 0 0 4px 0; letter-spacing: 2px; text-transform: uppercase;">
         A CHALLENGER
       </h1>
-      <h2 style="font-family: 'Brush Script MT', cursive; font-size: 36px; color: #D4873A; margin: 0 0 16px 0; font-style: italic;">
+      <h2 style="font-family: 'Brush Script MT', cursive; font-size: 36px; color: #E36B11; margin: 0 0 16px 0; font-style: italic;">
         Appears
       </h2>
       <p style="color: #cccccc; font-size: 16px; margin: 0;">
@@ -74,20 +74,20 @@ function createBattleChallengeEmail(
 
       <!-- Challenger Avatar & Info -->
       <div style="margin-top: 32px;">
-        <div style="width: 100px; height: 100px; margin: 0 auto 16px; border-radius: 50%; border: 4px solid #D4873A; overflow: hidden; background: #333;">
+        <div style="width: 100px; height: 100px; margin: 0 auto 16px; border-radius: 50%; border: 4px solid #E36B11; overflow: hidden; background: #333;">
           ${challengerAvatar 
             ? `<img src="${challengerAvatar}" alt="${challengerName}" style="width: 100%; height: 100%; object-fit: cover;" />`
             : `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 40px;">🐼</div>`
           }
         </div>
-        ${challengerLevel ? `<div style="background: #D4873A; color: #1a1a1a; font-size: 11px; font-weight: bold; padding: 4px 12px; border-radius: 12px; display: inline-block; margin-bottom: 8px;">${challengerLevel} LEVEL</div>` : ''}
+        ${challengerLevel ? `<div style="background: #E36B11; color: #1a1a1a; font-size: 11px; font-weight: bold; padding: 4px 12px; border-radius: 12px; display: inline-block; margin-bottom: 8px;">${challengerLevel} LEVEL</div>` : ''}
         <p style="color: #ffffff; font-size: 20px; font-weight: bold; margin: 8px 0 4px;">${challengerName}</p>
-        <p style="color: #D4873A; font-size: 12px; font-weight: bold; letter-spacing: 1px; margin: 0;">GENX WARRIOR</p>
+        <p style="color: #E36B11; font-size: 12px; font-weight: bold; letter-spacing: 1px; margin: 0;">GENX WARRIOR</p>
         
         <!-- Stats -->
         <div style="display: flex; justify-content: center; gap: 32px; margin-top: 16px;">
           <div style="text-align: center;">
-            <span style="color: #D4873A; font-size: 10px;">🏆</span>
+            <span style="color: #E36B11; font-size: 10px;">🏆</span>
             <span style="color: #ffffff; font-size: 18px; font-weight: bold; margin-left: 4px;">${challengerWins || 0}</span>
             <span style="color: #888; font-size: 11px; display: block;">WINS</span>
           </div>
@@ -103,7 +103,7 @@ function createBattleChallengeEmail(
     <!-- Battle Details Card -->
     <div style="background: #F5F0E8; margin: 0; padding: 32px 24px;">
       <div style="text-align: center; margin-bottom: 24px;">
-        <span style="color: #D4873A; font-size: 12px; font-weight: bold; letter-spacing: 2px;">⚔️ BATTLE DETAILS ⚔️</span>
+        <span style="color: #E36B11; font-size: 12px; font-weight: bold; letter-spacing: 2px;">⚔️ BATTLE DETAILS ⚔️</span>
       </div>
 
       <div style="display: flex; justify-content: space-between; gap: 16px;">
@@ -124,7 +124,7 @@ function createBattleChallengeEmail(
         <div style="flex: 1; background: #ffffff; border-radius: 16px; padding: 20px; text-align: center; border: 1px solid #E8E4DC;">
           <p style="color: #888; font-size: 10px; letter-spacing: 1px; margin: 0 0 8px;">POT</p>
           <img src="https://bestofgenx.com/images/bogx-coins.png" alt="BOGX" style="width: 48px; height: 48px; margin: 0 auto 8px;" onerror="this.style.display='none'" />
-          <p style="color: #D4873A; font-size: 24px; font-weight: bold; margin: 0;">${(wager * 2).toFixed(2)} BOGX</p>
+          <p style="color: #E36B11; font-size: 24px; font-weight: bold; margin: 0;">${(wager * 2).toFixed(2)} BOGX</p>
           <p style="color: #888; font-size: 10px; margin: 8px 0 0;">WINNER TAKES ALL</p>
         </div>
 
@@ -149,7 +149,7 @@ function createBattleChallengeEmail(
       <p style="color: #1a1a1a; font-size: 14px; margin: 0; font-weight: 500;">
         ONLY ONE OF YOU REMEMBERS THE 90S BETTER.
       </p>
-      <p style="color: #D4873A; font-size: 14px; margin: 4px 0 0; font-weight: bold;">
+      <p style="color: #E36B11; font-size: 14px; margin: 4px 0 0; font-weight: bold;">
         LET'S SETTLE THIS.
       </p>
     </div>

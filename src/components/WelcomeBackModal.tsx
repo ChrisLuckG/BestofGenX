@@ -90,7 +90,7 @@ export default function WelcomeBackModal({
       <div className="absolute inset-0 bg-black/50 backdrop-blur-md" />
       <div className="relative w-full max-w-lg bg-cream rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col border border-warm">
         {/* Hero Header - Welcome */}
-        <div className="relative bg-gradient-to-br from-[#D4873A] via-[#E5A55A] to-[#D4873A] px-5 pt-5 pb-4">
+        <div className="relative bg-gradient-to-br from-[#E36B11] via-[#E5A55A] to-[#E36B11] px-5 pt-5 pb-4">
           <div className="flex items-center gap-3">
             {/* Avatar */}
             <div className="relative flex-shrink-0">
@@ -128,11 +128,11 @@ export default function WelcomeBackModal({
         
         {/* Level Card - same as Rankings */}
         {(() => {
-          const levelColor = LEVELS[level - 1]?.color || '#D4873A';
+          const levelColor = LEVELS[level - 1]?.color || '#E36B11';
           const nextLevelName = level < LEVELS.length ? LEVELS[level]?.name : null;
           
           return (
-            <div className="mx-4 mt-3 mb-2 rounded-xl border border-[#D4873A]/20 bg-cream overflow-hidden shadow-sm">
+            <div className="mx-4 mt-3 mb-2 rounded-xl border border-[#E36B11]/20 bg-cream overflow-hidden shadow-sm">
               {/* Level Header */}
               <div className="px-4 py-3 flex items-center gap-4">
                 {/* Level Name + Badge */}
@@ -177,7 +177,7 @@ export default function WelcomeBackModal({
               </div>
               
               {/* Level Timeline with LEDs */}
-              <div className="px-4 py-3 border-t border-dashed border-[#D4873A]/20 bg-white/30">
+              <div className="px-4 py-3 border-t border-dashed border-[#E36B11]/20 bg-white/30">
                 <div className="flex items-center justify-between relative">
                   {/* Connection Line */}
                   <div className="absolute top-3 left-4 right-4 h-0.5 bg-gray-300" />
@@ -230,31 +230,31 @@ export default function WelcomeBackModal({
           {/* While You Were Away */}
           <div className="bg-cream rounded-xl border border-warm overflow-hidden">
             <div className="px-4 py-2.5 border-b border-warm flex items-center gap-2">
-              <Zap className="w-4 h-4 text-[#D4873A]" />
+              <Zap className="w-4 h-4 text-[#E36B11]" />
               <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">While You Were Away</span>
             </div>
             <div className="divide-y divide-gray-100">
               {loading ? (
                 Array.from({ length: 3 }).map((_, i) => (
                   <div key={i} className="px-4 py-2.5 flex items-center gap-3 animate-pulse">
-                    <div className="w-8 h-8 rounded-full bg-[#D4873A]/10 flex-shrink-0" />
-                    <div className="flex-1 h-3.5 rounded bg-[#D4873A]/10" />
+                    <div className="w-8 h-8 rounded-full bg-[#E36B11]/10 flex-shrink-0" />
+                    <div className="flex-1 h-3.5 rounded bg-[#E36B11]/10" />
                   </div>
                 ))
               ) : whileAwayEvents.length > 0 ? (
                 whileAwayEvents.slice(0, 6).map((event, i) => (
                   <div key={i} className="px-4 py-2.5 flex items-center gap-3">
                     {event.avatar ? (
-                      <img src={event.avatar} alt="" className="w-8 h-8 rounded-full object-cover border border-[#D4873A]/20" />
+                      <img src={event.avatar} alt="" className="w-8 h-8 rounded-full object-cover border border-[#E36B11]/20" />
                     ) : (
-                      <div className="w-8 h-8 rounded-full bg-[#D4873A]/10 flex items-center justify-center text-base">
+                      <div className="w-8 h-8 rounded-full bg-[#E36B11]/10 flex items-center justify-center text-base">
                         {event.icon || '📢'}
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-gray-700">
                         {event.text}
-                        {event.highlight && <span className="font-bold text-[#D4873A]"> {event.highlight}</span>}
+                        {event.highlight && <span className="font-bold text-[#E36B11]"> {event.highlight}</span>}
                       </p>
                     </div>
                   </div>
@@ -272,11 +272,11 @@ export default function WelcomeBackModal({
           {hasBattleAlerts && (
             <button
               onClick={() => { onGoToBattles?.(); onClose(); }}
-              className="w-full rounded-xl bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a] border border-[#D4873A]/40 p-4 flex items-center gap-4 hover:border-[#D4873A] transition-all group"
+              className="w-full rounded-xl bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a] border border-[#E36B11]/40 p-4 flex items-center gap-4 hover:border-[#E36B11] transition-all group"
             >
               <div className="relative flex-shrink-0">
-                <div className="w-12 h-12 rounded-xl bg-[#D4873A]/20 flex items-center justify-center">
-                  <Swords className="w-6 h-6 text-[#D4873A]" />
+                <div className="w-12 h-12 rounded-xl bg-[#E36B11]/20 flex items-center justify-center">
+                  <Swords className="w-6 h-6 text-[#E36B11]" />
                 </div>
                 <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1 bg-red-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold shadow-lg animate-pulse">
                   {pendingChallengeCount + activeBattleCount}
@@ -293,7 +293,7 @@ export default function WelcomeBackModal({
                     🎯 {activeBattleCount === 1 ? "1 active battle" : `${activeBattleCount} active battles`} to play
                   </p>
                 )}
-                <p className="text-[#D4873A] text-xs mt-0.5 group-hover:underline">Tap to open Arcade →</p>
+                <p className="text-[#E36B11] text-xs mt-0.5 group-hover:underline">Tap to open Arcade →</p>
               </div>
             </button>
           )}
@@ -301,12 +301,12 @@ export default function WelcomeBackModal({
           {/* No battles - show leader info instead */}
           {!hasBattleAlerts && currentLeader && currentLeader !== username && (
             <div className="rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200/50 p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#D4873A]/20 flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-[#E36B11]/20 flex items-center justify-center flex-shrink-0">
                 <span className="text-lg">👑</span>
               </div>
               <div>
                 <p className="text-sm text-gray-700">
-                  <span className="font-bold text-[#D4873A]">{currentLeader}</span> is today's leader
+                  <span className="font-bold text-[#E36B11]">{currentLeader}</span> is today's leader
                 </p>
                 <p className="text-xs text-gray-500">Can you take the crown?</p>
               </div>
@@ -332,12 +332,12 @@ export default function WelcomeBackModal({
         <div className="px-5 pb-5 pt-3 flex-shrink-0 border-t border-warm/50">
           <button
             onClick={onPrimaryAction}
-            className="w-full py-3.5 bg-[#D4873A] hover:bg-[#C4772A] text-white font-bold rounded-xl text-sm transition-colors shadow-md"
+            className="w-full py-3.5 bg-[#E36B11] hover:bg-[#C4772A] text-white font-bold rounded-xl text-sm transition-colors shadow-md"
           >
             LET'S GO!
           </button>
           <p className="text-center text-xs text-gray-400 mt-2">
-            Play. Compete. Remember. <span className="text-[#D4873A] font-medium">That's GenX.</span>
+            Play. Compete. Remember. <span className="text-[#E36B11] font-medium">That's GenX.</span>
           </p>
         </div>
       </div>

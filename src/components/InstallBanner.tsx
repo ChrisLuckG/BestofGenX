@@ -187,7 +187,7 @@ export default function InstallBanner() {
       }`}
       style={{ bottom: '64px' }}
     >
-      <div className="bg-gradient-to-r from-[#D4873A] via-[#E5994A] to-[#D4873A] shadow-xl border-t border-white/20">
+      <div className="bg-gradient-to-r from-[#E36B11] via-[#E5994A] to-[#E36B11] shadow-xl border-t border-white/20">
         <div className="flex items-center gap-4 px-4 py-3.5">
           {/* Icon */}
           <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center flex-shrink-0 shadow-inner">
@@ -236,7 +236,7 @@ export default function InstallBanner() {
           {bannerType === 'install' && !isIOS && deferredPrompt && (
             <button
               onClick={handleInstall}
-              className="px-4 py-2.5 bg-white text-[#D4873A] text-sm font-bold rounded-xl flex items-center gap-1.5 hover:bg-white/90 transition-colors flex-shrink-0 shadow-lg"
+              className="px-4 py-2.5 bg-white text-[#E36B11] text-sm font-bold rounded-xl flex items-center gap-1.5 hover:bg-white/90 transition-colors flex-shrink-0 shadow-lg"
             >
               <Download className="w-4 h-4" />
               Install
@@ -245,7 +245,7 @@ export default function InstallBanner() {
           {bannerType === 'notifications' && (
             <button
               onClick={handleEnableNotifications}
-              className="px-4 py-2.5 bg-white text-[#D4873A] text-sm font-bold rounded-xl flex items-center gap-1.5 hover:bg-white/90 transition-colors flex-shrink-0 shadow-lg"
+              className="px-4 py-2.5 bg-white text-[#E36B11] text-sm font-bold rounded-xl flex items-center gap-1.5 hover:bg-white/90 transition-colors flex-shrink-0 shadow-lg"
             >
               <Bell className="w-4 h-4" />
               Enable

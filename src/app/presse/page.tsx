@@ -13,7 +13,7 @@ export default function PressePage() {
         <div className="max-w-2xl mx-auto flex items-center gap-3">
           <button
             onClick={() => router.back()}
-            className="p-2 rounded-full hover:bg-[#D4873A]/10 transition-colors"
+            className="p-2 rounded-full hover:bg-[#E36B11]/10 transition-colors"
           >
             <ArrowLeft className="w-5 h-5 text-gray-700" />
           </button>
@@ -70,34 +70,34 @@ export default function PressePage() {
         <div className="bg-white rounded-2xl border border-warm p-6 mb-6">
           <h3 className="text-lg font-bold text-gray-900 mb-4">Key Facts</h3>
           <div className="grid grid-cols-2 gap-4">
-            <div className="text-center p-4 bg-[#D4873A]/5 rounded-xl">
-              <p className="text-2xl font-bold text-[#D4873A]">80s-00s</p>
+            <div className="text-center p-4 bg-[#E36B11]/5 rounded-xl">
+              <p className="text-2xl font-bold text-[#E36B11]">80s-00s</p>
               <p className="text-xs text-gray-600">Nostalgie-Ära</p>
             </div>
-            <div className="text-center p-4 bg-[#D4873A]/5 rounded-xl">
-              <p className="text-2xl font-bold text-[#D4873A]">GenX</p>
+            <div className="text-center p-4 bg-[#E36B11]/5 rounded-xl">
+              <p className="text-2xl font-bold text-[#E36B11]">GenX</p>
               <p className="text-xs text-gray-600">Zielgruppe</p>
             </div>
-            <div className="text-center p-4 bg-[#D4873A]/5 rounded-xl">
-              <p className="text-2xl font-bold text-[#D4873A]">Quiz</p>
+            <div className="text-center p-4 bg-[#E36B11]/5 rounded-xl">
+              <p className="text-2xl font-bold text-[#E36B11]">Quiz</p>
               <p className="text-xs text-gray-600">Core Feature</p>
             </div>
-            <div className="text-center p-4 bg-[#D4873A]/5 rounded-xl">
-              <p className="text-2xl font-bold text-[#D4873A]">PWA</p>
+            <div className="text-center p-4 bg-[#E36B11]/5 rounded-xl">
+              <p className="text-2xl font-bold text-[#E36B11]">PWA</p>
               <p className="text-xs text-gray-600">Technologie</p>
             </div>
           </div>
         </div>
 
         {/* Contact */}
-        <div className="bg-gradient-to-br from-[#D4873A] to-[#C4772A] rounded-2xl p-6 text-white text-center">
+        <div className="bg-gradient-to-br from-[#E36B11] to-[#C4772A] rounded-2xl p-6 text-white text-center">
           <h3 className="text-lg font-bold mb-2">Presseanfragen</h3>
           <p className="text-white/80 text-sm mb-4">
             Für Interviews, Kooperationen oder weitere Informationen:
           </p>
           <a 
             href="mailto:contact@bestofgenx.com?subject=Presseanfrage"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-white text-[#D4873A] font-bold rounded-xl hover:bg-white/90 transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-white text-[#E36B11] font-bold rounded-xl hover:bg-white/90 transition-colors"
           >
             <Mail className="w-5 h-5" />
             contact@bestofgenx.com

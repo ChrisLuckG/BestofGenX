@@ -53,7 +53,7 @@ export default function CategoryBadge({ category, size = 'md', className = '', c
       <span 
         className={`
           inline-flex items-center 
-          bg-[#D4873A] backdrop-blur-sm border border-[#D4873A] 
+          bg-[#E36B11] backdrop-blur-sm border border-[#E36B11] 
           text-white font-bold uppercase tracking-wider rounded-sm
           ${sizeClasses[size]}
           ${className}

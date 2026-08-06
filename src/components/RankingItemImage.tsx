@@ -28,7 +28,7 @@ export default function RankingItemImage({ image, rank, title, size = "default" 
       {image ? (
         <img src={image} alt={title || ""} className="w-full h-full object-cover" />
       ) : (
-        <div className="w-full h-full bg-gradient-to-br from-[#D4873A]/20 to-[#D4873A]/5" />
+        <div className="w-full h-full bg-gradient-to-br from-[#E36B11]/20 to-[#E36B11]/5" />
       )}
       {/* Gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-transparent" />
@@ -36,7 +36,7 @@ export default function RankingItemImage({ image, rank, title, size = "default" 
       <div
         className={`absolute bottom-1 left-2 font-display font-bold leading-none ${
           size === "large" ? "text-5xl" : "text-2xl"
-        } ${rank === 1 ? "text-[#D4873A]" : "text-white"}`}
+        } ${rank === 1 ? "text-[#E36B11]" : "text-white"}`}
         style={{ textShadow: "0 2px 4px rgba(0,0,0,0.5)" }}
       >
         {rank.toString().padStart(2, "0")}

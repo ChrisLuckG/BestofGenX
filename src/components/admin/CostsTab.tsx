@@ -224,8 +224,8 @@ export default function CostsTab() {
             <div className="text-[9px] text-gray-500 mt-0.5">AI + DB + Email</div>
           </div>
 
-          <div className={`p-3 rounded-lg border ${revenue - totalCostUsd >= 0 ? 'bg-[#D4873A]/10 border-[#D4873A]/30' : 'bg-red-500/10 border-red-500/30'}`}>
-            <div className={`flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold mb-1 ${revenue - totalCostUsd >= 0 ? 'text-[#D4873A]' : 'text-red-400'}`}>
+          <div className={`p-3 rounded-lg border ${revenue - totalCostUsd >= 0 ? 'bg-[#E36B11]/10 border-[#E36B11]/30' : 'bg-red-500/10 border-red-500/30'}`}>
+            <div className={`flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold mb-1 ${revenue - totalCostUsd >= 0 ? 'text-[#E36B11]' : 'text-red-400'}`}>
               <DollarSign className="w-3 h-3" />
               Net
             </div>
@@ -239,7 +239,7 @@ export default function CostsTab() {
       {appUsage?.success && appUsage.stats && (
         <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
           <div className="flex items-center gap-2 mb-3">
-            <BarChart3 className="w-4 h-4 text-[#D4873A]" />
+            <BarChart3 className="w-4 h-4 text-[#E36B11]" />
             <h3 className="text-sm font-bold">App Usage — What you generated</h3>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
@@ -385,7 +385,7 @@ export default function CostsTab() {
               ) : (
                 <div className="mb-3 p-2 bg-gray-900/50 border border-gray-700 rounded text-[10px] text-gray-500">
                   <span className="font-bold text-gray-400">No budget / credits detected via API.</span> Manage at{' '}
-                  <a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank" rel="noopener noreferrer" className="text-[#D4873A] hover:underline">platform.openai.com → Billing</a>
+                  <a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank" rel="noopener noreferrer" className="text-[#E36B11] hover:underline">platform.openai.com → Billing</a>
                 </div>
               )}
 
@@ -636,7 +636,7 @@ export default function CostsTab() {
               href="https://vercel.com/dashboard/usage"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 mt-2 text-[11px] text-[#D4873A] hover:underline"
+              className="inline-flex items-center gap-1 mt-2 text-[11px] text-[#E36B11] hover:underline"
             >
               View detailed usage on Vercel <ExternalLink className="w-3 h-3" />
             </a>
@@ -736,7 +736,7 @@ export default function CostsTab() {
               href="https://windsurf.com/account"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 mt-2 text-[11px] text-[#D4873A] hover:underline"
+              className="inline-flex items-center gap-1 mt-2 text-[11px] text-[#E36B11] hover:underline"
             >
               View account on Windsurf <ExternalLink className="w-3 h-3" />
             </a>
@@ -788,7 +788,7 @@ export default function CostsTab() {
                   <div className="text-[9px] text-gray-500 mt-1">{bwPct.toFixed(1)}% used</div>
                 </div>
               )}
-              <a href="https://cloudinary.com/console" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-3 text-[11px] text-[#D4873A] hover:underline">
+              <a href="https://cloudinary.com/console" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-3 text-[11px] text-[#E36B11] hover:underline">
                 Open Cloudinary Console <ExternalLink className="w-3 h-3" />
               </a>
             </>
@@ -802,10 +802,10 @@ export default function CostsTab() {
       <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-3 text-[11px] text-gray-400">
         <div className="font-bold text-gray-300 mb-1">Setup — Required Env Variables</div>
         <ul className="mt-1.5 space-y-0.5 font-mono text-[10px]">
-          <li>· <span className="text-purple-400">OPENAI_ADMIN_KEY</span> — <a href="https://platform.openai.com/settings/organization/admin-keys" target="_blank" rel="noopener noreferrer" className="text-[#D4873A] hover:underline">platform.openai.com</a></li>
+          <li>· <span className="text-purple-400">OPENAI_ADMIN_KEY</span> — <a href="https://platform.openai.com/settings/organization/admin-keys" target="_blank" rel="noopener noreferrer" className="text-[#E36B11] hover:underline">platform.openai.com</a></li>
           <li>· <span className="text-green-400">MONGODB_ATLAS_PUBLIC_KEY</span> + <span className="text-green-400">_PRIVATE_KEY</span> + <span className="text-green-400">_ORG_ID</span></li>
-          <li>· <span className="text-blue-400">VERCEL_TOKEN</span> — <a href="https://vercel.com/account/tokens" target="_blank" rel="noopener noreferrer" className="text-[#D4873A] hover:underline">vercel.com/account/tokens</a></li>
-          <li>· <span className="text-orange-400">RESEND_API_KEY</span> — <a href="https://resend.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-[#D4873A] hover:underline">resend.com/api-keys</a></li>
+          <li>· <span className="text-blue-400">VERCEL_TOKEN</span> — <a href="https://vercel.com/account/tokens" target="_blank" rel="noopener noreferrer" className="text-[#E36B11] hover:underline">vercel.com/account/tokens</a></li>
+          <li>· <span className="text-orange-400">RESEND_API_KEY</span> — <a href="https://resend.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-[#E36B11] hover:underline">resend.com/api-keys</a></li>
           <li>· <span className="text-indigo-400">STRIPE_SECRET_KEY</span> — already configured (used for payments)</li>
           <li>· <span className="text-pink-400">WINDSURF_MONTHLY_USD</span>=15 (and optional <span className="text-pink-400">WINDSURF_PLAN_NAME</span>=Pro)</li>
         </ul>
@@ -920,7 +920,7 @@ function CostRow({ label, value, highlight, icon }: { label: string; value: stri
         {icon}
         {label}
       </span>
-      <span className={`text-sm font-bold ${highlight ? 'text-[#D4873A]' : 'text-white'}`}>{value}</span>
+      <span className={`text-sm font-bold ${highlight ? 'text-[#E36B11]' : 'text-white'}`}>{value}</span>
     </div>
   );
 }

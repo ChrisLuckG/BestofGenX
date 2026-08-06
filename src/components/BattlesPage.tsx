@@ -1903,7 +1903,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
           {/* Header: Players + Progress */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full overflow-hidden border-2 border-[#D4873A]">
+              <div className="w-6 h-6 rounded-full overflow-hidden border-2 border-[#E36B11]">
                 <img src={user?.avatar || 'https://i.pravatar.cc/80?img=47'} alt="" className="w-full h-full object-cover" />
               </div>
               <span className="text-xs font-semibold text-gray-900">You</span>
@@ -1912,9 +1912,9 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
               {Array.from({ length: currentBattle.rounds }).map((_, i) => {
                 let color = 'bg-skeleton';
                 if (i < myResults.length) {
-                  color = myResults[i].correct ? 'bg-[#D4873A]' : 'bg-red-500';
+                  color = myResults[i].correct ? 'bg-[#E36B11]' : 'bg-red-500';
                 } else if (i === currentRound) {
-                  color = 'bg-[#D4873A]/50';
+                  color = 'bg-[#E36B11]/50';
                 }
                 return <div key={i} className={`w-4 h-1 rounded ${color}`} />;
               })}
@@ -1950,7 +1950,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
             <div className="flex items-center gap-1">
               <div 
                 key={countdown} 
-                className="w-11 h-11 border-2 border-[#D4873A] bg-[#D4873A]/10 rounded-lg flex items-center justify-center"
+                className="w-11 h-11 border-2 border-[#E36B11] bg-[#E36B11]/10 rounded-lg flex items-center justify-center"
               >
                 <span className="font-display text-2xl text-gray-900">
                   {countdown === 0 ? 'GO' : countdown}
@@ -2010,7 +2010,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
           {/* Header: Players + Progress */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full overflow-hidden border-2 border-[#D4873A]">
+              <div className="w-6 h-6 rounded-full overflow-hidden border-2 border-[#E36B11]">
                 <img src={user?.avatar || 'https://i.pravatar.cc/80?img=47'} alt="" className="w-full h-full object-cover" />
               </div>
               <div>
@@ -2022,9 +2022,9 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
               {Array.from({ length: currentBattle.rounds }).map((_, i) => {
                 let color = 'bg-skeleton';
                 if (i < myResults.length) {
-                  color = myResults[i].correct ? 'bg-[#D4873A]' : 'bg-red-500';
+                  color = myResults[i].correct ? 'bg-[#E36B11]' : 'bg-red-500';
                 } else if (i === currentRound) {
-                  color = 'bg-[#D4873A]/50';
+                  color = 'bg-[#E36B11]/50';
                 }
                 return <div key={i} className={`w-4 h-1 rounded ${color}`} />;
               })}
@@ -2065,7 +2065,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
           {(() => {
             // Calculate color based on time remaining (gold -> orange -> red)
             const timerColor = timePct > 0.5 
-              ? '#D4873A' // Gold when > 50%
+              ? '#E36B11' // Gold when > 50%
               : timePct > 0.25 
                 ? '#E05A00' // Orange when 25-50%
                 : '#DC2626'; // Red when < 25%
@@ -2113,7 +2113,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
               
               if (showAnswer) {
                 if (i === question.correctIndex) {
-                  className += ' bg-[#D4873A] text-white border-2 border-[#D4873A]';
+                  className += ' bg-[#E36B11] text-white border-2 border-[#E36B11]';
                 } else if (i === selectedAnswer && !myResults[currentRound]?.correct) {
                   className += ' bg-red-500 text-white border-2 border-red-500';
                 } else {
@@ -2145,7 +2145,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
               selectedAnswer === -1 
                 ? 'bg-red-500' 
                 : myResults[currentRound]?.correct 
-                  ? 'bg-[#D4873A]' 
+                  ? 'bg-[#E36B11]' 
                   : 'bg-red-500'
             }`}>
               {selectedAnswer === -1 ? (
@@ -2170,7 +2170,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
             <button
               onClick={() => showAnswer ? (currentRound < currentBattle.rounds - 1 ? continueFromInter() : (isCreator ? completeBattle(myResultsRef.current) : seeResultsWithAnimation())) : null}
               disabled={!showAnswer}
-              className={`py-4 bg-[#D4873A] text-white font-display tracking-widest rounded-xl flex items-center justify-center gap-2 transition-opacity ${
+              className={`py-4 bg-[#E36B11] text-white font-display tracking-widest rounded-xl flex items-center justify-center gap-2 transition-opacity ${
                 showAnswer ? 'opacity-100' : 'opacity-0'
               }`}
             >
@@ -2247,7 +2247,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
           {isComplete ? (
             <div className="border border-warm rounded-xl bg-cream mb-4">
               <div className="flex items-center gap-3 p-3 border-b border-warm">
-                <div className={`w-8 h-8 rounded-full overflow-hidden border-2 ${leading ? 'border-[#D4873A]' : 'border-warm'}`}>
+                <div className={`w-8 h-8 rounded-full overflow-hidden border-2 ${leading ? 'border-[#E36B11]' : 'border-warm'}`}>
                   <img src={user?.avatar} alt="" className="w-full h-full object-cover" />
                 </div>
                 <div className="flex-1">
@@ -2278,7 +2278,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                   </>
                 ) : (
                   <>
-                    <div className={`w-8 h-8 rounded-full overflow-hidden border-2 ${!leading ? 'border-[#D4873A]' : 'border-warm'}`}>
+                    <div className={`w-8 h-8 rounded-full overflow-hidden border-2 ${!leading ? 'border-[#E36B11]' : 'border-warm'}`}>
                       <img src={currentBattle.creator.avatar} alt="" className="w-full h-full object-cover" />
                     </div>
                     <div className="flex-1">
@@ -2393,7 +2393,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
               </button>
               <button
                 onClick={startBattle}
-                className="flex-1 py-3 bg-[#D4873A] text-white font-display text-sm tracking-widest rounded-xl"
+                className="flex-1 py-3 bg-[#E36B11] text-white font-display text-sm tracking-widest rounded-xl"
               >
                 REMATCH ⚔
               </button>
@@ -2401,7 +2401,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
           ) : (
             <button
               onClick={continueFromInter}
-              className="w-full py-4 bg-[#D4873A] text-white font-display tracking-widest rounded-xl"
+              className="w-full py-4 bg-[#E36B11] text-white font-display tracking-widest rounded-xl"
             >
               ROUND {myResults.length + 1} →
             </button>
@@ -2436,12 +2436,12 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
       {isAccepting && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div className="relative bg-cream border-2 border-[#D4873A] rounded-2xl w-full max-w-[300px] p-8 text-center shadow-2xl">
+          <div className="relative bg-cream border-2 border-[#E36B11] rounded-2xl w-full max-w-[300px] p-8 text-center shadow-2xl">
             {/* Animated Swords */}
             <div className="relative w-20 h-20 mx-auto mb-4">
-              <Swords className="w-20 h-20 text-[#D4873A] animate-pulse" />
+              <Swords className="w-20 h-20 text-[#E36B11] animate-pulse" />
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-16 h-16 border-4 border-[#D4873A]/30 border-t-[#D4873A] rounded-full animate-spin" />
+                <div className="w-16 h-16 border-4 border-[#E36B11]/30 border-t-[#E36B11] rounded-full animate-spin" />
               </div>
             </div>
             
@@ -2453,7 +2453,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
             </p>
             
             {/* Coin deduction animation hint */}
-            <div className="flex items-center justify-center gap-2 text-[#D4873A] font-bold">
+            <div className="flex items-center justify-center gap-2 text-[#E36B11] font-bold">
               <Coins className="w-5 h-5 animate-bounce" />
               <span>-{formatCurrency(toBOGX(currentBattle?.wager || 0))}</span>
             </div>

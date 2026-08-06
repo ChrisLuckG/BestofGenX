@@ -717,12 +717,12 @@ export default function BogxInvadersGame({
             spawnFlyingCoin(e.x, e.y, tokenGain);
 
             if (isBoss) {
-              spawnBurst(e.x, e.y, ['#D4873A', '#8b5cf6', '#e5484d'], 34, 2, 6);
+              spawnBurst(e.x, e.y, ['#E36B11', '#8b5cf6', '#e5484d'], 34, 2, 6);
               spawnFloatingText(e.x, e.y - 16 * scale, `+${tokenGain.toFixed(2)} BOGX!`, '#16a34a');
               game.shake = Math.max(game.shake, 9);
               sfxBossDown();
             } else {
-              spawnBurst(e.x, e.y, ['#D4873A', '#8b5cf6'], 14, 1, 4);
+              spawnBurst(e.x, e.y, ['#E36B11', '#8b5cf6'], 14, 1, 4);
               spawnFloatingText(e.x, e.y - 10 * scale, `+${tokenGain.toFixed(2)}`, '#16a34a');
               game.shake = Math.max(game.shake, 4);
               sfxKill();
@@ -969,7 +969,7 @@ export default function BogxInvadersGame({
       // Wave clear banner
       if (game.waveText) {
         ctx.globalAlpha = Math.min(game.waveText.life, 1);
-        ctx.fillStyle = '#D4873A';
+        ctx.fillStyle = '#E36B11';
         ctx.font = `900 ${22 * scale}px Arial`;
         ctx.textAlign = 'center';
         ctx.fillText(game.waveText.text, W / 2, H / 2);
@@ -1353,18 +1353,18 @@ export default function BogxInvadersGame({
           <div className="ml-auto flex items-center gap-2">
             <button 
               onClick={() => setSoundEnabled(!soundEnabled)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#D4873A]/40 bg-[#D4873A]/10 hover:bg-[#D4873A]/20 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E36B11]/40 bg-[#E36B11]/10 hover:bg-[#E36B11]/20 transition-colors"
             >
-              {soundEnabled ? <Volume2 className="w-4 h-4 text-[#D4873A]" /> : <VolumeX className="w-4 h-4 text-[#D4873A]" />}
-              <span className="text-xs font-bold text-[#D4873A]">{soundEnabled ? 'Sound' : 'Muted'}</span>
+              {soundEnabled ? <Volume2 className="w-4 h-4 text-[#E36B11]" /> : <VolumeX className="w-4 h-4 text-[#E36B11]" />}
+              <span className="text-xs font-bold text-[#E36B11]">{soundEnabled ? 'Sound' : 'Muted'}</span>
             </button>
             {gameState === 'playing' && (
               <button 
                 onClick={togglePause}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#D4873A]/40 bg-[#D4873A]/10 hover:bg-[#D4873A]/20 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E36B11]/40 bg-[#E36B11]/10 hover:bg-[#E36B11]/20 transition-colors"
               >
-                <Pause className="w-4 h-4 text-[#D4873A]" />
-                <span className="text-xs font-bold text-[#D4873A]">Pause</span>
+                <Pause className="w-4 h-4 text-[#E36B11]" />
+                <span className="text-xs font-bold text-[#E36B11]">Pause</span>
               </button>
             )}
           </div>
@@ -1394,7 +1394,7 @@ export default function BogxInvadersGame({
               <p className="text-white/40 text-[10px] uppercase tracking-widest mb-1.5">BOGX</p>
               <div className="flex items-center justify-center gap-1.5">
                 <img src="/images/bogxcoin.png" alt="" className="w-8 h-8" />
-                <span className="font-display text-3xl text-[#D4873A] leading-none">{tokens.toFixed(2)}</span>
+                <span className="font-display text-3xl text-[#E36B11] leading-none">{tokens.toFixed(2)}</span>
               </div>
             </div>
 
@@ -1512,7 +1512,7 @@ export default function BogxInvadersGame({
               {/* GAME OVER + ship-pimped stats */}
               <h2 className="font-display text-2xl md:text-3xl text-[#e5484d] tracking-wider">GAME OVER</h2>
               {tokens > highScore / 100 && highScore > 0 && (
-                <p className="text-[#D4873A] text-[11px] mt-0.5 animate-pulse font-bold">🎉 NEW BEST! 🎉</p>
+                <p className="text-[#E36B11] text-[11px] mt-0.5 animate-pulse font-bold">🎉 NEW BEST! 🎉</p>
               )}
 
               {/* Ship + flanking stats - with continuous shine sweep */}
@@ -1523,7 +1523,7 @@ export default function BogxInvadersGame({
                     <p className="text-white/40 text-[10px] uppercase tracking-widest mb-1">BOGX</p>
                     <div className="flex items-center justify-center gap-1.5">
                       <img src="/images/bogxcoin.png" alt="" className="w-8 h-8" />
-                      <p className="font-display text-3xl text-[#D4873A] leading-none">{tokens.toFixed(2)}</p>
+                      <p className="font-display text-3xl text-[#E36B11] leading-none">{tokens.toFixed(2)}</p>
                     </div>
                     {isLoggedIn ? (
                       <p className="text-green-400 text-[10px] font-bold mt-1">EARNED!</p>
@@ -1542,7 +1542,7 @@ export default function BogxInvadersGame({
               {/* Ranking table */}
               <div className="w-full bg-white/5 border border-white/10 rounded-2xl overflow-hidden mt-3">
                 <div className="flex items-center justify-center gap-2 py-2 border-b border-white/10 bg-white/5">
-                  <Trophy className="w-3.5 h-3.5 text-[#D4873A]" />
+                  <Trophy className="w-3.5 h-3.5 text-[#E36B11]" />
                   <h3 className="font-display text-xs text-white tracking-wider">TOP 10 PLAYERS</h3>
                 </div>
                 <div className="divide-y divide-white/5">
@@ -1557,9 +1557,9 @@ export default function BogxInvadersGame({
                     return (
                       <div
                         key={player.userId || i}
-                        className={`flex items-center gap-3 px-4 py-1.5 text-sm ${isMe ? 'bg-[#D4873A]/15' : ''}`}
+                        className={`flex items-center gap-3 px-4 py-1.5 text-sm ${isMe ? 'bg-[#E36B11]/15' : ''}`}
                       >
-                        <span className={`w-7 text-center font-bold ${i === 0 ? 'text-[#D4873A]' : i === 1 ? 'text-white/70' : i === 2 ? 'text-amber-500' : 'text-white/40'}`}>
+                        <span className={`w-7 text-center font-bold ${i === 0 ? 'text-[#E36B11]' : i === 1 ? 'text-white/70' : i === 2 ? 'text-amber-500' : 'text-white/40'}`}>
                           {medal || i + 1}
                         </span>
                         <div className="flex-1 flex items-center gap-2 min-w-0">
@@ -1569,13 +1569,13 @@ export default function BogxInvadersGame({
                               <CountryFlag flag={player.countryFlag} className="absolute -bottom-1 -right-1 w-3 h-2 rounded-[1px] border border-[#0d0818] object-cover" />
                             )}
                           </div>
-                          <span className={`truncate text-left text-xs ${isMe ? 'text-[#D4873A] font-bold' : 'text-white/85'}`}>
+                          <span className={`truncate text-left text-xs ${isMe ? 'text-[#E36B11] font-bold' : 'text-white/85'}`}>
                             {player.username}{isMe ? ' (You)' : ''}
                           </span>
                         </div>
                         <div className="w-20 flex items-center justify-end gap-1">
                           <img src="/images/bogxcoin.png" alt="" className="w-3.5 h-3.5" />
-                          <span className="font-bold text-[#D4873A]">{(player.score / 100).toFixed(2)}</span>
+                          <span className="font-bold text-[#E36B11]">{(player.score / 100).toFixed(2)}</span>
                         </div>
                       </div>
                     );
@@ -1602,7 +1602,7 @@ export default function BogxInvadersGame({
                   </button>
                   <button
                     onClick={startGame}
-                    className="px-8 py-2.5 bg-[#D4873A] hover:bg-[#C4772A] text-white font-bold rounded-lg shadow-md"
+                    className="px-8 py-2.5 bg-[#E36B11] hover:bg-[#C4772A] text-white font-bold rounded-lg shadow-md"
                   >
                     PLAY AGAIN
                   </button>

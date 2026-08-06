@@ -34,7 +34,7 @@ export default function RankingItemRow({
   onVote 
 }: RankingItemRowProps) {
   return (
-    <div className="p-3 hover:bg-[#D4873A]/[0.02] transition-colors">
+    <div className="p-3 hover:bg-[#E36B11]/[0.02] transition-colors">
       {isDesktop ? (
         /* Desktop: 3-column layout - Image | Text | Voting */
         <div className="flex items-center gap-4">
@@ -64,8 +64,8 @@ export default function RankingItemRow({
               disabled={isVoting || userVote === 'up'}
               className={`w-full flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg transition-all ${
                 userVote === 'up'
-                  ? 'bg-[#D4873A] text-white cursor-default'
-                  : 'bg-[#D4873A]/10 text-gray-500 hover:bg-[#D4873A]/20 hover:text-[#D4873A] cursor-pointer'
+                  ? 'bg-[#E36B11] text-white cursor-default'
+                  : 'bg-[#E36B11]/10 text-gray-500 hover:bg-[#E36B11]/20 hover:text-[#E36B11] cursor-pointer'
               } ${isVoting ? 'opacity-50' : ''}`}
             >
               <ChevronUp className="w-5 h-5" />
@@ -76,8 +76,8 @@ export default function RankingItemRow({
               disabled={isVoting || userVote === 'down'}
               className={`w-full flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg transition-all ${
                 userVote === 'down'
-                  ? 'bg-[#D4873A] text-white cursor-default'
-                  : 'bg-[#D4873A]/5 text-[#D4873A]/50 hover:bg-[#D4873A]/10 hover:text-[#D4873A]/70 cursor-pointer'
+                  ? 'bg-[#E36B11] text-white cursor-default'
+                  : 'bg-[#E36B11]/5 text-[#E36B11]/50 hover:bg-[#E36B11]/10 hover:text-[#E36B11]/70 cursor-pointer'
               } ${isVoting ? 'opacity-50' : ''}`}
             >
               <ChevronDown className="w-5 h-5" />
@@ -98,8 +98,8 @@ export default function RankingItemRow({
                 disabled={isVoting || userVote === 'up'}
                 className={`flex-1 flex items-center justify-center gap-2 rounded-lg transition-all ${
                   userVote === 'up'
-                    ? 'bg-[#D4873A] text-white cursor-default'
-                    : 'bg-[#D4873A]/10 text-gray-500 hover:bg-[#D4873A]/20 hover:text-[#D4873A] cursor-pointer'
+                    ? 'bg-[#E36B11] text-white cursor-default'
+                    : 'bg-[#E36B11]/10 text-gray-500 hover:bg-[#E36B11]/20 hover:text-[#E36B11] cursor-pointer'
                 } ${isVoting ? 'opacity-50' : ''}`}
               >
                 <ChevronUp className="w-5 h-5" />
@@ -110,8 +110,8 @@ export default function RankingItemRow({
                 disabled={isVoting || userVote === 'down'}
                 className={`flex-1 flex items-center justify-center gap-2 rounded-lg transition-all ${
                   userVote === 'down'
-                    ? 'bg-[#D4873A] text-white cursor-default'
-                    : 'bg-[#D4873A]/5 text-[#D4873A]/50 hover:bg-[#D4873A]/10 hover:text-[#D4873A]/70 cursor-pointer'
+                    ? 'bg-[#E36B11] text-white cursor-default'
+                    : 'bg-[#E36B11]/5 text-[#E36B11]/50 hover:bg-[#E36B11]/10 hover:text-[#E36B11]/70 cursor-pointer'
                 } ${isVoting ? 'opacity-50' : ''}`}
               >
                 <ChevronDown className="w-5 h-5" />

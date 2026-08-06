@@ -118,12 +118,12 @@ export default function QuizGame({ cardData, nextCardTheme, onComplete, onStart,
         return { 
           icon: Film, 
           label: "MOVIES", 
-          color: "text-[#D4873A]",
-          bgColor: "bg-[#D4873A]",
-          bgColorTransparent: "bg-[#D4873A]/40",
+          color: "text-[#E36B11]",
+          bgColor: "bg-[#E36B11]",
+          bgColorTransparent: "bg-[#E36B11]/40",
           bgHover: "hover:bg-[#a8c000]",
-          borderColor: "border-[#D4873A]",
-          gradient: "from-[#D4873A] to-[#a8c000]",
+          borderColor: "border-[#E36B11]",
+          gradient: "from-[#E36B11] to-[#a8c000]",
           glow: "0 0 20px rgba(212, 240, 0, 0.4)"
         };
       case "TV SHOWS":
@@ -178,12 +178,12 @@ export default function QuizGame({ cardData, nextCardTheme, onComplete, onStart,
         return { 
           icon: Star, 
           label: "CELEBRITIES", 
-          color: "text-[#D4873A]",
-          bgColor: "bg-[#D4873A]",
-          bgColorTransparent: "bg-[#D4873A]/40",
+          color: "text-[#E36B11]",
+          bgColor: "bg-[#E36B11]",
+          bgColorTransparent: "bg-[#E36B11]/40",
           bgHover: "hover:bg-[#a8c000]",
-          borderColor: "border-[#D4873A]",
-          gradient: "from-[#D4873A] to-[#a8c000]",
+          borderColor: "border-[#E36B11]",
+          gradient: "from-[#E36B11] to-[#a8c000]",
           glow: "0 0 20px rgba(212, 240, 0, 0.4)"
         };
       case "SPORTS":
@@ -290,7 +290,7 @@ export default function QuizGame({ cardData, nextCardTheme, onComplete, onStart,
   const getDifficultyInfo = (mult: number | null) => {
     switch (mult) {
       case 1: return { text: "EASY", color: "text-green-400", bgColor: "bg-green-500/20", borderColor: "border-green-500" };
-      case 2: return { text: "MEDIUM", color: "text-[#D4873A]", bgColor: "bg-[#D4873A]/20", borderColor: "border-[#D4873A]" };
+      case 2: return { text: "MEDIUM", color: "text-[#E36B11]", bgColor: "bg-[#E36B11]/20", borderColor: "border-[#E36B11]" };
       case 3: return { text: "HARD", color: "text-red-400", bgColor: "bg-red-500/20", borderColor: "border-red-500" };
       default: return { text: "SELECT", color: "text-white/50", bgColor: "bg-cream/5", borderColor: "border-white/20" };
     }
@@ -355,7 +355,7 @@ export default function QuizGame({ cardData, nextCardTheme, onComplete, onStart,
       {/* ==================== PREVIEW STATE ==================== */}
       {/* If alreadyPlayed, skip preview and show result directly */}
       {gameState === "preview" && !alreadyPlayed && (
-        <div className="flex-1 w-full flex flex-col overflow-hidden border border-[#D4873A]/30 min-h-0" style={{ backgroundColor: '#0a0a0a' }}>
+        <div className="flex-1 w-full flex flex-col overflow-hidden border border-[#E36B11]/30 min-h-0" style={{ backgroundColor: '#0a0a0a' }}>
           {/* Card Background Image - IDENTICAL to all states */}
           <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
             <div className="absolute inset-0">
@@ -378,7 +378,7 @@ export default function QuizGame({ cardData, nextCardTheme, onComplete, onStart,
                   const isPlayed = i + 1 < currentCard;
                   const result = cardResults[i]; // true=correct, false=wrong, undefined=not played
                   let bgColor = 'bg-cream/30'; // Not played - neutral
-                  if (isPlayed && result === true) bgColor = 'bg-[#D4873A]'; // Played & correct - green
+                  if (isPlayed && result === true) bgColor = 'bg-[#E36B11]'; // Played & correct - green
                   else if (isPlayed && result === false) bgColor = 'bg-red-500'; // Played & wrong - red
                   else if (isCurrentCard) bgColor = 'bg-cream/60'; // Current card - brighter but neutral
                   
@@ -394,7 +394,7 @@ export default function QuizGame({ cardData, nextCardTheme, onComplete, onStart,
 
             {/* Content Panel - Neon green border - fixed height, content at bottom */}
             <div className="relative z-10 mx-4 mb-3">
-              <div className="p-5 border border-[#D4873A]/30 bg-black/80 backdrop-blur-md flex flex-col justify-end" style={{ minHeight: '320px' }}>
+              <div className="p-5 border border-[#E36B11]/30 bg-black/80 backdrop-blur-md flex flex-col justify-end" style={{ minHeight: '320px' }}>
                 
                 {/* Quiz Badge + Theme & Topic - 2 Column Layout */}
                 <div className="mb-4 flex gap-3">
@@ -423,7 +423,7 @@ export default function QuizGame({ cardData, nextCardTheme, onComplete, onStart,
                     const penalty = mult === 1 ? 10 : mult === 2 ? 50 : 100;
                     const label = mult === 1 ? 'Easy' : mult === 2 ? 'Medium' : 'Hard';
                     // 3 Neon-Grün Stufen: Easy=dunkel, Medium=mittel, Hard=hell/leuchtend
-                    const neonShade = mult === 1 ? '#608000' : mult === 2 ? '#9ABF00' : '#D4873A';
+                    const neonShade = mult === 1 ? '#608000' : mult === 2 ? '#9ABF00' : '#E36B11';
                     return (
                       <button
                         key={mult}
@@ -465,7 +465,7 @@ export default function QuizGame({ cardData, nextCardTheme, onComplete, onStart,
                     !multiplier ? 'bg-cream/10 text-white/30 cursor-not-allowed' : ''
                   }`}
                   style={multiplier ? { 
-                    backgroundColor: multiplier === 1 ? '#608000' : multiplier === 2 ? '#9ABF00' : '#D4873A',
+                    backgroundColor: multiplier === 1 ? '#608000' : multiplier === 2 ? '#9ABF00' : '#E36B11',
                     color: '#000'
                   } : {}}
                 >
@@ -482,7 +482,7 @@ export default function QuizGame({ cardData, nextCardTheme, onComplete, onStart,
 
       {/* ==================== COUNTDOWN & PLAYING STATE (same layout) ==================== */}
       {(gameState === "countdown" || gameState === "playing") && (
-        <div className="flex-1 w-full flex flex-col overflow-hidden border border-[#D4873A]/30 min-h-0" style={{ backgroundColor: '#0a0a0a' }}>
+        <div className="flex-1 w-full flex flex-col overflow-hidden border border-[#E36B11]/30 min-h-0" style={{ backgroundColor: '#0a0a0a' }}>
           <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
             {/* Background Image - SAME for countdown and playing */}
             <div className="absolute inset-0">
@@ -500,7 +500,7 @@ export default function QuizGame({ cardData, nextCardTheme, onComplete, onStart,
                   const isPlayed = i + 1 < currentCard;
                   const result = cardResults[i];
                   let bgColor = 'bg-cream/30'; // Not played - neutral
-                  if (isPlayed && result === true) bgColor = 'bg-[#D4873A]'; // Played & correct - green
+                  if (isPlayed && result === true) bgColor = 'bg-[#E36B11]'; // Played & correct - green
                   else if (isPlayed && result === false) bgColor = 'bg-red-500'; // Played & wrong - red
                   else if (isCurrentCard) bgColor = 'bg-cream/60'; // Current card - brighter but neutral
                   return (
@@ -517,11 +517,11 @@ export default function QuizGame({ cardData, nextCardTheme, onComplete, onStart,
             <div className="relative z-10 px-4 pb-3">
               {gameState === "countdown" ? (
                 /* Countdown: Show question with countdown badge and placeholder answers */
-                <div className="p-5 border border-[#D4873A]/30 bg-black/80 backdrop-blur-md flex flex-col" style={{ height: '420px' }}>
+                <div className="p-5 border border-[#E36B11]/30 bg-black/80 backdrop-blur-md flex flex-col" style={{ height: '420px' }}>
                   {/* Theme + Difficulty header */}
                   <div className="flex items-center justify-between">
                     <span className={`text-xs uppercase tracking-wider ${themeConfig.color}`}>{themeConfig.label}</span>
-                    <span className="text-[#D4873A] text-xs uppercase tracking-wider">
+                    <span className="text-[#E36B11] text-xs uppercase tracking-wider">
                       {multiplier === 1 ? '★ Easy' : multiplier === 2 ? '★★ Medium' : '★★★ Hard'}
                     </span>
                   </div>
@@ -533,10 +533,10 @@ export default function QuizGame({ cardData, nextCardTheme, onComplete, onStart,
                   <div className="flex justify-center mb-4">
                     <div 
                       key={countdown} 
-                      className="w-16 h-16 border-4 border-[#D4873A] flex items-center justify-center bg-black/60"
+                      className="w-16 h-16 border-4 border-[#E36B11] flex items-center justify-center bg-black/60"
                       style={{ boxShadow: '0 0 30px rgba(212, 240, 0, 0.4)' }}
                     >
-                      <span className="text-[#D4873A] font-display text-4xl">
+                      <span className="text-[#E36B11] font-display text-4xl">
                         {countdown}
                       </span>
                     </div>
@@ -550,7 +550,7 @@ export default function QuizGame({ cardData, nextCardTheme, onComplete, onStart,
                   {/* Placeholder answers - exact same size as real buttons */}
                   <div className="grid grid-cols-2 grid-rows-2 gap-2 mt-auto">
                     {[0, 1, 2, 3].map((i) => (
-                      <div key={i} className="px-2 py-4 text-sm font-bold flex items-center justify-center text-center bg-cream/5 border border-[#D4873A]/20">&nbsp;</div>
+                      <div key={i} className="px-2 py-4 text-sm font-bold flex items-center justify-center text-center bg-cream/5 border border-[#E36B11]/20">&nbsp;</div>
                     ))}
                   </div>
                 </div>
@@ -568,11 +568,11 @@ export default function QuizGame({ cardData, nextCardTheme, onComplete, onStart,
                     const filledSegments = Math.round(percent * 10);
                     
                     return (
-                      <div className="p-5 border border-[#D4873A]/30 bg-black/80 backdrop-blur-md flex flex-col" style={{ height: '420px' }}>
+                      <div className="p-5 border border-[#E36B11]/30 bg-black/80 backdrop-blur-md flex flex-col" style={{ height: '420px' }}>
                         {/* Theme + Difficulty header */}
                         <div className="flex items-center justify-between">
                           <span className={`text-xs uppercase tracking-wider ${themeConfig.color}`}>{themeConfig.label}</span>
-                          <span className="text-[#D4873A] text-xs uppercase tracking-wider">
+                          <span className="text-[#E36B11] text-xs uppercase tracking-wider">
                             {multiplier === 1 ? '★ Easy' : multiplier === 2 ? '★★ Medium' : '★★★ Hard'}
                           </span>
                         </div>
@@ -583,20 +583,20 @@ export default function QuizGame({ cardData, nextCardTheme, onComplete, onStart,
                         {/* Timer Row with LED segments */}
                         <div className="flex items-center justify-between gap-2 mb-4">
                           <div className="flex items-center gap-1">
-                            <div className="w-11 h-11 border-2 border-[#D4873A] bg-[#D4873A]/10 flex items-center justify-center">
-                              <span className="font-display text-2xl text-[#D4873A]">{String(Math.ceil(timeLeft)).padStart(2, '0')}</span>
+                            <div className="w-11 h-11 border-2 border-[#E36B11] bg-[#E36B11]/10 flex items-center justify-center">
+                              <span className="font-display text-2xl text-[#E36B11]">{String(Math.ceil(timeLeft)).padStart(2, '0')}</span>
                             </div>
                             <span className="text-white/50 text-[10px]">SEC</span>
                           </div>
                           <div className="flex-1 px-1">
                             <div className="flex gap-0.5">
                               {[...Array(10)].map((_, i) => (
-                                <div key={i} className={`h-4 flex-1 transition-colors duration-150 ${i < filledSegments ? 'bg-[#D4873A]' : 'bg-cream/20'}`} />
+                                <div key={i} className={`h-4 flex-1 transition-colors duration-150 ${i < filledSegments ? 'bg-[#E36B11]' : 'bg-cream/20'}`} />
                               ))}
                             </div>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="font-display text-2xl text-[#D4873A]">{formatCurrency(currentPoints)}</span>
+                            <span className="font-display text-2xl text-[#E36B11]">{formatCurrency(currentPoints)}</span>
                             <span className="text-white/50 text-[10px]">{getCurrencySymbol()}</span>
                           </div>
                         </div>
@@ -615,8 +615,8 @@ export default function QuizGame({ cardData, nextCardTheme, onComplete, onStart,
                               disabled={selectedAnswer !== null}
                               className={`px-2 py-4 text-sm font-bold transition-all flex items-center justify-center text-center ${
                                 selectedAnswer === option
-                                  ? option === gameData.correctAnswer ? "bg-[#D4873A] text-white border-2 border-[#D4873A]" : "bg-red-500 text-white border-2 border-red-500"
-                                  : "bg-cream/5 text-white/90 border border-[#D4873A]/20 hover:bg-[#D4873A]/10 hover:border-[#D4873A]/40"
+                                  ? option === gameData.correctAnswer ? "bg-[#E36B11] text-white border-2 border-[#E36B11]" : "bg-red-500 text-white border-2 border-red-500"
+                                  : "bg-cream/5 text-white/90 border border-[#E36B11]/20 hover:bg-[#E36B11]/10 hover:border-[#E36B11]/40"
                               }`}
                             ><span className="line-clamp-2">{option}</span></button>
                           ))}
@@ -634,7 +634,7 @@ export default function QuizGame({ cardData, nextCardTheme, onComplete, onStart,
       {/* ==================== RESULT STATE ==================== */}
       {/* Show result if gameState is result OR if alreadyPlayed (even if gameState is still preview) */}
       {(gameState === "result" || alreadyPlayed) && (
-        <div className="flex-1 w-full flex flex-col overflow-hidden border border-[#D4873A]/30 min-h-0" style={{ backgroundColor: '#0a0a0a' }}>
+        <div className="flex-1 w-full flex flex-col overflow-hidden border border-[#E36B11]/30 min-h-0" style={{ backgroundColor: '#0a0a0a' }}>
           <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
             {/* Background image */}
             <div className="absolute inset-0">
@@ -652,8 +652,8 @@ export default function QuizGame({ cardData, nextCardTheme, onComplete, onStart,
                   const isPlayed = i + 1 < currentCard;
                   const result = cardResults[i];
                   let bgColor = 'bg-cream/30'; // Not played - neutral
-                  if (isCurrentCard) bgColor = isWin ? 'bg-[#D4873A]' : 'bg-red-500'; // Current card shows result
-                  else if (isPlayed && result === true) bgColor = 'bg-[#D4873A]'; // Played & correct - green
+                  if (isCurrentCard) bgColor = isWin ? 'bg-[#E36B11]' : 'bg-red-500'; // Current card shows result
+                  else if (isPlayed && result === true) bgColor = 'bg-[#E36B11]'; // Played & correct - green
                   else if (isPlayed && result === false) bgColor = 'bg-red-500'; // Played & wrong - red
                   return (
                     <div key={i} className={`w-4 h-1 ${bgColor}`} />
@@ -678,7 +678,7 @@ export default function QuizGame({ cardData, nextCardTheme, onComplete, onStart,
                 {/* Front Side - Result */}
                 <div 
                   onClick={() => setShowFlippedView(true)}
-                  className="absolute inset-0 p-5 border border-[#D4873A]/30 bg-black/80 backdrop-blur-md flex flex-col cursor-pointer"
+                  className="absolute inset-0 p-5 border border-[#E36B11]/30 bg-black/80 backdrop-blur-md flex flex-col cursor-pointer"
                   style={{ backfaceVisibility: 'hidden' }}
                 >
                   {/* Header: Theme left, Flip icon right */}
@@ -700,11 +700,11 @@ export default function QuizGame({ cardData, nextCardTheme, onComplete, onStart,
                     {/* My Answer with small icon */}
                     <div className="flex items-center justify-center gap-2 mb-2">
                       {isWin ? (
-                        <Check className="w-5 h-5 text-[#D4873A]" />
+                        <Check className="w-5 h-5 text-[#E36B11]" />
                       ) : (
                         <X className="w-5 h-5 text-red-500" />
                       )}
-                      <span className={`font-bold text-lg ${isWin ? 'text-[#D4873A]' : 'text-red-500'}`}>
+                      <span className={`font-bold text-lg ${isWin ? 'text-[#E36B11]' : 'text-red-500'}`}>
                         {displayAnswer || 'No Answer'}
                       </span>
                     </div>
@@ -715,7 +715,7 @@ export default function QuizGame({ cardData, nextCardTheme, onComplete, onStart,
                     </h2>
                     
                     {/* Points */}
-                    <p className={`font-display text-4xl mt-1 text-center ${isWin ? 'text-[#D4873A]' : 'text-red-500'}`}>
+                    <p className={`font-display text-4xl mt-1 text-center ${isWin ? 'text-[#E36B11]' : 'text-red-500'}`}>
                       {isWin ? `+${formatCurrency(earnedPoints)}` : formatCurrency(earnedPoints)} <span className="text-lg text-white/50">{getCurrencySymbol()}</span>
                     </p>
                   </div>
@@ -769,7 +769,7 @@ export default function QuizGame({ cardData, nextCardTheme, onComplete, onStart,
                 {/* Back Side - Question & Answers */}
                 <div 
                   onClick={() => setShowFlippedView(false)}
-                  className="absolute inset-0 p-5 border border-[#D4873A]/30 bg-black/80 backdrop-blur-md flex flex-col cursor-pointer"
+                  className="absolute inset-0 p-5 border border-[#E36B11]/30 bg-black/80 backdrop-blur-md flex flex-col cursor-pointer"
                   style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
                 >
                   {/* Header: Theme left, Flip icon right */}
@@ -791,20 +791,20 @@ export default function QuizGame({ cardData, nextCardTheme, onComplete, onStart,
                     return (
                       <div className="flex items-center justify-between gap-2 mb-4">
                         <div className="flex items-center gap-1">
-                          <div className="w-11 h-11 border-2 border-[#D4873A] bg-[#D4873A]/10 flex items-center justify-center">
-                            <span className="font-display text-2xl text-[#D4873A]">{String(Math.ceil(timeLeft)).padStart(2, '0')}</span>
+                          <div className="w-11 h-11 border-2 border-[#E36B11] bg-[#E36B11]/10 flex items-center justify-center">
+                            <span className="font-display text-2xl text-[#E36B11]">{String(Math.ceil(timeLeft)).padStart(2, '0')}</span>
                           </div>
                           <span className="text-white/50 text-[10px]">SEC</span>
                         </div>
                         <div className="flex-1 px-1">
                           <div className="flex gap-0.5">
                             {[...Array(10)].map((_, i) => (
-                              <div key={i} className={`h-4 flex-1 ${i < frozenSegments ? 'bg-[#D4873A]' : 'bg-cream/20'}`} />
+                              <div key={i} className={`h-4 flex-1 ${i < frozenSegments ? 'bg-[#E36B11]' : 'bg-cream/20'}`} />
                             ))}
                           </div>
                         </div>
                         <div className="flex items-center gap-1">
-                          <span className="font-display text-2xl text-[#D4873A]">{formatCurrency(frozenPoints)}</span>
+                          <span className="font-display text-2xl text-[#E36B11]">{formatCurrency(frozenPoints)}</span>
                           <span className="text-white/50 text-[10px]">{getCurrencySymbol()}</span>
                         </div>
                       </div>
@@ -826,7 +826,7 @@ export default function QuizGame({ cardData, nextCardTheme, onComplete, onStart,
                           key={idx}
                           className={`px-2 py-4 text-sm font-bold flex items-center justify-center text-center border ${
                             isCorrect 
-                              ? 'bg-[#D4873A]/20 border-[#D4873A] text-[#D4873A]' 
+                              ? 'bg-[#E36B11]/20 border-[#E36B11] text-[#E36B11]' 
                               : wasSelected && !isCorrect
                                 ? 'bg-red-500/20 border-red-500 text-red-400'
                                 : 'bg-cream/5 border-white/20 text-white/50'
@@ -855,14 +855,14 @@ export default function QuizGame({ cardData, nextCardTheme, onComplete, onStart,
                 nextCardTheme === "TV SHOWS" ? "text-purple-400" :
                 nextCardTheme === "GAMING" ? "text-green-400" :
                 nextCardTheme === "SPORTS" ? "text-cyan-400" :
-                "text-[#D4873A]"
+                "text-[#E36B11]"
               }`} />
             </div>
             <span className="text-white/40 text-[9px] tracking-widest">SWIPE UP FOR NEXT CARD</span>
           </>
         ) : (
           <>
-            <Clock className="w-4 h-4 text-[#D4873A] animate-pulse" />
+            <Clock className="w-4 h-4 text-[#E36B11] animate-pulse" />
             <span className="text-white/40 text-[9px] tracking-widest">ANSWER TO CONTINUE</span>
           </>
         )}

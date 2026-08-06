@@ -88,9 +88,9 @@ export default function ShopPage({ coins = 0, onCoinsUsed }: ShopPageProps) {
   return (
     <div className="w-full h-full min-h-full flex flex-col overflow-hidden bg-cream">
       {/* Header - exactly like Rankings */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
         <div className="flex items-center gap-3">
-          <ShoppingBag className="w-5 h-5 text-[#D4873A]" />
+          <ShoppingBag className="w-5 h-5 text-[#E36B11]" />
           <div>
             <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Shop</span>
             <span className="text-[10px] text-gray-500 -mt-0.5 block">GenX merch & collectibles</span>
@@ -98,12 +98,12 @@ export default function ShopPage({ coins = 0, onCoinsUsed }: ShopPageProps) {
         </div>
         <button 
           onClick={() => setShowCart(true)}
-          className="relative flex items-center gap-2 px-3 py-2 bg-[#D4873A] rounded-lg text-white text-xs font-semibold tracking-wider hover:bg-[#c06a2a] transition-colors"
+          className="relative flex items-center gap-2 px-3 py-2 bg-[#E36B11] rounded-lg text-white text-xs font-semibold tracking-wider hover:bg-[#c06a2a] transition-colors"
         >
           <ShoppingCart className="w-4 h-4" />
           CART
           {totalItems > 0 && (
-            <span className="w-5 h-5 bg-white rounded-full text-[#D4873A] text-xs font-bold flex items-center justify-center">
+            <span className="w-5 h-5 bg-white rounded-full text-[#E36B11] text-xs font-bold flex items-center justify-center">
               {totalItems}
             </span>
           )}
@@ -133,7 +133,7 @@ export default function ShopPage({ coins = 0, onCoinsUsed }: ShopPageProps) {
             <div className="absolute inset-0 flex items-center justify-end pr-8">
               <div className="text-right">
                 <h2 className="font-display text-2xl md:text-5xl text-white leading-tight" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
-                  WEAR YOUR <span className="text-[#D4873A]">GENERATION.</span>
+                  WEAR YOUR <span className="text-[#E36B11]">GENERATION.</span>
                 </h2>
                 <p className="text-white/80 text-xs mt-2" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
                   Official BestofGenX Merch & Collectibles
@@ -153,8 +153,8 @@ export default function ShopPage({ coins = 0, onCoinsUsed }: ShopPageProps) {
                   onClick={() => setActiveCategory(cat.id)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-all border ${
                     isActive 
-                      ? "bg-[#D4873A] text-white border-[#D4873A]" 
-                      : "bg-cream text-gray-700 hover:bg-[#D4873A]/10 border-warm"
+                      ? "bg-[#E36B11] text-white border-[#E36B11]" 
+                      : "bg-cream text-gray-700 hover:bg-[#E36B11]/10 border-warm"
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -222,10 +222,10 @@ export default function ShopPage({ coins = 0, onCoinsUsed }: ShopPageProps) {
                   >
                     {/* Wishlist */}
                     <button 
-                      className="absolute top-2 right-2 z-10 w-7 h-7 bg-[#D4873A]/20 backdrop-blur-sm rounded-full flex items-center justify-center"
+                      className="absolute top-2 right-2 z-10 w-7 h-7 bg-[#E36B11]/20 backdrop-blur-sm rounded-full flex items-center justify-center"
                       onClick={(e) => { e.stopPropagation(); }}
                     >
-                      <Heart className="w-4 h-4 text-[#D4873A]" />
+                      <Heart className="w-4 h-4 text-[#E36B11]" />
                     </button>
 
                     {/* Product Image */}
@@ -243,13 +243,13 @@ export default function ShopPage({ coins = 0, onCoinsUsed }: ShopPageProps) {
                       <div className="flex items-center gap-1 mt-0.5">
                         <div className="flex">
                           {[1,2,3,4,5].map(i => (
-                            <Star key={i} className="w-2.5 h-2.5 fill-[#D4873A] text-[#D4873A]" />
+                            <Star key={i} className="w-2.5 h-2.5 fill-[#E36B11] text-[#E36B11]" />
                           ))}
                         </div>
                         <span className="text-gray-500 text-[9px]">({(product as any).reviewCount || 0})</span>
                       </div>
                       <div className="flex items-baseline gap-1 mt-1">
-                        <span className="text-[#D4873A] font-bold text-sm">{product.price}</span>
+                        <span className="text-[#E36B11] font-bold text-sm">{product.price}</span>
                       </div>
                       <span className="text-gray-500 text-[10px]">
                         or {(parseFloat(product.price.replace('€', '').replace(',', '.')) * 500).toLocaleString()} BOGX

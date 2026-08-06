@@ -17,7 +17,7 @@ export default function BackButton({ onClick, label = false, className = "" }: B
       <button
         onClick={onClick}
         aria-label="Back"
-        className={`flex items-center gap-1.5 pl-1.5 pr-3 py-1.5 rounded-full bg-black/5 border border-warm text-gray-700 hover:bg-black/10 hover:text-[#D4873A] transition-colors ${className}`}
+        className={`flex items-center gap-1.5 pl-1.5 pr-3 py-1.5 rounded-full bg-black/5 border border-warm text-gray-700 hover:bg-black/10 hover:text-[#E36B11] transition-colors ${className}`}
       >
         <ChevronLeft className="w-5 h-5" />
         <span className="text-sm font-medium">Back</span>
@@ -29,7 +29,7 @@ export default function BackButton({ onClick, label = false, className = "" }: B
     <button
       onClick={onClick}
       aria-label="Back"
-      className={`w-9 h-9 rounded-full flex items-center justify-center bg-black/5 border border-warm text-gray-700 hover:bg-black/10 hover:text-[#D4873A] transition-colors ${className}`}
+      className={`w-9 h-9 rounded-full flex items-center justify-center bg-black/5 border border-warm text-gray-700 hover:bg-black/10 hover:text-[#E36B11] transition-colors ${className}`}
     >
       <ChevronLeft className="w-5 h-5" />
     </button>

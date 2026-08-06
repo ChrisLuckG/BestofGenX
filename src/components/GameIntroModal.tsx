@@ -69,10 +69,10 @@ export default function GameIntroModal({
       <div className="w-full h-full flex items-center justify-center bg-[#F5F0E8] p-6">
         <div className="w-full max-w-md bg-white rounded-2xl shadow-lg border border-warm overflow-hidden">
           {/* Header - Icon and Close in same row */}
-          <div className="flex items-center justify-between p-4 bg-gradient-to-br from-[#D4873A]/10 via-[#D4873A]/5 to-transparent">
+          <div className="flex items-center justify-between p-4 bg-gradient-to-br from-[#E36B11]/10 via-[#E36B11]/5 to-transparent">
             <div className="w-12 h-12 rounded-xl bg-white border border-warm shadow-sm flex items-center justify-center">
               {Icon ? (
-                <Icon className="w-6 h-6 text-[#D4873A]" />
+                <Icon className="w-6 h-6 text-[#E36B11]" />
               ) : (
                 <img src="/images/genxlogo1.png" alt="Best of GenX" className="h-7 object-contain" />
               )}
@@ -101,8 +101,8 @@ export default function GameIntroModal({
                 const RuleIcon = rule.icon ?? Check;
                 return (
                   <div key={i} className="flex items-start gap-2.5">
-                    <div className="w-5 h-5 rounded-full bg-[#D4873A]/15 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <RuleIcon className="w-3 h-3 text-[#D4873A]" />
+                    <div className="w-5 h-5 rounded-full bg-[#E36B11]/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <RuleIcon className="w-3 h-3 text-[#E36B11]" />
                     </div>
                     <p className="text-[13px] text-gray-700 leading-relaxed">{rule.text}</p>
                   </div>
@@ -113,7 +113,7 @@ export default function GameIntroModal({
             {/* Action */}
             <button
               onClick={onAction}
-              className="w-full py-3 bg-[#D4873A] hover:bg-[#C4772A] text-white font-bold rounded-xl text-[14px] transition-colors shadow-sm"
+              className="w-full py-3 bg-[#E36B11] hover:bg-[#C4772A] text-white font-bold rounded-xl text-[14px] transition-colors shadow-sm"
             >
               {actionLabel}
             </button>
@@ -178,9 +178,9 @@ export default function GameIntroModal({
         ) : (
           <div className="px-6 pt-4 pb-2">
             <div className="flex justify-center mb-3">
-              <div className="w-14 h-14 rounded-xl bg-[#D4873A]/10 border border-[#D4873A]/20 flex items-center justify-center">
+              <div className="w-14 h-14 rounded-xl bg-[#E36B11]/10 border border-[#E36B11]/20 flex items-center justify-center">
                 {Icon ? (
-                  <Icon className="w-7 h-7 text-[#D4873A]" />
+                  <Icon className="w-7 h-7 text-[#E36B11]" />
                 ) : (
                   <img src="/images/genxlogo1.png" alt="" className="h-8 object-contain" />
                 )}
@@ -200,7 +200,7 @@ export default function GameIntroModal({
           {hasRichRules ? (
             <div className="space-y-2">
               {rules.map((rule, i) => (
-                <div key={i} className="flex items-center gap-3 bg-[#D4873A]/5 rounded-xl p-3">
+                <div key={i} className="flex items-center gap-3 bg-[#E36B11]/5 rounded-xl p-3">
                   {rule.image && (
                     <div className="w-16 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-gray-200">
                       <img src={rule.image} alt="" className="w-full h-full object-cover" />
@@ -208,7 +208,7 @@ export default function GameIntroModal({
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-baseline gap-1.5">
-                      <span className="text-[#D4873A] font-bold text-sm">{i + 1}.</span>
+                      <span className="text-[#E36B11] font-bold text-sm">{i + 1}.</span>
                       {rule.title && <span className="font-bold text-gray-900 text-sm">{rule.title}</span>}
                     </div>
                     <p className="text-gray-500 text-xs leading-snug mt-0.5">{rule.text}</p>
@@ -222,8 +222,8 @@ export default function GameIntroModal({
                 const RuleIcon = rule.icon ?? Check;
                 return (
                   <div key={i} className="flex items-start gap-2.5">
-                    <div className="w-5 h-5 rounded-full bg-[#D4873A]/15 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <RuleIcon className="w-3 h-3 text-[#D4873A]" />
+                    <div className="w-5 h-5 rounded-full bg-[#E36B11]/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <RuleIcon className="w-3 h-3 text-[#E36B11]" />
                     </div>
                     <p className="text-[13px] text-gray-700 leading-relaxed">{rule.text}</p>
                   </div>
@@ -236,7 +236,7 @@ export default function GameIntroModal({
         {/* Info Badges - single box with dividers */}
         {infoBadges && infoBadges.length > 0 && (
           <div className="px-4 pb-3">
-            <div className="flex items-stretch bg-[#D4873A]/5 rounded-xl divide-x divide-[#D4873A]/10">
+            <div className="flex items-stretch bg-[#E36B11]/5 rounded-xl divide-x divide-[#E36B11]/10">
               {infoBadges.map((badge, i) => (
                 <div key={i} className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5">
                   <badge.icon className="w-4 h-4 text-gray-500 flex-shrink-0" />
@@ -254,7 +254,7 @@ export default function GameIntroModal({
         <div className="px-4 pb-4 space-y-2">
           <button
             onClick={onAction}
-            className="w-full py-3.5 bg-[#D4873A] hover:bg-[#C4772A] text-white font-bold rounded-xl text-[15px] transition-colors shadow-md flex items-center justify-center gap-2"
+            className="w-full py-3.5 bg-[#E36B11] hover:bg-[#C4772A] text-white font-bold rounded-xl text-[15px] transition-colors shadow-md flex items-center justify-center gap-2"
           >
             {Icon && <Icon className="w-5 h-5" />}
             {actionLabel}

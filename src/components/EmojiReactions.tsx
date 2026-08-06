@@ -142,12 +142,12 @@ export default function EmojiReactions({
                   className={`w-10 h-10 object-contain ${isSelected ? 'drop-shadow-lg' : ''}`} 
                 />
                 {count > 0 && (
-                  <span className="absolute -right-1 -top-1 min-w-[16px] h-4 px-1 bg-[#D4873A] rounded-full flex items-center justify-center text-white text-[9px] font-bold">
+                  <span className="absolute -right-1 -top-1 min-w-[16px] h-4 px-1 bg-[#E36B11] rounded-full flex items-center justify-center text-white text-[9px] font-bold">
                     {count}
                   </span>
                 )}
               </div>
-              <span className={`text-[9px] mt-1 whitespace-nowrap ${isSelected ? 'text-[#D4873A] font-bold' : 'text-gray-500'}`}>
+              <span className={`text-[9px] mt-1 whitespace-nowrap ${isSelected ? 'text-[#E36B11] font-bold' : 'text-gray-500'}`}>
                 {mood.label}
               </span>
             </button>
@@ -175,7 +175,7 @@ export default function EmojiReactions({
           <img src={DEFAULT_MOOD.image} alt="React" className="w-8 h-8 object-contain drop-shadow-lg" />
         )}
         {totalReactions > 0 && (
-          <span className="absolute -right-1 -top-1 min-w-[16px] h-4 px-1 bg-[#D4873A] rounded-lg flex items-center justify-center text-white text-[10px] font-bold shadow-lg">
+          <span className="absolute -right-1 -top-1 min-w-[16px] h-4 px-1 bg-[#E36B11] rounded-lg flex items-center justify-center text-white text-[10px] font-bold shadow-lg">
             {totalReactions}
           </span>
         )}

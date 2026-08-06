@@ -88,16 +88,16 @@ export default function DesktopRewardsPage({ coins, onClose, onRedeem }: Desktop
   return (
       <div className="flex flex-col h-full bg-[#F5F0E8] overflow-hidden">
         {/* Header - Desktop warm style */}
-        <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
+        <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
           <button 
             onClick={onClose}
-            className="flex items-center gap-2 text-gray-600 hover:text-[#D4873A] transition-colors"
+            className="flex items-center gap-2 text-gray-600 hover:text-[#E36B11] transition-colors"
           >
             <Trophy className="w-5 h-5" />
             <span className="font-display text-lg tracking-wider">Ranking</span>
           </button>
           <div className="flex items-center gap-3">
-            <Gift className="w-5 h-5 text-[#D4873A]" />
+            <Gift className="w-5 h-5 text-[#E36B11]" />
             <div>
               <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Rewards</span>
               <span className="text-[10px] text-gray-500 -mt-0.5 block">Redeem your BOGX coins</span>
@@ -106,7 +106,7 @@ export default function DesktopRewardsPage({ coins, onClose, onRedeem }: Desktop
         </div>
 
         {/* Membership Status */}
-        <div className="p-4 border-b border-warm bg-gradient-to-b from-[#D4873A]/[0.02] to-transparent">
+        <div className="p-4 border-b border-warm bg-gradient-to-b from-[#E36B11]/[0.02] to-transparent">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
               <div 
@@ -123,7 +123,7 @@ export default function DesktopRewardsPage({ coins, onClose, onRedeem }: Desktop
             <div className="text-right">
               <div className="flex items-center gap-1.5 justify-end">
                 <img src="/images/bogxcoin.png" alt="" className="w-5 h-5" />
-                <span className="font-bold text-xl text-[#D4873A]">{formatCurrency(coins)}</span>
+                <span className="font-bold text-xl text-[#E36B11]">{formatCurrency(coins)}</span>
               </div>
               <p className="text-[10px] text-gray-500">Coins</p>
             </div>
@@ -177,7 +177,7 @@ export default function DesktopRewardsPage({ coins, onClose, onRedeem }: Desktop
           
           {/* Earn Free */}
           <div className="mt-4">
-            <p className="text-[10px] text-[#D4873A] mb-2 text-center uppercase tracking-wider font-semibold">Earn Free BOGX</p>
+            <p className="text-[10px] text-[#E36B11] mb-2 text-center uppercase tracking-wider font-semibold">Earn Free BOGX</p>
             <RewardedAdButton 
               onReward={(points: number) => onRedeem(`ad-reward-${Date.now()}`, -points)}
             />
@@ -185,12 +185,12 @@ export default function DesktopRewardsPage({ coins, onClose, onRedeem }: Desktop
         </div>
 
         {/* Rewards List */}
-        <div className="flex-1 overflow-y-auto p-4 pb-8 space-y-3 bg-gradient-to-b from-transparent to-[#D4873A]/[0.03]" style={{ scrollbarWidth: 'none' }}>
+        <div className="flex-1 overflow-y-auto p-4 pb-8 space-y-3 bg-gradient-to-b from-transparent to-[#E36B11]/[0.03]" style={{ scrollbarWidth: 'none' }}>
           {loading ? (
             <RewardsSkeleton />
           ) : displayRewards.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Gift className="w-16 h-16 text-[#D4873A]/20 mb-4" />
+              <Gift className="w-16 h-16 text-[#E36B11]/20 mb-4" />
               <p className="text-gray-500 text-sm">No rewards available right now.</p>
               <p className="text-gray-400 text-xs mt-1">Check back soon!</p>
             </div>
@@ -205,14 +205,14 @@ export default function DesktopRewardsPage({ coins, onClose, onRedeem }: Desktop
                   onClick={() => setSelectedReward(reward)}
                   className={`w-full text-left p-4 rounded-xl border transition-all ${
                     canAfford 
-                      ? 'bg-cream border-warm hover:border-[#D4873A]/30 hover:shadow-md' 
+                      ? 'bg-cream border-warm hover:border-[#E36B11]/30 hover:shadow-md' 
                       : 'bg-cream/50 border-warm/50 opacity-60'
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
                       reward.category === 'premium' ? 'bg-gradient-to-br from-[#FFB800] to-[#FF8C00]' :
-                      reward.category === 'standard' ? 'bg-gradient-to-br from-[#D4873A] to-[#E5A55A]' :
+                      reward.category === 'standard' ? 'bg-gradient-to-br from-[#E36B11] to-[#E5A55A]' :
                       'bg-gradient-to-br from-gray-400 to-gray-500'
                     }`}>
                       <IconComponent className="w-6 h-6 text-white" />
@@ -225,7 +225,7 @@ export default function DesktopRewardsPage({ coins, onClose, onRedeem }: Desktop
                     <div className="text-right">
                       <div className="flex items-center gap-1 justify-end">
                         <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
-                        <span className={`font-display text-lg ${canAfford ? 'text-[#D4873A]' : 'text-gray-400'}`}>
+                        <span className={`font-display text-lg ${canAfford ? 'text-[#E36B11]' : 'text-gray-400'}`}>
                           {formatCurrency(reward.cost)}
                         </span>
                       </div>

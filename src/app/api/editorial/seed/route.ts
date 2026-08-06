@@ -173,7 +173,7 @@ export async function POST() {
         } else {
           // Create new reporter user
           const hashedPassword = await bcrypt.hash(`bogx_${reporter.slug}_seed`, 8);
-          const avatar = `https://api.dicebear.com/7.x/personas/svg?seed=${reporter.slug}&backgroundColor=D4873A`;
+          const avatar = `https://api.dicebear.com/7.x/personas/svg?seed=${reporter.slug}&backgroundColor=E36B11`;
           const user = await User.create({
             username,
             email,

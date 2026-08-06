@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { Lock, Loader2 } from "lucide-react";
@@ -39,7 +39,7 @@ const CONFIG_TABS: { id: TabType; label: string }[] = [
   { id: 'currency', label: 'Currency' },
   { id: 'mike', label: 'Mike' },
   { id: 'menschen', label: 'Menschen' },
-  { id: 'conference', label: '📰 Conference' },
+  { id: 'conference', label: '?? Conference' },
 ];
 
 export default function AdminPage() {
@@ -95,7 +95,7 @@ export default function AdminPage() {
   if (!authChecked) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-[#D4873A] animate-spin" />
+        <Loader2 className="w-8 h-8 text-[#E36B11] animate-spin" />
       </div>
     );
   }
@@ -132,7 +132,7 @@ export default function AdminPage() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
-                  activeTab === tab.id ? 'bg-[#D4873A] text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                  activeTab === tab.id ? 'bg-[#E36B11] text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
                 }`}
               >
                 {tab.label}
@@ -155,7 +155,7 @@ export default function AdminPage() {
             <button
               onClick={() => setActiveTab('requests')}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0 relative ${
-                activeTab === 'requests' ? 'bg-[#D4873A] text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                activeTab === 'requests' ? 'bg-[#E36B11] text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
               }`}
             >
               Radio
@@ -177,7 +177,7 @@ export default function AdminPage() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
-                  activeTab === tab.id ? 'bg-[#D4873A] text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                  activeTab === tab.id ? 'bg-[#E36B11] text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
                 }`}
               >
                 {tab.label}
@@ -208,7 +208,7 @@ export default function AdminPage() {
           <NewsroomConference
             userId={user?.id}
             onRankrollProposed={(title: string, description: string) => {
-              // Stay on the Conference tab — the editor opens as an overlay on top of it.
+              // Stay on the Conference tab � the editor opens as an overlay on top of it.
               setPendingRankrollTitle(title);
               setPendingRankrollDescription(description);
             }}

@@ -192,7 +192,7 @@ export default function PushNotifications({ showSettings = false, onClose }: { s
           <div className="p-4 border-t border-warm">
             <button
               onClick={onClose}
-              className="w-full py-3 bg-[#D4873A] text-white font-display text-sm tracking-widest rounded-xl"
+              className="w-full py-3 bg-[#E36B11] text-white font-display text-sm tracking-widest rounded-xl"
             >
               DONE
             </button>
@@ -278,7 +278,7 @@ export default function PushNotifications({ showSettings = false, onClose }: { s
         <div className="space-y-3">
           <button
             onClick={subscribe}
-            className="w-full py-4 bg-[#D4873A] text-white font-bold text-lg rounded-xl hover:bg-[#c5e000] transition-colors flex items-center justify-center gap-2"
+            className="w-full py-4 bg-[#E36B11] text-white font-bold text-lg rounded-xl hover:bg-[#c5e000] transition-colors flex items-center justify-center gap-2"
           >
             <Bell className="w-5 h-5" />
             Enable Notifications

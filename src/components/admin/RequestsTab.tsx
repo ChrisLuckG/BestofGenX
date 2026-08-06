@@ -34,7 +34,7 @@ const STATUS_OPTIONS: { value: SongRequest["status"] | "all"; label: string }[] 
 ];
 
 const STATUS_STYLES: Record<SongRequest["status"], string> = {
-  new: "bg-[#D4873A]/20 text-[#D4873A]",
+  new: "bg-[#E36B11]/20 text-[#E36B11]",
   in_progress: "bg-blue-500/20 text-blue-400",
   added: "bg-green-500/20 text-green-400",
   rejected: "bg-red-500/20 text-red-400",
@@ -331,28 +331,28 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
             placeholder="Station Name"
             value={newStation.name}
             onChange={(e) => setNewStation(prev => ({ ...prev, name: e.target.value }))}
-            className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#D4873A]"
+            className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#E36B11]"
           />
           <input
             type="text"
             placeholder="Description"
             value={newStation.description}
             onChange={(e) => setNewStation(prev => ({ ...prev, description: e.target.value }))}
-            className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#D4873A]"
+            className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#E36B11]"
           />
           <input
             type="text"
             placeholder="Spotify Playlist ID"
             value={newStation.playlistId}
             onChange={(e) => setNewStation(prev => ({ ...prev, playlistId: e.target.value }))}
-            className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#D4873A]"
+            className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#E36B11]"
           />
           <input
             type="text"
             placeholder="Cover Image URL (optional)"
             value={newStation.imageUrl}
             onChange={(e) => setNewStation(prev => ({ ...prev, imageUrl: e.target.value }))}
-            className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#D4873A]"
+            className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#E36B11]"
           />
           <button
             onClick={addStation}
@@ -390,7 +390,7 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
                 <div className="flex gap-1">
                   <button
                     onClick={(e) => { e.stopPropagation(); setEditingStation(station); }}
-                    className="flex-1 py-1 rounded bg-[#D4873A]/10 text-[#D4873A] hover:bg-[#D4873A]/20 transition-colors text-[10px] font-medium"
+                    className="flex-1 py-1 rounded bg-[#E36B11]/10 text-[#E36B11] hover:bg-[#E36B11]/20 transition-colors text-[10px] font-medium"
                   >
                     Edit
                   </button>
@@ -417,28 +417,28 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
                   placeholder="Station Name"
                   value={editingStation.name}
                   onChange={(e) => setEditingStation({ ...editingStation, name: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#D4873A]"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#E36B11]"
                 />
                 <input
                   type="text"
                   placeholder="Description"
                   value={editingStation.description}
                   onChange={(e) => setEditingStation({ ...editingStation, description: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#D4873A]"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#E36B11]"
                 />
                 <input
                   type="text"
                   placeholder="Spotify Playlist ID"
                   value={editingStation.playlistId}
                   onChange={(e) => setEditingStation({ ...editingStation, playlistId: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#D4873A]"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#E36B11]"
                 />
                 <input
                   type="text"
                   placeholder="Cover Image URL (optional)"
                   value={editingStation.imageUrl || ''}
                   onChange={(e) => setEditingStation({ ...editingStation, imageUrl: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#D4873A]"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#E36B11]"
                 />
               </div>
               <div className="flex gap-2 mt-4">
@@ -464,7 +464,7 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
       <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Music className="w-4 h-4 text-[#D4873A]" />
+            <Music className="w-4 h-4 text-[#E36B11]" />
             <h2 className="text-sm font-bold">Song Requests</h2>
             <span className="text-xs text-gray-500">({requests.length})</span>
           </div>
@@ -507,7 +507,7 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
             key={opt.value}
             onClick={() => setFilter(opt.value)}
             className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-              filter === opt.value ? "bg-[#D4873A] text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+              filter === opt.value ? "bg-[#E36B11] text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"
             }`}
           >
             {opt.label}
@@ -517,7 +517,7 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
 
       {loading ? (
         <div className="flex justify-center py-12">
-          <Loader2 className="w-6 h-6 text-[#D4873A] animate-spin" />
+          <Loader2 className="w-6 h-6 text-[#E36B11] animate-spin" />
         </div>
       ) : requests.length === 0 ? (
         <p className="text-center text-gray-500 text-sm py-12">No song requests yet.</p>
@@ -544,7 +544,7 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
                   <select
                     value={req.status}
                     onChange={(e) => updateStatus(req._id, e.target.value as SongRequest["status"])}
-                    className="text-xs bg-gray-700 text-white rounded-lg px-2 py-1 border-0 focus:outline-none focus:ring-1 focus:ring-[#D4873A]"
+                    className="text-xs bg-gray-700 text-white rounded-lg px-2 py-1 border-0 focus:outline-none focus:ring-1 focus:ring-[#E36B11]"
                   >
                     <option value="new">New</option>
                     <option value="in_progress">In progress</option>
@@ -616,7 +616,7 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
           <button
             onClick={generateArticle}
             disabled={generating || allAddedRequests.length === 0}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-[#D4873A] text-white hover:bg-[#C4772A]"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-[#E36B11] text-white hover:bg-[#C4772A]"
           >
             {generating ? (
               <GenXLoader size="sm" />

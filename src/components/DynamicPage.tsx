@@ -33,7 +33,7 @@ export default function DynamicPage({ slug, defaultTitle, defaultContent }: Dyna
         <div className="max-w-2xl mx-auto flex items-center gap-3">
           <button
             onClick={() => router.back()}
-            className="p-2 rounded-full hover:bg-[#D4873A]/10 transition-colors"
+            className="p-2 rounded-full hover:bg-[#E36B11]/10 transition-colors"
           >
             <ArrowLeft className="w-5 h-5 text-gray-700" />
           </button>
@@ -55,7 +55,7 @@ export default function DynamicPage({ slug, defaultTitle, defaultContent }: Dyna
       <div className="max-w-2xl mx-auto px-4 py-8">
         {loading ? (
           <div className="flex justify-center py-12">
-            <Loader2 className="w-6 h-6 text-[#D4873A] animate-spin" />
+            <Loader2 className="w-6 h-6 text-[#E36B11] animate-spin" />
           </div>
         ) : (
           <div 
@@ -65,7 +65,7 @@ export default function DynamicPage({ slug, defaultTitle, defaultContent }: Dyna
               [&_h4]:font-bold [&_h4]:text-gray-800 [&_h4]:mb-2 [&_h4]:mt-4
               [&_p]:mb-4 [&_p]:text-sm
               [&_ul]:list-disc [&_ul]:list-inside [&_ul]:mb-4 [&_ul]:text-sm [&_ul]:space-y-1
-              [&_a]:text-[#D4873A] [&_a:hover]:underline
+              [&_a]:text-[#E36B11] [&_a:hover]:underline
               [&_strong]:font-bold"
             dangerouslySetInnerHTML={{ __html: page?.content || defaultContent }}
           />

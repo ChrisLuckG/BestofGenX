@@ -54,7 +54,7 @@ interface ArticleData {
 
 const CONTENT_TYPE_BADGES: Record<string, { label: string; color: string }> = {
   article: { label: 'ARTICLE', color: 'bg-blue-500' },
-  rankroll: { label: 'RANKROLL', color: 'bg-[#D4873A]' },
+  rankroll: { label: 'RANKROLL', color: 'bg-[#E36B11]' },
   tv: { label: 'TV', color: 'bg-red-500' },
   radio: { label: 'RADIO', color: 'bg-green-500' },
   arcade: { label: 'ARCADE', color: 'bg-purple-500' },
@@ -855,7 +855,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
           <div>
             <h2 className="text-xl font-bold">📱 Articles & Layout</h2>
             <p className="text-sm text-gray-400">
-              Drag articles into slots · Click size label to change · <span className="text-[#D4873A]">MAIN</span> · <span className="text-teal-400">SOCIAL</span> · <span className="text-purple-400">MED</span> · <span className="text-blue-400">SM</span> · <span className="text-orange-400">FULL</span> · <span className="text-pink-400">HALF</span> · <span className="text-cyan-400">SLIDER</span>
+              Drag articles into slots · Click size label to change · <span className="text-[#E36B11]">MAIN</span> · <span className="text-teal-400">SOCIAL</span> · <span className="text-purple-400">MED</span> · <span className="text-blue-400">SM</span> · <span className="text-orange-400">FULL</span> · <span className="text-pink-400">HALF</span> · <span className="text-cyan-400">SLIDER</span>
             </p>
           </div>
           {savingTemplate && (
@@ -913,12 +913,12 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                 {/* Mock header bar (matches app) */}
                 <div className="absolute top-7 left-0 right-0 h-10 bg-cream border-b border-warm flex items-center justify-between px-3 z-40">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-md bg-[#D4873A]/15 flex items-center justify-center">
-                      <span className="text-[10px] font-display font-bold text-[#D4873A]">BX</span>
+                    <div className="w-7 h-7 rounded-md bg-[#E36B11]/15 flex items-center justify-center">
+                      <span className="text-[10px] font-display font-bold text-[#E36B11]">BX</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 text-gray-600">
-                    <div className="px-2 py-0.5 bg-[#D4873A]/15 rounded-full text-[10px] font-bold text-[#D4873A]">0 ⚡</div>
+                    <div className="px-2 py-0.5 bg-[#E36B11]/15 rounded-full text-[10px] font-bold text-[#E36B11]">0 ⚡</div>
                     <div className="w-6 h-6 rounded-full bg-gray-200" />
                   </div>
                 </div>
@@ -1000,8 +1000,8 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                 <div className="absolute bottom-0 left-0 right-0 h-14 bg-cream border-t border-warm flex items-center justify-around z-40 pb-2">
                   {['Home', 'Articles', 'Notif.', 'Profile'].map((label, i) => (
                     <div key={label} className="flex flex-col items-center gap-0.5">
-                      <div className={`w-5 h-5 rounded ${i === 0 ? 'bg-[#D4873A]' : 'bg-gray-300'}`} />
-                      <span className={`text-[8px] ${i === 0 ? 'text-[#D4873A] font-bold' : 'text-gray-400'}`}>{label}</span>
+                      <div className={`w-5 h-5 rounded ${i === 0 ? 'bg-[#E36B11]' : 'bg-gray-300'}`} />
+                      <span className={`text-[8px] ${i === 0 ? 'text-[#E36B11] font-bold' : 'text-gray-400'}`}>{label}</span>
                     </div>
                   ))}
                 </div>
@@ -1044,7 +1044,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                 </button>
                 <button
                   onClick={handleCreateArticle}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#D4873A] text-white text-sm rounded-lg hover:bg-[#d10445] transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#E36B11] text-white text-sm rounded-lg hover:bg-[#d10445] transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   New
@@ -1066,7 +1066,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                     onClick={() => setStatusFilter(opt.value as typeof statusFilter)}
                     className={`px-2 py-1 rounded text-[10px] font-medium transition-colors ${
                       statusFilter === opt.value
-                        ? 'bg-[#D4873A] text-white'
+                        ? 'bg-[#E36B11] text-white'
                         : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
                     }`}
                   >
@@ -1090,7 +1090,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                 <button
                   onClick={() => setViewMode('cards')}
                   className={`px-2 py-1 text-[10px] font-medium transition-colors ${
-                    viewMode === 'cards' ? 'bg-[#D4873A] text-white' : 'text-gray-400 hover:bg-gray-600'
+                    viewMode === 'cards' ? 'bg-[#E36B11] text-white' : 'text-gray-400 hover:bg-gray-600'
                   }`}
                   title="Card view"
                 >
@@ -1099,7 +1099,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                 <button
                   onClick={() => setViewMode('list')}
                   className={`px-2 py-1 text-[10px] font-medium transition-colors ${
-                    viewMode === 'list' ? 'bg-[#D4873A] text-white' : 'text-gray-400 hover:bg-gray-600'
+                    viewMode === 'list' ? 'bg-[#E36B11] text-white' : 'text-gray-400 hover:bg-gray-600'
                   }`}
                   title="List view"
                 >
@@ -1110,7 +1110,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
             
             {articlesLoading ? (
               <div className="flex justify-center py-8">
-                <Loader2 className="w-6 h-6 text-[#D4873A] animate-spin" />
+                <Loader2 className="w-6 h-6 text-[#E36B11] animate-spin" />
               </div>
             ) : (() => {
               // Filter articles by status
@@ -1146,8 +1146,8 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
               <div className="space-y-0">
                 {/* Bulk action bar */}
                 {selectedArticles.size > 0 && (
-                  <div className="flex items-center gap-3 px-4 py-2 bg-[#D4873A]/20 border border-[#D4873A]/40 rounded-lg mb-2">
-                    <span className="text-[11px] text-[#D4873A] font-bold">{selectedArticles.size} selected</span>
+                  <div className="flex items-center gap-3 px-4 py-2 bg-[#E36B11]/20 border border-[#E36B11]/40 rounded-lg mb-2">
+                    <span className="text-[11px] text-[#E36B11] font-bold">{selectedArticles.size} selected</span>
                     <button
                       onClick={() => bulkPublish(Array.from(selectedArticles))}
                       disabled={bulkPublishing}
@@ -1174,7 +1174,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                   <div>
                     <input
                       type="checkbox"
-                      className="w-3 h-3 accent-[#D4873A] cursor-pointer"
+                      className="w-3 h-3 accent-[#E36B11] cursor-pointer"
                       title="Select all"
                       checked={filteredArticles.length > 0 && filteredArticles.every(a => selectedArticles.has(a._id!))}
                       onChange={(e) => {
@@ -1217,7 +1217,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                     onDragEnd={handleDragEnd}
                     className={`grid grid-cols-[28px_75px_40px_55px_75px_1fr_40px_70px_55px_70px_55px_105px] gap-2 items-center px-4 py-1 rounded cursor-move hover:bg-gray-700/50 transition-all ${
                       draggedArticle === article._id ? 'opacity-50' : ''
-                    } ${hoveredTemplateArticle && hoveredTemplateArticle.split(',').includes(article._id!) ? 'bg-[#D4873A]/10 ring-1 ring-[#D4873A]/50' : ''}`}
+                    } ${hoveredTemplateArticle && hoveredTemplateArticle.split(',').includes(article._id!) ? 'bg-[#E36B11]/10 ring-1 ring-[#E36B11]/50' : ''}`}
                     onMouseEnter={() => setHoveredListArticle(article._id!)}
                     onMouseLeave={() => setHoveredListArticle(null)}
                   >
@@ -1225,7 +1225,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                     <div onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
-                        className="w-3 h-3 accent-[#D4873A] cursor-pointer"
+                        className="w-3 h-3 accent-[#E36B11] cursor-pointer"
                         checked={selectedArticles.has(article._id!)}
                         onChange={(e) => {
                           setSelectedArticles(prev => {
@@ -1253,9 +1253,9 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                       >
                         {article.coverImage ? (
                           isVideoUrl(article.coverImage) ? (
-                            <video src={article.coverImage} className="w-8 h-6 rounded object-cover hover:ring-2 hover:ring-[#D4873A]" style={{ objectPosition: `${article.imagePosX ?? 50}% ${article.imagePosY ?? 50}%` }} muted autoPlay loop playsInline />
+                            <video src={article.coverImage} className="w-8 h-6 rounded object-cover hover:ring-2 hover:ring-[#E36B11]" style={{ objectPosition: `${article.imagePosX ?? 50}% ${article.imagePosY ?? 50}%` }} muted autoPlay loop playsInline />
                           ) : (
-                            <img src={article.coverImage} alt="" className="w-8 h-6 rounded object-cover hover:ring-2 hover:ring-[#D4873A]" style={{ objectPosition: `${article.imagePosX ?? 50}% ${article.imagePosY ?? 50}%` }} />
+                            <img src={article.coverImage} alt="" className="w-8 h-6 rounded object-cover hover:ring-2 hover:ring-[#E36B11]" style={{ objectPosition: `${article.imagePosX ?? 50}% ${article.imagePosY ?? 50}%` }} />
                           )
                         ) : (
                           <div className="w-8 h-6 rounded bg-gray-700 flex items-center justify-center text-gray-500 text-[8px] hover:bg-gray-600">+</div>
@@ -1402,7 +1402,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                           setLoadingViewers(false);
                         }
                       }}
-                      className="text-[10px] text-gray-400 text-center hover:text-[#D4873A] hover:underline cursor-pointer"
+                      className="text-[10px] text-gray-400 text-center hover:text-[#E36B11] hover:underline cursor-pointer"
                     >
                       {article.views || 0}
                     </button>
@@ -1425,7 +1425,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                           className={`w-3 h-3 ${article.reactions?.[mood.id] ? 'opacity-100' : 'opacity-30 grayscale'}`}
                         />
                       ))}
-                      <span className="text-[10px] text-[#D4873A] font-medium ml-1">
+                      <span className="text-[10px] text-[#E36B11] font-medium ml-1">
                         {article.totalReactions || 0}
                       </span>
                       {/* Tooltip with breakdown */}
@@ -1445,7 +1445,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                         ))}
                         <div className="border-t border-gray-700 mt-1 pt-1 flex items-center justify-between">
                           <span className="text-[10px] text-gray-400">Total</span>
-                          <span className="text-[10px] text-[#D4873A] font-bold">{article.totalReactions || 0}</span>
+                          <span className="text-[10px] text-[#E36B11] font-bold">{article.totalReactions || 0}</span>
                         </div>
                         {/* Arrow */}
                         <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
@@ -1493,7 +1493,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                           setLoadingComments(false);
                         }
                       }}
-                      className="text-[10px] text-gray-400 text-center hover:text-[#D4873A] hover:underline cursor-pointer"
+                      className="text-[10px] text-gray-400 text-center hover:text-[#E36B11] hover:underline cursor-pointer"
                     >
                       {(article as any).commentsCount || 0}
                     </button>
@@ -1554,7 +1554,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                     onMouseLeave={() => setHoveredListArticle(null)}
                     className={`bg-gray-800/80 border rounded-xl overflow-hidden cursor-move hover:bg-gray-700/80 hover:border-gray-600 transition-all group ${
                       draggedArticle === article._id ? 'opacity-50' : ''
-                    } ${hoveredTemplateArticle && hoveredTemplateArticle.split(',').includes(article._id!) ? 'border-[#D4873A] bg-[#D4873A]/10 ring-2 ring-[#D4873A]/50' : 'border-gray-700/50'}`}
+                    } ${hoveredTemplateArticle && hoveredTemplateArticle.split(',').includes(article._id!) ? 'border-[#E36B11] bg-[#E36B11]/10 ring-2 ring-[#E36B11]/50' : 'border-gray-700/50'}`}
                   >
                     {/* Cover Image */}
                     <div className="relative aspect-[16/10] bg-gray-700">
@@ -1993,7 +1993,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
               <button 
                 onClick={saveArticle} 
                 disabled={!editingArticle.title || isSavingArticle} 
-                className="px-3 py-1.5 bg-[#D4873A] rounded hover:bg-[#C4772A] disabled:opacity-50 flex items-center gap-1.5 text-sm"
+                className="px-3 py-1.5 bg-[#E36B11] rounded hover:bg-[#C4772A] disabled:opacity-50 flex items-center gap-1.5 text-sm"
               >
                 {isSavingArticle ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                 {isSavingArticle ? 'Publishing...' : 'Publish'}
@@ -2043,7 +2043,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
               
               {/* Article Content */}
               <div className="p-4">
-                <div className="text-[10px] font-bold text-[#D4873A] uppercase tracking-wider mb-1">
+                <div className="text-[10px] font-bold text-[#E36B11] uppercase tracking-wider mb-1">
                   {getCategoryLabel(editingArticle.category || '')}
                 </div>
                 <h1 
@@ -2092,7 +2092,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
             
             {loadingViewers ? (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-[#D4873A]" />
+                <Loader2 className="w-8 h-8 animate-spin text-[#E36B11]" />
                 <span className="ml-3 text-gray-400">Loading analytics...</span>
               </div>
             ) : (
@@ -2100,7 +2100,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                 {/* Stats Overview */}
                 <div className="grid grid-cols-5 gap-3 mb-4">
                   <div className="bg-gray-700/50 rounded-lg p-3 text-center">
-                    <div className="text-2xl font-bold text-[#D4873A]">{viewsModal.totalViews}</div>
+                    <div className="text-2xl font-bold text-[#E36B11]">{viewsModal.totalViews}</div>
                     <div className="text-[10px] text-gray-400 uppercase">Total Views</div>
                   </div>
                   <div className="bg-gradient-to-br from-green-600/20 to-green-800/20 border border-green-500/30 rounded-lg p-3 text-center">
@@ -2133,7 +2133,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                           <div className="flex items-center gap-2">
                             <div className="w-12 h-1.5 bg-gray-600 rounded-full overflow-hidden">
                               <div 
-                                className="h-full bg-[#D4873A] rounded-full" 
+                                className="h-full bg-[#E36B11] rounded-full" 
                                 style={{ width: `${(c.count / (viewsModal.analytics?.total || 1)) * 100}%` }}
                               />
                             </div>
@@ -2335,7 +2335,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
             <div className="flex-1 overflow-y-auto p-4">
               {loadingComments ? (
                 <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-8 h-8 animate-spin text-[#D4873A]" />
+                  <Loader2 className="w-8 h-8 animate-spin text-[#E36B11]" />
                   <span className="ml-3 text-gray-400">Loading comments...</span>
                 </div>
               ) : commentsModal.comments.length === 0 ? (
@@ -2355,7 +2355,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                         <div className="flex items-center gap-3">
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${
                             c.flagged ? 'bg-gradient-to-br from-red-500 to-red-700' : 
-                            'bg-gradient-to-br from-[#D4873A] to-orange-600'
+                            'bg-gradient-to-br from-[#E36B11] to-orange-600'
                           }`}>
                             {(c.user || 'U')[0].toUpperCase()}
                           </div>
@@ -2584,7 +2584,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                       />
                       <button
                         onClick={() => imageManagerFileRef.current?.click()}
-                        className="w-full py-4 border-2 border-dashed border-gray-600 hover:border-[#D4873A] rounded text-gray-400 hover:text-[#D4873A] text-xs"
+                        className="w-full py-4 border-2 border-dashed border-gray-600 hover:border-[#E36B11] rounded text-gray-400 hover:text-[#E36B11] text-xs"
                       >
                         Choose File
                       </button>
@@ -2619,7 +2619,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                           }
                         }}
                         disabled={imageManagerGenerating}
-                        className="w-full py-4 bg-[#D4873A] hover:bg-[#C4772A] disabled:opacity-50 rounded text-white text-xs flex items-center justify-center gap-1"
+                        className="w-full py-4 bg-[#E36B11] hover:bg-[#C4772A] disabled:opacity-50 rounded text-white text-xs flex items-center justify-center gap-1"
                       >
                         {imageManagerGenerating ? (
                           <><Loader2 className="w-3 h-3 animate-spin" /> Generating...</>

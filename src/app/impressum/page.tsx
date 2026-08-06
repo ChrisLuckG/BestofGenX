@@ -24,9 +24,9 @@ export default function ImpressumPage() {
     <h2 class="text-xl font-bold text-gray-900 mb-4">Angaben gemäß § 5 TMG</h2>
     <p class="mb-4"><strong>Best of GenX</strong><br/>Ein Projekt für die Generation X<br/>80s, 90s & Early 2000s Entertainment</p>
     <h3 class="text-lg font-bold text-gray-900 mt-6 mb-3">Kontakt</h3>
-    <p class="mb-4">E-Mail: <a href="mailto:contact@bestofgenx.com" class="text-[#D4873A] hover:underline">contact@bestofgenx.com</a></p>
+    <p class="mb-4">E-Mail: <a href="mailto:contact@bestofgenx.com" class="text-[#E36B11] hover:underline">contact@bestofgenx.com</a></p>
     <h3 class="text-lg font-bold text-gray-900 mt-6 mb-3">Verantwortlich für den Inhalt</h3>
-    <p class="mb-4">Best of GenX Team<br/>E-Mail: <a href="mailto:contact@bestofgenx.com" class="text-[#D4873A] hover:underline">contact@bestofgenx.com</a></p>
+    <p class="mb-4">Best of GenX Team<br/>E-Mail: <a href="mailto:contact@bestofgenx.com" class="text-[#E36B11] hover:underline">contact@bestofgenx.com</a></p>
     <p class="text-xs text-gray-500 mt-8">Stand: Juni 2026</p>
   `;
 
@@ -39,7 +39,7 @@ export default function ImpressumPage() {
       )}
       {loading ? (
         <div className="flex justify-center py-12">
-          <Loader2 className="w-6 h-6 text-[#D4873A] animate-spin" />
+          <Loader2 className="w-6 h-6 text-[#E36B11] animate-spin" />
         </div>
       ) : (
         <div

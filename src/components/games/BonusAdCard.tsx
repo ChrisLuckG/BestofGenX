@@ -124,7 +124,7 @@ export default function BonusAdCard({
   // Theme config
   const themeConfig = {
     label: "BONUS",
-    color: "text-[#D4873A]",
+    color: "text-[#E36B11]",
     icon: Gift,
   };
 
@@ -134,7 +134,7 @@ export default function BonusAdCard({
     <div className="w-full h-full relative overflow-hidden flex flex-col px-3 pb-2 pt-4 items-center" style={{ backgroundColor: '#000000', maxHeight: '100%' }}>
       {/* ==================== PREVIEW STATE ==================== */}
       {gameState === "preview" && !alreadyPlayed && (
-        <div className="flex-1 w-full flex flex-col overflow-hidden border border-[#D4873A]/30 min-h-0" style={{ backgroundColor: '#0a0a0a' }}>
+        <div className="flex-1 w-full flex flex-col overflow-hidden border border-[#E36B11]/30 min-h-0" style={{ backgroundColor: '#0a0a0a' }}>
           <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
             {/* Background - First frame of video or preview image */}
             <div className="absolute inset-0">
@@ -155,12 +155,12 @@ export default function BonusAdCard({
             {/* Top Bar - BONUS badge + Help icon */}
             <div className="relative z-10 px-4 pt-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Gift className="w-4 h-4 text-[#D4873A]" />
-                <span className="text-xs uppercase tracking-wider text-[#D4873A] font-bold">BONUS CARD</span>
+                <Gift className="w-4 h-4 text-[#E36B11]" />
+                <span className="text-xs uppercase tracking-wider text-[#E36B11] font-bold">BONUS CARD</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 px-2 py-1 bg-[#D4873A]/20 border border-[#D4873A]/30">
-                  <span className="text-[#D4873A] text-xs font-bold">+{data.maxReward} PTS</span>
+                <div className="flex items-center gap-1 px-2 py-1 bg-[#E36B11]/20 border border-[#E36B11]/30">
+                  <span className="text-[#E36B11] text-xs font-bold">+{data.maxReward} PTS</span>
                 </div>
                 <button 
                   onClick={() => { sounds.click(); setIsFlipped(true); }}
@@ -176,23 +176,23 @@ export default function BonusAdCard({
 
             {/* Content Panel - same structure as QuizGame preview */}
             <div className="relative z-10 mx-4 mb-3">
-              <div className="p-5 border border-[#D4873A]/30 bg-black/60 backdrop-blur-sm flex flex-col justify-end" style={{ minHeight: '320px' }}>
+              <div className="p-5 border border-[#E36B11]/30 bg-black/60 backdrop-blur-sm flex flex-col justify-end" style={{ minHeight: '320px' }}>
                 
                 {/* Badge + Theme */}
                 <div className="mb-4">
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="px-2 py-0.5 bg-[#D4873A]/20 border border-[#D4873A]/30 text-[10px] text-[#D4873A] uppercase tracking-wider">Bonus</span>
+                    <span className="px-2 py-0.5 bg-[#E36B11]/20 border border-[#E36B11]/30 text-[10px] text-[#E36B11] uppercase tracking-wider">Bonus</span>
                   </div>
-                  <div className="text-[10px] uppercase tracking-[0.25em] text-[#D4873A] mb-1">WATCH & EARN</div>
+                  <div className="text-[10px] uppercase tracking-[0.25em] text-[#E36B11] mb-1">WATCH & EARN</div>
                   <div className="font-display text-[28px] leading-none text-white tracking-wide">{data.title}</div>
                 </div>
 
                 {/* Reward Info - similar to difficulty buttons */}
                 <div className="grid grid-cols-1 gap-2 mb-3">
-                  <div className="p-4 border border-[#D4873A] bg-[#D4873A]/20">
+                  <div className="p-4 border border-[#E36B11] bg-[#E36B11]/20">
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className="text-[11px] uppercase tracking-[0.2em] text-[#D4873A]">
+                        <div className="text-[11px] uppercase tracking-[0.2em] text-[#E36B11]">
                           {data.duration} Seconds
                         </div>
                         <div className="font-display text-[26px] leading-none mt-2 text-white">
@@ -202,7 +202,7 @@ export default function BonusAdCard({
                           0 → {data.maxReward} points
                         </div>
                       </div>
-                      <Gift className="w-10 h-10 text-[#D4873A]" />
+                      <Gift className="w-10 h-10 text-[#E36B11]" />
                     </div>
                   </div>
                 </div>
@@ -211,7 +211,7 @@ export default function BonusAdCard({
                 <button
                   onClick={handleStart}
                   disabled={disabled}
-                  className="w-full h-16 flex items-center justify-center gap-2 transition-all active:scale-[0.98] bg-[#D4873A] text-white disabled:opacity-50"
+                  className="w-full h-16 flex items-center justify-center gap-2 transition-all active:scale-[0.98] bg-[#E36B11] text-white disabled:opacity-50"
                 >
                   <Play className="w-5 h-5 text-white" />
                   <span className="font-display text-[22px] tracking-[0.15em]">WATCH NOW</span>
@@ -224,7 +224,7 @@ export default function BonusAdCard({
 
       {/* ==================== WATCHING STATE ==================== */}
       {gameState === "watching" && (
-        <div className="flex-1 w-full flex flex-col overflow-hidden border border-[#D4873A]/30 min-h-0" style={{ backgroundColor: '#0a0a0a' }}>
+        <div className="flex-1 w-full flex flex-col overflow-hidden border border-[#E36B11]/30 min-h-0" style={{ backgroundColor: '#0a0a0a' }}>
           <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
             {/* Video or Image Background - full visible */}
             <div className="absolute inset-0">
@@ -247,11 +247,11 @@ export default function BonusAdCard({
             {/* Top Bar - BONUS badge */}
             <div className="relative z-10 px-4 pt-4 flex items-center justify-between">
               <div className="flex items-center gap-2 px-3 py-1.5 bg-black/60 backdrop-blur-sm">
-                <Eye className="w-4 h-4 text-[#D4873A] animate-pulse" />
+                <Eye className="w-4 h-4 text-[#E36B11] animate-pulse" />
                 <span className="text-xs font-bold text-white">WATCHING</span>
               </div>
               <div className="flex items-center gap-2 px-3 py-1.5 bg-black/60 backdrop-blur-sm">
-                <span className="font-display text-xl text-[#D4873A]">{currentPoints}</span>
+                <span className="font-display text-xl text-[#E36B11]">{currentPoints}</span>
                 <span className="text-white/50 text-xs">PTS</span>
               </div>
             </div>
@@ -261,13 +261,13 @@ export default function BonusAdCard({
 
             {/* Bottom Panel - compact like QuizGame playing state */}
             <div className="relative z-10 mx-4 mb-3">
-              <div className="p-4 border border-[#D4873A]/30 bg-black/60 backdrop-blur-sm">
+              <div className="p-4 border border-[#E36B11]/30 bg-black/60 backdrop-blur-sm">
                 {/* Progress bar */}
                 <div className="flex gap-0.5 mb-3">
                   {[...Array(10)].map((_, i) => {
                     const filled = i < Math.floor(watchProgress / 10);
                     return (
-                      <div key={i} className={`h-3 flex-1 transition-colors duration-150 ${filled ? 'bg-[#D4873A]' : 'bg-cream/20'}`} />
+                      <div key={i} className={`h-3 flex-1 transition-colors duration-150 ${filled ? 'bg-[#E36B11]' : 'bg-cream/20'}`} />
                     );
                   })}
                 </div>
@@ -277,7 +277,7 @@ export default function BonusAdCard({
                   <div className="text-white/60 text-sm">
                     {Math.ceil(data.duration - (watchProgress / 100) * data.duration)}s remaining
                   </div>
-                  <div className="text-[#D4873A] font-bold">
+                  <div className="text-[#E36B11] font-bold">
                     {currentPoints} / {data.maxReward} PTS
                   </div>
                 </div>
@@ -297,7 +297,7 @@ export default function BonusAdCard({
 
       {/* ==================== RESULT STATE ==================== */}
       {(gameState === "result" || alreadyPlayed) && (
-        <div className="flex-1 w-full flex flex-col overflow-hidden border border-[#D4873A]/30 min-h-0" style={{ backgroundColor: '#0a0a0a' }}>
+        <div className="flex-1 w-full flex flex-col overflow-hidden border border-[#E36B11]/30 min-h-0" style={{ backgroundColor: '#0a0a0a' }}>
           <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
             {/* Background Video - looping */}
             <div className="absolute inset-0">
@@ -320,11 +320,11 @@ export default function BonusAdCard({
             {/* Top Bar - BONUS badge */}
             <div className="relative z-10 px-4 pt-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Gift className="w-4 h-4 text-[#D4873A]" />
-                <span className="text-xs uppercase tracking-wider text-[#D4873A] font-bold">BONUS CARD</span>
+                <Gift className="w-4 h-4 text-[#E36B11]" />
+                <span className="text-xs uppercase tracking-wider text-[#E36B11] font-bold">BONUS CARD</span>
               </div>
-              <div className="flex items-center gap-1 px-2 py-1 bg-[#D4873A]/20 border border-[#D4873A]/30">
-                <span className="text-[#D4873A] text-xs font-bold">+{earnedPoints} PTS</span>
+              <div className="flex items-center gap-1 px-2 py-1 bg-[#E36B11]/20 border border-[#E36B11]/30">
+                <span className="text-[#E36B11] text-xs font-bold">+{earnedPoints} PTS</span>
               </div>
             </div>
             
@@ -333,18 +333,18 @@ export default function BonusAdCard({
 
             {/* Result Panel - same structure as QuizGame */}
             <div className="relative z-10 mx-4 mb-3">
-              <div className="p-5 border border-[#D4873A]/30 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center" style={{ minHeight: '320px' }}>
+              <div className="p-5 border border-[#E36B11]/30 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center" style={{ minHeight: '320px' }}>
                 {/* Result Icon */}
-                <div className="w-20 h-20 border-4 border-[#D4873A] bg-[#D4873A]/10 flex items-center justify-center mb-4" style={{ boxShadow: '0 0 30px rgba(212, 240, 0, 0.4)' }}>
-                  <Gift className="w-10 h-10 text-[#D4873A]" />
+                <div className="w-20 h-20 border-4 border-[#E36B11] bg-[#E36B11]/10 flex items-center justify-center mb-4" style={{ boxShadow: '0 0 30px rgba(212, 240, 0, 0.4)' }}>
+                  <Gift className="w-10 h-10 text-[#E36B11]" />
                 </div>
 
                 {/* Result Text */}
-                <h2 className="text-[#D4873A] font-display text-4xl mb-2">BONUS EARNED!</h2>
+                <h2 className="text-[#E36B11] font-display text-4xl mb-2">BONUS EARNED!</h2>
                 
                 {/* Points */}
                 <div className="flex items-center gap-2 mb-6">
-                  <span className="font-display text-5xl text-[#D4873A]">+{earnedPoints}</span>
+                  <span className="font-display text-5xl text-[#E36B11]">+{earnedPoints}</span>
                   <span className="text-white/50 text-lg">PTS</span>
                 </div>
 
@@ -354,7 +354,7 @@ export default function BonusAdCard({
                     {[...Array(10)].map((_, i) => {
                       const filled = i < Math.floor((earnedPoints / data.maxReward) * 10);
                       return (
-                        <div key={i} className={`h-3 flex-1 ${filled ? 'bg-[#D4873A]' : 'bg-cream/20'}`} />
+                        <div key={i} className={`h-3 flex-1 ${filled ? 'bg-[#E36B11]' : 'bg-cream/20'}`} />
                       );
                     })}
                   </div>
@@ -372,13 +372,13 @@ export default function BonusAdCard({
       <div className="h-[40px] flex flex-col items-center justify-center">
         {gameState === "watching" ? (
           <>
-            <Eye className="w-4 h-4 text-[#D4873A] animate-pulse" />
+            <Eye className="w-4 h-4 text-[#E36B11] animate-pulse" />
             <span className="text-white/40 text-[9px] tracking-widest">KEEP WATCHING</span>
           </>
         ) : (
           <>
             <div className="animate-bounce">
-              <ChevronUp className="w-4 h-4 text-[#D4873A]" />
+              <ChevronUp className="w-4 h-4 text-[#E36B11]" />
             </div>
             <span className="text-white/40 text-[9px] tracking-widest">SWIPE UP FOR NEXT CARD</span>
           </>
@@ -388,12 +388,12 @@ export default function BonusAdCard({
       {/* ==================== FLIPPED INFO VIEW ==================== */}
       {isFlipped && (
         <div className="absolute inset-0 z-50 bg-black flex flex-col px-3 pb-2 pt-4">
-          <div className="flex-1 w-full flex flex-col overflow-hidden border border-[#D4873A]/30" style={{ backgroundColor: '#0a0a0a' }}>
+          <div className="flex-1 w-full flex flex-col overflow-hidden border border-[#E36B11]/30" style={{ backgroundColor: '#0a0a0a' }}>
             {/* Header */}
             <div className="px-4 pt-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <HelpCircle className="w-4 h-4 text-[#D4873A]" />
-                <span className="text-xs uppercase tracking-wider text-[#D4873A] font-bold">HOW IT WORKS</span>
+                <HelpCircle className="w-4 h-4 text-[#E36B11]" />
+                <span className="text-xs uppercase tracking-wider text-[#E36B11] font-bold">HOW IT WORKS</span>
               </div>
               <button 
                 onClick={() => { sounds.click(); setIsFlipped(false); }}
@@ -409,8 +409,8 @@ export default function BonusAdCard({
               
               <div className="space-y-4">
                 <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 bg-[#D4873A]/20 border border-[#D4873A]/30 flex items-center justify-center flex-shrink-0">
-                    <span className="text-[#D4873A] font-bold">1</span>
+                  <div className="w-10 h-10 bg-[#E36B11]/20 border border-[#E36B11]/30 flex items-center justify-center flex-shrink-0">
+                    <span className="text-[#E36B11] font-bold">1</span>
                   </div>
                   <div>
                     <p className="text-white font-medium">Tap "Watch Now"</p>
@@ -419,8 +419,8 @@ export default function BonusAdCard({
                 </div>
                 
                 <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 bg-[#D4873A]/20 border border-[#D4873A]/30 flex items-center justify-center flex-shrink-0">
-                    <span className="text-[#D4873A] font-bold">2</span>
+                  <div className="w-10 h-10 bg-[#E36B11]/20 border border-[#E36B11]/30 flex items-center justify-center flex-shrink-0">
+                    <span className="text-[#E36B11] font-bold">2</span>
                   </div>
                   <div>
                     <p className="text-white font-medium">Watch the video</p>
@@ -429,8 +429,8 @@ export default function BonusAdCard({
                 </div>
                 
                 <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 bg-[#D4873A]/20 border border-[#D4873A]/30 flex items-center justify-center flex-shrink-0">
-                    <span className="text-[#D4873A] font-bold">3</span>
+                  <div className="w-10 h-10 bg-[#E36B11]/20 border border-[#E36B11]/30 flex items-center justify-center flex-shrink-0">
+                    <span className="text-[#E36B11] font-bold">3</span>
                   </div>
                   <div>
                     <p className="text-white font-medium">Collect your reward</p>
@@ -444,7 +444,7 @@ export default function BonusAdCard({
             <div className="px-4 pb-4">
               <button
                 onClick={() => { sounds.click(); setIsFlipped(false); }}
-                className="w-full py-4 bg-[#D4873A] text-white font-bold text-lg"
+                className="w-full py-4 bg-[#E36B11] text-white font-bold text-lg"
               >
                 Got it!
               </button>

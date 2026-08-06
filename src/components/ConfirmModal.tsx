@@ -30,7 +30,7 @@ export default function ConfirmModal({
 
   const colorClasses = {
     red: "bg-red-500 hover:bg-red-600",
-    orange: "bg-[#D4873A] hover:bg-[#c47830]",
+    orange: "bg-[#E36B11] hover:bg-[#c47830]",
     green: "bg-green-500 hover:bg-green-600",
   };
 

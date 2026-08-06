@@ -140,7 +140,7 @@ export default function ProductDetailInline({ product, onClose }: ProductDetailI
       <div className="flex items-center px-3 pt-4 pb-3 border-b border-warm">
         <button
           onClick={onClose}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#D4873A] rounded-lg text-white text-sm font-semibold hover:bg-[#c06a2a] transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#E36B11] rounded-lg text-white text-sm font-semibold hover:bg-[#c06a2a] transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />
           Back
@@ -149,7 +149,7 @@ export default function ProductDetailInline({ product, onClose }: ProductDetailI
 
       {/* Main Image with Pinch-to-Zoom */}
       <div 
-        className="relative mx-3 mt-3 overflow-hidden bg-gray-800 border border-[#D4873A]/20 rounded-xl"
+        className="relative mx-3 mt-3 overflow-hidden bg-gray-800 border border-[#E36B11]/20 rounded-xl"
         onTouchStart={(e) => {
           if (e.touches.length === 2) {
             const touch1 = e.touches[0];
@@ -256,7 +256,7 @@ export default function ProductDetailInline({ product, onClose }: ProductDetailI
               onClick={() => setSelectedImageIndex(index)}
               className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
                 selectedImageIndex === index 
-                  ? 'border-[#D4873A]' 
+                  ? 'border-[#E36B11]' 
                   : 'border-warm opacity-70 hover:opacity-100'
               }`}
             >
@@ -289,8 +289,8 @@ export default function ProductDetailInline({ product, onClose }: ProductDetailI
                     onClick={() => setSelectedColor(color)}
                     className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
                       selectedColor === color
-                        ? 'bg-[#D4873A] text-white border-[#D4873A]'
-                        : 'bg-cream text-gray-700 border-warm hover:bg-[#D4873A]/10'
+                        ? 'bg-[#E36B11] text-white border-[#E36B11]'
+                        : 'bg-cream text-gray-700 border-warm hover:bg-[#E36B11]/10'
                     }`}
                   >
                     {color}
@@ -317,9 +317,9 @@ export default function ProductDetailInline({ product, onClose }: ProductDetailI
                       disabled={!variant.available}
                       className={`w-14 py-2 rounded-lg text-sm font-bold transition-all border ${
                         isSelected
-                          ? 'bg-[#D4873A] text-white border-[#D4873A]'
+                          ? 'bg-[#E36B11] text-white border-[#E36B11]'
                           : variant.available
-                            ? 'bg-cream text-gray-700 border-warm hover:bg-[#D4873A]/10'
+                            ? 'bg-cream text-gray-700 border-warm hover:bg-[#E36B11]/10'
                             : 'bg-cream/50 text-gray-300 border-warm cursor-not-allowed line-through'
                       }`}
                     >
@@ -362,7 +362,7 @@ export default function ProductDetailInline({ product, onClose }: ProductDetailI
               const total = price * quantity;
               return (
                 <>
-                  <span className="text-2xl font-black text-[#D4873A]">
+                  <span className="text-2xl font-black text-[#E36B11]">
                     €{total.toFixed(2)}
                   </span>
                   <p className="text-gray-500 text-sm font-medium">
@@ -382,8 +382,8 @@ export default function ProductDetailInline({ product, onClose }: ProductDetailI
           disabled={addedToCart}
           className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-lg ${
             addedToCart 
-              ? 'bg-[#D4873A] text-white' 
-              : 'bg-[#D4873A] text-white hover:bg-[#c06a2a]'
+              ? 'bg-[#E36B11] text-white' 
+              : 'bg-[#E36B11] text-white hover:bg-[#c06a2a]'
           }`}
         >
           {addedToCart ? (

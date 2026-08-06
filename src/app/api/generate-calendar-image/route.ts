@@ -19,7 +19,7 @@ export async function GET(request: Request) {
           <stop offset="100%" style="stop-color:#F5E6D3;stop-opacity:1" />
         </linearGradient>
         <linearGradient id="headerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" style="stop-color:#D4873A;stop-opacity:1" />
+          <stop offset="0%" style="stop-color:#E36B11;stop-opacity:1" />
           <stop offset="100%" style="stop-color:#B86E2A;stop-opacity:1" />
         </linearGradient>
         <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
@@ -62,7 +62,7 @@ export async function GET(request: Request) {
       <text x="200" y="105" font-family="Georgia, serif" font-size="28" font-weight="bold" fill="white" text-anchor="middle">${month.toUpperCase()}</text>
       
       <!-- Day number - big and bold -->
-      <text x="200" y="250" font-family="Georgia, serif" font-size="140" font-weight="bold" fill="#D4873A" text-anchor="middle">${day}</text>
+      <text x="200" y="250" font-family="Georgia, serif" font-size="140" font-weight="bold" fill="#E36B11" text-anchor="middle">${day}</text>
       
       <!-- Weekday -->
       <text x="200" y="320" font-family="Georgia, serif" font-size="24" fill="#666" text-anchor="middle">${weekday}</text>

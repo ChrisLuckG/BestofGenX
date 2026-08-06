@@ -143,13 +143,13 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
           className={`ml-auto flex items-center gap-1.5 px-1.5 py-1.5 hover:scale-105 rounded-lg relative ${isNegative ? 'animate-pulse' : ''}`}
           style={{ 
             background: rankingsOpen
-              ? '#D4873A'
+              ? '#E36B11'
               : isNegative 
                 ? 'linear-gradient(180deg, #ff0000 0%, #cc0000 100%)'
                 : isPositive
-                  ? 'linear-gradient(180deg, #D4873A 0%, #c06a2a 100%)'
+                  ? 'linear-gradient(180deg, #E36B11 0%, #c06a2a 100%)'
                   : 'rgba(212, 135, 58, 0.1)',
-            border: rankingsOpen ? 'none' : '2px solid #D4873A',
+            border: rankingsOpen ? 'none' : '2px solid #E36B11',
             boxShadow: rankingsOpen
               ? '0 2px 10px rgba(212, 135, 58, 0.4)'
               : isNegative 
@@ -175,7 +175,7 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
           {/* Right: Rank on top, Points below */}
           <div className="flex flex-col items-start leading-tight">
             {/* Top row: Crown + Rank */}
-            <span className={`text-xs font-black flex items-center gap-0.5 ${rankingsOpen ? 'text-white/80' : 'text-[#D4873A]'}`}>
+            <span className={`text-xs font-black flex items-center gap-0.5 ${rankingsOpen ? 'text-white/80' : 'text-[#E36B11]'}`}>
               <Crown className="w-3.5 h-3.5" />
               #{userRank 
                 ? userRank >= 10000 
@@ -186,7 +186,7 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
                 : '—'}
             </span>
             {/* Bottom: BOGX Coins */}
-            <span className={`font-black transition-all duration-300 whitespace-nowrap ${isAnimating ? "scale-110" : ""} text-sm ${isPositive ? 'text-green-400' : isNegative ? 'text-red-400' : rankingsOpen ? 'text-white' : 'text-[#D4873A]'}`}>
+            <span className={`font-black transition-all duration-300 whitespace-nowrap ${isAnimating ? "scale-110" : ""} text-sm ${isPositive ? 'text-green-400' : isNegative ? 'text-red-400' : rankingsOpen ? 'text-white' : 'text-[#E36B11]'}`}>
               {formatCurrency(displayCoins)}
             </span>
           </div>
@@ -231,7 +231,7 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
           <button
             onClick={onTVClick}
             className={`flex flex-col items-center px-1.5 py-1 rounded-lg transition-all ${
-              tvOpen ? 'bg-[#D4873A]' : 'hover:bg-cream'
+              tvOpen ? 'bg-[#E36B11]' : 'hover:bg-cream'
             }`}
             title="BestOfGenX TV"
           >
@@ -246,7 +246,7 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
           <button
             onClick={onRadioClick}
             className={`flex flex-col items-center px-1.5 py-1 rounded-lg transition-all ${
-              radioOpen ? 'bg-[#D4873A]' : 'hover:bg-cream'
+              radioOpen ? 'bg-[#E36B11]' : 'hover:bg-cream'
             }`}
             title="BestOfGenX Radio"
           >
@@ -261,25 +261,25 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
           <button 
             onClick={handleNotificationClick}
             className={`flex flex-col items-center px-1.5 py-1 rounded-lg transition-all relative ${
-              notificationOpen ? 'bg-[#D4873A]' : 'hover:bg-cream'
+              notificationOpen ? 'bg-[#E36B11]' : 'hover:bg-cream'
             }`}
           >
             <Bell className={`w-6 h-6 transition-colors ${
               notificationOpen 
                 ? 'text-white' 
                 : notificationsEnabled 
-                  ? 'text-[#D4873A]' 
+                  ? 'text-[#E36B11]' 
                   : 'text-gray-900'
             }`} />
             <span className={`text-[8px] font-bold tracking-wider ${
               notificationOpen 
                 ? 'text-white' 
                 : notificationsEnabled 
-                  ? 'text-[#D4873A]' 
+                  ? 'text-[#E36B11]' 
                   : 'text-gray-900'
             }`}>NEWS</span>
             {unreadCount > 0 && !notificationOpen && (
-              <div className="absolute top-0 right-0.5 w-3.5 h-3.5 bg-[#D4873A] rounded-full flex items-center justify-center">
+              <div className="absolute top-0 right-0.5 w-3.5 h-3.5 bg-[#E36B11] rounded-full flex items-center justify-center">
                 <span className="text-[8px] font-bold text-white">{unreadCount > 9 ? '9+' : unreadCount}</span>
               </div>
             )}
@@ -292,14 +292,14 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
           <button 
             onClick={onProfileClick}
             className={`flex flex-col items-center px-1.5 py-1 rounded-lg transition-all ${
-              profileOpen ? 'bg-[#D4873A]' : 'hover:bg-cream'
+              profileOpen ? 'bg-[#E36B11]' : 'hover:bg-cream'
             }`}
           >
             <div className={`w-6 h-6 rounded-full overflow-hidden border ${profileOpen ? 'border-white' : 'border-gray-400'}`}>
               {userAvatar ? (
                 <img src={userAvatar} alt="Profile" className="w-full h-full object-cover" />
               ) : (
-                <div className={`w-full h-full flex items-center justify-center ${profileOpen ? 'bg-[#D4873A]' : 'bg-skeleton-light'}`}>
+                <div className={`w-full h-full flex items-center justify-center ${profileOpen ? 'bg-[#E36B11]' : 'bg-skeleton-light'}`}>
                   <User className={`w-3 h-3 ${profileOpen ? 'text-white' : 'text-gray-900'}`} />
                 </div>
               )}

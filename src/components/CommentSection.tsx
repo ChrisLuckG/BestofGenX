@@ -120,7 +120,7 @@ export default function CommentSection({ articleId, onShowLogin }: CommentSectio
     <div className="border-t border-warm pt-6 mt-8">
       {/* Header */}
       <div className="flex items-center gap-2 mb-4">
-        <MessageCircle className="w-5 h-5 text-[#D4873A]" />
+        <MessageCircle className="w-5 h-5 text-[#E36B11]" />
         <h3 className="font-bold text-gray-900">
           Comments ({comments.length})
         </h3>
@@ -134,7 +134,7 @@ export default function CommentSection({ articleId, onShowLogin }: CommentSectio
               {user?.avatar ? (
                 <img src={user.avatar} alt="" className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full bg-[#D4873A]/20 flex items-center justify-center text-[#D4873A] font-bold text-sm">
+                <div className="w-full h-full bg-[#E36B11]/20 flex items-center justify-center text-[#E36B11] font-bold text-sm">
                   {(user?.username || 'U')[0].toUpperCase()}
                 </div>
               )}
@@ -146,12 +146,12 @@ export default function CommentSection({ articleId, onShowLogin }: CommentSectio
                 onChange={(e) => setNewComment(e.target.value)}
                 placeholder="Add a comment..."
                 maxLength={1000}
-                className="flex-1 px-3 py-2 bg-cream border border-warm rounded-full text-sm text-gray-900 placeholder-gray-400 focus:border-[#D4873A] outline-none"
+                className="flex-1 px-3 py-2 bg-cream border border-warm rounded-full text-sm text-gray-900 placeholder-gray-400 focus:border-[#E36B11] outline-none"
               />
               <button
                 type="submit"
                 disabled={!newComment.trim() || submitting}
-                className="px-4 py-2 bg-[#D4873A] text-white rounded-full font-medium text-sm flex items-center gap-1 disabled:opacity-50 hover:bg-[#C4772A] transition-colors"
+                className="px-4 py-2 bg-[#E36B11] text-white rounded-full font-medium text-sm flex items-center gap-1 disabled:opacity-50 hover:bg-[#C4772A] transition-colors"
               >
                 <Send className="w-4 h-4" />
               </button>
@@ -163,7 +163,7 @@ export default function CommentSection({ articleId, onShowLogin }: CommentSectio
           <p className="text-sm text-gray-600 mb-2">Sign in to join the discussion</p>
           <button
             onClick={onShowLogin}
-            className="px-4 py-2 bg-[#D4873A] text-white rounded-lg font-medium text-sm hover:bg-[#C4772A] transition-colors"
+            className="px-4 py-2 bg-[#E36B11] text-white rounded-lg font-medium text-sm hover:bg-[#C4772A] transition-colors"
           >
             Sign In
           </button>
@@ -185,7 +185,7 @@ export default function CommentSection({ articleId, onShowLogin }: CommentSectio
                 {comment.userAvatar ? (
                   <img src={comment.userAvatar} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full bg-[#D4873A]/20 flex items-center justify-center text-[#D4873A] font-bold text-sm">
+                  <div className="w-full h-full bg-[#E36B11]/20 flex items-center justify-center text-[#E36B11] font-bold text-sm">
                     {comment.userName[0].toUpperCase()}
                   </div>
                 )}

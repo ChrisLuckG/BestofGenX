@@ -444,7 +444,7 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                         {user.avatar ? (
                           <img src={user.avatar} alt={user.username} className="w-6 h-6 rounded-full object-cover border border-gray-600" />
                         ) : (
-                          <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: 'linear-gradient(135deg,#D4873A 0%,#a86b2b 100%)' }}>
+                          <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: 'linear-gradient(135deg,#E36B11 0%,#a86b2b 100%)' }}>
                             {user.username[0]?.toUpperCase()}
                           </div>
                         )}
@@ -477,7 +477,7 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400" title="Admin">Admin</span>
                         )}
                         {user.isAuthor && !reporterProfiles[user._id] && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#D4873A]/20 text-[#D4873A]" title="Author">Author</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#E36B11]/20 text-[#E36B11]" title="Author">Author</span>
                         )}
                         {reporterProfiles[user._id] && (
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 font-semibold" title="AI Reporter">AI</span>
@@ -491,7 +491,7 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                       <div className="flex items-center gap-0.5">
                         <button
                           onClick={() => setEditingUser(user)}
-                          className="p-1 hover:bg-gray-600 rounded text-gray-400 hover:text-[#D4873A]"
+                          className="p-1 hover:bg-gray-600 rounded text-gray-400 hover:text-[#E36B11]"
                           title="Edit user / author profile"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -506,7 +506,7 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                         {reporterProfiles[user._id] && (
                           <button
                             onClick={() => setEditorialChatReporter(reporterProfiles[user._id])}
-                            className="p-1 hover:bg-gray-600 rounded text-[#D4873A] hover:text-[#D4873A]/80"
+                            className="p-1 hover:bg-gray-600 rounded text-[#E36B11] hover:text-[#E36B11]/80"
                             title="Editorial Chat"
                           >
                             <MessageSquare className="w-3.5 h-3.5" />
@@ -597,7 +597,7 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
             {/* Header */}
             <div className="sticky top-0 bg-gray-800 z-10 p-4 border-b border-gray-700 flex items-center justify-between">
               <h3 className="text-lg font-bold flex items-center gap-2">
-                <Edit2 className="w-4 h-4 text-[#D4873A]" />
+                <Edit2 className="w-4 h-4 text-[#E36B11]" />
                 Edit User: {editingUser.username}
               </h3>
               <button onClick={() => setEditingUser(null)} className="text-gray-400 hover:text-white">
@@ -609,9 +609,9 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
               {/* Avatar Section */}
               <div className="flex items-center gap-4 p-4 bg-gray-900/50 rounded-lg">
                 {editingUser.avatar ? (
-                  <img src={editingUser.avatar} alt={editingUser.username} className="w-20 h-20 rounded-full object-cover border-2 border-[#D4873A]" />
+                  <img src={editingUser.avatar} alt={editingUser.username} className="w-20 h-20 rounded-full object-cover border-2 border-[#E36B11]" />
                 ) : (
-                  <div className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold text-white border-2 border-[#D4873A]" style={{ background: 'linear-gradient(135deg,#D4873A 0%,#a86b2b 100%)' }}>
+                  <div className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold text-white border-2 border-[#E36B11]" style={{ background: 'linear-gradient(135deg,#E36B11 0%,#a86b2b 100%)' }}>
                     {editingUser.username[0]?.toUpperCase()}
                   </div>
                 )}
@@ -622,7 +622,7 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                     <button
                       onClick={() => avatarInputRef.current?.click()}
                       disabled={uploadingAvatar}
-                      className="px-3 py-2 bg-[#D4873A] hover:bg-[#c06a2a] disabled:opacity-50 text-white text-sm rounded-lg font-medium inline-flex items-center gap-2"
+                      className="px-3 py-2 bg-[#E36B11] hover:bg-[#c06a2a] disabled:opacity-50 text-white text-sm rounded-lg font-medium inline-flex items-center gap-2"
                     >
                       {uploadingAvatar ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                       Upload
@@ -682,10 +682,10 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
               </div>
 
               {/* Author Profile */}
-              <div className="p-4 bg-[#D4873A]/5 border border-[#D4873A]/20 rounded-lg">
+              <div className="p-4 bg-[#E36B11]/5 border border-[#E36B11]/20 rounded-lg">
                 <div className="flex items-center gap-2 mb-3">
-                  <PenTool className="w-4 h-4 text-[#D4873A]" />
-                  <span className="text-sm font-bold text-[#D4873A]">Author Profile</span>
+                  <PenTool className="w-4 h-4 text-[#E36B11]" />
+                  <span className="text-sm font-bold text-[#E36B11]">Author Profile</span>
                 </div>
 
                 <div className="space-y-3">
@@ -777,7 +777,7 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                       className="rounded"
                     />
                     <div className="flex-1">
-                      <div className="text-sm font-medium text-[#D4873A]">Author</div>
+                      <div className="text-sm font-medium text-[#E36B11]">Author</div>
                       <div className="text-xs text-gray-400">
                         {editingUser.isAdmin
                           ? 'Automatically granted via Admin role'
@@ -818,7 +818,7 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                 <button
                   onClick={saveUserChanges}
                   disabled={savingUser || uploadingAvatar}
-                  className="px-5 py-2.5 bg-[#D4873A] hover:bg-[#c06a2a] disabled:opacity-50 text-white font-bold text-sm rounded-lg inline-flex items-center gap-2"
+                  className="px-5 py-2.5 bg-[#E36B11] hover:bg-[#c06a2a] disabled:opacity-50 text-white font-bold text-sm rounded-lg inline-flex items-center gap-2"
                 >
                   {savingUser && <Loader2 className="w-4 h-4 animate-spin" />}
                   Save Changes

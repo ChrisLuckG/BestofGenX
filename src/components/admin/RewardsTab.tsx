@@ -102,7 +102,7 @@ export default function RewardsTab() {
               icon: 'Gift',
               active: true,
             })}
-            className="flex items-center gap-2 bg-[#D4873A] hover:bg-[#d00440] px-4 py-2 rounded-lg font-bold transition-colors"
+            className="flex items-center gap-2 bg-[#E36B11] hover:bg-[#d00440] px-4 py-2 rounded-lg font-bold transition-colors"
           >
             <Plus className="w-5 h-5" />
             New Reward
@@ -133,7 +133,7 @@ export default function RewardsTab() {
                 </div>
                 <p className="text-sm text-gray-400 mb-3 line-clamp-2">{reward.description}</p>
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-[#D4873A]">{(reward.cost || 0).toLocaleString()} BOGX</span>
+                  <span className="font-bold text-[#E36B11]">{(reward.cost || 0).toLocaleString()} BOGX</span>
                   <div className="flex gap-1">
                     <button
                       onClick={() => setEditingReward(reward)}
@@ -239,7 +239,7 @@ export default function RewardsTab() {
               <button
                 onClick={saveReward}
                 disabled={!editingReward.name}
-                className="px-4 py-2 bg-[#D4873A] rounded-lg hover:bg-[#d00440] disabled:opacity-50 flex items-center gap-2"
+                className="px-4 py-2 bg-[#E36B11] rounded-lg hover:bg-[#d00440] disabled:opacity-50 flex items-center gap-2"
               >
                 <Save className="w-4 h-4" />
                 Save

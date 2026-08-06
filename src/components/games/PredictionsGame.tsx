@@ -133,13 +133,13 @@ function LiveCountdownBadge({ closesAt }: { closesAt: string }) {
       ? "bg-gray-400/20"
       : timeData.tone === "soon"
         ? "bg-red-500/20"
-        : "bg-[#D4873A]/20";
+        : "bg-[#E36B11]/20";
   const textColor =
     timeData.tone === "closed"
       ? "text-gray-500"
       : timeData.tone === "soon"
         ? "text-red-600"
-        : "text-[#D4873A]";
+        : "text-[#E36B11]";
 
   return (
     <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${bgColor} ${textColor}`}>
@@ -168,8 +168,8 @@ function GroupCountdown({ closesAt }: { closesAt: string }) {
     );
   }
 
-  const bgColor = timeData.tone === "soon" ? "bg-red-100" : "bg-[#D4873A]/10";
-  const textColor = timeData.tone === "soon" ? "text-red-600" : "text-[#D4873A]";
+  const bgColor = timeData.tone === "soon" ? "bg-red-100" : "bg-[#E36B11]/10";
+  const textColor = timeData.tone === "soon" ? "text-red-600" : "text-[#E36B11]";
 
   return (
     <span className={`text-xs font-semibold ${bgColor} ${textColor} px-2 py-0.5 rounded flex items-center gap-1`}>
@@ -214,7 +214,7 @@ function GroupedPredictionsList({
 
             {/* Date Header */}
             <div className="flex items-center gap-2 mb-3 mt-1">
-              <Calendar className={`w-5 h-5 ${group.isUpcoming ? "text-[#D4873A]" : "text-gray-400"}`} />
+              <Calendar className={`w-5 h-5 ${group.isUpcoming ? "text-[#E36B11]" : "text-gray-400"}`} />
               <span className={`text-sm font-bold uppercase tracking-wide ${group.isUpcoming ? "text-gray-900" : "text-gray-500"}`}>
                 {group.label}
               </span>
@@ -267,7 +267,7 @@ function PredictionCard({
           {p.category}
         </span>
         {p.genXRelated && (
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#D4873A]/15 text-[#D4873A]">GenX</span>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#E36B11]/15 text-[#E36B11]">GenX</span>
         )}
         {isResolved ? (
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-200 text-gray-600">Resolved</span>
@@ -286,7 +286,7 @@ function PredictionCard({
           </span>
         )}
         {!isResolved && (
-          <span className={`text-[10px] font-bold ml-auto ${p.myPick ? 'text-yellow-600' : 'text-[#D4873A]'}`}>
+          <span className={`text-[10px] font-bold ml-auto ${p.myPick ? 'text-yellow-600' : 'text-[#E36B11]'}`}>
             {p.myPick ? (
               <span className="flex items-center gap-1">
                 <Clock className="w-3 h-3" />
@@ -336,8 +336,8 @@ function PredictionCard({
               disabled={submitting === p._id}
               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 selected
-                  ? "bg-[#D4873A] text-white shadow-sm"
-                  : "bg-cream text-gray-700 hover:bg-[#D4873A]/10 border border-warm"
+                  ? "bg-[#E36B11] text-white shadow-sm"
+                  : "bg-cream text-gray-700 hover:bg-[#E36B11]/10 border border-warm"
               }`}
             >
               <span>{o.label}</span>
@@ -560,17 +560,17 @@ export default function PredictionsGame({ onBack, onShowLogin, embedded = false 
         ]}
       />
       {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent flex items-center gap-3">
+      <div className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent flex items-center gap-3">
         <BackButton onClick={onBack} />
         <div className="flex items-center gap-2">
-          <Target className="w-5 h-5 text-[#D4873A]" />
+          <Target className="w-5 h-5 text-[#E36B11]" />
           <span className="font-display text-lg tracking-wider text-gray-900">Predictions</span>
         </div>
         <button
           onClick={() => setShowIntro(true)}
           aria-label="How to play"
           title="How to play"
-          className="ml-auto w-9 h-9 rounded-full border border-warm bg-white text-[#D4873A] hover:bg-[#D4873A]/10 transition-colors flex items-center justify-center shadow-sm"
+          className="ml-auto w-9 h-9 rounded-full border border-warm bg-white text-[#E36B11] hover:bg-[#E36B11]/10 transition-colors flex items-center justify-center shadow-sm"
         >
           <HelpCircle className="w-5 h-5" />
         </button>
@@ -580,7 +580,7 @@ export default function PredictionsGame({ onBack, onShowLogin, embedded = false 
           once closed; for guests it returns on every page refresh. */}
       {showInfoBanner && (
         <div className="px-4 pt-3">
-          <div className="relative rounded-2xl bg-gradient-to-br from-[#D4873A]/10 to-transparent border border-warm p-3 pr-9">
+          <div className="relative rounded-2xl bg-gradient-to-br from-[#E36B11]/10 to-transparent border border-warm p-3 pr-9">
             <p className="text-[13px] text-gray-600 leading-relaxed">
               Predict today's outcomes and earn BOGX if you're right. All predictions close before
               the 9:00 AM CET break — lock in your picks early!
@@ -601,7 +601,7 @@ export default function PredictionsGame({ onBack, onShowLogin, embedded = false 
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4" style={{ scrollbarWidth: "none" }}>
         {loading ? (
           <div className="flex justify-center py-12">
-            <Loader2 className="w-6 h-6 text-[#D4873A] animate-spin" />
+            <Loader2 className="w-6 h-6 text-[#E36B11] animate-spin" />
           </div>
         ) : predictions.length === 0 ? (
           <div className="text-center py-12">

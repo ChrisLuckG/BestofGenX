@@ -84,21 +84,21 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
       }
     >
       {/* Header - consistent style like other pages */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
         <BackButton onClick={onClose} />
         <div className="flex items-center gap-2">
-          <User className="w-5 h-5 text-[#D4873A]" />
+          <User className="w-5 h-5 text-[#E36B11]" />
           <span className="font-display text-lg tracking-wider text-gray-900">
             Player Profile
           </span>
         </div>
         {/* Rank & Score Badge */}
         {player && (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-[#D4873A]/10 border border-[#D4873A]/30 rounded-lg">
-            <span className="text-sm font-bold text-[#D4873A]">#{player.rank || '—'}</span>
-            <div className="w-px h-4 bg-[#D4873A]/30" />
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-[#E36B11]/10 border border-[#E36B11]/30 rounded-lg">
+            <span className="text-sm font-bold text-[#E36B11]">#{player.rank || '—'}</span>
+            <div className="w-px h-4 bg-[#E36B11]/30" />
             <img src="/images/bogxcoin.png" alt="" className="w-5 h-5" />
-            <span className="text-sm font-bold text-[#D4873A]">{player.points.toFixed(2)}</span>
+            <span className="text-sm font-bold text-[#E36B11]">{player.points.toFixed(2)}</span>
           </div>
         )}
         {!player && <div className="w-14" />}
@@ -113,7 +113,7 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
             {/* Profile Header Card */}
             <div className={`mx-4 mt-4 rounded-2xl shadow-sm border border-warm overflow-hidden ${isDesktop ? 'bg-[#F5F0E8]' : 'bg-white'}`}>
               {/* Background Gradient */}
-              <div className="h-20 bg-gradient-to-br from-[#D4873A]/25 via-[#D4873A]/10 to-transparent" />
+              <div className="h-20 bg-gradient-to-br from-[#E36B11]/25 via-[#E36B11]/10 to-transparent" />
               
               {/* Avatar & Name */}
               <div className="px-5 pb-5 -mt-12 relative">
@@ -208,7 +208,7 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
             <div className={`mx-4 mt-3 rounded-2xl shadow-sm border border-warm overflow-hidden ${isDesktop ? 'bg-[#F5F0E8]' : 'bg-white'}`}>
               <div className="grid grid-cols-3 divide-x divide-warm">
                 <div className="p-4 text-center">
-                  <p className="text-2xl font-black text-[#D4873A]">{player.points.toLocaleString()}</p>
+                  <p className="text-2xl font-black text-[#E36B11]">{player.points.toLocaleString()}</p>
                   <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mt-1">BOGX</p>
                 </div>
                 <div className="p-4 text-center">
@@ -226,7 +226,7 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
             <div className={`mx-4 mt-3 rounded-2xl shadow-sm border border-warm overflow-hidden ${isDesktop ? 'bg-[#F5F0E8]' : 'bg-white'}`}>
               <div className="px-4 py-3 border-b border-warm/60">
                 <h3 className="text-[10px] font-bold tracking-widest uppercase text-gray-500 flex items-center gap-1.5">
-                  <TrendingUp className="w-3 h-3 text-[#D4873A]" />
+                  <TrendingUp className="w-3 h-3 text-[#E36B11]" />
                   Performance Stats
                 </h3>
               </div>
@@ -300,15 +300,15 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
                 {/* Best Streak */}
                 <div className="flex items-center justify-between px-4 py-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-[#D4873A]/10 flex items-center justify-center">
-                      <Award className="w-4 h-4 text-[#D4873A]" />
+                    <div className="w-8 h-8 rounded-lg bg-[#E36B11]/10 flex items-center justify-center">
+                      <Award className="w-4 h-4 text-[#E36B11]" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-900">Best Streak</p>
                       <p className="text-[10px] text-gray-400">Personal record</p>
                     </div>
                   </div>
-                  <p className="text-base font-bold text-[#D4873A]">
+                  <p className="text-base font-bold text-[#E36B11]">
                     {player.bestStreak ? `⭐ ${player.bestStreak}` : '—'}
                   </p>
                 </div>
@@ -326,7 +326,7 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
               <div className="px-4 pb-6">
                 <button
                   onClick={() => onChallenge(player._id, player.username)}
-                  className="w-full py-3.5 bg-[#D4873A] hover:bg-[#C4772A] rounded-2xl text-white font-bold text-base flex items-center justify-center gap-2 transition-colors shadow-sm"
+                  className="w-full py-3.5 bg-[#E36B11] hover:bg-[#C4772A] rounded-2xl text-white font-bold text-base flex items-center justify-center gap-2 transition-colors shadow-sm"
                 >
                   <Swords className="w-5 h-5" />
                   Challenge {player.username}

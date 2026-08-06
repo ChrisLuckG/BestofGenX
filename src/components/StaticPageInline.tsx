@@ -12,7 +12,7 @@ interface StaticPageInlineProps {
 const DEFAULTS: Record<string, { title: string; content: string }> = {
   impressum: {
     title: 'Impressum',
-    content: `<h2 class="text-xl font-bold text-gray-900 mb-4">Angaben gemäß § 5 TMG</h2><p class="mb-4"><strong>Best of GenX</strong><br/>Ein Projekt für die Generation X</p><p class="mb-4">E-Mail: <a href="mailto:contact@bestofgenx.com" class="text-[#D4873A] hover:underline">contact@bestofgenx.com</a></p>`,
+    content: `<h2 class="text-xl font-bold text-gray-900 mb-4">Angaben gemäß § 5 TMG</h2><p class="mb-4"><strong>Best of GenX</strong><br/>Ein Projekt für die Generation X</p><p class="mb-4">E-Mail: <a href="mailto:contact@bestofgenx.com" class="text-[#E36B11] hover:underline">contact@bestofgenx.com</a></p>`,
   },
   datenschutz: {
     title: 'Datenschutz',
@@ -24,7 +24,7 @@ const DEFAULTS: Record<string, { title: string; content: string }> = {
   },
   kontakt: {
     title: 'Kontakt',
-    content: `<h2 class="text-xl font-bold text-gray-900 mb-4">Kontakt</h2><p class="mb-4">E-Mail: <a href="mailto:contact@bestofgenx.com" class="text-[#D4873A] hover:underline">contact@bestofgenx.com</a></p>`,
+    content: `<h2 class="text-xl font-bold text-gray-900 mb-4">Kontakt</h2><p class="mb-4">E-Mail: <a href="mailto:contact@bestofgenx.com" class="text-[#E36B11] hover:underline">contact@bestofgenx.com</a></p>`,
   },
   about: {
     title: 'About Us',
@@ -62,7 +62,7 @@ export default function StaticPageInline({ slug, defaultTitle, onClose }: Static
       <div className="flex items-center gap-3 mb-6">
         <button
           onClick={onClose}
-          className="lg:hidden p-1.5 rounded-full hover:bg-[#D4873A]/10 transition-colors flex-shrink-0"
+          className="lg:hidden p-1.5 rounded-full hover:bg-[#E36B11]/10 transition-colors flex-shrink-0"
         >
           <ArrowLeft className="w-5 h-5 text-gray-600" />
         </button>
@@ -77,7 +77,7 @@ export default function StaticPageInline({ slug, defaultTitle, onClose }: Static
 
       {loading ? (
         <div className="flex justify-center py-16">
-          <Loader2 className="w-6 h-6 text-[#D4873A] animate-spin" />
+          <Loader2 className="w-6 h-6 text-[#E36B11] animate-spin" />
         </div>
       ) : (
         <div

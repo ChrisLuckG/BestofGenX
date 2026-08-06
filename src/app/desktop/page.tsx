@@ -601,11 +601,11 @@ export default function DesktopPage() {
                     <button
                       key={tab.id}
                       onClick={() => handleTabChange(tab.id)}
-                      className="relative flex flex-col items-center px-2.5 py-2.5 rounded-xl group hover:bg-[#D4873A]/5 transition-all"
+                      className="relative flex flex-col items-center px-2.5 py-2.5 rounded-xl group hover:bg-[#E36B11]/5 transition-all"
                     >
                       <div className="relative">
                         <Icon className={`w-6 h-6 transition-colors ${
-                          isActive ? 'text-[#D4873A]' : 'text-gray-900 group-hover:text-[#D4873A]'
+                          isActive ? 'text-[#E36B11]' : 'text-gray-900 group-hover:text-[#E36B11]'
                         }`} />
                         {showBattleBadge && (
                           <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-0.5 bg-red-500 rounded-full flex items-center justify-center text-white text-[9px] font-black shadow animate-pulse">
@@ -614,11 +614,11 @@ export default function DesktopPage() {
                         )}
                       </div>
                       <span className={`font-display text-[11px] tracking-widest uppercase leading-none mt-1.5 transition-colors ${
-                        isActive ? 'text-[#D4873A]' : 'text-gray-900 group-hover:text-[#D4873A]'
+                        isActive ? 'text-[#E36B11]' : 'text-gray-900 group-hover:text-[#E36B11]'
                       }`}>
                         {tab.label}
                       </span>
-                      {isActive && <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-full max-w-[80%] h-0.5 bg-[#D4873A] rounded-full" />}
+                      {isActive && <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-full max-w-[80%] h-0.5 bg-[#E36B11] rounded-full" />}
                     </button>
                   );
                 })}
@@ -647,16 +647,16 @@ export default function DesktopPage() {
                 return (
                   <div key={item.key} className="flex items-center">
                     {i > 0 && <div className="w-px h-8 bg-warm mx-1" />}
-                    <button onClick={item.onClick} className={`flex flex-col items-center px-2.5 py-2.5 rounded-xl transition-all group hover:bg-[#D4873A]/5 relative`}>
+                    <button onClick={item.onClick} className={`flex flex-col items-center px-2.5 py-2.5 rounded-xl transition-all group hover:bg-[#E36B11]/5 relative`}>
                       <div className="relative">
-                        <Icon className={`w-6 h-6 transition-colors ${item.active ? 'text-[#D4873A]' : 'text-gray-900 group-hover:text-[#D4873A]'}`} />
+                        <Icon className={`w-6 h-6 transition-colors ${item.active ? 'text-[#E36B11]' : 'text-gray-900 group-hover:text-[#E36B11]'}`} />
                         {item.badge > 0 && (
                           <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
                             {item.badge > 9 ? '9+' : item.badge}
                           </span>
                         )}
                       </div>
-                      <span className={`font-display text-[11px] tracking-widest leading-none mt-1.5 transition-colors ${item.active ? 'text-[#D4873A]' : 'text-gray-900 group-hover:text-[#D4873A]'}`}>{item.label}</span>
+                      <span className={`font-display text-[11px] tracking-widest leading-none mt-1.5 transition-colors ${item.active ? 'text-[#E36B11]' : 'text-gray-900 group-hover:text-[#E36B11]'}`}>{item.label}</span>
                     </button>
                   </div>
                 );
@@ -664,18 +664,18 @@ export default function DesktopPage() {
               <div className="w-px h-8 bg-warm mx-1" />
               <button
                 onClick={() => isLoggedIn ? handleTabChange('profile') : (() => { setPreviousTab(activeTab); setActiveTab('profile'); setShowLoginPage(true); })()}
-                className={`flex flex-col items-center px-2.5 py-2.5 rounded-xl transition-all group ${activeTab === 'profile' ? 'bg-[#D4873A]/10' : 'hover:bg-[#D4873A]/5'}`}
+                className={`flex flex-col items-center px-2.5 py-2.5 rounded-xl transition-all group ${activeTab === 'profile' ? 'bg-[#E36B11]/10' : 'hover:bg-[#E36B11]/5'}`}
               >
-                <div className={`w-6 h-6 rounded-full overflow-hidden border-2 transition-colors ${activeTab === 'profile' ? 'border-[#D4873A]' : 'border-gray-300 group-hover:border-[#D4873A]'}`}>
+                <div className={`w-6 h-6 rounded-full overflow-hidden border-2 transition-colors ${activeTab === 'profile' ? 'border-[#E36B11]' : 'border-gray-300 group-hover:border-[#E36B11]'}`}>
                   {user?.avatar ? (
                     <img src={user.avatar} alt="" className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full bg-skeleton-light flex items-center justify-center">
-                      <User className="w-4 h-4 text-gray-900 group-hover:text-[#D4873A] transition-colors" />
+                      <User className="w-4 h-4 text-gray-900 group-hover:text-[#E36B11] transition-colors" />
                     </div>
                   )}
                 </div>
-                <span className={`font-display text-[11px] tracking-widest leading-none mt-1.5 transition-colors ${activeTab === 'profile' ? 'text-[#D4873A]' : 'text-gray-900 group-hover:text-[#D4873A]'}`}>PROFILE</span>
+                <span className={`font-display text-[11px] tracking-widest leading-none mt-1.5 transition-colors ${activeTab === 'profile' ? 'text-[#E36B11]' : 'text-gray-900 group-hover:text-[#E36B11]'}`}>PROFILE</span>
               </button>
             </div>
           </div>
@@ -693,30 +693,30 @@ export default function DesktopPage() {
               <div className="relative px-4 py-3 border-b border-warm">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Trophy className="w-4 h-4 text-[#D4873A]" />
+                    <Trophy className="w-4 h-4 text-[#E36B11]" />
                     <span className="font-display text-sm tracking-wider uppercase text-gray-900">
                       {isBreakTime ? "Yesterday's Winners" : 'Today'}
                     </span>
                     {rankingsLoading && (
-                      <div className="w-3 h-3 border-2 border-[#D4873A]/30 border-t-[#D4873A] rounded-full animate-spin" />
+                      <div className="w-3 h-3 border-2 border-[#E36B11]/30 border-t-[#E36B11] rounded-full animate-spin" />
                     )}
                   </div>
-                  <button onClick={() => handleTabChange('rankings')} className="text-[10px] font-semibold text-[#D4873A] hover:underline uppercase">View All</button>
+                  <button onClick={() => handleTabChange('rankings')} className="text-[10px] font-semibold text-[#E36B11] hover:underline uppercase">View All</button>
                 </div>
                 {/* Break time countdown */}
                 {isBreakTime && (
-                  <div className="flex items-center justify-center gap-2 py-2 mt-2 bg-[#FDF6E9] rounded-lg border border-[#D4873A]/20">
+                  <div className="flex items-center justify-center gap-2 py-2 mt-2 bg-[#FDF6E9] rounded-lg border border-[#E36B11]/20">
                     <img src="/images/coffee-break.svg" alt="" className="w-5 h-5" />
                     <span className="text-xs text-[#8B4513] font-medium">Nächstes Spiel in</span>
-                    <span className="font-mono text-base font-bold text-[#D4873A] tabular-nums">{breakCountdown}</span>
+                    <span className="font-mono text-base font-bold text-[#E36B11] tabular-nums">{breakCountdown}</span>
                   </div>
                 )}
                 {/* Game countdown - only show if there are rankings and not break time */}
                 {!isBreakTime && rankings.length > 0 && (
                   <div className="flex items-center justify-center gap-2 py-1.5 mt-2 bg-warm/30 rounded-lg">
-                    <Clock className="w-3.5 h-3.5 text-[#D4873A]" />
+                    <Clock className="w-3.5 h-3.5 text-[#E36B11]" />
                     <span className="text-[10px] text-gray-600">Matchday ends in</span>
-                    <span className="font-mono text-sm font-bold text-[#D4873A] tabular-nums">{leaderboardCountdown}</span>
+                    <span className="font-mono text-sm font-bold text-[#E36B11] tabular-nums">{leaderboardCountdown}</span>
                   </div>
                 )}
               </div>
@@ -728,7 +728,7 @@ export default function DesktopPage() {
                     if (rankingsLoading) {
                       return (
                         <div key={`skeleton-${i}`} className="w-full flex items-center gap-3 px-4 py-2.5 animate-pulse">
-                          <span className="text-sm font-bold tabular-nums w-4 text-center text-[#D4873A]/40">{i + 1}</span>
+                          <span className="text-sm font-bold tabular-nums w-4 text-center text-[#E36B11]/40">{i + 1}</span>
                           <div className="w-8 h-8 rounded-full bg-warm" />
                           <div className="flex-1 h-3 rounded bg-warm" />
                           <div className="w-8 h-3 rounded bg-warm" />
@@ -741,13 +741,13 @@ export default function DesktopPage() {
                         <button key={r._id} onClick={() => { setSelectedPlayerId(r._id); handleTabChange('rankings'); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/70 transition-colors">
                           {/* Rank number */}
                           <span className={`text-sm font-bold tabular-nums w-4 text-center ${
-                            i === 0 ? 'text-[#D4873A]' :
-                            i < 3 ? 'text-[#D4873A]/60' :
+                            i === 0 ? 'text-[#E36B11]' :
+                            i < 3 ? 'text-[#E36B11]/60' :
                             'text-gray-400'
                           }`}>{i + 1}</span>
                           {/* Avatar with country flag */}
                           <div className="relative flex-shrink-0">
-                            <div className={`w-8 h-8 rounded-full overflow-hidden border ${i === 0 ? 'border-[#D4873A]' : 'border-warm'}`}>
+                            <div className={`w-8 h-8 rounded-full overflow-hidden border ${i === 0 ? 'border-[#E36B11]' : 'border-warm'}`}>
                               {r.avatar ? (
                                 <img src={r.avatar} alt="" className="w-full h-full object-cover" />
                               ) : (
@@ -763,7 +763,7 @@ export default function DesktopPage() {
                           {/* BOGX Coins */}
                           <div className="flex items-center gap-1">
                             <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
-                            <span className="font-display text-[13px] tracking-wide font-semibold tabular-nums text-[#D4873A]">{formatCurrency(r.bogxCoins || r.points)}</span>
+                            <span className="font-display text-[13px] tracking-wide font-semibold tabular-nums text-[#E36B11]">{formatCurrency(r.bogxCoins || r.points)}</span>
                           </div>
                         </button>
                       );
@@ -771,14 +771,14 @@ export default function DesktopPage() {
                     // Placeholder for empty slot
                     return (
                       <div key={`empty-${i}`} className="w-full flex items-center gap-3 px-4 py-2.5">
-                        <span className="text-sm font-bold tabular-nums w-4 text-center text-[#D4873A]/60">{i + 1}</span>
+                        <span className="text-sm font-bold tabular-nums w-4 text-center text-[#E36B11]/60">{i + 1}</span>
                         <div className="w-8 h-8 rounded-full bg-warm border border-warm flex items-center justify-center">
-                          <span className="text-sm font-semibold text-[#D4873A]">?</span>
+                          <span className="text-sm font-semibold text-[#E36B11]">?</span>
                         </div>
                         <span className="flex-1 text-left font-display text-[13px] tracking-wide text-gray-800">—</span>
                         <div className="flex items-center gap-1">
                           <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
-                          <span className="font-display text-[13px] tracking-wide font-semibold text-[#D4873A]">—</span>
+                          <span className="font-display text-[13px] tracking-wide font-semibold text-[#E36B11]">—</span>
                         </div>
                       </div>
                     );
@@ -791,19 +791,19 @@ export default function DesktopPage() {
             <div className="bg-[#F5F0E8] rounded-xl border border-warm overflow-hidden shadow-sm">
               <div className="flex items-center justify-between px-4 py-3 border-b border-warm">
                 <div className="flex items-center gap-2">
-                  <Tv className="w-4 h-4 text-[#D4873A]" />
+                  <Tv className="w-4 h-4 text-[#E36B11]" />
                   <span className="font-display text-sm tracking-wider uppercase text-gray-900">GenX TV</span>
                 </div>
-                <button onClick={() => handleTabChange('tv')} className="text-[10px] font-semibold text-[#D4873A] hover:underline uppercase">View All</button>
+                <button onClick={() => handleTabChange('tv')} className="text-[10px] font-semibold text-[#E36B11] hover:underline uppercase">View All</button>
               </div>
               <div className="p-3 space-y-3">
                 {tvLoading ? (
                   <div className="flex items-center justify-center py-8">
-                    <div className="w-6 h-6 border-2 border-[#D4873A]/30 border-t-[#D4873A] rounded-full animate-spin" />
+                    <div className="w-6 h-6 border-2 border-[#E36B11]/30 border-t-[#E36B11] rounded-full animate-spin" />
                   </div>
                 ) : tvVideos.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-6 px-4">
-                    <Tv className="w-8 h-8 text-[#D4873A]/30 mb-2" />
+                    <Tv className="w-8 h-8 text-[#E36B11]/30 mb-2" />
                     <p className="text-xs text-gray-500 text-center">No videos yet</p>
                   </div>
                 ) : tvVideos.map((video) => (
@@ -824,7 +824,7 @@ export default function DesktopPage() {
                       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
                       {/* Play button on hover */}
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-10 h-10 rounded-full bg-[#D4873A]/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
+                        <div className="w-10 h-10 rounded-full bg-[#E36B11]/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
                           <Play className="w-5 h-5 text-white fill-white ml-0.5" />
                         </div>
                       </div>
@@ -832,11 +832,11 @@ export default function DesktopPage() {
                       <div className="absolute bottom-0 left-0 right-0 px-3 py-2">
                         {/* Category on top */}
                         {video.category && (
-                          <span className="font-display text-[10px] text-[#D4873A] tracking-wider uppercase drop-shadow-lg">{video.category}</span>
+                          <span className="font-display text-[10px] text-[#E36B11] tracking-wider uppercase drop-shadow-lg">{video.category}</span>
                         )}
                         {/* Title + Flag */}
                         <div className="flex items-center gap-1.5 mt-0.5">
-                          <p className="font-display text-sm text-white tracking-wide line-clamp-1 leading-tight group-hover:text-[#D4873A] transition-colors drop-shadow-lg">{video.title}</p>
+                          <p className="font-display text-sm text-white tracking-wide line-clamp-1 leading-tight group-hover:text-[#E36B11] transition-colors drop-shadow-lg">{video.title}</p>
                           {video.language && (
                             <img 
                               src={`https://flagcdn.com/24x18/${video.language === 'de' ? 'de' : 'gb'}.png`}
@@ -929,17 +929,17 @@ export default function DesktopPage() {
                 <div className="px-4 pt-4 pb-3 border-b border-white/20">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
-                      <Radio className="w-4 h-4 text-[#D4873A]" />
+                      <Radio className="w-4 h-4 text-[#E36B11]" />
                       <span className="font-display text-sm tracking-wider uppercase text-gray-800">Radio</span>
                     </div>
-                    <button onClick={() => handleTabChange('radio')} className="text-[10px] font-semibold text-[#D4873A] hover:underline uppercase">View All</button>
+                    <button onClick={() => handleTabChange('radio')} className="text-[10px] font-semibold text-[#E36B11] hover:underline uppercase">View All</button>
                   </div>
                   {/* Mini Equalizer */}
                   <div className="flex items-end justify-between w-full h-6 gap-[2px]">
                     {eqBarsSidebar.map((bar, i) => (
                       <div
                         key={i}
-                        className="bg-gradient-to-t from-[#D4873A]/50 to-[#E5A55A]/30 rounded-t-sm flex-1"
+                        className="bg-gradient-to-t from-[#E36B11]/50 to-[#E5A55A]/30 rounded-t-sm flex-1"
                         style={{
                           animation: `eqSidebar ${bar.duration} ease-in-out ${bar.delay} infinite alternate`,
                           height: bar.height,
@@ -961,7 +961,7 @@ export default function DesktopPage() {
                       onClick={() => window.open(`https://open.spotify.com/playlist/${station.playlistId}`, '_blank')}
                       className="w-full flex items-center gap-3 py-2 px-4 hover:bg-white/40 transition-colors text-left group"
                     >
-                      <div className="w-6 h-6 rounded-full bg-[#D4873A]/80 flex items-center justify-center flex-shrink-0">
+                      <div className="w-6 h-6 rounded-full bg-[#E36B11]/80 flex items-center justify-center flex-shrink-0">
                         <Play className="w-3 h-3 text-white fill-white ml-0.5" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -978,10 +978,10 @@ export default function DesktopPage() {
             <div className="bg-[#F5F0E8] rounded-xl border border-warm overflow-hidden shadow-sm">
               <div className="flex items-center justify-between px-4 py-3 border-b border-warm">
                 <div className="flex items-center gap-2">
-                  <ShoppingBag className="w-4 h-4 text-[#D4873A]" />
+                  <ShoppingBag className="w-4 h-4 text-[#E36B11]" />
                   <span className="font-display text-sm tracking-wider uppercase text-gray-900">Shop</span>
                 </div>
-                <button onClick={() => handleTabChange('shop')} className="text-[10px] font-semibold text-[#D4873A] hover:underline uppercase">View All</button>
+                <button onClick={() => handleTabChange('shop')} className="text-[10px] font-semibold text-[#E36B11] hover:underline uppercase">View All</button>
               </div>
               <div className="p-3 space-y-2">
                 {shopProducts.map((product) => (
@@ -995,7 +995,7 @@ export default function DesktopPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-gray-800 truncate leading-tight">{product.name}</p>
-                      <p className="text-sm font-semibold text-[#D4873A]">{product.price}</p>
+                      <p className="text-sm font-semibold text-[#E36B11]">{product.price}</p>
                     </div>
                   </button>
                 ))}
@@ -1011,11 +1011,11 @@ export default function DesktopPage() {
               <div className="absolute inset-0 bg-gradient-to-r from-[#FFF8E7] via-[#FFF8E7]/90 to-transparent" />
               <div className="relative p-4">
                 <div className="flex items-center gap-2 mb-1">
-                  <Gift className="w-4 h-4 text-[#D4873A]" />
+                  <Gift className="w-4 h-4 text-[#E36B11]" />
                   <span className="font-display text-sm tracking-wider uppercase text-gray-900">Rewards</span>
                 </div>
                 <p className="text-[11px] text-gray-600 mb-2">Earn free points & claim prizes.</p>
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-white bg-[#D4873A] px-2.5 py-1 rounded-md group-hover:bg-[#C4772A] transition-colors">
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-white bg-[#E36B11] px-2.5 py-1 rounded-md group-hover:bg-[#C4772A] transition-colors">
                   CLAIM NOW <ChevronRight className="w-3 h-3" />
                 </span>
               </div>
@@ -1027,14 +1027,14 @@ export default function DesktopPage() {
               className="w-full rounded-xl border border-warm overflow-hidden text-left group hover:brightness-105 transition-all shadow-sm relative bg-cover bg-center bg-no-repeat"
               style={{ backgroundImage: 'url(/images/battle.png)' }}
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-[#D4873A] via-[#D4873A]/90 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-r from-[#E36B11] via-[#E36B11]/90 to-transparent" />
               <div className="relative p-4">
                 <div className="flex items-center gap-2 mb-1">
                   <Gamepad2 className="w-5 h-5 text-white" />
                   <span className="font-display text-lg tracking-wider uppercase text-white">Arcade</span>
                 </div>
                 <p className="text-xs text-white/80 mb-3">Test your knowledge & win BOGX.</p>
-                <span className="inline-flex items-center gap-1 text-xs font-bold text-[#D4873A] bg-white px-3 py-1.5 rounded-lg">
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-[#E36B11] bg-white px-3 py-1.5 rounded-lg">
                   PLAY NOW <ChevronRight className="w-3 h-3" />
                 </span>
               </div>
@@ -1054,26 +1054,26 @@ export default function DesktopPage() {
         
         {/* Links */}
         <div className="flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm text-gray-500 mb-6">
-          <button onClick={() => { setStaticPageSlug('impressum'); contentRef.current?.scrollTo(0, 0); window.scrollTo(0, 0); }} className="hover:text-[#D4873A] transition-colors">Impressum</button>
-          <button onClick={() => { setStaticPageSlug('datenschutz'); contentRef.current?.scrollTo(0, 0); window.scrollTo(0, 0); }} className="hover:text-[#D4873A] transition-colors">Datenschutz</button>
-          <button onClick={() => { setStaticPageSlug('agb'); contentRef.current?.scrollTo(0, 0); window.scrollTo(0, 0); }} className="hover:text-[#D4873A] transition-colors">AGB</button>
-          <button onClick={() => { setStaticPageSlug('karriere'); contentRef.current?.scrollTo(0, 0); window.scrollTo(0, 0); }} className="hover:text-[#D4873A] transition-colors">Karriere</button>
-          <button onClick={() => { setStaticPageSlug('kontakt'); contentRef.current?.scrollTo(0, 0); window.scrollTo(0, 0); }} className="hover:text-[#D4873A] transition-colors">Kontakt</button>
-          <button onClick={() => { setStaticPageSlug('presse'); contentRef.current?.scrollTo(0, 0); window.scrollTo(0, 0); }} className="hover:text-[#D4873A] transition-colors">Presse</button>
+          <button onClick={() => { setStaticPageSlug('impressum'); contentRef.current?.scrollTo(0, 0); window.scrollTo(0, 0); }} className="hover:text-[#E36B11] transition-colors">Impressum</button>
+          <button onClick={() => { setStaticPageSlug('datenschutz'); contentRef.current?.scrollTo(0, 0); window.scrollTo(0, 0); }} className="hover:text-[#E36B11] transition-colors">Datenschutz</button>
+          <button onClick={() => { setStaticPageSlug('agb'); contentRef.current?.scrollTo(0, 0); window.scrollTo(0, 0); }} className="hover:text-[#E36B11] transition-colors">AGB</button>
+          <button onClick={() => { setStaticPageSlug('karriere'); contentRef.current?.scrollTo(0, 0); window.scrollTo(0, 0); }} className="hover:text-[#E36B11] transition-colors">Karriere</button>
+          <button onClick={() => { setStaticPageSlug('kontakt'); contentRef.current?.scrollTo(0, 0); window.scrollTo(0, 0); }} className="hover:text-[#E36B11] transition-colors">Kontakt</button>
+          <button onClick={() => { setStaticPageSlug('presse'); contentRef.current?.scrollTo(0, 0); window.scrollTo(0, 0); }} className="hover:text-[#E36B11] transition-colors">Presse</button>
         </div>
         
         {/* Social Links */}
         <div className="flex justify-center gap-4 mb-6">
-          <a href="https://instagram.com/bestofgenx" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-[#D4873A]/10 flex items-center justify-center text-[#D4873A] hover:bg-[#D4873A]/20 transition-colors">
+          <a href="https://instagram.com/bestofgenx" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-[#E36B11]/10 flex items-center justify-center text-[#E36B11] hover:bg-[#E36B11]/20 transition-colors">
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
           </a>
-          <a href="https://linkedin.com/company/bestofgenx" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-[#D4873A]/10 flex items-center justify-center text-[#D4873A] hover:bg-[#D4873A]/20 transition-colors">
+          <a href="https://linkedin.com/company/bestofgenx" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-[#E36B11]/10 flex items-center justify-center text-[#E36B11] hover:bg-[#E36B11]/20 transition-colors">
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
           </a>
-          <a href="https://facebook.com/bestofgenx" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-[#D4873A]/10 flex items-center justify-center text-[#D4873A] hover:bg-[#D4873A]/20 transition-colors">
+          <a href="https://facebook.com/bestofgenx" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-[#E36B11]/10 flex items-center justify-center text-[#E36B11] hover:bg-[#E36B11]/20 transition-colors">
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
           </a>
-          <a href="mailto:contact@bestofgenx.com" className="w-10 h-10 rounded-full bg-[#D4873A]/10 flex items-center justify-center text-[#D4873A] hover:bg-[#D4873A]/20 transition-colors">
+          <a href="mailto:contact@bestofgenx.com" className="w-10 h-10 rounded-full bg-[#E36B11]/10 flex items-center justify-center text-[#E36B11] hover:bg-[#E36B11]/20 transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
           </a>
         </div>
@@ -1085,7 +1085,7 @@ export default function DesktopPage() {
         
         {/* Made with love - using Lucide Heart icon instead of emoji */}
         <p className="text-center text-[10px] text-gray-300 mt-2 flex items-center justify-center gap-1">
-          Made with <svg className="w-3 h-3 text-[#D4873A]" fill="currentColor" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> for Generation X
+          Made with <svg className="w-3 h-3 text-[#E36B11]" fill="currentColor" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> for Generation X
         </p>
       </footer>
 

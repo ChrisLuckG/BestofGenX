@@ -17,7 +17,7 @@ function RankrollSkeleton() {
           <div className="relative h-40 bg-skeleton-light overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
             <div className="absolute top-4 left-4">
-              <div className="w-16 h-5 bg-[#D4873A]/20 rounded animate-pulse" />
+              <div className="w-16 h-5 bg-[#E36B11]/20 rounded animate-pulse" />
             </div>
             <div className="absolute bottom-4 left-4 right-4">
               <div className="h-6 bg-skeleton-light rounded w-3/4 mb-2 animate-pulse" />
@@ -119,9 +119,9 @@ export default function RankrollPage({ onOpenArticle, onOpenRankroll, onCoinAnim
   return (
     <div className="h-full flex flex-col bg-cream overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-cream">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-cream">
         <div className="flex items-center gap-3">
-          <Vote className="w-5 h-5 text-[#D4873A]" />
+          <Vote className="w-5 h-5 text-[#E36B11]" />
           <div>
             <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Rankroll</span>
             <span className="text-[10px] text-gray-500 -mt-0.5 block">Vote & rank your favorites</span>
@@ -131,8 +131,8 @@ export default function RankrollPage({ onOpenArticle, onOpenRankroll, onCoinAnim
           onClick={() => setFilterNotVoted(!filterNotVoted)}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
             filterNotVoted 
-              ? 'bg-[#D4873A] text-white' 
-              : 'bg-[#D4873A]/10 text-[#D4873A] hover:bg-[#D4873A]/20'
+              ? 'bg-[#E36B11] text-white' 
+              : 'bg-[#E36B11]/10 text-[#E36B11] hover:bg-[#E36B11]/20'
           }`}
         >
           <Filter className="w-3.5 h-3.5" />
@@ -160,7 +160,7 @@ export default function RankrollPage({ onOpenArticle, onOpenRankroll, onCoinAnim
             if (filteredPolls.length === 0 && filterNotVoted) {
               return (
                 <div className="text-center py-12">
-                  <Vote className="w-10 h-10 text-[#D4873A] mx-auto mb-3" />
+                  <Vote className="w-10 h-10 text-[#E36B11] mx-auto mb-3" />
                   <p className="text-gray-600 text-sm font-medium">All caught up!</p>
                   <p className="text-gray-400 text-xs mt-1">You've voted on all available Rankrolls.</p>
                 </div>

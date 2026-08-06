@@ -34,7 +34,7 @@ interface Prediction {
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   draft: { label: "Draft", cls: "bg-gray-600/30 text-gray-300" },
   active: { label: "Active", cls: "bg-green-500/20 text-green-400" },
-  resolved: { label: "Resolved", cls: "bg-[#D4873A]/20 text-[#D4873A]" },
+  resolved: { label: "Resolved", cls: "bg-[#E36B11]/20 text-[#E36B11]" },
   cancelled: { label: "Cancelled", cls: "bg-red-500/20 text-red-400" },
 };
 
@@ -83,13 +83,13 @@ function LiveCountdownBadge({ closesAt }: { closesAt: string }) {
       ? "bg-gray-600/30"
       : timeData.tone === "soon"
         ? "bg-red-500/20"
-        : "bg-[#D4873A]/20";
+        : "bg-[#E36B11]/20";
   const textColor =
     timeData.tone === "closed"
       ? "text-gray-400"
       : timeData.tone === "soon"
         ? "text-red-400"
-        : "text-[#D4873A]";
+        : "text-[#E36B11]";
 
   return (
     <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${bgColor} ${textColor}`}>
@@ -222,7 +222,7 @@ export default function PredictionsTab() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-[#D4873A]" />
+          <Sparkles className="w-4 h-4 text-[#E36B11]" />
           <h2 className="text-sm font-bold">Predictions</h2>
           <span className="text-xs text-gray-500">({predictions.length})</span>
         </div>
@@ -236,7 +236,7 @@ export default function PredictionsTab() {
           <button
             onClick={generate}
             disabled={generating}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#D4873A] text-white hover:bg-[#C4772A] transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#E36B11] text-white hover:bg-[#C4772A] transition-colors disabled:opacity-50"
           >
             {generating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
             {generating ? "Generating..." : "Generate (3 days)"}
@@ -251,7 +251,7 @@ export default function PredictionsTab() {
             key={opt.value}
             onClick={() => setFilter(opt.value)}
             className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-              filter === opt.value ? "bg-[#D4873A] text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+              filter === opt.value ? "bg-[#E36B11] text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"
             }`}
           >
             {opt.label}
@@ -261,7 +261,7 @@ export default function PredictionsTab() {
 
       {loading ? (
         <div className="flex justify-center py-12">
-          <Loader2 className="w-6 h-6 text-[#D4873A] animate-spin" />
+          <Loader2 className="w-6 h-6 text-[#E36B11] animate-spin" />
         </div>
       ) : predictions.length === 0 ? (
         <p className="text-center text-gray-500 text-sm py-12">
@@ -273,7 +273,7 @@ export default function PredictionsTab() {
             <div key={group.key}>
               {/* Closing-date header */}
               <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-gray-700">
-                <Calendar className="w-3.5 h-3.5 text-[#D4873A]" />
+                <Calendar className="w-3.5 h-3.5 text-[#E36B11]" />
                 <h3 className="text-xs font-bold uppercase tracking-wider text-gray-300">
                   Closes &middot; {group.header}
                 </h3>
@@ -289,13 +289,13 @@ export default function PredictionsTab() {
                       key={p._id}
                       className={`relative bg-gray-800 rounded-xl p-3 transition-colors ${
                         isSelected
-                          ? "border-2 border-[#D4873A] shadow-[0_0_0_3px_rgba(212,135,58,0.12)]"
+                          ? "border-2 border-[#E36B11] shadow-[0_0_0_3px_rgba(212,135,58,0.12)]"
                           : "border border-gray-700"
                       }`}
                     >
                       {/* Selected marker */}
                       {isSelected && (
-                        <div className="absolute -top-2 -left-2 w-6 h-6 rounded-full bg-[#D4873A] flex items-center justify-center shadow-md">
+                        <div className="absolute -top-2 -left-2 w-6 h-6 rounded-full bg-[#E36B11] flex items-center justify-center shadow-md">
                           <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
                         </div>
                       )}
@@ -310,7 +310,7 @@ export default function PredictionsTab() {
                               {p.category}
                             </span>
                             {p.genXRelated && (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#D4873A]/20 text-[#D4873A]">GenX</span>
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#E36B11]/20 text-[#E36B11]">GenX</span>
                             )}
                             <LiveCountdownBadge closesAt={p.closesAt} />
                             <span className="text-[10px] text-gray-500">
@@ -329,7 +329,7 @@ export default function PredictionsTab() {
                           {p.status === "draft" && (
                             <button
                               onClick={() => setStatus(p._id, "active")}
-                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-[#D4873A] text-white hover:bg-[#C4772A] transition-colors"
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-[#E36B11] text-white hover:bg-[#C4772A] transition-colors"
                               title="Activate & publish"
                             >
                               <CheckCircle2 className="w-3.5 h-3.5" />
@@ -370,13 +370,13 @@ export default function PredictionsTab() {
                               key={o.id}
                               onClick={clickable ? () => resolve(p._id, o.id) : undefined}
                               className={`relative w-full overflow-hidden rounded-lg text-left ${
-                                clickable ? "hover:ring-1 hover:ring-[#D4873A] cursor-pointer" : ""
+                                clickable ? "hover:ring-1 hover:ring-[#E36B11] cursor-pointer" : ""
                               } ${isCorrect ? "bg-green-600/20 border border-green-500/40" : "bg-gray-700/50 border border-gray-700"}`}
                               title={clickable ? "Mark as the correct answer" : undefined}
                             >
                               {/* Percent fill bar */}
                               <div
-                                className={`absolute inset-y-0 left-0 ${isCorrect ? "bg-green-500/25" : "bg-[#D4873A]/15"}`}
+                                className={`absolute inset-y-0 left-0 ${isCorrect ? "bg-green-500/25" : "bg-[#E36B11]/15"}`}
                                 style={{ width: `${percent}%` }}
                               />
                               <div className="relative flex items-center justify-between px-2.5 py-1.5">

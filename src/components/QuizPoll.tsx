@@ -155,7 +155,7 @@ export default function QuizPollCard({ poll, userId, visitorId, onComplete, onOp
             <img src={poll.image} alt="" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
           )}
           <div className="flex-1 min-w-0 overflow-hidden">
-            <span className="text-xs font-bold text-[#D4873A] uppercase tracking-wider">SELF-TEST</span>
+            <span className="text-xs font-bold text-[#E36B11] uppercase tracking-wider">SELF-TEST</span>
             <h3 className="font-display text-lg text-gray-900 leading-tight line-clamp-2 uppercase">{poll.title}</h3>
                         <div className="flex items-center gap-2 mt-0.5">
               <p className="text-xs text-gray-600">{poll.questions.length} questions · {poll.totalVotes} participants</p>
@@ -164,7 +164,7 @@ export default function QuizPollCard({ poll, userId, visitorId, onComplete, onOp
                   <span className="text-gray-300">·</span>
                   <button
                     onClick={() => onOpenArticle(String(poll.linkedArticleId))}
-                    className="text-xs text-[#D4873A] hover:underline flex items-center gap-1"
+                    className="text-xs text-[#E36B11] hover:underline flex items-center gap-1"
                   >
                     <BookOpen className="w-3 h-3" />
                     Read story
@@ -175,7 +175,7 @@ export default function QuizPollCard({ poll, userId, visitorId, onComplete, onOp
           </div>
           <button
             onClick={() => setIsStarted(true)}
-            className="px-3 py-1.5 bg-[#D4873A] text-white text-sm font-bold rounded-lg hover:bg-[#a8c400] transition-colors flex-shrink-0"
+            className="px-3 py-1.5 bg-[#E36B11] text-white text-sm font-bold rounded-lg hover:bg-[#a8c400] transition-colors flex-shrink-0"
           >
             Start
           </button>
@@ -190,14 +190,14 @@ export default function QuizPollCard({ poll, userId, visitorId, onComplete, onOp
       <div className="bg-cream border border-warm rounded-xl overflow-hidden">
         {/* Header */}
         <div className="p-4 border-b border-warm">
-          <span className="text-[10px] font-bold text-[#D4873A] uppercase tracking-wider">SELF-TEST</span>
+          <span className="text-[10px] font-bold text-[#E36B11] uppercase tracking-wider">SELF-TEST</span>
           <h3 className="font-bold text-gray-900">{poll.title}</h3>
         </div>
 
         {/* Results */}
         <div className="p-4">
           {result && (
-            <div className="text-center mb-4 p-4 bg-[#D4873A]/10 rounded-xl">
+            <div className="text-center mb-4 p-4 bg-[#E36B11]/10 rounded-xl">
               <span className="text-4xl mb-2 block">{result.emoji}</span>
               <div className="font-bold text-lg text-gray-900">You are: {result.label}</div>
               {result.description && (
@@ -216,13 +216,13 @@ export default function QuizPollCard({ poll, userId, visitorId, onComplete, onOp
                 <div
                   key={rt.id}
                   className={`relative overflow-hidden rounded-lg border p-3 ${
-                    isWinner ? 'border-[#D4873A] bg-[#D4873A]/5' : 'border-warm'
+                    isWinner ? 'border-[#E36B11] bg-[#E36B11]/5' : 'border-warm'
                   }`}
                 >
                   {/* Progress bar */}
                   <div 
                     className={`absolute inset-y-0 left-0 transition-all duration-500 ${
-                      isWinner ? 'bg-[#D4873A]/20' : 'bg-cream'
+                      isWinner ? 'bg-[#E36B11]/20' : 'bg-cream'
                     }`}
                     style={{ width: `${percentage}%` }}
                   />
@@ -233,9 +233,9 @@ export default function QuizPollCard({ poll, userId, visitorId, onComplete, onOp
                       <span className={`font-medium ${isWinner ? 'text-gray-900' : 'text-gray-600'}`}>
                         {rt.label}
                       </span>
-                      {isWinner && <CheckCircle className="w-4 h-4 text-[#D4873A]" />}
+                      {isWinner && <CheckCircle className="w-4 h-4 text-[#E36B11]" />}
                     </div>
-                    <span className={`text-sm font-bold ${isWinner ? 'text-[#D4873A]' : 'text-gray-600'}`}>
+                    <span className={`text-sm font-bold ${isWinner ? 'text-[#E36B11]' : 'text-gray-600'}`}>
                       {percentage}%
                     </span>
                   </div>
@@ -251,7 +251,7 @@ export default function QuizPollCard({ poll, userId, visitorId, onComplete, onOp
                 <span className="text-gray-300">·</span>
                 <button
                   onClick={() => onOpenArticle(String(poll.linkedArticleId))}
-                  className="text-[#D4873A] hover:underline flex items-center gap-1"
+                  className="text-[#E36B11] hover:underline flex items-center gap-1"
                 >
                   <BookOpen className="w-3 h-3" />
                   Read story
@@ -279,7 +279,7 @@ export default function QuizPollCard({ poll, userId, visitorId, onComplete, onOp
         </div>
       ) : (
         <div className="px-4 pt-3 pb-2 border-b border-warm">
-          <span className="text-xs font-bold text-[#D4873A] uppercase tracking-wider">SELF-TEST</span>
+          <span className="text-xs font-bold text-[#E36B11] uppercase tracking-wider">SELF-TEST</span>
           <h3 className="font-bold text-gray-900 text-xl leading-tight">{poll.title}</h3>
         </div>
       )}
@@ -287,7 +287,7 @@ export default function QuizPollCard({ poll, userId, visitorId, onComplete, onOp
       {/* Progress bar */}
       <div className="h-1 bg-cream">
         <div 
-          className="h-full bg-[#D4873A] transition-all duration-300"
+          className="h-full bg-[#E36B11] transition-all duration-300"
           style={{ width: `${progress}%` }}
         />
       </div>
@@ -335,8 +335,8 @@ export default function QuizPollCard({ poll, userId, visitorId, onComplete, onOp
                 disabled={isAnswered}
                 className={`w-full text-left p-3 rounded-lg border transition-all flex items-center justify-between ${
                   isSelected
-                    ? 'border-[#D4873A] bg-[#D4873A]/10'
-                    : 'border-warm hover:border-[#D4873A] hover:bg-[#D4873A]/5'
+                    ? 'border-[#E36B11] bg-[#E36B11]/10'
+                    : 'border-warm hover:border-[#E36B11] hover:bg-[#E36B11]/5'
                 }`}
               >
                 <div className="flex items-center gap-2">
@@ -344,7 +344,7 @@ export default function QuizPollCard({ poll, userId, visitorId, onComplete, onOp
                   <span className="text-gray-700">{answer.text}</span>
                 </div>
                 {isSelected ? (
-                  <CheckCircle className="w-5 h-5 text-[#D4873A]" />
+                  <CheckCircle className="w-5 h-5 text-[#E36B11]" />
                 ) : (
                   <ChevronRight className="w-5 h-5 text-gray-300" />
                 )}
@@ -358,7 +358,7 @@ export default function QuizPollCard({ poll, userId, visitorId, onComplete, onOp
       {isComplete && !showResults && (
         <div className="absolute inset-0 bg-cream/90 flex items-center justify-center">
           <div className="text-center">
-            <div className="w-12 h-12 border-4 border-[#D4873A] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <div className="w-12 h-12 border-4 border-[#E36B11] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
             <p className="text-gray-600 font-medium">Calculating your result...</p>
           </div>
         </div>

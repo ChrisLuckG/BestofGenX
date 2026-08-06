@@ -556,7 +556,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
       <div>
         {/* Header like Predictions */}
         <div className="flex items-center gap-2 mb-4">
-          <Sparkles className="w-4 h-4 text-[#D4873A]" />
+          <Sparkles className="w-4 h-4 text-[#E36B11]" />
           <h2 className="text-sm font-bold">Rankroll</h2>
           <span className="text-xs text-gray-500">({currentPolls.length})</span>
         </div>
@@ -569,7 +569,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                 key={f.id}
                 onClick={() => setActiveSubTab(f.id as any)}
                 className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                  activeSubTab === f.id ? 'bg-[#D4873A] text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                  activeSubTab === f.id ? 'bg-[#E36B11] text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
                 }`}
               >
                 {f.label}
@@ -581,7 +581,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
             {(activeSubTab === 'all' || activeSubTab === 'ranking') && (
               <button
                 onClick={() => createNewPoll('ranking')}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#D4873A] text-white hover:bg-[#C4772A] transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#E36B11] text-white hover:bg-[#C4772A] transition-colors"
               >
                 <Plus className="w-3 h-3" />
                 Ranking
@@ -616,7 +616,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                 type="checkbox"
                 checked={currentPolls.length > 0 && currentPolls.every(p => selectedIds.has(p._id))}
                 onChange={toggleSelectAll}
-                className="accent-[#D4873A]"
+                className="accent-[#E36B11]"
               />
               Select all
             </label>
@@ -636,7 +636,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
         {/* List */}
         {pollsLoading ? (
           <div className="flex justify-center py-12">
-            <Loader2 className="w-6 h-6 text-[#D4873A] animate-spin" />
+            <Loader2 className="w-6 h-6 text-[#E36B11] animate-spin" />
           </div>
         ) : currentPolls.length === 0 ? (
           <p className="text-center text-gray-500 text-sm py-12">
@@ -649,7 +649,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                 key={poll._id}
                 onClick={() => setEditingPoll(poll)}
                 className={`bg-gray-800 rounded-xl p-3 border cursor-pointer transition-colors flex items-center gap-3 ${
-                  selectedIds.has(poll._id) ? 'border-[#D4873A]' : 'border-gray-700 hover:border-gray-600'
+                  selectedIds.has(poll._id) ? 'border-[#E36B11]' : 'border-gray-700 hover:border-gray-600'
                 }`}
               >
                 {/* Selection checkbox */}
@@ -658,7 +658,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                   checked={selectedIds.has(poll._id)}
                   onClick={(e) => e.stopPropagation()}
                   onChange={() => toggleSelect(poll._id)}
-                  className="accent-[#D4873A] flex-shrink-0"
+                  className="accent-[#E36B11] flex-shrink-0"
                 />
                 {/* Running number */}
                 <span className="text-xs text-gray-500 w-7 text-right flex-shrink-0 tabular-nums">{idx + 1}</span>
@@ -680,7 +680,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                 </div>
                 {/* Type badge - smaller */}
                 <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
-                  poll.type === 'ranking' ? 'bg-[#D4873A]/20 text-[#D4873A]' :
+                  poll.type === 'ranking' ? 'bg-[#E36B11]/20 text-[#E36B11]' :
                   poll.type === 'quiz' ? 'bg-purple-500/20 text-purple-400' :
                   'bg-blue-500/20 text-blue-400'
                 }`}>
@@ -759,7 +759,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                 {editingPoll.type === 'ranking' && (
                   <div 
                     onClick={() => setShowRankrollImagePicker(true)}
-                    className="w-14 h-14 flex-shrink-0 rounded overflow-hidden bg-gray-600 border border-gray-500 cursor-pointer hover:border-[#D4873A] transition-colors"
+                    className="w-14 h-14 flex-shrink-0 rounded overflow-hidden bg-gray-600 border border-gray-500 cursor-pointer hover:border-[#E36B11] transition-colors"
                   >
                     {editingPoll.image ? (
                       <img src={editingPoll.image} alt="" className="w-full h-full object-cover" />
@@ -806,7 +806,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                             setEditingPoll({ ...editingPoll, closesAt: null });
                           }
                         }}
-                        className="w-3 h-3 rounded border-gray-500 text-[#D4873A]"
+                        className="w-3 h-3 rounded border-gray-500 text-[#E36B11]"
                       />
                       Timer
                     </label>
@@ -881,17 +881,17 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
               {editingPoll.type === 'ranking' && (
               <div className="flex flex-col flex-1 min-h-0 mt-2 overflow-hidden">
                 <label className="block text-[10px] text-gray-400 mb-1 flex-shrink-0">Ranking Items *</label>
-                <div className="space-y-2 overflow-y-auto flex-1 pr-1 max-h-[calc(95vh-350px)]" style={{ scrollbarWidth: 'thin', scrollbarColor: '#D4873A #374151' }}>
+                <div className="space-y-2 overflow-y-auto flex-1 pr-1 max-h-[calc(95vh-350px)]" style={{ scrollbarWidth: 'thin', scrollbarColor: '#E36B11 #374151' }}>
                   {(editingPoll.items || []).map((item: any, i: number) => (
                     <div key={i} className="bg-gray-700/30 rounded-lg p-3 flex gap-3">
                       {/* Image Preview - Click to open ImagePickerModal */}
                       <div 
                         onClick={() => setImagePickerItemIndex(i)}
-                        className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-gray-600 border border-gray-500 cursor-pointer hover:border-[#D4873A] hover:bg-gray-500 transition-colors"
+                        className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-gray-600 border border-gray-500 cursor-pointer hover:border-[#E36B11] hover:bg-gray-500 transition-colors"
                       >
                         {(uploadingItemIndex === i || searchingGifIndex === i) ? (
                           <div className="w-full h-full flex items-center justify-center">
-                            <Loader2 className="w-5 h-5 text-[#D4873A] animate-spin" />
+                            <Loader2 className="w-5 h-5 text-[#E36B11] animate-spin" />
                           </div>
                         ) : item.image ? (
                           <img src={item.image} alt="" className="w-full h-full object-cover" />
@@ -906,7 +906,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                       {/* Content */}
                       <div className="flex-1 space-y-1.5">
                         <div className="flex gap-2 items-center">
-                          <span className="text-xs font-bold text-[#D4873A] w-6">#{i + 1}</span>
+                          <span className="text-xs font-bold text-[#E36B11] w-6">#{i + 1}</span>
                           <input
                             type="text"
                             value={item.title || ''}
@@ -972,7 +972,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                     }];
                     setEditingPoll({ ...editingPoll, items: newItems });
                   }}
-                  className="w-full py-2 mt-2 border border-dashed border-[#D4873A] rounded-lg text-[#D4873A] hover:bg-[#D4873A]/10 flex-shrink-0"
+                  className="w-full py-2 mt-2 border border-dashed border-[#E36B11] rounded-lg text-[#E36B11] hover:bg-[#E36B11]/10 flex-shrink-0"
                 >
                   + Add Item ({editingPoll.items?.length || 0})
                 </button>
@@ -1161,7 +1161,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                         }];
                         setEditingPoll({ ...editingPoll, questions: newQuestions });
                       }}
-                      className="w-full py-1 border border-dashed border-[#D4873A] rounded text-[#D4873A] hover:bg-[#D4873A]/10 text-xs"
+                      className="w-full py-1 border border-dashed border-[#E36B11] rounded text-[#E36B11] hover:bg-[#E36B11]/10 text-xs"
                     >
                       + Add Question
                     </button>
@@ -1353,7 +1353,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
               <button
                 onClick={() => savePoll(false)}
                 disabled={!editingPoll.title || (editingPoll.type === 'simple' && !editingPoll.options?.some((o: any) => o.label)) || (editingPoll.type === 'ranking' && !editingPoll.items?.some((i: any) => i.title))}
-                className="px-2 py-1 bg-[#D4873A] rounded hover:bg-[#D4873A]/80 disabled:opacity-50 flex items-center gap-1 text-xs font-bold"
+                className="px-2 py-1 bg-[#E36B11] rounded hover:bg-[#E36B11]/80 disabled:opacity-50 flex items-center gap-1 text-xs font-bold"
               >
                 <Save className="w-3 h-3" />
                 Save Rankroll Only

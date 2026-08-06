@@ -68,13 +68,13 @@ export default function CentAnimation({ amount, onComplete }: CentAnimationProps
       {/* Centered counter display */}
       <div className="absolute inset-0 flex items-center justify-center">
         <div 
-          className="bg-cream/95 backdrop-blur-sm rounded-2xl px-8 py-5 shadow-2xl border border-[#D4873A]/30"
+          className="bg-cream/95 backdrop-blur-sm rounded-2xl px-8 py-5 shadow-2xl border border-[#E36B11]/30"
           style={{
             animation: 'popIn 0.3s ease-out forwards'
           }}
         >
           <div className="text-center">
-            <div className="text-[#D4873A] text-4xl font-black tabular-nums">
+            <div className="text-[#E36B11] text-4xl font-black tabular-nums">
               +{formatCents(displayValue)}
             </div>
             <div className="text-gray-500 text-sm mt-1 font-medium">
@@ -96,9 +96,9 @@ export default function CentAnimation({ amount, onComplete }: CentAnimationProps
           }}
         >
           <div 
-            className="w-8 h-8 rounded-full flex items-center justify-center shadow-lg border-2 border-[#D4873A]"
+            className="w-8 h-8 rounded-full flex items-center justify-center shadow-lg border-2 border-[#E36B11]"
             style={{ 
-              background: 'linear-gradient(145deg, #D4873A 0%, #c06a2a 100%)',
+              background: 'linear-gradient(145deg, #E36B11 0%, #c06a2a 100%)',
               boxShadow: '0 4px 15px rgba(212, 240, 0, 0.5)'
             }}
           >

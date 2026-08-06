@@ -41,8 +41,8 @@ export default function TemplatePanel({
             onClick={() => onSelectTemplate(t.id, t.prompt)}
             className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-colors ${
               selectedTemplate === t.id
-                ? 'bg-[#D4873A] border-[#D4873A] text-black'
-                : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-[#D4873A] hover:text-[#D4873A]'
+                ? 'bg-[#E36B11] border-[#E36B11] text-black'
+                : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-[#E36B11] hover:text-[#E36B11]'
             }`}
           >
             {t.label}
@@ -57,7 +57,7 @@ export default function TemplatePanel({
           <select
             value={globalCategory}
             onChange={e => onCategoryChange(e.target.value)}
-            className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs focus:border-[#D4873A] focus:outline-none"
+            className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs focus:border-[#E36B11] focus:outline-none"
           >
             {SEARCH_CATEGORIES.map(c => (
               <option key={c.id} value={c.id}>{c.label}</option>
@@ -70,7 +70,7 @@ export default function TemplatePanel({
           <select
             value={globalCountry}
             onChange={e => onCountryChange(e.target.value)}
-            className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs focus:border-[#D4873A] focus:outline-none"
+            className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs focus:border-[#E36B11] focus:outline-none"
           >
             {SEARCH_COUNTRIES.map(c => (
               <option key={c.id} value={c.id}>{c.label}</option>

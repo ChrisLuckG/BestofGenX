@@ -16,7 +16,7 @@ export default function KontaktPage() {
         </div>
 
         {/* Contact Card */}
-        <div className="bg-gradient-to-br from-[#D4873A] to-[#C4772A] rounded-2xl p-6 text-white text-center mb-6">
+        <div className="bg-gradient-to-br from-[#E36B11] to-[#C4772A] rounded-2xl p-6 text-white text-center mb-6">
           <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-4">
             <Mail className="w-8 h-8" />
           </div>
@@ -33,8 +33,8 @@ export default function KontaktPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           <div className="bg-white rounded-xl border border-warm p-4">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-full bg-[#D4873A]/10 flex items-center justify-center">
-                <Clock className="w-5 h-5 text-[#D4873A]" />
+              <div className="w-10 h-10 rounded-full bg-[#E36B11]/10 flex items-center justify-center">
+                <Clock className="w-5 h-5 text-[#E36B11]" />
               </div>
               <h4 className="font-bold text-gray-900">Antwortzeit</h4>
             </div>
@@ -45,8 +45,8 @@ export default function KontaktPage() {
 
           <div className="bg-white rounded-xl border border-warm p-4">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-full bg-[#D4873A]/10 flex items-center justify-center">
-                <MessageCircle className="w-5 h-5 text-[#D4873A]" />
+              <div className="w-10 h-10 rounded-full bg-[#E36B11]/10 flex items-center justify-center">
+                <MessageCircle className="w-5 h-5 text-[#E36B11]" />
               </div>
               <h4 className="font-bold text-gray-900">Feedback</h4>
             </div>
@@ -60,19 +60,19 @@ export default function KontaktPage() {
         <div className="bg-white rounded-2xl border border-warm p-6">
           <h3 className="text-lg font-bold text-gray-900 mb-4">Häufige Themen</h3>
           <div className="space-y-3">
-            <div className="p-3 bg-[#D4873A]/5 rounded-lg">
+            <div className="p-3 bg-[#E36B11]/5 rounded-lg">
               <p className="font-medium text-gray-900 text-sm">Account & Login</p>
               <p className="text-xs text-gray-600">Probleme beim Einloggen oder mit deinem Account</p>
             </div>
-            <div className="p-3 bg-[#D4873A]/5 rounded-lg">
+            <div className="p-3 bg-[#E36B11]/5 rounded-lg">
               <p className="font-medium text-gray-900 text-sm">Punkte & Belohnungen</p>
               <p className="text-xs text-gray-600">Fragen zum Punktesystem oder Shop</p>
             </div>
-            <div className="p-3 bg-[#D4873A]/5 rounded-lg">
+            <div className="p-3 bg-[#E36B11]/5 rounded-lg">
               <p className="font-medium text-gray-900 text-sm">Song Requests</p>
               <p className="text-xs text-gray-600">Vorschläge für unsere Spotify-Playlists</p>
             </div>
-            <div className="p-3 bg-[#D4873A]/5 rounded-lg">
+            <div className="p-3 bg-[#E36B11]/5 rounded-lg">
               <p className="font-medium text-gray-900 text-sm">Bug Reports</p>
               <p className="text-xs text-gray-600">Etwas funktioniert nicht wie erwartet</p>
             </div>

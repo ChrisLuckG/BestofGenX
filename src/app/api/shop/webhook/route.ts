@@ -31,7 +31,7 @@ function createOrderEmail(customerName: string, orderItems: string, totalAmount:
       
       <!-- Badge -->
       <div style="text-align: center; margin-bottom: 28px;">
-        <span style="display: inline-block; background-color: #FDF6EE; color: #D4873A; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; padding: 10px 20px; border-radius: 24px; border: 1px solid #F5E6D3;">
+        <span style="display: inline-block; background-color: #FDF6EE; color: #E36B11; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; padding: 10px 20px; border-radius: 24px; border: 1px solid #F5E6D3;">
           BESTELLUNG BESTÄTIGT
         </span>
       </div>
@@ -42,30 +42,30 @@ function createOrderEmail(customerName: string, orderItems: string, totalAmount:
       </h1>
       
       <p style="color: #666666; font-size: 16px; margin: 0 0 24px 0; text-align: center; line-height: 1.5;">
-        Hey <strong style="color: #D4873A;">${customerName}</strong>, wir haben deine Bestellung erhalten.
+        Hey <strong style="color: #E36B11;">${customerName}</strong>, wir haben deine Bestellung erhalten.
       </p>
 
       <!-- Decorative divider -->
       <div style="text-align: center; margin: 24px 0;">
         <div style="display: inline-block; width: 60px; height: 1px; background: linear-gradient(90deg, transparent, #E8E4DC, transparent);"></div>
-        <span style="display: inline-block; margin: 0 12px; color: #D4873A; font-size: 14px;">✦</span>
+        <span style="display: inline-block; margin: 0 12px; color: #E36B11; font-size: 14px;">✦</span>
         <div style="display: inline-block; width: 60px; height: 1px; background: linear-gradient(90deg, transparent, #E8E4DC, transparent);"></div>
       </div>
 
       <!-- Order Details Box -->
       <div style="background-color: #FDF8F0; border-radius: 16px; padding: 24px; margin-bottom: 20px; border: 1px solid #F5E6D3;">
-        <h3 style="color: #D4873A; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; margin: 0 0 16px 0; font-weight: 700;">Deine Bestellung</h3>
+        <h3 style="color: #E36B11; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; margin: 0 0 16px 0; font-weight: 700;">Deine Bestellung</h3>
         <div style="color: #555555; font-size: 15px; line-height: 1.8;">
           ${orderItems}
         </div>
         <div style="border-top: 1px solid #E8E4DC; margin-top: 16px; padding-top: 16px;">
-          <p style="color: #1a1a1a; font-size: 18px; font-weight: 700; margin: 0;">Gesamt: <span style="color: #D4873A;">${totalAmount}</span></p>
+          <p style="color: #1a1a1a; font-size: 18px; font-weight: 700; margin: 0;">Gesamt: <span style="color: #E36B11;">${totalAmount}</span></p>
         </div>
       </div>
       
       <!-- Shipping Address Box -->
       <div style="background-color: #FDF8F0; border-radius: 16px; padding: 24px; margin-bottom: 24px; border: 1px solid #F5E6D3;">
-        <h3 style="color: #D4873A; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; margin: 0 0 16px 0; font-weight: 700;">Lieferadresse</h3>
+        <h3 style="color: #E36B11; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; margin: 0 0 16px 0; font-weight: 700;">Lieferadresse</h3>
         <p style="color: #555555; font-size: 14px; line-height: 1.7; margin: 0; white-space: pre-line;">${shippingAddress}</p>
       </div>
 
@@ -78,7 +78,7 @@ function createOrderEmail(customerName: string, orderItems: string, totalAmount:
       </div>
 
       <!-- Welcome message -->
-      <p style="color: #D4873A; font-size: 15px; font-weight: 600; margin: 24px 0 0 0; text-align: center;">
+      <p style="color: #E36B11; font-size: 15px; font-weight: 600; margin: 24px 0 0 0; text-align: center;">
         Welcome to the GenX Club!
       </p>
     </div>
@@ -86,7 +86,7 @@ function createOrderEmail(customerName: string, orderItems: string, totalAmount:
     <!-- Footer -->
     <div style="padding: 24px 20px 40px; text-align: center;">
       <p style="color: #AAAAAA; font-size: 11px; margin: 0;">
-        Best of GenX · <a href="https://bestofgenx.com" style="color: #D4873A; text-decoration: none;">bestofgenx.com</a>
+        Best of GenX · <a href="https://bestofgenx.com" style="color: #E36B11; text-decoration: none;">bestofgenx.com</a>
       </p>
     </div>
 

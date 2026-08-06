@@ -68,7 +68,7 @@ export default function ArticleCard({ article, onClick, onShowLogin, variant = '
   // Small Full Template - horizontal list item style
   return (
     <div
-      className={`w-full text-left flex gap-3 p-3 border rounded-xl hover:border-[#D4873A]/30 hover:shadow-sm transition-all group ${
+      className={`w-full text-left flex gap-3 p-3 border rounded-xl hover:border-[#E36B11]/30 hover:shadow-sm transition-all group ${
         isRead ? 'bg-cream/50 border-warm/50' : 'bg-cream border-warm'
       }`}
     >
@@ -112,7 +112,7 @@ export default function ArticleCard({ article, onClick, onShowLogin, variant = '
         </div>
         
         {/* Title */}
-        <h3 className="font-bold text-gray-900 text-sm leading-tight mb-1 line-clamp-2 group-hover:text-[#D4873A] transition-colors">
+        <h3 className="font-bold text-gray-900 text-sm leading-tight mb-1 line-clamp-2 group-hover:text-[#E36B11] transition-colors">
           {article.title}
         </h3>
         
@@ -150,7 +150,7 @@ export default function ArticleCard({ article, onClick, onShowLogin, variant = '
         <div className={`px-2 py-1 rounded-lg border-2 text-xs font-bold flex items-center gap-1 ${
           isRead 
             ? 'border-green-500 text-green-600' 
-            : 'border-[#D4873A] text-[#D4873A]'
+            : 'border-[#E36B11] text-[#E36B11]'
         }`}>
           {isRead && <Check className="w-3 h-3" />}
           0.05

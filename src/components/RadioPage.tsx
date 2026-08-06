@@ -21,7 +21,7 @@ function Equalizer({ barCount = 20, isDesktop = false }: { barCount?: number; is
       {bars.map((bar, i) => (
           <div
             key={i}
-            className="bg-gradient-to-t from-[#D4873A]/60 to-[#E5A55A]/40 rounded-t-sm flex-1 mx-[1px]"
+            className="bg-gradient-to-t from-[#E36B11]/60 to-[#E5A55A]/40 rounded-t-sm flex-1 mx-[1px]"
             style={{
               maxWidth: isDesktop ? '6px' : '5px',
               animation: `equalizer ${bar.duration} ease-in-out ${bar.delay} infinite alternate`,
@@ -78,9 +78,9 @@ export default function RadioPage({ isDesktop = false }: RadioPageProps) {
   return (
     <div className="w-full h-full min-h-full flex flex-col overflow-hidden" style={{ backgroundColor: '#F5F0E8' }}>
       {/* Header - consistent with other pages */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
         <div className="flex items-center gap-3">
-          <Radio className="w-5 h-5 text-[#D4873A]" />
+          <Radio className="w-5 h-5 text-[#E36B11]" />
           <div>
             <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Radio</span>
             <span className="text-[10px] text-gray-500 -mt-0.5 block">The sound of GenX</span>
@@ -110,14 +110,14 @@ export default function RadioPage({ isDesktop = false }: RadioPageProps) {
               onClick={() => window.open(`https://open.spotify.com/playlist/${station.playlistId}`, '_blank')}
               className="relative flex items-center gap-3 p-4 rounded-xl bg-white/50 backdrop-blur-sm shadow-md hover:shadow-lg hover:bg-white/70 transition-all text-left group border border-white/60"
             >
-                            <div className="w-12 h-12 rounded-full bg-[#D4873A] flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform shadow-md">
+                            <div className="w-12 h-12 rounded-full bg-[#E36B11] flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform shadow-md">
                 <Play className="w-5 h-5 text-white fill-white ml-0.5" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-display text-sm tracking-wide text-gray-900 truncate group-hover:text-[#D4873A] transition-colors">{station.name}</p>
+                <p className="font-display text-sm tracking-wide text-gray-900 truncate group-hover:text-[#E36B11] transition-colors">{station.name}</p>
                 {station.description && <p className="text-xs text-gray-500 truncate">{station.description}</p>}
               </div>
-              <ExternalLink className="w-3.5 h-3.5 text-gray-400 group-hover:text-[#D4873A] transition-colors flex-shrink-0" />
+              <ExternalLink className="w-3.5 h-3.5 text-gray-400 group-hover:text-[#E36B11] transition-colors flex-shrink-0" />
             </button>
           ))}
         </div>
@@ -132,17 +132,17 @@ export default function RadioPage({ isDesktop = false }: RadioPageProps) {
         {isLoggedIn && (
           <div className="mt-6 bg-cream rounded-2xl border border-warm overflow-hidden shadow-sm">
             {/* Header */}
-            <div className="bg-gradient-to-r from-[#D4873A]/10 to-[#D4873A]/5 px-5 py-4 border-b border-warm flex items-center justify-between">
+            <div className="bg-gradient-to-r from-[#E36B11]/10 to-[#E36B11]/5 px-5 py-4 border-b border-warm flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#D4873A]/10 flex items-center justify-center">
-                  <Music className="w-5 h-5 text-[#D4873A]" />
+                <div className="w-10 h-10 rounded-xl bg-[#E36B11]/10 flex items-center justify-center">
+                  <Music className="w-5 h-5 text-[#E36B11]" />
                 </div>
                 <div>
                   <h3 className="font-display text-base tracking-wide text-gray-900 uppercase">Song Request</h3>
                   <p className="text-xs text-gray-500">Request a song for the stream.</p>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 text-[#D4873A]">
+              <div className="flex items-center gap-1.5 text-[#E36B11]">
                 <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
                 <span className="text-sm font-semibold">Earn 0.10</span>
                 <span className="text-xs text-gray-500"> when we play your song!</span>
@@ -158,7 +158,7 @@ export default function RadioPage({ isDesktop = false }: RadioPageProps) {
                 <p className="text-sm text-gray-500 mt-1">Our team will take it from here.</p>
                 <button
                   onClick={() => setSongRequestSent(false)}
-                  className="mt-3 text-xs text-[#D4873A] hover:underline"
+                  className="mt-3 text-xs text-[#E36B11] hover:underline"
                 >
                   Suggest another song
                 </button>
@@ -174,7 +174,7 @@ export default function RadioPage({ isDesktop = false }: RadioPageProps) {
                       <select
                         value={songRequestData.playlist}
                         onChange={(e) => setSongRequestData({...songRequestData, playlist: e.target.value})}
-                        className="w-full px-4 py-3 text-sm border-2 border-warm rounded-xl bg-white text-gray-900 focus:outline-none focus:border-[#D4873A] transition-colors appearance-none cursor-pointer"
+                        className="w-full px-4 py-3 text-sm border-2 border-warm rounded-xl bg-white text-gray-900 focus:outline-none focus:border-[#E36B11] transition-colors appearance-none cursor-pointer"
                       >
                         <option value="">Choose playlist...</option>
                         {stations.map(s => (
@@ -211,7 +211,7 @@ export default function RadioPage({ isDesktop = false }: RadioPageProps) {
                             }
                           }}
                           placeholder="Spotify link here..."
-                          className="w-full pl-9 pr-4 py-3 text-sm border-2 border-warm rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#D4873A] transition-colors"
+                          className="w-full pl-9 pr-4 py-3 text-sm border-2 border-warm rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#E36B11] transition-colors"
                         />
                       </div>
                       <button
@@ -231,7 +231,7 @@ export default function RadioPage({ isDesktop = false }: RadioPageProps) {
                             }
                           } catch (e) { console.error('Clipboard access denied:', e); }
                         }}
-                        className="px-3 py-3 bg-cream border border-warm hover:border-[#D4873A] rounded-xl transition-colors flex items-center gap-1.5 text-[#D4873A] text-sm"
+                        className="px-3 py-3 bg-cream border border-warm hover:border-[#E36B11] rounded-xl transition-colors flex items-center gap-1.5 text-[#E36B11] text-sm"
                       >
                         <ClipboardPaste className="w-4 h-4" />
                         Paste
@@ -249,8 +249,8 @@ export default function RadioPage({ isDesktop = false }: RadioPageProps) {
                         <span className="text-gray-900 font-medium text-sm truncate">{songRequestData.band} – {songRequestData.song}</span>
                       </div>
                     ) : songRequestData.link ? (
-                      <div className="mb-2 px-3 py-2 bg-[#D4873A]/10 rounded-lg">
-                        <span className="text-[#D4873A] text-xs animate-pulse">Loading track info...</span>
+                      <div className="mb-2 px-3 py-2 bg-[#E36B11]/10 rounded-lg">
+                        <span className="text-[#E36B11] text-xs animate-pulse">Loading track info...</span>
                       </div>
                     ) : null}
                     <button
@@ -274,7 +274,7 @@ export default function RadioPage({ isDesktop = false }: RadioPageProps) {
                         }
                       }}
                       disabled={!songRequestData.playlist || !songRequestData.band || !songRequestData.song || !songRequestData.link}
-                      className="w-full py-3 rounded-xl font-bold text-sm transition-all disabled:bg-gray-100 disabled:text-gray-400 disabled:border-2 disabled:border-gray-200 bg-[#D4873A] text-white hover:bg-[#C4772A] flex items-center justify-center gap-2 border-2 border-[#D4873A]"
+                      className="w-full py-3 rounded-xl font-bold text-sm transition-all disabled:bg-gray-100 disabled:text-gray-400 disabled:border-2 disabled:border-gray-200 bg-[#E36B11] text-white hover:bg-[#C4772A] flex items-center justify-center gap-2 border-2 border-[#E36B11]"
                     >
                       <Music className="w-4 h-4" />
                       Send Request
@@ -284,11 +284,11 @@ export default function RadioPage({ isDesktop = false }: RadioPageProps) {
                 </div>
                 
                 {/* Info Banner with 3 points */}
-                <div className="border-t border-warm bg-gradient-to-r from-[#D4873A]/5 to-transparent px-5 py-4">
+                <div className="border-t border-warm bg-gradient-to-r from-[#E36B11]/5 to-transparent px-5 py-4">
                   <div className={`grid gap-6 ${isDesktop ? 'grid-cols-3' : 'grid-cols-1 sm:grid-cols-3'}`}>
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-[#D4873A]/10 flex items-center justify-center flex-shrink-0">
-                        <Music className="w-4 h-4 text-[#D4873A]" />
+                      <div className="w-8 h-8 rounded-lg bg-[#E36B11]/10 flex items-center justify-center flex-shrink-0">
+                        <Music className="w-4 h-4 text-[#E36B11]" />
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-gray-900">Your Request Counts</p>
@@ -296,8 +296,8 @@ export default function RadioPage({ isDesktop = false }: RadioPageProps) {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-[#D4873A]/10 flex items-center justify-center flex-shrink-0">
-                        <svg className="w-4 h-4 text-[#D4873A]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg>
+                      <div className="w-8 h-8 rounded-lg bg-[#E36B11]/10 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-4 h-4 text-[#E36B11]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg>
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-gray-900">Earn 0.10</p>
@@ -305,8 +305,8 @@ export default function RadioPage({ isDesktop = false }: RadioPageProps) {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-[#D4873A]/10 flex items-center justify-center flex-shrink-0">
-                        <Check className="w-4 h-4 text-[#D4873A]" />
+                      <div className="w-8 h-8 rounded-lg bg-[#E36B11]/10 flex items-center justify-center flex-shrink-0">
+                        <Check className="w-4 h-4 text-[#E36B11]" />
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-gray-900">Quick Review</p>
@@ -322,8 +322,8 @@ export default function RadioPage({ isDesktop = false }: RadioPageProps) {
 
         {/* Login prompt for non-logged in users */}
         {!isLoggedIn && (
-          <div className="mt-8 bg-gradient-to-br from-[#D4873A]/20 to-[#D4873A]/10 rounded-xl p-5 text-center border border-[#D4873A]/30">
-            <Music className="w-8 h-8 text-[#D4873A] mx-auto mb-2" />
+          <div className="mt-8 bg-gradient-to-br from-[#E36B11]/20 to-[#E36B11]/10 rounded-xl p-5 text-center border border-[#E36B11]/30">
+            <Music className="w-8 h-8 text-[#E36B11] mx-auto mb-2" />
             <p className="text-gray-900 font-medium">Want to request a song?</p>
             <p className="text-sm text-gray-500 mt-1">Log in to suggest songs and earn coins!</p>
           </div>

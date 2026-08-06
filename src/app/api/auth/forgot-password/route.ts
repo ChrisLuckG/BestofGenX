@@ -53,7 +53,7 @@ export async function POST(request: Request) {
               <img src="${baseUrl}/images/genxlogo.png" alt="Best of GenX" style="width:80px;height:80px;">
             </div>
             <div style="background:linear-gradient(135deg,#2a2a2a 0%,#1a1a1a 100%);border-radius:16px;padding:30px;border:1px solid rgba(212,135,58,0.3);">
-              <h1 style="color:#D4873A;font-size:24px;margin:0 0 20px 0;text-align:center;">Reset Your Password</h1>
+              <h1 style="color:#E36B11;font-size:24px;margin:0 0 20px 0;text-align:center;">Reset Your Password</h1>
               <p style="color:#ffffff;font-size:16px;line-height:1.6;margin:0 0 20px 0;">
                 Hi ${user.username},
               </p>
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
                 We received a request to reset your password. Click the button below to create a new password:
               </p>
               <div style="text-align:center;margin:30px 0;">
-                <a href="${resetUrl}" style="display:inline-block;background:#D4873A;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:bold;font-size:16px;">
+                <a href="${resetUrl}" style="display:inline-block;background:#E36B11;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:bold;font-size:16px;">
                   Reset Password
                 </a>
               </div>

@@ -201,8 +201,8 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
         <div
           key={step}
           className={`w-3 h-3 rounded-full transition-all ${
-            step < signupStep ? 'bg-[#D4873A]' : 
-            step === signupStep ? 'bg-[#D4873A] ring-4 ring-[#D4873A]/20' : 
+            step < signupStep ? 'bg-[#E36B11]' : 
+            step === signupStep ? 'bg-[#E36B11] ring-4 ring-[#E36B11]/20' : 
             'bg-gray-300'
           }`}
         />
@@ -236,14 +236,14 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
             )}
 
             {needsVerification && (
-              <div className="mb-4 p-4 bg-[#D4873A]/10 border border-[#D4873A]/30 rounded-xl">
+              <div className="mb-4 p-4 bg-[#E36B11]/10 border border-[#E36B11]/30 rounded-xl">
                 <div className="flex items-start gap-3">
-                  <Mail className="w-5 h-5 text-[#D4873A] mt-0.5" />
+                  <Mail className="w-5 h-5 text-[#E36B11] mt-0.5" />
                   <div>
                     <h3 className="font-semibold text-gray-900 text-sm">Email Verification Required</h3>
                     <p className="text-gray-600 text-xs mt-1">We sent a verification link to <strong>{verificationEmail}</strong></p>
                     <p className="text-gray-500 text-xs mt-1">Check your inbox (and spam folder) to verify your account.</p>
-                    <button onClick={handleResendVerification} disabled={resendingEmail} className="mt-2 text-[#D4873A] text-xs font-semibold hover:underline">
+                    <button onClick={handleResendVerification} disabled={resendingEmail} className="mt-2 text-[#E36B11] text-xs font-semibold hover:underline">
                       {resendingEmail ? "Sending..." : "Didn't receive it? Resend email"}
                     </button>
                     {successMessage && <p className="text-green-600 text-xs mt-1">{successMessage}</p>}
@@ -261,7 +261,7 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-12 pr-4 py-4 bg-white border border-warm rounded-xl text-gray-900 placeholder-gray-400 focus:border-[#D4873A] outline-none"
+                    className="w-full pl-12 pr-4 py-4 bg-white border border-warm rounded-xl text-gray-900 placeholder-gray-400 focus:border-[#E36B11] outline-none"
                     placeholder="you@example.com"
                     required
                   />
@@ -276,7 +276,7 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-12 pr-12 py-4 bg-white border border-warm rounded-xl text-gray-900 placeholder-gray-400 focus:border-[#D4873A] outline-none"
+                    className="w-full pl-12 pr-12 py-4 bg-white border border-warm rounded-xl text-gray-900 placeholder-gray-400 focus:border-[#E36B11] outline-none"
                     placeholder="Your password"
                     required
                   />
@@ -289,7 +289,7 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 bg-[#D4873A] rounded-xl text-white font-bold flex items-center justify-center gap-2 hover:bg-[#C4772A] transition-all disabled:opacity-50"
+                className="w-full py-4 bg-[#E36B11] rounded-xl text-white font-bold flex items-center justify-center gap-2 hover:bg-[#C4772A] transition-all disabled:opacity-50"
               >
                 {loading ? "Signing in..." : "Sign In"} <ArrowRight className="w-5 h-5" />
               </button>
@@ -315,7 +315,7 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
             {/* Switch to signup */}
             <p className="text-center mt-6 text-gray-500">
               Don't have an account?{" "}
-              <button onClick={() => { setIsLogin(false); setSignupStep(1); }} className="text-[#D4873A] font-bold">
+              <button onClick={() => { setIsLogin(false); setSignupStep(1); }} className="text-[#E36B11] font-bold">
                 Sign Up
               </button>
             </p>
@@ -331,7 +331,7 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
       <div className="flex flex-col h-full">
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-14 pb-2">
-          <span className="text-sm text-gray-500 pl-2">Step <span className="text-[#D4873A] font-bold">{signupStep}</span> of 5</span>
+          <span className="text-sm text-gray-500 pl-2">Step <span className="text-[#E36B11] font-bold">{signupStep}</span> of 5</span>
           <button onClick={onClose} className="p-2 rounded-full bg-red-500 hover:bg-red-600 transition-colors text-white">
             <X className="w-5 h-5" />
           </button>
@@ -350,8 +350,8 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
           {/* Step 1: Country */}
           {signupStep === 1 && (
             <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#D4873A]/10 flex items-center justify-center">
-                <Globe className="w-8 h-8 text-[#D4873A]" />
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#E36B11]/10 flex items-center justify-center">
+                <Globe className="w-8 h-8 text-[#E36B11]" />
               </div>
               <h1 className="font-display text-2xl text-gray-900 mb-2">Where are you from?</h1>
               <p className="text-gray-500 text-sm mb-8">Help us show you the right content and challenges.</p>
@@ -382,7 +382,7 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
                         key={c.code}
                         type="button"
                         onClick={() => { setCountry(c.code); setShowCountryDropdown(false); }}
-                        className="w-full px-4 py-3 text-left text-gray-900 hover:bg-[#D4873A]/10 flex items-center gap-3"
+                        className="w-full px-4 py-3 text-left text-gray-900 hover:bg-[#E36B11]/10 flex items-center gap-3"
                       >
                         <img src={`https://flagcdn.com/w20/${c.code.toLowerCase()}.png`} alt="" className="w-6 h-4 object-cover rounded" />
                         {c.name}
@@ -397,8 +397,8 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
           {/* Step 2: Email */}
           {signupStep === 2 && (
             <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#D4873A]/10 flex items-center justify-center">
-                <Mail className="w-8 h-8 text-[#D4873A]" />
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#E36B11]/10 flex items-center justify-center">
+                <Mail className="w-8 h-8 text-[#E36B11]" />
               </div>
               <h1 className="font-display text-2xl text-gray-900 mb-2">What's your email?</h1>
               <p className="text-gray-500 text-sm mb-8">We'll use it to keep you posted on your rankings and rewards.</p>
@@ -409,7 +409,7 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-white border border-warm rounded-xl text-gray-900 placeholder-gray-400 focus:border-[#D4873A] outline-none"
+                  className="w-full pl-12 pr-4 py-4 bg-white border border-warm rounded-xl text-gray-900 placeholder-gray-400 focus:border-[#E36B11] outline-none"
                   placeholder="you@example.com"
                 />
               </div>
@@ -419,8 +419,8 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
           {/* Step 3: Username */}
           {signupStep === 3 && (
             <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#D4873A]/10 flex items-center justify-center">
-                <User className="w-8 h-8 text-[#D4873A]" />
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#E36B11]/10 flex items-center justify-center">
+                <User className="w-8 h-8 text-[#E36B11]" />
               </div>
               <h1 className="font-display text-2xl text-gray-900 mb-2">Pick your GenX username</h1>
               <p className="text-gray-500 text-sm mb-8">This is how other players will know you.</p>
@@ -431,7 +431,7 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-white border border-warm rounded-xl text-gray-900 placeholder-gray-400 focus:border-[#D4873A] outline-none"
+                  className="w-full pl-12 pr-4 py-4 bg-white border border-warm rounded-xl text-gray-900 placeholder-gray-400 focus:border-[#E36B11] outline-none"
                   placeholder="Bacon77"
                 />
               </div>
@@ -452,8 +452,8 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
           {/* Step 4: Password */}
           {signupStep === 4 && (
             <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#D4873A]/10 flex items-center justify-center">
-                <Lock className="w-8 h-8 text-[#D4873A]" />
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#E36B11]/10 flex items-center justify-center">
+                <Lock className="w-8 h-8 text-[#E36B11]" />
               </div>
               <h1 className="font-display text-2xl text-gray-900 mb-2">Create your password</h1>
               <p className="text-gray-500 text-sm mb-8">Make it strong. Make it you.</p>
@@ -464,7 +464,7 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-12 pr-12 py-4 bg-white border border-warm rounded-xl text-gray-900 placeholder-gray-400 focus:border-[#D4873A] outline-none"
+                  className="w-full pl-12 pr-12 py-4 bg-white border border-warm rounded-xl text-gray-900 placeholder-gray-400 focus:border-[#E36B11] outline-none"
                   placeholder="••••••••"
                 />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
@@ -487,8 +487,8 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
           {/* Step 5: Confirmation */}
           {signupStep === 5 && (
             <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#D4873A]/10 flex items-center justify-center">
-                <PartyPopper className="w-8 h-8 text-[#D4873A]" />
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#E36B11]/10 flex items-center justify-center">
+                <PartyPopper className="w-8 h-8 text-[#E36B11]" />
               </div>
               <h1 className="font-display text-2xl text-gray-900 mb-2">You're almost in!</h1>
               <p className="text-gray-500 text-sm mb-6">One last step and you're ready to join the challenge.</p>
@@ -496,15 +496,15 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
               {/* Benefits */}
               <div className="bg-white border border-warm rounded-xl p-4 mb-6 text-left space-y-3">
                 <div className="flex items-center gap-3">
-                  <Trophy className="w-5 h-5 text-[#D4873A]" />
+                  <Trophy className="w-5 h-5 text-[#E36B11]" />
                   <span className="text-gray-700">Vote on your favorites</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Star className="w-5 h-5 text-[#D4873A]" />
+                  <Star className="w-5 h-5 text-[#E36B11]" />
                   <span className="text-gray-700">Climb the rankings</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Gift className="w-5 h-5 text-[#D4873A]" />
+                  <Gift className="w-5 h-5 text-[#E36B11]" />
                   <span className="text-gray-700">Win epic prizes</span>
                 </div>
               </div>
@@ -515,11 +515,11 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
                 onClick={() => setAgreeTerms(!agreeTerms)}
                 className="flex items-start gap-3 text-left w-full"
               >
-                <div className={`w-6 h-6 rounded-md border-2 flex-shrink-0 flex items-center justify-center transition-all ${agreeTerms ? 'bg-[#D4873A] border-[#D4873A]' : 'border-gray-300'}`}>
+                <div className={`w-6 h-6 rounded-md border-2 flex-shrink-0 flex items-center justify-center transition-all ${agreeTerms ? 'bg-[#E36B11] border-[#E36B11]' : 'border-gray-300'}`}>
                   {agreeTerms && <Check className="w-4 h-4 text-white" />}
                 </div>
                 <p className="text-sm text-gray-600">
-                  I agree to the <span className="text-[#D4873A]">Terms of Service</span> and <span className="text-[#D4873A]">Privacy Policy</span>
+                  I agree to the <span className="text-[#E36B11]">Terms of Service</span> and <span className="text-[#E36B11]">Privacy Policy</span>
                 </p>
               </button>
             </div>
@@ -531,7 +531,7 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
           {signupStep < 5 ? (
             <button
               onClick={nextStep}
-              className="w-full py-4 bg-[#D4873A] rounded-xl text-white font-bold flex items-center justify-center gap-2 hover:bg-[#C4772A] transition-all"
+              className="w-full py-4 bg-[#E36B11] rounded-xl text-white font-bold flex items-center justify-center gap-2 hover:bg-[#C4772A] transition-all"
             >
               Continue <ArrowRight className="w-5 h-5" />
             </button>
@@ -539,7 +539,7 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
             <button
               onClick={handleSignup}
               disabled={loading || !agreeTerms}
-              className="w-full py-4 bg-[#D4873A] rounded-xl text-white font-bold flex items-center justify-center gap-2 hover:bg-[#C4772A] transition-all disabled:opacity-50"
+              className="w-full py-4 bg-[#E36B11] rounded-xl text-white font-bold flex items-center justify-center gap-2 hover:bg-[#C4772A] transition-all disabled:opacity-50"
             >
               {loading ? "Creating..." : "Create My Account"} <ArrowRight className="w-5 h-5" />
             </button>
@@ -552,7 +552,7 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
           {signupStep === 1 && (
             <p className="text-center mt-4 text-gray-500 text-sm">
               Already have an account?{" "}
-              <button onClick={() => setIsLogin(true)} className="text-[#D4873A] font-bold">Log in</button>
+              <button onClick={() => setIsLogin(true)} className="text-[#E36B11] font-bold">Log in</button>
             </p>
           )}
         </div>
@@ -577,22 +577,22 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
       {showVerificationModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-cream rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center">
-            <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-[#D4873A]/10 flex items-center justify-center">
-              <Mail className="w-10 h-10 text-[#D4873A]" />
+            <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-[#E36B11]/10 flex items-center justify-center">
+              <Mail className="w-10 h-10 text-[#E36B11]" />
             </div>
             <h2 className="text-xl font-bold text-gray-900 mb-2">Check Your Email!</h2>
             <p className="text-gray-600 text-sm mb-4">We sent a verification link to:</p>
-            <p className="font-semibold text-[#D4873A] mb-6 break-all">{verificationEmail}</p>
-            <div className="bg-[#D4873A]/5 rounded-xl p-4 mb-6">
+            <p className="font-semibold text-[#E36B11] mb-6 break-all">{verificationEmail}</p>
+            <div className="bg-[#E36B11]/5 rounded-xl p-4 mb-6">
               <p className="text-gray-600 text-sm">Click the link in the email to activate your account.</p>
             </div>
-            <button onClick={handleResendVerification} disabled={resendingEmail} className="text-[#D4873A] text-sm font-semibold mb-4">
+            <button onClick={handleResendVerification} disabled={resendingEmail} className="text-[#E36B11] text-sm font-semibold mb-4">
               {resendingEmail ? "Sending..." : "Didn't receive it? Resend email"}
             </button>
             {successMessage && <p className="text-green-600 text-sm mb-4">{successMessage}</p>}
             <button
               onClick={() => { setShowVerificationModal(false); setIsLogin(true); }}
-              className="w-full py-3 bg-[#D4873A] hover:bg-[#c06a2a] text-white font-bold rounded-xl transition-colors"
+              className="w-full py-3 bg-[#E36B11] hover:bg-[#c06a2a] text-white font-bold rounded-xl transition-colors"
             >
               Got it, I'll check my email
             </button>

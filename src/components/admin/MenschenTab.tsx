@@ -799,7 +799,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
             }}
             className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium whitespace-nowrap transition-colors ${
               activeCategory === cat.id 
-                ? 'bg-[#D4873A] text-white' 
+                ? 'bg-[#E36B11] text-white' 
                 : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
             }`}
           >
@@ -961,12 +961,12 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                   onClick={() => setCountryFilter(countryFilter === country ? '' : country)}
                   className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] whitespace-nowrap flex-shrink-0 transition-colors ${
                     countryFilter === country
-                      ? 'bg-[#D4873A] text-white'
+                      ? 'bg-[#E36B11] text-white'
                       : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                   }`}
                 >
                   <span>{country}</span>
-                  <span className={`font-bold ${countryFilter === country ? 'text-white' : 'text-[#D4873A]'}`}>{count}</span>
+                  <span className={`font-bold ${countryFilter === country ? 'text-white' : 'text-[#E36B11]'}`}>{count}</span>
                 </button>
               ))}
             </div>
@@ -1026,7 +1026,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
         <div className="flex-1 overflow-auto">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-6 h-6 text-[#D4873A] animate-spin" />
+              <Loader2 className="w-6 h-6 text-[#E36B11] animate-spin" />
             </div>
           ) : activeCategory === 'people' ? (
             <table className="w-full text-xs">
@@ -1193,7 +1193,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
             <div className="flex flex-col items-center justify-center py-12 text-gray-500">
               <span className="text-4xl mb-2">{currentCat?.emoji}</span>
               <p className="text-sm">Keine Einträge gefunden</p>
-              <button onClick={() => setShowAddForm(true)} className="mt-2 text-xs text-[#D4873A] hover:underline">
+              <button onClick={() => setShowAddForm(true)} className="mt-2 text-xs text-[#E36B11] hover:underline">
                 + Ersten Eintrag hinzufügen
               </button>
             </div>

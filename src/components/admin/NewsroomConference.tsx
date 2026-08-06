@@ -257,7 +257,7 @@ function TemplatePanel({
             onClick={() => setActiveTemplate(t.id)}
             className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
               activeTemplate === t.id 
-                ? 'bg-[#D4873A] text-black' 
+                ? 'bg-[#E36B11] text-black' 
                 : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
             }`}
           >
@@ -292,7 +292,7 @@ function TemplatePanel({
         <button
           onClick={() => onSelect(promptText)}
           disabled={!promptText.trim()}
-          className="px-4 py-1.5 bg-[#D4873A] hover:bg-[#c07830] rounded text-xs font-bold text-white disabled:opacity-50"
+          className="px-4 py-1.5 bg-[#E36B11] hover:bg-[#c07830] rounded text-xs font-bold text-white disabled:opacity-50"
         >
           → Use as Campaign Topic
         </button>
@@ -2273,7 +2273,7 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                     onClick={() => setSelectedTemplate(selectedTemplate === t.id ? null : t.id)}
                     className={`px-2 py-1 rounded text-[10px] font-medium transition-colors ${
                       selectedTemplate === t.id 
-                        ? 'bg-[#D4873A] text-black' 
+                        ? 'bg-[#E36B11] text-black' 
                         : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
                     }`}
                   >
@@ -2287,7 +2287,7 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                 <select
                   value={globalCategory}
                   onChange={e => setGlobalCategory(e.target.value)}
-                  className="bg-gray-800 border border-gray-700 rounded px-2 py-0.5 text-[10px] text-gray-300 focus:border-[#D4873A] focus:outline-none"
+                  className="bg-gray-800 border border-gray-700 rounded px-2 py-0.5 text-[10px] text-gray-300 focus:border-[#E36B11] focus:outline-none"
                 >
                   <option value="">Any</option>
                   <option value="sports">🏆 Sports</option>
@@ -2302,7 +2302,7 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                 <select
                   value={globalCountry}
                   onChange={e => setGlobalCountry(e.target.value)}
-                  className="bg-gray-800 border border-gray-700 rounded px-2 py-0.5 text-[10px] text-gray-300 focus:border-[#D4873A] focus:outline-none"
+                  className="bg-gray-800 border border-gray-700 rounded px-2 py-0.5 text-[10px] text-gray-300 focus:border-[#E36B11] focus:outline-none"
                 >
                   <option value="">Any</option>
                   <optgroup label="Americas">
@@ -2407,7 +2407,7 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                     }
                   }}
                   placeholder="e.g. Robert De Niro best movies, 90s hip hop albums, Mike Tyson fights..."
-                  className="flex-1 bg-gray-700 px-3 py-2 rounded text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-[#D4873A]"
+                  className="flex-1 bg-gray-700 px-3 py-2 rounded text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-[#E36B11]"
                 />
                 {typing ? (
                   <button
@@ -3130,7 +3130,7 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                               : proposal?.isError
                                 ? "bg-red-950/30 border border-red-900/50"
                                 : proposal
-                                  ? "bg-gray-900 border border-gray-700 hover:border-[#D4873A]"
+                                  ? "bg-gray-900 border border-gray-700 hover:border-[#E36B11]"
                                   : "bg-gray-900 border border-gray-700"
                           }`}
                         >
@@ -3269,7 +3269,7 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                                     className={`flex-1 py-1 rounded text-[10px] font-bold text-white flex items-center justify-center gap-1 ${
                                       selectingProposal
                                         ? 'bg-gray-600 cursor-not-allowed'
-                                        : 'bg-[#D4873A] hover:bg-[#c07830]'
+                                        : 'bg-[#E36B11] hover:bg-[#c07830]'
                                     }`}
                                   >
                                     Select
@@ -3334,7 +3334,7 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                               console.error('Failed to load article:', err);
                             }
                           }}
-                          className="shrink-0 px-3 py-1 rounded text-xs font-bold bg-[#D4873A] hover:bg-[#c07830] text-white flex items-center gap-1"
+                          className="shrink-0 px-3 py-1 rounded text-xs font-bold bg-[#E36B11] hover:bg-[#c07830] text-white flex items-center gap-1"
                         >
                           <ExternalLink size={12} /> Edit Article
                         </button>
@@ -3491,7 +3491,7 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                     }}
                     className={`px-3 py-1.5 rounded text-xs font-medium whitespace-nowrap transition-all ${
                       selectedArticleTab === article.id 
-                        ? 'bg-[#D4873A] text-white' 
+                        ? 'bg-[#E36B11] text-white' 
                         : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                     }`}
                   >
@@ -3546,7 +3546,7 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                   <label className="block text-[10px] text-gray-400 mb-1">Cover Image</label>
                   <div 
                     onClick={() => setShowImagePicker(true)}
-                    className="aspect-[16/10] bg-gray-700 rounded overflow-hidden cursor-pointer hover:ring-2 hover:ring-[#D4873A] transition-all"
+                    className="aspect-[16/10] bg-gray-700 rounded overflow-hidden cursor-pointer hover:ring-2 hover:ring-[#E36B11] transition-all"
                   >
                     {articleDraft.coverImage ? (
                       <img 
@@ -3685,7 +3685,7 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                     <label className="block text-[10px] text-gray-400 mb-1">Tags</label>
                     <div className="flex flex-wrap gap-1 bg-gray-700 px-2 py-1.5 rounded min-h-[32px]">
                       {articleDraft.tags.map((tag, i) => (
-                        <span key={i} className="px-2 py-0.5 bg-[#D4873A]/20 text-[#D4873A] rounded text-[10px] flex items-center gap-1">
+                        <span key={i} className="px-2 py-0.5 bg-[#E36B11]/20 text-[#E36B11] rounded text-[10px] flex items-center gap-1">
                           {tag}
                           <button onClick={() => setArticleDraft({ ...articleDraft, tags: articleDraft.tags.filter((_, j) => j !== i) })} className="hover:text-white">×</button>
                         </span>
@@ -3800,7 +3800,7 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                       ? 'bg-green-600 animate-pulse cursor-wait' 
                       : !articleDraft.title
                         ? 'bg-gray-600 cursor-not-allowed'
-                        : 'bg-[#D4873A] hover:bg-[#c07830]'
+                        : 'bg-[#E36B11] hover:bg-[#c07830]'
                   }`}
                 >
                   {savingArticle ? (
@@ -3841,7 +3841,7 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
             {/* Header */}
             <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
               <h3 className="text-sm font-bold flex items-center gap-2">
-                <Pencil size={14} className="text-[#D4873A]" />
+                <Pencil size={14} className="text-[#E36B11]" />
                 Edit Reporter: {editingReporter.name}
               </h3>
               <button onClick={() => setEditingReporter(null)} className="text-gray-400 hover:text-white">
@@ -3867,7 +3867,7 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                 <select
                   value={editingReporter.region}
                   onChange={e => setEditingReporter({ ...editingReporter, region: e.target.value })}
-                  className="w-full bg-gray-700 border border-gray-600 px-3 py-2 rounded text-sm focus:border-[#D4873A] focus:outline-none"
+                  className="w-full bg-gray-700 border border-gray-600 px-3 py-2 rounded text-sm focus:border-[#E36B11] focus:outline-none"
                 >
                   {REPORTER_REGIONS.map(r => (
                     <option key={r.value} value={r.value}>{r.label}</option>
@@ -3881,7 +3881,7 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                 <select
                   value={editingReporter.writingStyle}
                   onChange={e => setEditingReporter({ ...editingReporter, writingStyle: e.target.value })}
-                  className="w-full bg-gray-700 border border-gray-600 px-3 py-2 rounded text-sm focus:border-[#D4873A] focus:outline-none"
+                  className="w-full bg-gray-700 border border-gray-600 px-3 py-2 rounded text-sm focus:border-[#E36B11] focus:outline-none"
                 >
                   <option value="">— Select Style —</option>
                   <option value="nick-hornby">Nick Hornby (conversational, witty)</option>
@@ -3914,7 +3914,7 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
               <button
                 onClick={saveReporterEdit}
                 disabled={savingReporter}
-                className="px-4 py-2 bg-[#D4873A] hover:bg-[#c07830] rounded text-xs font-bold text-white flex items-center gap-1 disabled:opacity-50"
+                className="px-4 py-2 bg-[#E36B11] hover:bg-[#c07830] rounded text-xs font-bold text-white flex items-center gap-1 disabled:opacity-50"
               >
                 {savingReporter ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
                 Save Changes

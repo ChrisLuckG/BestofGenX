@@ -50,7 +50,7 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
   // Color classes based on accent
   const colors = accentColor === 'purple' 
     ? { bg: 'bg-[#A855F7]', bgLight: 'bg-[#A855F7]/10', border: 'border-[#A855F7]/40', text: 'text-[#A855F7]', gradient: 'from-[#A855F7]/5' }
-    : { bg: 'bg-[#D4873A]', bgLight: 'bg-[#D4873A]/10', border: 'border-[#D4873A]/40', text: 'text-[#D4873A]', gradient: 'from-[#D4873A]/5' };
+    : { bg: 'bg-[#E36B11]', bgLight: 'bg-[#E36B11]/10', border: 'border-[#E36B11]/40', text: 'text-[#E36B11]', gradient: 'from-[#E36B11]/5' };
   const [battles, setBattles] = useState<Battle[]>([]);
   const [incomingChallenges, setIncomingChallenges] = useState<Battle[]>([]);
   const [declinedBattles, setDeclinedBattles] = useState<Battle[]>([]);

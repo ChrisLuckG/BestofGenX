@@ -263,10 +263,10 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
   };
 
   const stats = [
-    { label: "Balance", value: `${formatCurrency(coins)} ${getCurrencySymbol()}`, icon: Coins, color: "text-[#D4873A]" },
+    { label: "Balance", value: `${formatCurrency(coins)} ${getCurrencySymbol()}`, icon: Coins, color: "text-[#E36B11]" },
     { label: "Games Played", value: gamesPlayed, icon: Target, color: "text-cyan-400" },
     { label: "Wins", value: wins, icon: Trophy, color: "text-green-400" },
-    { label: "Win Rate", value: gamesPlayed > 0 ? `${winRate}%` : "-", icon: Trophy, color: "text-[#D4873A]" },
+    { label: "Win Rate", value: gamesPlayed > 0 ? `${winRate}%` : "-", icon: Trophy, color: "text-[#E36B11]" },
   ];
 
   // Member since date (placeholder - would come from user data)
@@ -288,7 +288,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
         {/* Hero Card - Profile Header */}
         <div className="mx-4 mt-4 bg-cream rounded-2xl shadow-sm border border-warm overflow-hidden">
           {/* Background gradient header */}
-          <div className="h-16 bg-gradient-to-br from-[#D4873A]/20 via-[#D4873A]/10 to-transparent" />
+          <div className="h-16 bg-gradient-to-br from-[#E36B11]/20 via-[#E36B11]/10 to-transparent" />
           
           <div className="px-5 pb-5 -mt-10 relative">
             {/* Edit Button */}
@@ -317,10 +317,10 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
                   type="text"
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
-                  className="bg-cream border border-[#D4873A]/30 rounded-lg px-2 py-1 text-gray-900 text-lg font-display w-40"
+                  className="bg-cream border border-[#E36B11]/30 rounded-lg px-2 py-1 text-gray-900 text-lg font-display w-40"
                   autoFocus
                 />
-                <button onClick={handleUsernameUpdate} className="px-2 py-1 bg-[#D4873A] rounded text-white text-xs font-bold">Save</button>
+                <button onClick={handleUsernameUpdate} className="px-2 py-1 bg-[#E36B11] rounded text-white text-xs font-bold">Save</button>
                 <button onClick={() => setIsEditing(false)} className="px-2 py-1 bg-cream rounded text-gray-600 text-xs">Cancel</button>
               </div>
             ) : (
@@ -332,7 +332,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
             
             {/* Meta - badges style */}
             <div className="flex flex-wrap items-center gap-1.5 mt-2">
-              <span className="px-2.5 py-1 bg-[#D4873A] text-white text-[10px] font-bold rounded-lg shadow-sm">
+              <span className="px-2.5 py-1 bg-[#E36B11] text-white text-[10px] font-bold rounded-lg shadow-sm">
                 Rank #22
               </span>
               <span className="px-2 py-0.5 bg-cream text-gray-700 text-[10px] font-semibold rounded-md border border-warm">
@@ -354,7 +354,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
             <div className="p-3 text-center">
               <div className="flex items-center justify-center gap-1">
                 <img src="/images/bogxcoin.png" alt="BOGX" className="w-5 h-5" />
-                <span className="font-display text-xl text-[#D4873A]">{formatCurrency(animatedCoins)}</span>
+                <span className="font-display text-xl text-[#E36B11]">{formatCurrency(animatedCoins)}</span>
               </div>
               <span className="text-[8px] font-semibold tracking-widest uppercase text-gray-500 mt-0.5 block">BOGX</span>
             </div>
@@ -405,7 +405,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
               <div key={cat.name} className="flex items-center gap-3">
                 <span className="text-xs font-semibold tracking-wide uppercase text-gray-700 min-w-[64px]">{cat.name}</span>
                 <div className="flex-1 h-[6px] bg-cream rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-[#D4873A] to-[#FFB800] rounded-full transition-all duration-700" style={{ width: `${cat.pct}%` }} />
+                  <div className="h-full bg-gradient-to-r from-[#E36B11] to-[#FFB800] rounded-full transition-all duration-700" style={{ width: `${cat.pct}%` }} />
                 </div>
                 <span className="text-[11px] font-bold text-gray-700 min-w-[36px] text-right">{cat.pct}%</span>
               </div>
@@ -438,8 +438,8 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
               className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-cream transition-colors"
             >
               <div className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-lg bg-[#D4873A]/10 flex items-center justify-center">
-                  <Bell className="w-4 h-4 text-[#D4873A]" />
+                <div className="w-7 h-7 rounded-lg bg-[#E36B11]/10 flex items-center justify-center">
+                  <Bell className="w-4 h-4 text-[#E36B11]" />
                 </div>
                 <span className="text-sm font-medium text-gray-900">Notifications</span>
               </div>
@@ -479,10 +479,10 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
           <div className="mx-4 mt-3">
             <a 
               href="/admin"
-              className="w-full flex items-center justify-center gap-2 p-3 bg-cream border border-[#D4873A]/40 rounded-2xl shadow-sm hover:bg-[#D4873A]/5 transition-colors"
+              className="w-full flex items-center justify-center gap-2 p-3 bg-cream border border-[#E36B11]/40 rounded-2xl shadow-sm hover:bg-[#E36B11]/5 transition-colors"
             >
-              <Shield className="w-4 h-4 text-[#D4873A]" />
-              <span className="text-[#D4873A] text-sm font-bold">Admin Panel</span>
+              <Shield className="w-4 h-4 text-[#E36B11]" />
+              <span className="text-[#E36B11] text-sm font-bold">Admin Panel</span>
             </a>
           </div>
         )}
@@ -491,10 +491,10 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
         <div className="mx-4 mt-3">
           <button
             onClick={() => setShowInviteModal(true)}
-            className="w-full flex items-center justify-center gap-2 p-3.5 bg-cream border border-warm rounded-2xl shadow-sm hover:bg-[#D4873A]/5 transition-colors"
+            className="w-full flex items-center justify-center gap-2 p-3.5 bg-cream border border-warm rounded-2xl shadow-sm hover:bg-[#E36B11]/5 transition-colors"
           >
-            <Share2 className="w-4 h-4 text-[#D4873A]" />
-            <span className="text-[#D4873A] text-sm font-bold">Invite friends &middot; +5.00 BOGX each</span>
+            <Share2 className="w-4 h-4 text-[#E36B11]" />
+            <span className="text-[#E36B11] text-sm font-bold">Invite friends &middot; +5.00 BOGX each</span>
           </button>
         </div>
 
@@ -530,7 +530,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
           />
           <div className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden">
             {/* Header */}
-            <div className="h-24 bg-gradient-to-br from-[#D4873A]/15 via-[#D4873A]/5 to-transparent relative">
+            <div className="h-24 bg-gradient-to-br from-[#E36B11]/15 via-[#E36B11]/5 to-transparent relative">
               <button
                 onClick={() => setShowLogoutModal(false)}
                 className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/80 hover:bg-white border border-warm flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors shadow-sm"
@@ -561,12 +561,12 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
                   <div className="text-[9px] uppercase tracking-wider text-gray-400 font-bold">BOGX</div>
                 </div>
                 <div className="rounded-2xl border border-warm bg-cream/50 p-3 text-center">
-                  <Trophy className="w-4 h-4 text-[#D4873A] mx-auto mb-1" />
+                  <Trophy className="w-4 h-4 text-[#E36B11] mx-auto mb-1" />
                   <div className="text-[15px] font-black text-gray-900">{animatedWins}</div>
                   <div className="text-[9px] uppercase tracking-wider text-gray-400 font-bold">Wins</div>
                 </div>
                 <div className="rounded-2xl border border-warm bg-cream/50 p-3 text-center">
-                  <Target className="w-4 h-4 text-[#D4873A] mx-auto mb-1" />
+                  <Target className="w-4 h-4 text-[#E36B11] mx-auto mb-1" />
                   <div className="text-[15px] font-black text-gray-900">{animatedGames}</div>
                   <div className="text-[9px] uppercase tracking-wider text-gray-400 font-bold">Games</div>
                 </div>
@@ -607,7 +607,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
             <button
               onClick={() => avatarInputRef.current?.click()}
               disabled={isUploadingAvatar}
-              className="w-full py-3 mb-4 bg-[#D4873A] text-white font-bold rounded-xl hover:bg-[#C4772A] transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full py-3 mb-4 bg-[#E36B11] text-white font-bold rounded-xl hover:bg-[#C4772A] transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isUploadingAvatar ? (
                 <span>Uploading...</span>
@@ -627,7 +627,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
                   key={index}
                   onClick={() => handleAvatarSelect(avatar)}
                   className={`w-16 h-16 rounded-full overflow-hidden border-2 transition-all hover:scale-110 ${
-                    user.avatar === avatar ? 'border-[#D4873A]' : 'border-warm'
+                    user.avatar === avatar ? 'border-[#E36B11]' : 'border-warm'
                   }`}
                 >
                   <img src={avatar} alt={`Avatar ${index + 1}`} className="w-full h-full object-cover" />
@@ -658,7 +658,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
                   onClick={() => handleCountrySelect(country)}
                   className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${
                     user.country === country.name 
-                      ? 'bg-[#D4873A]/20 border-2 border-[#D4873A]' 
+                      ? 'bg-[#E36B11]/20 border-2 border-[#E36B11]' 
                       : 'bg-cream hover:bg-cream'
                   }`}
                 >
@@ -708,7 +708,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   placeholder="Current Password"
-                  className="w-full px-4 py-3 bg-cream border border-warm rounded-xl text-gray-900 placeholder-gray-400 focus:border-[#D4873A] outline-none text-base"
+                  className="w-full px-4 py-3 bg-cream border border-warm rounded-xl text-gray-900 placeholder-gray-400 focus:border-[#E36B11] outline-none text-base"
                 />
                 <button
                   type="button"
@@ -725,7 +725,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="New Password"
-                  className="w-full px-4 py-3 bg-cream border border-warm rounded-xl text-gray-900 placeholder-gray-400 focus:border-[#D4873A] outline-none text-base"
+                  className="w-full px-4 py-3 bg-cream border border-warm rounded-xl text-gray-900 placeholder-gray-400 focus:border-[#E36B11] outline-none text-base"
                 />
                 <button
                   type="button"
@@ -741,13 +741,13 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Confirm New Password"
-                className="w-full px-4 py-3 bg-cream border border-warm rounded-xl text-gray-900 placeholder-gray-400 focus:border-[#D4873A] outline-none text-base"
+                className="w-full px-4 py-3 bg-cream border border-warm rounded-xl text-gray-900 placeholder-gray-400 focus:border-[#E36B11] outline-none text-base"
               />
             </div>
             
             <button
               onClick={handlePasswordChange}
-              className="w-full mt-4 py-3 bg-[#D4873A] hover:bg-[#c4e000] rounded-xl text-white font-bold transition-colors"
+              className="w-full mt-4 py-3 bg-[#E36B11] hover:bg-[#c4e000] rounded-xl text-white font-bold transition-colors"
             >
               Update Password
             </button>
@@ -787,7 +787,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
                 placeholder="+49 123 456789"
-                className="w-full pl-10 pr-4 py-3 bg-cream border border-warm rounded-xl text-gray-900 placeholder-gray-400 focus:border-[#D4873A] outline-none text-base"
+                className="w-full pl-10 pr-4 py-3 bg-cream border border-warm rounded-xl text-gray-900 placeholder-gray-400 focus:border-[#E36B11] outline-none text-base"
               />
             </div>
             
@@ -816,7 +816,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
                 }
               }}
               disabled={phoneSaving || !phoneNumber.trim()}
-              className="w-full mt-4 py-3 bg-[#D4873A] hover:bg-[#c4e000] rounded-xl text-white font-bold transition-colors disabled:opacity-50"
+              className="w-full mt-4 py-3 bg-[#E36B11] hover:bg-[#c4e000] rounded-xl text-white font-bold transition-colors disabled:opacity-50"
             >
               {phoneSaving ? 'Saving...' : 'Save Phone Number'}
             </button>

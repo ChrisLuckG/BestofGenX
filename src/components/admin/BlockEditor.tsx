@@ -62,7 +62,7 @@ type BlockType = "text" | "video" | "ad" | "divider" | "image" | "gallery" | "ra
 
 // CTA HTML constants - SVG icons for Android/Desktop, emoji fallback class for iOS (handled in CSS/JS)
 // iOS detection happens client-side in ArticlePage, swaps .cta-icon content
-const RADIO_CTA_HTML = `<div class="cta-block radio-cta-banner" data-cta-type="radio" style="display:flex;flex-direction:column;gap:12px;padding:16px;background:linear-gradient(to right,rgba(212,135,58,0.15),rgba(212,135,58,0.05));border-radius:16px;border:1px solid rgba(212,135,58,0.2);margin:24px 0;cursor:pointer;"><div style="display:flex;align-items:center;gap:12px;"><div class="cta-icon" style="width:44px;height:44px;min-width:44px;background:#D4873A;border-radius:50%;display:flex;align-items:center;justify-content:center;" data-emoji="🎧"><svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M12 1c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z"/></svg></div><div><div style="font-weight:700;color:#1a1a1a;font-size:14px;line-height:1.3;">Listen on GenX Radio</div><div style="font-size:12px;color:#666;line-height:1.4;">Discover more timeless tracks on our radio.</div></div></div><span style="display:block;text-align:center;padding:10px 18px;background:#D4873A;color:white;border-radius:10px;font-weight:700;font-size:13px;">Go to Radio →</span></div>`;
+const RADIO_CTA_HTML = `<div class="cta-block radio-cta-banner" data-cta-type="radio" style="display:flex;flex-direction:column;gap:12px;padding:16px;background:linear-gradient(to right,rgba(212,135,58,0.15),rgba(212,135,58,0.05));border-radius:16px;border:1px solid rgba(212,135,58,0.2);margin:24px 0;cursor:pointer;"><div style="display:flex;align-items:center;gap:12px;"><div class="cta-icon" style="width:44px;height:44px;min-width:44px;background:#E36B11;border-radius:50%;display:flex;align-items:center;justify-content:center;" data-emoji="🎧"><svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M12 1c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z"/></svg></div><div><div style="font-weight:700;color:#1a1a1a;font-size:14px;line-height:1.3;">Listen on GenX Radio</div><div style="font-size:12px;color:#666;line-height:1.4;">Discover more timeless tracks on our radio.</div></div></div><span style="display:block;text-align:center;padding:10px 18px;background:#E36B11;color:white;border-radius:10px;font-weight:700;font-size:13px;">Go to Radio →</span></div>`;
 
 const ARCADE_CTA_HTML = `<div class="cta-block arcade-cta-banner" data-cta-type="arcade" style="display:flex;flex-direction:column;gap:12px;padding:16px;background:linear-gradient(to right,rgba(139,92,246,0.15),rgba(139,92,246,0.05));border-radius:16px;border:1px solid rgba(139,92,246,0.2);margin:24px 0;cursor:pointer;"><div style="display:flex;align-items:center;gap:12px;"><div class="cta-icon" style="width:44px;height:44px;min-width:44px;background:#8B5CF6;border-radius:50%;display:flex;align-items:center;justify-content:center;" data-emoji="🎮"><svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-10 7H8v3H6v-3H3v-2h3V8h2v3h3v2zm4.5 2c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm4-3c-.83 0-1.5-.67-1.5-1.5S18.67 9 19.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg></div><div><div style="font-weight:700;color:#1a1a1a;font-size:14px;line-height:1.3;">Play Trivia</div><div style="font-size:12px;color:#666;line-height:1.4;">Test your 80s/90s knowledge and win BOGX!</div></div></div><span style="display:block;text-align:center;padding:10px 18px;background:#8B5CF6;color:white;border-radius:10px;font-weight:700;font-size:13px;">Go to Trivia →</span></div>`;
 
@@ -72,7 +72,7 @@ const ARTICLES_CTA_HTML = `<div class="cta-block articles-cta-banner" data-cta-t
 
 const TV_CTA_HTML = `<div class="cta-block tv-cta-banner" data-cta-type="tv" style="display:flex;flex-direction:column;gap:12px;padding:16px;background:linear-gradient(to right,rgba(59,130,246,0.15),rgba(59,130,246,0.05));border-radius:16px;border:1px solid rgba(59,130,246,0.2);margin:24px 0;cursor:pointer;"><div style="display:flex;align-items:center;gap:12px;"><div class="cta-icon" style="width:44px;height:44px;min-width:44px;background:#3B82F6;border-radius:50%;display:flex;align-items:center;justify-content:center;" data-emoji="📺"><svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 1.99-.9 1.99-2L23 5c0-1.1-.9-2-2-2zm0 14H3V5h18v12z"/></svg></div><div><div style="font-weight:700;color:#1a1a1a;font-size:14px;line-height:1.3;">Watch GenX TV</div><div style="font-size:12px;color:#666;line-height:1.4;">Classic videos and nostalgic content.</div></div></div><span style="display:block;text-align:center;padding:10px 18px;background:#3B82F6;color:white;border-radius:10px;font-weight:700;font-size:13px;">Go to TV →</span></div>`;
 
-const RANKROLL_CTA_HTML = `<div class="cta-block rankroll-cta-banner" data-cta-type="rankroll" data-rankroll-id="" data-rankroll-title="" style="display:flex;flex-direction:column;gap:12px;padding:16px;background:linear-gradient(to right,rgba(212,135,58,0.15),rgba(212,135,58,0.05));border-radius:16px;border:1px solid rgba(212,135,58,0.2);margin:24px 0;cursor:pointer;"><div style="display:flex;align-items:center;gap:12px;"><div class="cta-icon" style="width:44px;height:44px;min-width:44px;background:#D4873A;border-radius:50%;display:flex;align-items:center;justify-content:center;" data-emoji="🗳️"><svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M18 13h-.68l-2 2h1.91L19 17H5l1.78-2h2.05l-2-2H6l-3 3v4c0 1.1.89 2 1.99 2H19c1.1 0 2-.89 2-2v-4l-3-3zm-1-5.05l-4.95 4.95-3.54-3.54 4.95-4.95 3.54 3.54zm-4.24-5.66L6.39 8.66a.996.996 0 000 1.41l4.95 4.95c.39.39 1.02.39 1.41 0l6.36-6.36a.996.996 0 000-1.41l-4.95-4.95a.996.996 0 00-1.41 0z"/></svg></div><div><div class="rankroll-title" style="font-weight:700;color:#1a1a1a;font-size:14px;line-height:1.3;">Vote Now!</div><div style="font-size:12px;color:#666;line-height:1.4;">Vote & rank your favorites</div></div></div><span style="display:block;text-align:center;padding:10px 18px;background:#D4873A;color:white;border-radius:10px;font-weight:700;font-size:13px;">VOTE NOW</span></div>`;
+const RANKROLL_CTA_HTML = `<div class="cta-block rankroll-cta-banner" data-cta-type="rankroll" data-rankroll-id="" data-rankroll-title="" style="display:flex;flex-direction:column;gap:12px;padding:16px;background:linear-gradient(to right,rgba(212,135,58,0.15),rgba(212,135,58,0.05));border-radius:16px;border:1px solid rgba(212,135,58,0.2);margin:24px 0;cursor:pointer;"><div style="display:flex;align-items:center;gap:12px;"><div class="cta-icon" style="width:44px;height:44px;min-width:44px;background:#E36B11;border-radius:50%;display:flex;align-items:center;justify-content:center;" data-emoji="🗳️"><svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M18 13h-.68l-2 2h1.91L19 17H5l1.78-2h2.05l-2-2H6l-3 3v4c0 1.1.89 2 1.99 2H19c1.1 0 2-.89 2-2v-4l-3-3zm-1-5.05l-4.95 4.95-3.54-3.54 4.95-4.95 3.54 3.54zm-4.24-5.66L6.39 8.66a.996.996 0 000 1.41l4.95 4.95c.39.39 1.02.39 1.41 0l6.36-6.36a.996.996 0 000-1.41l-4.95-4.95a.996.996 0 00-1.41 0z"/></svg></div><div><div class="rankroll-title" style="font-weight:700;color:#1a1a1a;font-size:14px;line-height:1.3;">Vote Now!</div><div style="font-size:12px;color:#666;line-height:1.4;">Vote & rank your favorites</div></div></div><span style="display:block;text-align:center;padding:10px 18px;background:#E36B11;color:white;border-radius:10px;font-weight:700;font-size:13px;">VOTE NOW</span></div>`;
 
 // Music Banner - dynamic monthly playlist banner (data fetched at render time)
 const MUSIC_BANNER_HTML = `<div class="music-banner-block" data-block-type="music-banner" style="position:relative;width:100%;border-radius:16px;overflow:hidden;margin:24px 0;cursor:pointer;aspect-ratio:1024/200;"><img src="/images/Hintergund/music.png" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" /><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding-left:35%;padding-right:15%;"><div style="text-align:center;"><h2 style="font-family:var(--font-display),Bebas Neue,sans-serif;font-size:clamp(24px,4vw,48px);color:#c8e6a0;text-shadow:2px 2px 4px rgba(0,0,0,0.5);font-style:italic;margin:0 0 8px 0;letter-spacing:0.05em;" data-dynamic="month-title">MONTHLY MELODIES</h2><div style="display:inline-block;padding:4px 16px;border-radius:6px;background:#9ae66e;color:#1a1a1a;font-size:12px;font-weight:700;letter-spacing:0.1em;margin-bottom:8px;">MONTHLY SPOTIFY PLAYLIST</div><p style="color:#c8e6a0;font-size:14px;margin:0 0 12px 0;">Our community picks of the month</p><div style="display:flex;align-items:center;justify-content:center;gap:16px;font-size:13px;color:#c8e6a0;"><span style="display:flex;align-items:center;gap:6px;"><img src="https://upload.wikimedia.org/wikipedia/commons/8/84/Spotify_icon.svg" alt="" style="width:18px;height:18px;" /><strong data-dynamic="song-count">0 SONGS</strong></span><span>•</span><span style="display:flex;align-items:center;gap:6px;">👥 <strong data-dynamic="vote-count">0 VOTES</strong></span></div></div></div></div>`;
@@ -610,7 +610,7 @@ export default function BlockEditor({ value, onChange, articleContext }: BlockEd
           <div key={block.id}>
             {/* Drop indicator */}
             {dragOverIndex === index && draggedIndex !== null && draggedIndex !== index && (
-              <div className="h-1 bg-[#D4873A] rounded-full my-1" />
+              <div className="h-1 bg-[#E36B11] rounded-full my-1" />
             )}
             
             <div
@@ -717,14 +717,14 @@ export default function BlockEditor({ value, onChange, articleContext }: BlockEd
       <p className="text-xs text-gray-500 mt-2 leading-relaxed">
         <span className="font-semibold">Hover</span> over a block to see controls ·{" "}
         <span className="font-semibold">Drag</span> the handle to reorder ·{" "}
-        Click <span className="font-semibold text-[#D4873A]">+</span> between blocks to add new content
+        Click <span className="font-semibold text-[#E36B11]">+</span> between blocks to add new content
       </p>
 
       {/* Video URL Modal */}
       {showVideoModal && (
         <Modal
           title="Insert Video"
-          icon={<Film className="w-5 h-5 text-[#D4873A]" />}
+          icon={<Film className="w-5 h-5 text-[#E36B11]" />}
           onClose={() => { setShowVideoModal(null); setVideoUrlInput(""); setVideoUrlError(null); }}
         >
           <div className="p-4">
@@ -736,7 +736,7 @@ export default function BlockEditor({ value, onChange, articleContext }: BlockEd
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddVideo(); } }}
               placeholder="https://www.youtube.com/watch?v=..."
               autoFocus
-              className="w-full px-3 py-2.5 text-sm text-white bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-[#D4873A]"
+              className="w-full px-3 py-2.5 text-sm text-white bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-[#E36B11]"
             />
             {videoUrlError && (
               <div className="text-xs text-red-400 mt-2">{videoUrlError}</div>
@@ -756,7 +756,7 @@ export default function BlockEditor({ value, onChange, articleContext }: BlockEd
             <button
               type="button"
               onClick={handleAddVideo}
-              className="px-6 py-2.5 bg-[#D4873A] hover:bg-[#c06a2a] text-white font-bold text-sm rounded-lg"
+              className="px-6 py-2.5 bg-[#E36B11] hover:bg-[#c06a2a] text-white font-bold text-sm rounded-lg"
             >
               Insert
             </button>
@@ -768,7 +768,7 @@ export default function BlockEditor({ value, onChange, articleContext }: BlockEd
       {showImageModal && (
         <Modal
           title="Insert Image"
-          icon={<ImageIcon className="w-5 h-5 text-[#D4873A]" />}
+          icon={<ImageIcon className="w-5 h-5 text-[#E36B11]" />}
           onClose={() => { setShowImageModal(null); setImageUrlInput(""); }}
         >
           <div className="p-4 space-y-4">
@@ -812,7 +812,7 @@ export default function BlockEditor({ value, onChange, articleContext }: BlockEd
                 onChange={(e) => setImageUrlInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddImage(); } }}
                 placeholder="https://example.com/image.jpg"
-                className="w-full px-3 py-2.5 text-sm text-white bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-[#D4873A]"
+                className="w-full px-3 py-2.5 text-sm text-white bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-[#E36B11]"
               />
             </div>
           </div>
@@ -829,7 +829,7 @@ export default function BlockEditor({ value, onChange, articleContext }: BlockEd
               type="button"
               onClick={handleAddImage}
               disabled={isUploadingImage || !imageUrlInput.trim()}
-              className="px-6 py-2.5 bg-[#D4873A] hover:bg-[#c06a2a] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm rounded-lg"
+              className="px-6 py-2.5 bg-[#E36B11] hover:bg-[#c06a2a] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm rounded-lg"
             >
               Insert URL
             </button>
@@ -891,7 +891,7 @@ function BlockContent({
     return (
       <div className="p-3">
         <div className="flex items-center gap-2 mb-3 text-xs text-gray-500">
-          <LayoutGrid className="w-4 h-4 text-[#D4873A]" />
+          <LayoutGrid className="w-4 h-4 text-[#E36B11]" />
           <span className="font-medium text-gray-700">Gallery Slider</span>
           <span className="text-gray-400">({images.length} image{images.length !== 1 ? 's' : ''})</span>
         </div>
@@ -914,7 +914,7 @@ function BlockContent({
         )}
 
         {showGalleryAdd ? (
-          <div className="border border-dashed border-[#D4873A]/40 rounded-lg p-3 space-y-2 bg-[#D4873A]/5">
+          <div className="border border-dashed border-[#E36B11]/40 rounded-lg p-3 space-y-2 bg-[#E36B11]/5">
             <input
               ref={galleryFileRef}
               type="file"
@@ -940,13 +940,13 @@ function BlockContent({
                 onChange={(e) => setGalleryUrlInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (galleryUrlInput.trim()) addImage(galleryUrlInput.trim()); } }}
                 placeholder="Paste image URL…"
-                className="flex-1 px-2 py-1.5 text-xs bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-[#D4873A]"
+                className="flex-1 px-2 py-1.5 text-xs bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-[#E36B11]"
               />
               <button
                 type="button"
                 onClick={() => { if (galleryUrlInput.trim()) addImage(galleryUrlInput.trim()); }}
                 disabled={!galleryUrlInput.trim()}
-                className="px-3 py-1.5 bg-[#D4873A] hover:bg-[#c06a2a] disabled:opacity-40 text-white text-xs font-bold rounded-lg"
+                className="px-3 py-1.5 bg-[#E36B11] hover:bg-[#c06a2a] disabled:opacity-40 text-white text-xs font-bold rounded-lg"
               >Add</button>
             </div>
             <button type="button" onClick={() => setShowGalleryAdd(false)} className="w-full text-[10px] text-gray-400 hover:text-gray-600">Cancel</button>
@@ -955,7 +955,7 @@ function BlockContent({
           <button
             type="button"
             onClick={() => setShowGalleryAdd(true)}
-            className="flex items-center gap-2 px-3 py-2 bg-[#D4873A]/10 hover:bg-[#D4873A]/20 text-[#D4873A] rounded-lg text-xs font-medium transition-colors"
+            className="flex items-center gap-2 px-3 py-2 bg-[#E36B11]/10 hover:bg-[#E36B11]/20 text-[#E36B11] rounded-lg text-xs font-medium transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
             Add photo to gallery
@@ -1048,8 +1048,8 @@ function BlockContent({
     };
 
     return (
-      <div className="p-4 m-2 bg-[#D4873A]/5 border-2 border-dashed border-[#D4873A]/30 rounded-xl">
-        <div className="text-[10px] text-[#D4873A] font-bold mb-2 flex items-center gap-1">
+      <div className="p-4 m-2 bg-[#E36B11]/5 border-2 border-dashed border-[#E36B11]/30 rounded-xl">
+        <div className="text-[10px] text-[#E36B11] font-bold mb-2 flex items-center gap-1">
           <Megaphone className="w-3 h-3" />
           ADVERTISEMENT
         </div>
@@ -1061,7 +1061,7 @@ function BlockContent({
               value={adData.image}
               onChange={(e) => updateAdData('image', e.target.value)}
               placeholder="https://..."
-              className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-[#D4873A] focus:border-[#D4873A]"
+              className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-[#E36B11] focus:border-[#E36B11]"
             />
           </div>
           <div>
@@ -1071,7 +1071,7 @@ function BlockContent({
               value={adData.link}
               onChange={(e) => updateAdData('link', e.target.value)}
               placeholder="https://..."
-              className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-[#D4873A] focus:border-[#D4873A]"
+              className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-[#E36B11] focus:border-[#E36B11]"
             />
           </div>
           <div>
@@ -1081,7 +1081,7 @@ function BlockContent({
               value={adData.title}
               onChange={(e) => updateAdData('title', e.target.value)}
               placeholder="Ad title..."
-              className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-[#D4873A] focus:border-[#D4873A]"
+              className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-[#E36B11] focus:border-[#E36B11]"
             />
           </div>
           {adData.image && (
@@ -1104,10 +1104,10 @@ function BlockContent({
 
   if (block.type === "radio-cta") {
     return (
-      <div className="p-3 m-2 bg-gradient-to-r from-[#D4873A]/15 to-[#D4873A]/5 border border-[#D4873A]/20 rounded-xl">
+      <div className="p-3 m-2 bg-gradient-to-r from-[#E36B11]/15 to-[#E36B11]/5 border border-[#E36B11]/20 rounded-xl">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 bg-[#D4873A] rounded-full flex items-center justify-center">
+            <div className="w-11 h-11 bg-[#E36B11] rounded-full flex items-center justify-center">
               <Headphones className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -1115,11 +1115,11 @@ function BlockContent({
               <div className="text-xs text-gray-600">Discover more timeless tracks on our radio.</div>
             </div>
           </div>
-          <div className="px-4 py-2 bg-[#D4873A] text-white rounded-lg font-bold text-sm">
+          <div className="px-4 py-2 bg-[#E36B11] text-white rounded-lg font-bold text-sm">
             Go to Radio →
           </div>
         </div>
-        <div className="text-[9px] text-[#D4873A] mt-2 text-center font-medium">RADIO CTA BLOCK</div>
+        <div className="text-[9px] text-[#E36B11] mt-2 text-center font-medium">RADIO CTA BLOCK</div>
       </div>
     );
   }
@@ -1218,10 +1218,10 @@ function BlockContent({
     const rankrollId = rankrollIdMatch?.[1] || "";
     const selectedRanking = availableRankings.find(r => r._id === rankrollId);
     return (
-      <div className="p-3 m-2 bg-gradient-to-r from-[#D4873A]/15 to-[#D4873A]/5 border border-[#D4873A]/20 rounded-xl">
+      <div className="p-3 m-2 bg-gradient-to-r from-[#E36B11]/15 to-[#E36B11]/5 border border-[#E36B11]/20 rounded-xl">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 bg-[#D4873A] rounded-full flex items-center justify-center">
+            <div className="w-11 h-11 bg-[#E36B11] rounded-full flex items-center justify-center">
               <Vote className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -1229,12 +1229,12 @@ function BlockContent({
               <div className="text-xs text-gray-600">Vote & rank your favorites</div>
             </div>
           </div>
-          <div className="px-4 py-2 bg-[#D4873A] text-white rounded-lg font-bold text-sm">
+          <div className="px-4 py-2 bg-[#E36B11] text-white rounded-lg font-bold text-sm">
             VOTE NOW
           </div>
         </div>
         <div className="mt-2 flex items-center justify-between">
-          <div className="text-[9px] text-[#D4873A] font-medium">RANKROLL CTA BLOCK</div>
+          <div className="text-[9px] text-[#E36B11] font-medium">RANKROLL CTA BLOCK</div>
           <select
             value={rankrollId}
             onChange={(e) => {
@@ -1307,8 +1307,8 @@ function AddBlockButton({ onClick, isOpen }: { onClick: () => void; isOpen: bool
         onClick={onClick}
         className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-all ${
           isOpen
-            ? "bg-[#D4873A] text-white"
-            : "bg-transparent text-gray-400 hover:bg-[#D4873A] hover:text-white opacity-0 group-hover/add:opacity-100"
+            ? "bg-[#E36B11] text-white"
+            : "bg-transparent text-gray-400 hover:bg-[#E36B11] hover:text-white opacity-0 group-hover/add:opacity-100"
         }`}
       >
         <Plus className="w-3 h-3" />
@@ -1352,7 +1352,7 @@ function AddBlockMenu({
             onClick={() => onAdd(opt.type)}
             className="flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-100 rounded transition-colors"
           >
-            <div className="w-8 h-8 flex items-center justify-center bg-[#D4873A]/10 text-[#D4873A] rounded">
+            <div className="w-8 h-8 flex items-center justify-center bg-[#E36B11]/10 text-[#E36B11] rounded">
               <Icon className="w-4 h-4" />
             </div>
             <div className="flex-1 min-w-0">

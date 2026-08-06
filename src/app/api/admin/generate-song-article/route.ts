@@ -67,7 +67,7 @@ ${songList}`;
     let content = lines.slice(2).join('\n').trim() || fullArticle;
 
     // Add call-to-action to open radio panel
-    content += `\n\n<hr>\n\n<h2>Want to Add Your Own?</h2>\n<p>Head to our <a href="#" onclick="window.dispatchEvent(new CustomEvent('openRadio')); return false;" style="color:#D4873A;font-weight:bold;">Radio section</a> and suggest your favorite GenX tracks. Every accepted song earns you 50 points!</p>`;
+    content += `\n\n<hr>\n\n<h2>Want to Add Your Own?</h2>\n<p>Head to our <a href="#" onclick="window.dispatchEvent(new CustomEvent('openRadio')); return false;" style="color:#E36B11;font-weight:bold;">Radio section</a> and suggest your favorite GenX tracks. Every accepted song earns you 50 points!</p>`;
 
     // Create article in database if requested
     let articleId: string | undefined;

@@ -553,7 +553,7 @@ export default function ArcadeTab() {
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center py-12 gap-3">
-      <Loader2 className="w-8 h-8 animate-spin text-[#D4873A]" />
+      <Loader2 className="w-8 h-8 animate-spin text-[#E36B11]" />
       <p className="text-gray-400 text-sm">Loading cards...</p>
     </div>
   );
@@ -571,7 +571,7 @@ export default function ArcadeTab() {
     <div>
       {/* Header like Predictions */}
       <div className="flex items-center gap-2 mb-4">
-        <Sparkles className="w-4 h-4 text-[#D4873A]" />
+        <Sparkles className="w-4 h-4 text-[#E36B11]" />
         <h2 className="text-sm font-bold">Arcade</h2>
         <span className="text-xs text-gray-500">({cards.length} questions)</span>
       </div>
@@ -584,7 +584,7 @@ export default function ArcadeTab() {
               key={tab.id}
               onClick={() => setActiveSubTab(tab.id)}
               className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                activeSubTab === tab.id ? 'bg-[#D4873A] text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                activeSubTab === tab.id ? 'bg-[#E36B11] text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
               }`}
             >
               {tab.label}
@@ -594,7 +594,7 @@ export default function ArcadeTab() {
         {activeSubTab === 'questions' && (
           <button
             onClick={handleCreate}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#D4873A] text-white hover:bg-[#C4772A] transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#E36B11] text-white hover:bg-[#C4772A] transition-colors"
           >
             <Wand2 className="w-3 h-3" />
             Question
@@ -617,10 +617,10 @@ export default function ArcadeTab() {
               <p className="text-2xl font-bold text-white">--</p>
               <p className="text-[10px] text-green-300 mt-1">Battles played</p>
             </div>
-            <div className="bg-gradient-to-br from-[#D4873A]/30 to-[#D4873A]/10 rounded-xl p-4 border border-[#D4873A]/50">
-              <p className="text-[#D4873A] text-[10px] font-bold uppercase tracking-wider mb-1">BOGX Spent</p>
+            <div className="bg-gradient-to-br from-[#E36B11]/30 to-[#E36B11]/10 rounded-xl p-4 border border-[#E36B11]/50">
+              <p className="text-[#E36B11] text-[10px] font-bold uppercase tracking-wider mb-1">BOGX Spent</p>
               <p className="text-2xl font-bold text-white">--</p>
-              <p className="text-[10px] text-[#D4873A]/70 mt-1">Entry fees collected</p>
+              <p className="text-[10px] text-[#E36B11]/70 mt-1">Entry fees collected</p>
             </div>
             <div className="bg-gradient-to-br from-blue-900/50 to-blue-800/30 rounded-xl p-4 border border-blue-700/50">
               <p className="text-blue-400 text-[10px] font-bold uppercase tracking-wider mb-1">Active Players</p>
@@ -889,7 +889,7 @@ export default function ArcadeTab() {
           <button
             onClick={() => setThemeFilter(null)}
             className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${
-              themeFilter === null ? 'bg-[#D4873A] text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+              themeFilter === null ? 'bg-[#E36B11] text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
             }`}
           >
             ALL
@@ -902,7 +902,7 @@ export default function ArcadeTab() {
                 <button
                   onClick={() => setThemeFilter(isSelected ? null : theme)}
                   className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${
-                    isSelected ? 'bg-[#D4873A] text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                    isSelected ? 'bg-[#E36B11] text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
                   } ${count === 0 ? 'opacity-40' : ''}`}
                 >
                   {theme} {count > 0 && <span className="text-[8px] opacity-70">({count})</span>}
@@ -1080,7 +1080,7 @@ export default function ArcadeTab() {
                 <button
                   onClick={() => handleBulkGenerate(genKey)}
                   disabled={isGenerating}
-                  className="px-3 py-1 bg-[#D4873A] hover:bg-[#C4772A] rounded text-xs font-bold flex items-center gap-1 disabled:opacity-50"
+                  className="px-3 py-1 bg-[#E36B11] hover:bg-[#C4772A] rounded text-xs font-bold flex items-center gap-1 disabled:opacity-50"
                 >
                   {isGenerating ? (
                     <><Loader2 className="w-3 h-3 animate-spin" /> {progress?.current}/{progress?.total}</>
@@ -1169,12 +1169,12 @@ export default function ArcadeTab() {
                       <td className="px-2 py-1 relative">
                         {generatingImageFor === card._id ? (
                           <div className="w-8 h-8 rounded bg-gray-700 flex items-center justify-center">
-                            <Loader2 className="w-4 h-4 animate-spin text-[#D4873A]" />
+                            <Loader2 className="w-4 h-4 animate-spin text-[#E36B11]" />
                           </div>
                         ) : (
                           <button onClick={() => setImagePickerCard({ cardId: card._id, searchTerm: card.topic })} className="cursor-pointer">
                             {card.previewImage ? (
-                              <img src={card.previewImage} alt="" className="w-8 h-8 rounded object-cover hover:ring-2 hover:ring-[#D4873A]" />
+                              <img src={card.previewImage} alt="" className="w-8 h-8 rounded object-cover hover:ring-2 hover:ring-[#E36B11]" />
                             ) : (
                               <div className="w-8 h-8 rounded bg-gray-700 flex items-center justify-center text-gray-500 text-[8px] hover:bg-gray-600">+</div>
                             )}

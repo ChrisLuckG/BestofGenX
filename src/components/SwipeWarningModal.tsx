@@ -38,7 +38,7 @@ export default function SwipeWarningModal({ isOpen, onContinue, onRestart, rewar
           <div className="space-y-3">
             <button
               onClick={onRestart}
-              className="w-full py-3 bg-[#D4873A] hover:bg-[#c4e000] rounded-xl font-bold text-white transition-all flex items-center justify-center gap-2"
+              className="w-full py-3 bg-[#E36B11] hover:bg-[#c4e000] rounded-xl font-bold text-white transition-all flex items-center justify-center gap-2"
             >
               <RotateCcw className="w-5 h-5" />
               Restart Challenge

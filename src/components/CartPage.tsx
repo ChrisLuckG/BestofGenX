@@ -86,7 +86,7 @@ export default function CartPage({ onBack, onContinueShopping, userCoins = 0, on
   return (
     <PageTemplate 
       title={`Cart (${totalItems})`}
-      icon={<ShoppingCart className="w-5 h-5 text-[#D4873A]" />}
+      icon={<ShoppingCart className="w-5 h-5 text-[#E36B11]" />}
       onBack={onBack}
     >
       {/* Processing Modal Overlay */}
@@ -107,7 +107,7 @@ export default function CartPage({ onBack, onContinueShopping, userCoins = 0, on
           <p className="text-gray-500 text-sm text-center mb-6">Add some products to get started</p>
           <button
             onClick={onContinueShopping}
-            className="px-6 py-3 rounded-xl bg-[#D4873A] text-white font-bold"
+            className="px-6 py-3 rounded-xl bg-[#E36B11] text-white font-bold"
           >
             Continue Shopping
           </button>
@@ -130,7 +130,7 @@ export default function CartPage({ onBack, onContinueShopping, userCoins = 0, on
                 <div className="flex-1 min-w-0">
                   <h3 className="text-gray-900 font-bold text-sm truncate">{item.productName}</h3>
                   <p className="text-gray-500 text-xs">{item.variantTitle}</p>
-                  <p className="text-[#D4873A] font-bold mt-1">{item.price.toFixed(2)}€</p>
+                  <p className="text-[#E36B11] font-bold mt-1">{item.price.toFixed(2)}€</p>
                 </div>
                 
                 {/* Quantity & Delete */}
@@ -164,7 +164,7 @@ export default function CartPage({ onBack, onContinueShopping, userCoins = 0, on
 
           {/* Payment Method Selection */}
           <div className="mx-3 mt-4 p-4 bg-cream rounded-xl border border-warm">
-            <p className="text-[#D4873A] text-[10px] mb-3 uppercase tracking-widest font-semibold">Payment Method</p>
+            <p className="text-[#E36B11] text-[10px] mb-3 uppercase tracking-widest font-semibold">Payment Method</p>
             
             <div className="space-y-2 mb-4">
               {/* Cash Payment */}
@@ -172,21 +172,21 @@ export default function CartPage({ onBack, onContinueShopping, userCoins = 0, on
                 onClick={() => setPaymentMethod('cash')}
                 className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all ${
                   paymentMethod === 'cash' 
-                    ? 'bg-[#D4873A]/10 border-[#D4873A]' 
+                    ? 'bg-[#E36B11]/10 border-[#E36B11]' 
                     : 'bg-cream border-warm hover:bg-cream'
                 }`}
               >
                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center border ${
-                  paymentMethod === 'cash' ? 'border-[#D4873A] bg-[#D4873A]/10' : 'border-warm bg-cream'
+                  paymentMethod === 'cash' ? 'border-[#E36B11] bg-[#E36B11]/10' : 'border-warm bg-cream'
                 }`}>
-                  <CreditCard className={`w-5 h-5 ${paymentMethod === 'cash' ? 'text-[#D4873A]' : 'text-gray-600'}`} />
+                  <CreditCard className={`w-5 h-5 ${paymentMethod === 'cash' ? 'text-[#E36B11]' : 'text-gray-600'}`} />
                 </div>
                 <div className="flex-1 text-left">
                   <p className="text-gray-900 font-medium text-sm">Pay with Cash</p>
                   <p className="text-gray-600 text-xs">Credit card, PayPal, etc.</p>
                 </div>
                 {paymentMethod === 'cash' && (
-                  <div className="w-5 h-5 rounded bg-[#D4873A] flex items-center justify-center">
+                  <div className="w-5 h-5 rounded bg-[#E36B11] flex items-center justify-center">
                     <Check className="w-3 h-3 text-white" />
                   </div>
                 )}
@@ -198,23 +198,23 @@ export default function CartPage({ onBack, onContinueShopping, userCoins = 0, on
                 disabled={!user}
                 className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all ${
                   paymentMethod === 'points' 
-                    ? 'bg-[#D4873A]/10 border-[#D4873A]' 
+                    ? 'bg-[#E36B11]/10 border-[#E36B11]' 
                     : 'bg-cream border-warm hover:bg-cream'
                 } ${!user ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center border ${
-                  paymentMethod === 'points' ? 'border-[#D4873A] bg-[#D4873A]/10' : 'border-warm bg-cream'
+                  paymentMethod === 'points' ? 'border-[#E36B11] bg-[#E36B11]/10' : 'border-warm bg-cream'
                 }`}>
-                  <Coins className={`w-5 h-5 ${paymentMethod === 'points' ? 'text-[#D4873A]' : 'text-gray-600'}`} />
+                  <Coins className={`w-5 h-5 ${paymentMethod === 'points' ? 'text-[#E36B11]' : 'text-gray-600'}`} />
                 </div>
                 <div className="flex-1 text-left">
                   <p className="text-gray-900 font-medium text-sm">Pay with BOGX</p>
-                  <p className={`text-xs ${hasEnoughPoints ? 'text-[#D4873A]' : 'text-red-400'}`}>
+                  <p className={`text-xs ${hasEnoughPoints ? 'text-[#E36B11]' : 'text-red-400'}`}>
                     {bogxNeeded.toLocaleString()} BOGX needed · You have {userCoins.toLocaleString()} BOGX
                   </p>
                 </div>
                 {paymentMethod === 'points' && (
-                  <div className="w-5 h-5 rounded bg-[#D4873A] flex items-center justify-center">
+                  <div className="w-5 h-5 rounded bg-[#E36B11] flex items-center justify-center">
                     <Check className="w-3 h-3 text-white" />
                   </div>
                 )}
@@ -238,7 +238,7 @@ export default function CartPage({ onBack, onContinueShopping, userCoins = 0, on
             {paymentMethod === 'points' && (
               <div className="flex justify-between items-center mb-2">
                 <span className="text-gray-500">BOGX equivalent</span>
-                <span className="text-[#D4873A] font-bold">{bogxNeeded.toLocaleString()} BOGX</span>
+                <span className="text-[#E36B11] font-bold">{bogxNeeded.toLocaleString()} BOGX</span>
               </div>
             )}
             <div className="flex justify-between items-center mb-4">
@@ -249,7 +249,7 @@ export default function CartPage({ onBack, onContinueShopping, userCoins = 0, on
             <button
               onClick={handleCheckout}
               disabled={checkoutLoading || (paymentMethod === 'points' && !hasEnoughPoints)}
-              className="w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 bg-[#D4873A] hover:bg-[#c06a2a] text-white disabled:opacity-50 text-lg"
+              className="w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 bg-[#E36B11] hover:bg-[#c06a2a] text-white disabled:opacity-50 text-lg"
             >
               {paymentMethod === 'points' ? (
                 <Coins className="w-6 h-6" />

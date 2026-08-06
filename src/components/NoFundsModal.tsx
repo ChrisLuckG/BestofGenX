@@ -59,14 +59,14 @@ export default function NoFundsModal({
 
         {/* Balance Box */}
         <div className="mx-4 mb-4">
-          <div className="flex bg-[#D4873A]/5 rounded-xl divide-x divide-[#D4873A]/10">
+          <div className="flex bg-[#E36B11]/5 rounded-xl divide-x divide-[#E36B11]/10">
             <div className="flex-1 py-3 text-center">
               <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">Your balance</div>
               <div className="font-display text-xl text-gray-900">{formatCurrency(currentBalance)} <span className="text-sm text-gray-500">BOGX</span></div>
             </div>
             <div className="flex-1 py-3 text-center">
               <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">Missing</div>
-              <div className="font-display text-xl text-[#D4873A]">{formatCurrency(missingAmount)} <span className="text-sm text-gray-500">BOGX</span></div>
+              <div className="font-display text-xl text-[#E36B11]">{formatCurrency(missingAmount)} <span className="text-sm text-gray-500">BOGX</span></div>
             </div>
           </div>
         </div>
@@ -74,8 +74,8 @@ export default function NoFundsModal({
         {/* Earn coins section */}
         <div className="mx-4 mb-4">
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 bg-[#D4873A]/10 rounded-lg flex items-center justify-center">
-              <Lightbulb className="w-4 h-4 text-[#D4873A]" />
+            <div className="w-8 h-8 bg-[#E36B11]/10 rounded-lg flex items-center justify-center">
+              <Lightbulb className="w-4 h-4 text-[#E36B11]" />
             </div>
             <div>
               <p className="font-bold text-gray-900 text-sm">Earn coins and join the action!</p>
@@ -88,7 +88,7 @@ export default function NoFundsModal({
             {/* Read articles */}
             <button
               onClick={onReadArticles || onTopUp}
-              className="w-full p-3 bg-[#D4873A]/5 rounded-xl flex items-center gap-3 hover:bg-[#D4873A]/10 transition-all"
+              className="w-full p-3 bg-[#E36B11]/5 rounded-xl flex items-center gap-3 hover:bg-[#E36B11]/10 transition-all"
             >
               <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border border-warm">
                 <BookOpen className="w-5 h-5 text-gray-600" />
@@ -97,7 +97,7 @@ export default function NoFundsModal({
                 <p className="font-bold text-gray-900 text-sm">Read articles</p>
                 <p className="text-[10px] text-gray-500">Earn per article</p>
               </div>
-              <div className="flex items-center gap-1 text-[#D4873A] font-bold text-sm">
+              <div className="flex items-center gap-1 text-[#E36B11] font-bold text-sm">
                 +0,05 <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
                 <ChevronRight className="w-4 h-4 text-gray-400" />
               </div>
@@ -106,7 +106,7 @@ export default function NoFundsModal({
             {/* Watch videos */}
             <button
               onClick={onWatchVideos || onWatchAd || onTopUp}
-              className="w-full p-3 bg-[#D4873A]/5 rounded-xl flex items-center gap-3 hover:bg-[#D4873A]/10 transition-all"
+              className="w-full p-3 bg-[#E36B11]/5 rounded-xl flex items-center gap-3 hover:bg-[#E36B11]/10 transition-all"
             >
               <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border border-warm">
                 <Play className="w-5 h-5 text-gray-600" />
@@ -115,7 +115,7 @@ export default function NoFundsModal({
                 <p className="font-bold text-gray-900 text-sm">Watch videos</p>
                 <p className="text-[10px] text-gray-500">Watch 1 video</p>
               </div>
-              <div className="flex items-center gap-1 text-[#D4873A] font-bold text-sm">
+              <div className="flex items-center gap-1 text-[#E36B11] font-bold text-sm">
                 +0,10 <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
                 <ChevronRight className="w-4 h-4 text-gray-400" />
               </div>
@@ -124,7 +124,7 @@ export default function NoFundsModal({
             {/* Play trivia */}
             <button
               onClick={onPlayTrivia || onTopUp}
-              className="w-full p-3 bg-[#D4873A]/5 rounded-xl flex items-center gap-3 hover:bg-[#D4873A]/10 transition-all"
+              className="w-full p-3 bg-[#E36B11]/5 rounded-xl flex items-center gap-3 hover:bg-[#E36B11]/10 transition-all"
             >
               <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border border-warm">
                 <img src="/images/Icon/trivia2.png" alt="" className="w-5 h-5" />
@@ -133,7 +133,7 @@ export default function NoFundsModal({
                 <p className="font-bold text-gray-900 text-sm">Play trivia</p>
                 <p className="text-[10px] text-gray-500">Earn up to 0.15 per question</p>
               </div>
-              <div className="flex items-center gap-1 text-[#D4873A] font-bold text-sm">
+              <div className="flex items-center gap-1 text-[#E36B11] font-bold text-sm">
                 +0,05-0,15 <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
                 <ChevronRight className="w-4 h-4 text-gray-400" />
               </div>
@@ -145,7 +145,7 @@ export default function NoFundsModal({
         <div className="px-4 pb-4 space-y-2">
           <button
             onClick={onTopUp}
-            className="w-full py-3.5 bg-[#D4873A] rounded-xl font-bold text-white transition-all hover:bg-[#C4772A]"
+            className="w-full py-3.5 bg-[#E36B11] rounded-xl font-bold text-white transition-all hover:bg-[#C4772A]"
           >
             EARN BOGX
           </button>

@@ -238,7 +238,7 @@ function processArticleHtml(raw: string): string {
   // 7. Style song-highlight blocks for monthly playlist articles
   html = html.replace(
     /<div class="song-highlight">/gi,
-    `<div class="song-highlight" style="background:linear-gradient(135deg,#FDF6EE 0%,#FEF9F3 100%);border:2px solid #D4873A;border-radius:12px;padding:16px 20px;margin:16px 0 24px 0;box-shadow:0 4px 12px rgba(212,135,58,0.15);">`
+    `<div class="song-highlight" style="background:linear-gradient(135deg,#FDF6EE 0%,#FEF9F3 100%);border:2px solid #E36B11;border-radius:12px;padding:16px 20px;margin:16px 0 24px 0;box-shadow:0 4px 12px rgba(212,135,58,0.15);">`
   );
 
   // 8. Style spotify-play button
@@ -653,7 +653,7 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
     return (
       <div className="h-full bg-cream flex flex-col items-center justify-center text-gray-900">
         <p className="text-xl mb-4">Article not found</p>
-        <button onClick={onBack} className="text-[#D4873A] underline">Go back</button>
+        <button onClick={onBack} className="text-[#E36B11] underline">Go back</button>
       </div>
     );
   }
@@ -665,15 +665,15 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
     <div ref={containerRef} className="h-full bg-black text-gray-900 overflow-y-auto overflow-x-hidden relative">
       {/* Desktop Header - same style as Feed/Articles/Arcade */}
       {isDesktop && (
-        <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent bg-cream">
+        <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent bg-cream">
           <div className="flex items-center gap-3">
             <button 
               onClick={onBack} 
-              className="p-2 hover:bg-[#D4873A]/10 rounded-lg transition-colors"
+              className="p-2 hover:bg-[#E36B11]/10 rounded-lg transition-colors"
             >
               <ArrowLeft className="w-5 h-5 text-gray-900" />
             </button>
-            <HeaderIcon className="w-5 h-5 text-[#D4873A]" />
+            <HeaderIcon className="w-5 h-5 text-[#E36B11]" />
             <div>
               <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">
                 {MAIN_CATEGORY_LABELS[mainCategory] || 'Articles'}
@@ -685,7 +685,7 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
           </div>
           <button 
             onClick={handleShare} 
-            className="p-2 hover:bg-[#D4873A]/10 rounded-lg transition-colors"
+            className="p-2 hover:bg-[#E36B11]/10 rounded-lg transition-colors"
           >
             <Share2 className="w-5 h-5 text-gray-700" />
           </button>
@@ -769,8 +769,8 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
                   backdropFilter: 'blur(8px)',
                 }}
               >
-                <span className="text-[#D4873A] uppercase tracking-wider text-[10px] font-semibold">Ends in</span>
-                <Clock className="w-3.5 h-3.5 text-[#D4873A]" />
+                <span className="text-[#E36B11] uppercase tracking-wider text-[10px] font-semibold">Ends in</span>
+                <Clock className="w-3.5 h-3.5 text-[#E36B11]" />
                 <span className="font-display tracking-wider text-[13px]">
                   {countdown.days > 0 
                     ? `${countdown.days}D ${String(countdown.hours).padStart(2, '0')}H ${String(countdown.minutes).padStart(2, '0')}M ${String(countdown.seconds).padStart(2, '0')}S`
@@ -833,7 +833,7 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
                 <div
                   className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
                   style={{
-                    background: 'linear-gradient(135deg,#D4873A 0%,#a86b2b 100%)',
+                    background: 'linear-gradient(135deg,#E36B11 0%,#a86b2b 100%)',
                     border: '1.5px solid rgba(212,135,58,0.6)',
                   }}
                 >
@@ -844,7 +844,7 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
                 <button
                   type="button"
                   onClick={() => onOpenAuthor(article.authorName!)}
-                  className="flex items-center gap-2 font-medium hover:text-[#D4873A] transition-colors"
+                  className="flex items-center gap-2 font-medium hover:text-[#E36B11] transition-colors"
                 >
                   {avatarEl}
                   <span className="hover:underline underline-offset-2">{article.authorName}</span>
@@ -873,8 +873,8 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
         {/* Subtitle — below hero, above article body */}
         {article.subtitle && (
           <p
-            className={`font-serif italic leading-snug mb-5 ${isDesktop ? 'text-2xl' : 'text-xl'} border-l-4 border-[#D4873A] pl-4`}
-            style={{ color: article.subtitleColor || '#D4873A' }}
+            className={`font-serif italic leading-snug mb-5 ${isDesktop ? 'text-2xl' : 'text-xl'} border-l-4 border-[#E36B11] pl-4`}
+            style={{ color: article.subtitleColor || '#E36B11' }}
           >
             {article.subtitle}
           </p>
@@ -887,11 +887,11 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
             prose-h2:text-[22px] prose-h2:leading-snug
             prose-h3:text-[18px] prose-h3:leading-snug
             prose-p:leading-[1.75] prose-p:mb-5 prose-p:text-[16px]
-            prose-a:text-[#D4873A] prose-a:underline prose-a:decoration-[#D4873A]/40 hover:prose-a:decoration-[#D4873A] prose-a:underline-offset-2
+            prose-a:text-[#E36B11] prose-a:underline prose-a:decoration-[#E36B11]/40 hover:prose-a:decoration-[#E36B11] prose-a:underline-offset-2
             prose-strong:font-bold prose-strong:text-gray-900 prose-em:italic
             prose-li:mb-2 prose-li:text-[16px] prose-li:leading-[1.7]
             prose-ul:my-5 prose-ol:my-5
-            prose-blockquote:border-l-4 prose-blockquote:border-[#D4873A] prose-blockquote:not-italic prose-blockquote:pl-5 prose-blockquote:py-1 prose-blockquote:text-gray-700 prose-blockquote:font-medium prose-blockquote:my-6
+            prose-blockquote:border-l-4 prose-blockquote:border-[#E36B11] prose-blockquote:not-italic prose-blockquote:pl-5 prose-blockquote:py-1 prose-blockquote:text-gray-700 prose-blockquote:font-medium prose-blockquote:my-6
             prose-img:rounded-xl prose-img:my-7 prose-img:shadow-md prose-img:max-w-full prose-img:w-full
             [&_img[style*='width']]:w-auto [&_img[style*='width']]:my-0 [&_img[style*='width']]:rounded-none [&_img[style*='width']]:shadow-none
             prose-hr:my-12 prose-hr:border-t-2 prose-hr:border-gray-200
@@ -965,7 +965,7 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
                 <button
                   key={relatedArticle._id}
                   onClick={() => onOpenArticle(relatedArticle._id)}
-                  className="w-full flex items-center gap-3 p-2 bg-cream border border-warm rounded-lg text-left shadow-md hover:shadow-lg hover:border-[#D4873A]/30 transition-all duration-200 group"
+                  className="w-full flex items-center gap-3 p-2 bg-cream border border-warm rounded-lg text-left shadow-md hover:shadow-lg hover:border-[#E36B11]/30 transition-all duration-200 group"
                 >
                   {/* Thumbnail */}
                   {relatedArticle.coverImage && (
@@ -981,7 +981,7 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
                   {/* Content */}
                   <div className="flex-1 min-w-0">
                     <CategoryBadge category={relatedArticle.category} size="sm" className="mb-1" />
-                    <h4 className="font-display text-lg text-gray-900 group-hover:text-[#D4873A] leading-tight line-clamp-2 transition-colors">
+                    <h4 className="font-display text-lg text-gray-900 group-hover:text-[#E36B11] leading-tight line-clamp-2 transition-colors">
                       {relatedArticle.title}
                     </h4>
                   </div>
@@ -1059,7 +1059,7 @@ function ShareButtons({ title }: { title: string }) {
   return (
     <div className="not-prose mt-6 mb-6">
       <div className="flex items-center gap-3">
-        <span className="text-[10px] text-[#D4873A] uppercase tracking-wider font-semibold">Share</span>
+        <span className="text-[10px] text-[#E36B11] uppercase tracking-wider font-semibold">Share</span>
         <div className="flex gap-1.5">
         {shareLinks.map((link) => {
             const Icon = link.icon;
@@ -1070,7 +1070,7 @@ function ShareButtons({ title }: { title: string }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 title={`Share on ${link.name}`}
-                className="flex items-center justify-center w-7 h-7 rounded-full transition-all hover:scale-110 bg-[#D4873A]/10 hover:bg-[#D4873A]/20 text-[#D4873A]"
+                className="flex items-center justify-center w-7 h-7 rounded-full transition-all hover:scale-110 bg-[#E36B11]/10 hover:bg-[#E36B11]/20 text-[#E36B11]"
               >
                 <Icon className="w-3.5 h-3.5" />
               </a>
@@ -1082,7 +1082,7 @@ function ShareButtons({ title }: { title: string }) {
             type="button"
             onClick={handleCopyLink}
             title="Copy link"
-            className={`flex items-center justify-center w-7 h-7 rounded-full transition-all hover:scale-110 ${copied ? 'bg-green-100 text-green-600' : 'bg-[#D4873A]/10 hover:bg-[#D4873A]/20 text-[#D4873A]'}`}
+            className={`flex items-center justify-center w-7 h-7 rounded-full transition-all hover:scale-110 ${copied ? 'bg-green-100 text-green-600' : 'bg-[#E36B11]/10 hover:bg-[#E36B11]/20 text-[#E36B11]'}`}
           >
             {copied ? <Check className="w-3.5 h-3.5" /> : <Link2 className="w-3.5 h-3.5" />}
           </button>
@@ -1093,7 +1093,7 @@ function ShareButtons({ title }: { title: string }) {
               type="button"
               onClick={handleNativeShare}
               title="More sharing options"
-              className="flex items-center justify-center w-7 h-7 rounded-full transition-all hover:scale-110 bg-[#D4873A]/10 hover:bg-[#D4873A]/20 text-[#D4873A]"
+              className="flex items-center justify-center w-7 h-7 rounded-full transition-all hover:scale-110 bg-[#E36B11]/10 hover:bg-[#E36B11]/20 text-[#E36B11]"
             >
               <Share2 className="w-3.5 h-3.5" />
             </button>

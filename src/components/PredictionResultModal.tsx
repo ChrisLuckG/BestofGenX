@@ -130,8 +130,8 @@ export default function PredictionResultModal({ isOpen, onClose, data, onPointsA
 
           {/* Optional admin note */}
           {data.adminNote && (
-            <div className="rounded-xl border border-[#D4873A]/30 bg-[#D4873A]/5 px-3 py-2.5 mb-3">
-              <div className="text-[10px] uppercase tracking-wider text-[#D4873A] mb-0.5">
+            <div className="rounded-xl border border-[#E36B11]/30 bg-[#E36B11]/5 px-3 py-2.5 mb-3">
+              <div className="text-[10px] uppercase tracking-wider text-[#E36B11] mb-0.5">
                 From the editors
               </div>
               <p className="text-[13px] text-gray-700 leading-relaxed">{data.adminNote}</p>
@@ -140,7 +140,7 @@ export default function PredictionResultModal({ isOpen, onClose, data, onPointsA
 
           <button
             onClick={onClose}
-            className="w-full py-3 bg-[#D4873A] hover:bg-[#C4772A] text-white font-bold rounded-xl text-[14px] transition-colors shadow-sm"
+            className="w-full py-3 bg-[#E36B11] hover:bg-[#C4772A] text-white font-bold rounded-xl text-[14px] transition-colors shadow-sm"
           >
             Close
           </button>

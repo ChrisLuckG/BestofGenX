@@ -63,7 +63,7 @@ function ResetPasswordContent() {
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h1 className="text-xl font-bold text-gray-900 mb-2">Invalid Link</h1>
           <p className="text-gray-500 mb-4">This password reset link is invalid or has expired.</p>
-          <a href="/" className="text-[#D4873A] font-semibold hover:underline">
+          <a href="/" className="text-[#E36B11] font-semibold hover:underline">
             Go to Homepage
           </a>
         </div>
@@ -111,7 +111,7 @@ function ResetPasswordContent() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter new password"
-                className="w-full pl-11 pr-11 py-3 bg-white border border-warm rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#D4873A]"
+                className="w-full pl-11 pr-11 py-3 bg-white border border-warm rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#E36B11]"
                 required
               />
               <button
@@ -133,7 +133,7 @@ function ResetPasswordContent() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Confirm new password"
-                className="w-full pl-11 pr-4 py-3 bg-white border border-warm rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#D4873A]"
+                className="w-full pl-11 pr-4 py-3 bg-white border border-warm rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#E36B11]"
                 required
               />
             </div>
@@ -142,14 +142,14 @@ function ResetPasswordContent() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-[#D4873A] hover:bg-[#C4772A] text-white font-semibold rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full py-3 bg-[#E36B11] hover:bg-[#C4772A] text-white font-semibold rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {loading ? <GenXLoader size="sm" /> : "Reset Password"}
           </button>
         </form>
 
         <p className="text-center text-sm text-gray-500 mt-6">
-          <a href="/" className="text-[#D4873A] font-semibold hover:underline">
+          <a href="/" className="text-[#E36B11] font-semibold hover:underline">
             Back to Login
           </a>
         </p>

@@ -16,7 +16,7 @@ export const CONTAINER_THEMES = {
   // Original background - no styling
   cream: { bg: 'bg-[#F5F0E8]', border: 'border-[#E5DDD0]', label: 'Original (Cream)', color: '#F5F0E8' },
   // BOGX Orange - our brand color!
-  bogx: { bg: 'bg-[#D4873A]', border: 'border-[#E5A55A]', label: 'BOGX Orange', color: '#D4873A' },
+  bogx: { bg: 'bg-[#E36B11]', border: 'border-[#E5A55A]', label: 'BOGX Orange', color: '#E36B11' },
   // Highlight themes
   arcade: { bg: 'bg-purple-800', border: 'border-purple-500', label: 'Arcade', color: '#7c3aed' },
   sports: { bg: 'bg-green-800', border: 'border-green-500', label: 'Sports', color: '#16a34a' },
@@ -308,7 +308,7 @@ export default function ContainerBlock({
           type="text"
           value={containerName}
           onChange={(e) => onUpdateName(index, e.target.value)}
-          className={`flex-1 bg-transparent px-1 py-0.5 text-[10px] font-bold border-b focus:outline-none uppercase tracking-wider ${containerTheme === 'cream' ? 'text-[#D4873A] border-[#D4873A]/30' : 'text-white border-white/30'}`}
+          className={`flex-1 bg-transparent px-1 py-0.5 text-[10px] font-bold border-b focus:outline-none uppercase tracking-wider ${containerTheme === 'cream' ? 'text-[#E36B11] border-[#E36B11]/30' : 'text-white border-white/30'}`}
           placeholder="SECTION NAME"
         />
         <button 
@@ -359,19 +359,19 @@ export default function ContainerBlock({
                       <img src={art1.coverImage} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: `${(art1 as any).imagePosX ?? 50}% ${(art1 as any).imagePosY ?? 50}%` }} alt="" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                       <div className="absolute bottom-1 left-1 right-6">
-                        <span className="text-[7px] font-bold text-[#D4873A] bg-black/50 px-1 rounded">MAIN</span>
+                        <span className="text-[7px] font-bold text-[#E36B11] bg-black/50 px-1 rounded">MAIN</span>
                         <div className="text-[8px] text-white font-bold mt-0.5 line-clamp-2">{art1.title}</div>
                       </div>
                     </>
                   ) : art1 ? (
-                    <div className="flex flex-col items-center justify-center h-full bg-[#D4873A]/20 p-1">
-                      <span className="text-[7px] font-bold text-[#D4873A] bg-black/40 px-1 rounded">MAIN · no image</span>
+                    <div className="flex flex-col items-center justify-center h-full bg-[#E36B11]/20 p-1">
+                      <span className="text-[7px] font-bold text-[#E36B11] bg-black/40 px-1 rounded">MAIN · no image</span>
                       <div className="text-[8px] text-white font-bold mt-0.5 line-clamp-2 text-center">{art1.title}</div>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-center h-full bg-[#D4873A]/10 border border-dashed border-[#D4873A]/30">
+                    <div className="flex items-center justify-center h-full bg-[#E36B11]/10 border border-dashed border-[#E36B11]/30">
                       <div className="text-center">
-                        <span className="text-[8px] text-[#D4873A] font-bold">MAIN</span>
+                        <span className="text-[8px] text-[#E36B11] font-bold">MAIN</span>
                         <div className="text-[7px] text-gray-400">Drop article</div>
                       </div>
                     </div>
@@ -676,7 +676,7 @@ export default function ContainerBlock({
 
       {/* Add Block Buttons */}
       <div className="flex flex-wrap items-center gap-1 mt-2 pt-1 border-t border-amber-500/20">
-        <button onClick={() => onAddBlock(index, 'MAIN')} className="px-1 py-0 bg-[#D4873A]/30 text-black rounded lowercase text-[6px] hover:bg-[#D4873A]/50">+MAIN</button>
+        <button onClick={() => onAddBlock(index, 'MAIN')} className="px-1 py-0 bg-[#E36B11]/30 text-black rounded lowercase text-[6px] hover:bg-[#E36B11]/50">+MAIN</button>
         <button onClick={() => onAddBlock(index, '2H')} className="px-1 py-0 bg-pink-500/30 text-black rounded lowercase text-[6px] hover:bg-pink-500/50">+2H</button>
         <button onClick={() => onAddBlock(index, 'SOCIAL')} className="px-1 py-0 bg-teal-500/30 text-black rounded lowercase text-[6px] hover:bg-teal-500/50">+SOCIAL</button>
         <button onClick={() => onAddBlock(index, 'FIXED')} className="px-1 py-0 bg-green-500/30 text-black rounded lowercase text-[6px] hover:bg-green-500/50">+FIXED</button>

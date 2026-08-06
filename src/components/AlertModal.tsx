@@ -27,32 +27,32 @@ interface AlertModalProps {
 const alertConfig = {
   error: {
     icon: AlertTriangle,
-    iconColor: 'text-[#D4873A]',
-    bgColor: 'bg-[#D4873A]/10 border border-[#D4873A]/30',
+    iconColor: 'text-[#E36B11]',
+    bgColor: 'bg-[#E36B11]/10 border border-[#E36B11]/30',
     defaultTitle: 'OOPS!'
   },
   login: {
     icon: LogIn,
-    iconColor: 'text-[#D4873A]',
-    bgColor: 'bg-[#D4873A]/10 border border-[#D4873A]/30',
+    iconColor: 'text-[#E36B11]',
+    bgColor: 'bg-[#E36B11]/10 border border-[#E36B11]/30',
     defaultTitle: 'LOGIN REQUIRED'
   },
   coins: {
     icon: null, // Uses BOGX coin image instead
-    iconColor: 'text-[#D4873A]',
-    bgColor: 'bg-[#D4873A]/10 border border-[#D4873A]/30',
+    iconColor: 'text-[#E36B11]',
+    bgColor: 'bg-[#E36B11]/10 border border-[#E36B11]/30',
     defaultTitle: 'NOT ENOUGH COINS'
   },
   success: {
     icon: CheckCircle,
-    iconColor: 'text-[#D4873A]',
-    bgColor: 'bg-[#D4873A]/10 border border-[#D4873A]/30',
+    iconColor: 'text-[#E36B11]',
+    bgColor: 'bg-[#E36B11]/10 border border-[#E36B11]/30',
     defaultTitle: 'SUCCESS!'
   },
   info: {
     icon: Info,
-    iconColor: 'text-[#D4873A]',
-    bgColor: 'bg-[#D4873A]/10 border border-[#D4873A]/30',
+    iconColor: 'text-[#E36B11]',
+    bgColor: 'bg-[#E36B11]/10 border border-[#E36B11]/30',
     defaultTitle: 'INFO'
   }
 };
@@ -132,14 +132,14 @@ export default function AlertModal({
 
           {/* Balance Box */}
           <div className="mx-4 mb-2 font-display">
-            <div className="flex bg-[#D4873A]/5 rounded-lg border border-[#D4873A]/10 divide-x divide-[#D4873A]/10">
+            <div className="flex bg-[#E36B11]/5 rounded-lg border border-[#E36B11]/10 divide-x divide-[#E36B11]/10">
               <div className="flex-1 py-1.5 text-center">
                 <div className="text-[10px] text-gray-600 uppercase tracking-wider">Your balance</div>
                 <div className="text-base text-gray-900">0,00 <span className="text-[11px] text-gray-600">BOGX</span></div>
               </div>
               <div className="flex-1 py-1.5 text-center">
                 <div className="text-[10px] text-gray-600 uppercase tracking-wider">Missing</div>
-                <div className="text-base text-[#D4873A]">{requiredAmount.toFixed(2).replace('.', ',')} <span className="text-[11px] text-gray-600">BOGX</span></div>
+                <div className="text-base text-[#E36B11]">{requiredAmount.toFixed(2).replace('.', ',')} <span className="text-[11px] text-gray-600">BOGX</span></div>
               </div>
             </div>
           </div>
@@ -147,8 +147,8 @@ export default function AlertModal({
           {/* Earn coins section */}
           <div className="mx-4 mb-2 font-display">
             <div className="flex items-center gap-2 mb-1.5">
-              <div className="w-6 h-6 bg-[#D4873A]/10 rounded-md flex items-center justify-center">
-                <Lightbulb className="w-3 h-3 text-[#D4873A]" />
+              <div className="w-6 h-6 bg-[#E36B11]/10 rounded-md flex items-center justify-center">
+                <Lightbulb className="w-3 h-3 text-[#E36B11]" />
               </div>
               <div>
                 <p className="text-gray-900 text-sm">Earn coins and join the action!</p>
@@ -161,7 +161,7 @@ export default function AlertModal({
               {/* Read articles */}
               <button
                 onClick={() => { onReadArticles?.(); onClose(); }}
-                className="w-full p-2 bg-[#D4873A]/5 rounded-lg flex items-center gap-2 hover:bg-[#D4873A]/10 transition-all"
+                className="w-full p-2 bg-[#E36B11]/5 rounded-lg flex items-center gap-2 hover:bg-[#E36B11]/10 transition-all"
               >
                 <div className="w-8 h-8 bg-white rounded-md flex items-center justify-center border border-warm">
                   <BookOpen className="w-4 h-4 text-gray-700" />
@@ -170,7 +170,7 @@ export default function AlertModal({
                   <p className="text-gray-900 text-sm">Read articles</p>
                   <p className="text-[10px] text-gray-600">Earn per article</p>
                 </div>
-                <div className="flex items-center gap-1 text-[#D4873A] text-sm">
+                <div className="flex items-center gap-1 text-[#E36B11] text-sm">
                   +0,05 <img src="/images/bogxcoin.png" alt="" className="w-3.5 h-3.5" />
                   <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
                 </div>
@@ -179,7 +179,7 @@ export default function AlertModal({
               {/* Watch videos */}
               <button
                 onClick={() => { onWatchVideos?.(); onClose(); }}
-                className="w-full p-2 bg-[#D4873A]/5 rounded-lg flex items-center gap-2 hover:bg-[#D4873A]/10 transition-all"
+                className="w-full p-2 bg-[#E36B11]/5 rounded-lg flex items-center gap-2 hover:bg-[#E36B11]/10 transition-all"
               >
                 <div className="w-8 h-8 bg-white rounded-md flex items-center justify-center border border-warm">
                   <Play className="w-4 h-4 text-gray-700" />
@@ -188,7 +188,7 @@ export default function AlertModal({
                   <p className="text-gray-900 text-sm">Watch videos</p>
                   <p className="text-[10px] text-gray-600">Watch 1 video</p>
                 </div>
-                <div className="flex items-center gap-1 text-[#D4873A] text-sm">
+                <div className="flex items-center gap-1 text-[#E36B11] text-sm">
                   +0,10 <img src="/images/bogxcoin.png" alt="" className="w-3.5 h-3.5" />
                   <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
                 </div>
@@ -197,7 +197,7 @@ export default function AlertModal({
               {/* Win a trivia */}
               <button
                 onClick={() => { onPlayTrivia?.(); onClose(); }}
-                className="w-full p-2 bg-[#D4873A]/5 rounded-lg flex items-center gap-2 hover:bg-[#D4873A]/10 transition-all"
+                className="w-full p-2 bg-[#E36B11]/5 rounded-lg flex items-center gap-2 hover:bg-[#E36B11]/10 transition-all"
               >
                 <div className="w-8 h-8 bg-white rounded-md flex items-center justify-center border border-warm">
                   <img src="/images/Icon/trivia2.png" alt="" className="w-4 h-4" />
@@ -206,7 +206,7 @@ export default function AlertModal({
                   <p className="text-gray-900 text-sm">Win a trivia</p>
                   <p className="text-[10px] text-gray-600">Earn up to 0.15 per question</p>
                 </div>
-                <div className="flex items-center gap-1 text-[#D4873A] text-sm">
+                <div className="flex items-center gap-1 text-[#E36B11] text-sm">
                   +0,05-0,15 <img src="/images/bogxcoin.png" alt="" className="w-3.5 h-3.5" />
                   <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
                 </div>
@@ -218,7 +218,7 @@ export default function AlertModal({
           <div className="px-4 pb-4 space-y-1.5">
             <button
               onClick={handleButtonClick}
-              className="w-full py-3 bg-[#D4873A] rounded-xl font-bold text-white transition-all hover:bg-[#C4772A] text-sm"
+              className="w-full py-3 bg-[#E36B11] rounded-xl font-bold text-white transition-all hover:bg-[#C4772A] text-sm"
             >
               EARN BOGX
             </button>
@@ -253,12 +253,12 @@ export default function AlertModal({
 
           {/* Decorative checkmark with confetti accents */}
           <div className="relative w-20 h-20 mx-auto mb-4">
-            <Star className="absolute -top-1 -left-2 w-4 h-4 text-[#D4873A]/50 fill-[#D4873A]/50" />
-            <Star className="absolute top-1 -right-2 w-3 h-3 text-[#D4873A]/40 fill-[#D4873A]/40" />
-            <span className="absolute -bottom-0.5 -left-1 w-2 h-2 rounded-full bg-[#D4873A]/40" />
-            <span className="absolute -bottom-1 right-0 w-1.5 h-1.5 rounded-full bg-[#D4873A]/30" />
-            <div className="w-20 h-20 rounded-full bg-[#D4873A]/10 border-2 border-[#D4873A]/25 flex items-center justify-center">
-              <CheckCircle className="w-10 h-10 text-[#D4873A]" strokeWidth={2} />
+            <Star className="absolute -top-1 -left-2 w-4 h-4 text-[#E36B11]/50 fill-[#E36B11]/50" />
+            <Star className="absolute top-1 -right-2 w-3 h-3 text-[#E36B11]/40 fill-[#E36B11]/40" />
+            <span className="absolute -bottom-0.5 -left-1 w-2 h-2 rounded-full bg-[#E36B11]/40" />
+            <span className="absolute -bottom-1 right-0 w-1.5 h-1.5 rounded-full bg-[#E36B11]/30" />
+            <div className="w-20 h-20 rounded-full bg-[#E36B11]/10 border-2 border-[#E36B11]/25 flex items-center justify-center">
+              <CheckCircle className="w-10 h-10 text-[#E36B11]" strokeWidth={2} />
             </div>
           </div>
 
@@ -267,9 +267,9 @@ export default function AlertModal({
             {title || config.defaultTitle}
           </h3>
           <div className="flex items-center justify-center gap-1.5 mb-3">
-            <span className="w-6 h-px bg-[#D4873A]/40" />
-            <Star className="w-2.5 h-2.5 text-[#D4873A] fill-[#D4873A]" />
-            <span className="w-6 h-px bg-[#D4873A]/40" />
+            <span className="w-6 h-px bg-[#E36B11]/40" />
+            <Star className="w-2.5 h-2.5 text-[#E36B11] fill-[#E36B11]" />
+            <span className="w-6 h-px bg-[#E36B11]/40" />
           </div>
 
           {/* Message */}
@@ -280,8 +280,8 @@ export default function AlertModal({
           {/* Details as a "What's next?" card */}
           {details && details.length > 0 && (
             <div className="bg-white/70 border border-warm rounded-xl p-3 mb-5 flex items-start gap-3 text-left">
-              <div className="w-9 h-9 rounded-lg bg-[#D4873A]/10 flex items-center justify-center flex-shrink-0">
-                <Send className="w-4 h-4 text-[#D4873A]" />
+              <div className="w-9 h-9 rounded-lg bg-[#E36B11]/10 flex items-center justify-center flex-shrink-0">
+                <Send className="w-4 h-4 text-[#E36B11]" />
               </div>
               <div>
                 <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">What's next?</p>
@@ -296,7 +296,7 @@ export default function AlertModal({
           <div className="flex flex-col gap-2">
             <button
               onClick={handleButtonClick}
-              className="w-full py-3.5 bg-[#D4873A] text-white font-bold text-sm tracking-wider rounded-xl hover:bg-[#C4772A] transition-colors flex items-center justify-center gap-1.5"
+              className="w-full py-3.5 bg-[#E36B11] text-white font-bold text-sm tracking-wider rounded-xl hover:bg-[#C4772A] transition-colors flex items-center justify-center gap-1.5"
             >
               {buttonText}
               <ChevronRight className="w-4 h-4" />
@@ -369,7 +369,7 @@ export default function AlertModal({
         <div className="flex flex-col gap-2">
           <button
             onClick={handleButtonClick}
-            className="w-full py-3 bg-[#D4873A] text-white font-bold text-sm tracking-wider rounded-xl hover:bg-[#C4772A] transition-colors"
+            className="w-full py-3 bg-[#E36B11] text-white font-bold text-sm tracking-wider rounded-xl hover:bg-[#C4772A] transition-colors"
           >
             {buttonText}
           </button>

@@ -53,7 +53,7 @@ export default function ChallengesPage({ activeBets, onClearBet, onBack }: Chall
   const completedBets = activeBets.filter(b => b.status !== "pending");
 
   return (
-    <PageTemplate title="Challenges" icon={<Zap className="w-5 h-5 text-[#D4873A]" />} onBack={onBack}>
+    <PageTemplate title="Challenges" icon={<Zap className="w-5 h-5 text-[#E36B11]" />} onBack={onBack}>
       <div className="p-4 space-y-4">
         {/* March Challenge Banner */}
         <div className="bg-sport/20 border border-sport/50  p-4">
@@ -75,21 +75,21 @@ export default function ChallengesPage({ activeBets, onClearBet, onBack }: Chall
                   <span className="text-sport font-bold text-xs">12 days left</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <Trophy className="w-3 h-3 text-[#D4873A]" />
-                  <span className="text-[#D4873A] font-bold text-xs">Top 10 = Prize</span>
+                  <Trophy className="w-3 h-3 text-[#E36B11]" />
+                  <span className="text-[#E36B11] font-bold text-xs">Top 10 = Prize</span>
                 </div>
               </div>
               
               {/* Prize List Link */}
               <button
                 onClick={() => setShowPrizes(true)}
-                className="w-full flex items-center justify-between p-2.5 bg-[#D4873A]/20 hover:bg-[#D4873A]/30 border border-[#D4873A]/50 rounded-lg transition-all"
+                className="w-full flex items-center justify-between p-2.5 bg-[#E36B11]/20 hover:bg-[#E36B11]/30 border border-[#E36B11]/50 rounded-lg transition-all"
               >
                 <div className="flex items-center gap-2">
-                  <Gift className="w-4 h-4 text-[#D4873A]" />
-                  <span className="text-[#D4873A] font-bold text-sm">View Prize List</span>
+                  <Gift className="w-4 h-4 text-[#E36B11]" />
+                  <span className="text-[#E36B11] font-bold text-sm">View Prize List</span>
                 </div>
-                <ChevronRight className="w-4 h-4 text-[#D4873A]" />
+                <ChevronRight className="w-4 h-4 text-[#E36B11]" />
               </button>
             </div>
           </div>
@@ -101,7 +101,7 @@ export default function ChallengesPage({ activeBets, onClearBet, onBack }: Chall
             <div className="bg-black rounded-2xl w-full max-w-[340px] border border-white/10 overflow-hidden">
               <div className="p-4 border-b border-white/10 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Gift className="w-5 h-5 text-[#D4873A]" />
+                  <Gift className="w-5 h-5 text-[#E36B11]" />
                   <h3 className="font-bold text-lg">March Prizes</h3>
                 </div>
                 <button
@@ -114,15 +114,15 @@ export default function ChallengesPage({ activeBets, onClearBet, onBack }: Chall
               
               <div className="p-4 space-y-3 max-h-80 overflow-y-auto">
                 {/* Platz 1 */}
-                <div className="flex items-center gap-3 p-3 bg-[#D4873A]/20 border border-[#D4873A]/50 ">
-                  <div className="w-10 h-10 rounded-full bg-[#D4873A]/30 flex items-center justify-center">
+                <div className="flex items-center gap-3 p-3 bg-[#E36B11]/20 border border-[#E36B11]/50 ">
+                  <div className="w-10 h-10 rounded-full bg-[#E36B11]/30 flex items-center justify-center">
                     <span className="text-xl">🥇</span>
                   </div>
                   <div className="flex-1">
-                    <p className="font-bold text-[#D4873A]">1st Place</p>
+                    <p className="font-bold text-[#E36B11]">1st Place</p>
                     <p className="text-white text-sm">Original Jersey + 5,000 Coins</p>
                   </div>
-                  <span className="text-[#D4873A] font-bold text-xs">50.000 Pts</span>
+                  <span className="text-[#E36B11] font-bold text-xs">50.000 Pts</span>
                 </div>
                 
                 {/* Platz 2 */}

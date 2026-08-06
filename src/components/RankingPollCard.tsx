@@ -185,12 +185,12 @@ export default function RankingPollCard({ poll, onPointsAwarded, onShowLogin, on
   const content = (
     <>
       {/* Vote count header */}
-      <div className="px-4 py-2 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
+      <div className="px-4 py-2 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
         <span className="text-xs text-gray-500">{localPoll.totalVotes} total votes</span>
       </div>
 
       {/* Items */}
-      <div className="divide-y divide-[#D4873A]/20">
+      <div className="divide-y divide-[#E36B11]/20">
         {sortedItems.map((item, index) => (
           <RankingItemRow
             key={item.id}

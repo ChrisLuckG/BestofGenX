@@ -151,7 +151,7 @@ html {
    ======================================== */
 :root {
   /* BOGX Primary Colors */
-  --bogx-gold: #D4873A;        /* Stadium Gold - Primary accent */
+  --bogx-gold: #E36B11;        /* Stadium Gold - Primary accent */
   --bogx-cream: #F5F0E8;       /* Warm Cream - Light surfaces */
   --bogx-ink: #1A1A1A;         /* Dark Ink - Backgrounds, nav, body text */
   
@@ -163,7 +163,7 @@ html {
   --lv-muted: #888888;
   --lv-border: rgba(255,255,255,0.07);
   --lv-border-strong: rgba(255,255,255,0.14);
-  --lv-accent: #D4873A;        /* Updated to Stadium Gold */
+  --lv-accent: #E36B11;        /* Updated to Stadium Gold */
   --lv-red: #C41E00;
   --lv-green: #00C44E;
 }
@@ -205,7 +205,7 @@ a:visited {
 }
 
 a:active {
-  color: #D4873A;  /* Primary color on click */
+  color: #E36B11;  /* Primary color on click */
 }
 
 /* Font display class - extends Tailwind's font-display with additional styles */

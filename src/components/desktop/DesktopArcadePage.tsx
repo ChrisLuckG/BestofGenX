@@ -60,7 +60,7 @@ const GAMES: GameBanner[] = [
     badge: 'Single Player',
     titleA: 'SOLO',
     titleB: 'TRIVIA',
-    titleColor: '#D4873A',
+    titleColor: '#E36B11',
     subtitleA: '+0.30 per correct.',
     subtitleB: '-0.03 per wrong.',
     features: [
@@ -168,9 +168,9 @@ export default function DesktopArcadePage({ onSelectGame, userId, battleAlertCou
   return (
     <div className="w-full h-full flex flex-col overflow-hidden">
       {/* Header - same style as Feed/Articles */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
         <div className="flex items-center gap-3">
-          <Swords className="w-5 h-5 text-[#D4873A]" />
+          <Swords className="w-5 h-5 text-[#E36B11]" />
           <div>
             <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Arcade</span>
             <span className="text-[10px] text-gray-500 -mt-0.5 block">Challenge yourself & others</span>
@@ -179,10 +179,10 @@ export default function DesktopArcadePage({ onSelectGame, userId, battleAlertCou
         {/* Open Battles button */}
         <button
           onClick={() => setShowOpenBattles(true)}
-          className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#D4873A]/40 bg-[#D4873A]/10 hover:bg-[#D4873A]/20 transition-colors"
+          className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E36B11]/40 bg-[#E36B11]/10 hover:bg-[#E36B11]/20 transition-colors"
         >
-          <Swords className="w-4 h-4 text-[#D4873A]" />
-          <span className="text-xs font-semibold text-[#D4873A]">Open Battles</span>
+          <Swords className="w-4 h-4 text-[#E36B11]" />
+          <span className="text-xs font-semibold text-[#E36B11]">Open Battles</span>
           {liveBattleCount > 0 && (
             <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">
               {liveBattleCount}

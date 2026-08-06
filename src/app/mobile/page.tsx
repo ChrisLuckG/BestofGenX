@@ -1789,7 +1789,7 @@ export default function MobilePage() {
       {/* Logged-in indicator subtle glow */}
       {isLoggedIn && (
         <div className="absolute inset-0 pointer-events-none opacity-20 overflow-hidden">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-[#D4873A] rounded-full blur-[150px]" />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-[#E36B11] rounded-full blur-[150px]" />
         </div>
       )}
       
@@ -1902,8 +1902,8 @@ export default function MobilePage() {
       {rankrollLoading && (
         <div className="absolute inset-x-0 bottom-0 top-16 z-[60] bg-cream flex flex-col items-center justify-center gap-4">
           <div className="relative">
-            <div className="w-12 h-12 border-4 border-[#D4873A]/20 rounded-full" />
-            <div className="absolute inset-0 w-12 h-12 border-4 border-[#D4873A] border-t-transparent rounded-full animate-spin" />
+            <div className="w-12 h-12 border-4 border-[#E36B11]/20 rounded-full" />
+            <div className="absolute inset-0 w-12 h-12 border-4 border-[#E36B11] border-t-transparent rounded-full animate-spin" />
           </div>
           <p className="text-sm text-gray-500">Loading ranking...</p>
         </div>
@@ -1913,11 +1913,11 @@ export default function MobilePage() {
       {openRankrollData && (
         <div className="absolute inset-x-0 bottom-0 top-16 z-[60] bg-cream overflow-y-auto">
           {/* Header - sticky like other pages */}
-          <div className="sticky top-0 z-10 flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-cream">
+          <div className="sticky top-0 z-10 flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-cream">
             <div className="flex items-center gap-3">
               <button 
                 onClick={() => { setOpenRankrollData(null); setRankrollRefreshKey(k => k + 1); }}
-                className="w-8 h-8 rounded-lg bg-cream border border-warm flex items-center justify-center flex-shrink-0 hover:bg-[#D4873A]/10 transition-colors"
+                className="w-8 h-8 rounded-lg bg-cream border border-warm flex items-center justify-center flex-shrink-0 hover:bg-[#E36B11]/10 transition-colors"
               >
                 <ChevronLeft className="w-5 h-5 text-gray-600" />
               </button>
@@ -1926,7 +1926,7 @@ export default function MobilePage() {
                 <span className="text-[10px] text-gray-500 -mt-0.5 block">Vote & rank your favorites</span>
               </div>
             </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#D4873A] rounded-lg shadow-sm">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#E36B11] rounded-lg shadow-sm">
               <span className="text-sm">🪙</span>
               <span className="text-xs font-bold text-white">
                 {(rankrollVotedCount * 0.01).toFixed(2)} of {(rankrollTotalItems * 0.01).toFixed(2)} BOGX
@@ -2076,7 +2076,7 @@ export default function MobilePage() {
               transition: isRefreshing ? 'none' : 'opacity 0.15s ease-out, transform 0.15s ease-out',
             }}
           >
-            <div className="w-9 h-9 rounded-full bg-[#D4873A] text-white shadow-lg flex items-center justify-center">
+            <div className="w-9 h-9 rounded-full bg-[#E36B11] text-white shadow-lg flex items-center justify-center">
               <svg
                 className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`}
                 style={{ transform: isRefreshing ? 'none' : `rotate(${Math.min(pullDistance / PULL_THRESHOLD * 180, 180)}deg)` }}
@@ -2284,7 +2284,7 @@ export default function MobilePage() {
           {/* Radio Header with Equalizer */}
           <div className="px-4 pt-4 pb-3 border-b border-warm">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-[#D4873A] flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-[#E36B11] flex items-center justify-center flex-shrink-0">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                 </svg>
@@ -2305,7 +2305,7 @@ export default function MobilePage() {
               {eqBarsMobile.map((bar, i) => (
                 <div
                   key={i}
-                  className="bg-gradient-to-t from-[#D4873A]/50 to-[#E5A55A]/30 rounded-t-sm flex-1"
+                  className="bg-gradient-to-t from-[#E36B11]/50 to-[#E5A55A]/30 rounded-t-sm flex-1"
                   style={{
                     animation: `eqMobile ${bar.duration} ease-in-out ${bar.delay} infinite alternate`,
                     height: bar.height,
@@ -2323,10 +2323,10 @@ export default function MobilePage() {
 
           {/* GenX Stations Label */}
           <div className="px-4 pt-3 pb-2 flex items-center gap-2">
-            <svg className="w-4 h-4 text-[#D4873A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-[#E36B11]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
             </svg>
-            <span className="font-display text-xs text-[#D4873A] uppercase tracking-wider">GenX Stations</span>
+            <span className="font-display text-xs text-[#E36B11] uppercase tracking-wider">GenX Stations</span>
           </div>
           
           {/* Station List */}
@@ -2349,7 +2349,7 @@ export default function MobilePage() {
                       className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
                     />
                   ) : (
-                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#D4873A] to-[#B5672A] flex items-center justify-center flex-shrink-0">
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#E36B11] to-[#B5672A] flex items-center justify-center flex-shrink-0">
                       <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                       </svg>
@@ -2381,8 +2381,8 @@ export default function MobilePage() {
 
             {/* Song Request Banner */}
             <div className="mt-4 pt-4 border-t border-warm">
-              <div className="flex items-center gap-3 p-3 bg-[#D4873A]/10 rounded-xl border border-[#D4873A]/20 mb-3">
-                <div className="w-10 h-10 rounded-full bg-[#D4873A] flex items-center justify-center flex-shrink-0">
+              <div className="flex items-center gap-3 p-3 bg-[#E36B11]/10 rounded-xl border border-[#E36B11]/20 mb-3">
+                <div className="w-10 h-10 rounded-full bg-[#E36B11] flex items-center justify-center flex-shrink-0">
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                   </svg>
@@ -2392,7 +2392,7 @@ export default function MobilePage() {
                   <p className="text-[10px] text-gray-500">Your wish on our playlist</p>
                 </div>
                 <div className="flex flex-col items-end flex-shrink-0">
-                  <span className="px-2 py-0.5 bg-[#D4873A]/20 rounded text-[10px] font-bold text-[#D4873A]">+50 BOGX</span>
+                  <span className="px-2 py-0.5 bg-[#E36B11]/20 rounded text-[10px] font-bold text-[#E36B11]">+50 BOGX</span>
                   <p className="text-[8px] text-gray-400 mt-0.5">if your song gets added</p>
                 </div>
               </div>
@@ -2400,8 +2400,8 @@ export default function MobilePage() {
               {!isLoggedIn ? (
                 /* Sign-up prompt for non-logged-in users */
                 <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-4 text-center">
-                  <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-[#D4873A]/20 flex items-center justify-center">
-                    <svg className="w-6 h-6 text-[#D4873A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-[#E36B11]/20 flex items-center justify-center">
+                    <svg className="w-6 h-6 text-[#E36B11]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                     </svg>
                   </div>
@@ -2409,7 +2409,7 @@ export default function MobilePage() {
                   <p className="text-gray-400 text-xs mb-4">Suggest your favorite songs for our GenX playlists.</p>
                   <button
                     onClick={() => openOverlay('login', { loginView: 'signup' })}
-                    className="w-full py-2.5 rounded-lg font-bold text-sm bg-[#D4873A] text-white hover:bg-[#C4772A] transition-colors"
+                    className="w-full py-2.5 rounded-lg font-bold text-sm bg-[#E36B11] text-white hover:bg-[#C4772A] transition-colors"
                   >
                     Sign up for free
                   </button>
@@ -2418,7 +2418,7 @@ export default function MobilePage() {
                 /* Song request form for logged-in users */
                 <div className="space-y-3">
                   {songRequestSent ? (
-                    <div className="text-center py-4 bg-[#D4873A]/5 rounded-xl">
+                    <div className="text-center py-4 bg-[#E36B11]/5 rounded-xl">
                       <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-green-500/20 flex items-center justify-center">
                         <svg className="w-7 h-7 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -2428,7 +2428,7 @@ export default function MobilePage() {
                       <p className="text-sm text-gray-500 mt-1">Our team will take it from here.</p>
                       <button
                         onClick={() => setSongRequestSent(false)}
-                        className="mt-3 text-xs text-[#D4873A] hover:underline"
+                        className="mt-3 text-xs text-[#E36B11] hover:underline"
                       >
                         Suggest another song
                       </button>
@@ -2440,7 +2440,7 @@ export default function MobilePage() {
                         <select
                           value={songRequestData.playlist}
                           onChange={(e) => setSongRequestData({...songRequestData, playlist: e.target.value})}
-                          className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#D4873A]/50 appearance-none"
+                          className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#E36B11]/50 appearance-none"
                         >
                           <option value="">Choose a playlist...</option>
                           {radioStations.map((station) => (
@@ -2479,7 +2479,7 @@ export default function MobilePage() {
                             }
                           }}
                           placeholder="Paste Spotify link..."
-                          className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#D4873A]/50"
+                          className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#E36B11]/50"
                         />
                       </div>
 
@@ -2494,7 +2494,7 @@ export default function MobilePage() {
                       )}
                       {songRequestData.link && !songRequestData.band && !songRequestData.song && (
                         <div className="flex gap-2 text-xs">
-                          <span className="text-[#D4873A] animate-pulse">Loading track info...</span>
+                          <span className="text-[#E36B11] animate-pulse">Loading track info...</span>
                         </div>
                       )}
 
@@ -2520,7 +2520,7 @@ export default function MobilePage() {
                           }
                         }}
                         disabled={!songRequestData.playlist || !songRequestData.band || !songRequestData.song || !songRequestData.link}
-                        className="w-full py-3 rounded-xl font-bold text-sm transition-all disabled:bg-gray-300 disabled:text-gray-500 bg-[#D4873A] text-white hover:bg-[#C4772A] flex items-center justify-center gap-2"
+                        className="w-full py-3 rounded-xl font-bold text-sm transition-all disabled:bg-gray-300 disabled:text-gray-500 bg-[#E36B11] text-white hover:bg-[#C4772A] flex items-center justify-center gap-2"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
@@ -2593,10 +2593,10 @@ export default function MobilePage() {
           onClick={() => setShowWaitModal(false)}
         >
           <div 
-            className="bg-gray-900 border border-[#D4873A]/50 rounded-2xl p-6 mx-4 max-w-sm text-center"
+            className="bg-gray-900 border border-[#E36B11]/50 rounded-2xl p-6 mx-4 max-w-sm text-center"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#D4873A]/20 flex items-center justify-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#E36B11]/20 flex items-center justify-center">
               <span className="text-3xl">{isGameLive ? '⏳' : '😴'}</span>
             </div>
             <h2 className="text-xl font-bold text-white mb-2">
@@ -2610,7 +2610,7 @@ export default function MobilePage() {
             </p>
             <button
               onClick={() => setShowWaitModal(false)}
-              className="w-full py-3 bg-[#D4873A] hover:bg-[#c4e000] rounded-xl font-bold text-black transition-colors"
+              className="w-full py-3 bg-[#E36B11] hover:bg-[#c4e000] rounded-xl font-bold text-black transition-colors"
             >
               {isGameLive ? 'Got it!' : 'Sweet Dreams! 🌙'}
             </button>
@@ -2737,7 +2737,7 @@ export default function MobilePage() {
           }`}
           style={{ bottom: '64px' }}
         >
-          <div className="bg-gradient-to-r from-[#D4873A] via-[#E5994A] to-[#D4873A] shadow-xl border-t border-white/20">
+          <div className="bg-gradient-to-r from-[#E36B11] via-[#E5994A] to-[#E36B11] shadow-xl border-t border-white/20">
             <div className="flex items-center gap-4 px-4 py-3.5">
               {/* Icon */}
               <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center flex-shrink-0 shadow-inner">
@@ -2755,7 +2755,7 @@ export default function MobilePage() {
               {/* Action Button */}
               <button
                 onClick={handleEnablePushFromReminder}
-                className="px-4 py-2.5 bg-white text-[#D4873A] text-sm font-bold rounded-xl flex items-center gap-1.5 hover:bg-white/90 transition-colors flex-shrink-0 shadow-lg"
+                className="px-4 py-2.5 bg-white text-[#E36B11] text-sm font-bold rounded-xl flex items-center gap-1.5 hover:bg-white/90 transition-colors flex-shrink-0 shadow-lg"
               >
                 <Bell className="w-4 h-4" />
                 Enable
@@ -2796,8 +2796,8 @@ export default function MobilePage() {
             }
           }}
         >
-          <div className="bg-gradient-to-r from-[#1a1a1a] to-[#252525] backdrop-blur-md border border-[#D4873A]/50 rounded-xl p-4 shadow-2xl flex items-start gap-3">
-            <div className="w-10 h-10 rounded-full bg-[#D4873A]/20 flex items-center justify-center flex-shrink-0">
+          <div className="bg-gradient-to-r from-[#1a1a1a] to-[#252525] backdrop-blur-md border border-[#E36B11]/50 rounded-xl p-4 shadow-2xl flex items-start gap-3">
+            <div className="w-10 h-10 rounded-full bg-[#E36B11]/20 flex items-center justify-center flex-shrink-0">
               <img src="/images/genxlogo1.png" alt="" className="w-6 h-6" />
             </div>
             <div className="flex-1 min-w-0">

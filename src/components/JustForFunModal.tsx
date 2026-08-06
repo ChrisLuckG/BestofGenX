@@ -16,8 +16,8 @@ export default function JustForFunModal({ isOpen, onClose, onLogin }: JustForFun
       <div className="bg-cream rounded-2xl max-w-sm w-full shadow-xl">
         {/* Header */}
         <div className="p-5 text-center border-b border-warm">
-          <div className="w-16 h-16 rounded-full bg-[#D4873A]/20 flex items-center justify-center mx-auto mb-3">
-            <Trophy className="w-8 h-8 text-[#D4873A]" />
+          <div className="w-16 h-16 rounded-full bg-[#E36B11]/20 flex items-center justify-center mx-auto mb-3">
+            <Trophy className="w-8 h-8 text-[#E36B11]" />
           </div>
           <h2 className="text-xl font-bold text-gray-900">
             Just for Fun Mode
@@ -27,11 +27,11 @@ export default function JustForFunModal({ isOpen, onClose, onLogin }: JustForFun
         {/* Content */}
         <div className="p-5">
           <p className="text-gray-700 text-center mb-4">
-            The next games are <span className="text-[#D4873A] font-bold">just for fun</span>. 
+            The next games are <span className="text-[#E36B11] font-bold">just for fun</span>. 
             Your scores won't count towards the ranking.
           </p>
           <p className="text-gray-500 text-sm text-center mb-2">
-            But don't worry - you can still <span className="text-[#D4873A] font-bold">redeem your coins</span> for rewards!
+            But don't worry - you can still <span className="text-[#E36B11] font-bold">redeem your coins</span> for rewards!
           </p>
           <p className="text-gray-500 text-sm text-center mb-6">
             Want to compete in the official rankings? Register now!
@@ -41,7 +41,7 @@ export default function JustForFunModal({ isOpen, onClose, onLogin }: JustForFun
           <div className="space-y-3">
             <button
               onClick={onLogin}
-              className="w-full py-3 bg-[#D4873A] hover:bg-[#c4e000] rounded-xl font-bold text-white transition-all flex items-center justify-center gap-2"
+              className="w-full py-3 bg-[#E36B11] hover:bg-[#c4e000] rounded-xl font-bold text-white transition-all flex items-center justify-center gap-2"
             >
               <UserPlus className="w-5 h-5" />
               Register Now

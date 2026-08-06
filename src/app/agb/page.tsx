@@ -94,7 +94,7 @@ export default function AGBPage() {
           <h3 className="text-lg font-bold text-gray-900 mt-6 mb-3">Kontakt</h3>
           <p className="mb-4 text-sm">
             Bei Fragen zu diesen AGB erreichen Sie uns unter:<br />
-            E-Mail: <a href="mailto:contact@bestofgenx.com" className="text-[#D4873A] hover:underline">contact@bestofgenx.com</a>
+            E-Mail: <a href="mailto:contact@bestofgenx.com" className="text-[#E36B11] hover:underline">contact@bestofgenx.com</a>
           </p>
 
           <p className="text-xs text-gray-500 mt-8">

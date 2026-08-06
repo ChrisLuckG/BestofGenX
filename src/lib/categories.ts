@@ -17,7 +17,7 @@ export const CATEGORIES: CategoryDef[] = [
   {
     slug: 'history',
     label: 'History',
-    color: '#D4873A',
+    color: '#E36B11',
     keywords: /history|war|revolution|past|century|historic|this day/,
   },
   {

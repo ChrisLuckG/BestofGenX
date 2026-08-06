@@ -107,7 +107,7 @@ export default function PageEditorPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-[#D4873A] animate-spin" />
+        <Loader2 className="w-8 h-8 text-[#E36B11] animate-spin" />
       </div>
     );
   }
@@ -132,7 +132,7 @@ export default function PageEditorPage() {
           <button
             onClick={savePage}
             disabled={saving}
-            className="flex items-center gap-2 px-4 py-2 bg-[#D4873A] rounded-lg font-bold hover:bg-[#C4772A] transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-[#E36B11] rounded-lg font-bold hover:bg-[#C4772A] transition-colors disabled:opacity-50"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {saving ? 'Saving...' : 'Save'}
@@ -186,7 +186,7 @@ export default function PageEditorPage() {
             type="text"
             value={page.title}
             onChange={(e) => setPage({ ...page, title: e.target.value })}
-            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-[#D4873A]"
+            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-[#E36B11]"
           />
         </div>
 
@@ -198,7 +198,7 @@ export default function PageEditorPage() {
             value={page.subtitle}
             onChange={(e) => setPage({ ...page, subtitle: e.target.value })}
             placeholder="Short description..."
-            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-[#D4873A]"
+            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-[#E36B11]"
           />
         </div>
 
@@ -217,7 +217,7 @@ export default function PageEditorPage() {
   <li>Item 1</li>
   <li>Item 2</li>
 </ul>"
-            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-[#D4873A] font-mono text-sm"
+            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-[#E36B11] font-mono text-sm"
           />
           <p className="text-xs text-gray-500 mt-2">
             Use HTML tags: &lt;h2&gt;, &lt;h3&gt;, &lt;p&gt;, &lt;ul&gt;, &lt;li&gt;, &lt;strong&gt;, &lt;a href=&quot;...&quot;&gt;
@@ -257,7 +257,7 @@ export default function PageEditorPage() {
             href={`/${slug}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[#D4873A] hover:underline text-sm"
+            className="text-[#E36B11] hover:underline text-sm"
           >
             Preview page →
           </a>

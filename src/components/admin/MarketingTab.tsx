@@ -108,7 +108,7 @@ export default function MarketingTab() {
           {!videoPreview ? (
             <div 
               onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-gray-600 rounded-xl p-8 text-center cursor-pointer hover:border-[#D4873A] transition-colors"
+              className="border-2 border-dashed border-gray-600 rounded-xl p-8 text-center cursor-pointer hover:border-[#E36B11] transition-colors"
             >
               <Upload className="w-12 h-12 text-gray-500 mx-auto mb-3" />
               <p className="text-gray-400 mb-1">Click to upload video</p>
@@ -146,7 +146,7 @@ export default function MarketingTab() {
             value={caption}
             onChange={(e) => setCaption(e.target.value)}
             placeholder="Write your caption here..."
-            className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white placeholder-gray-500 resize-none h-24 focus:outline-none focus:border-[#D4873A]"
+            className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white placeholder-gray-500 resize-none h-24 focus:outline-none focus:border-[#E36B11]"
           />
         </div>
 
@@ -163,7 +163,7 @@ export default function MarketingTab() {
                   onClick={() => togglePlatform(platform.id)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all ${
                     isSelected 
-                      ? 'border-[#D4873A] bg-[#D4873A]/20 text-white' 
+                      ? 'border-[#E36B11] bg-[#E36B11]/20 text-white' 
                       : 'border-gray-600 bg-gray-900 text-gray-400 hover:border-gray-500'
                   }`}
                 >
@@ -183,13 +183,13 @@ export default function MarketingTab() {
               type="date"
               value={scheduleDate}
               onChange={(e) => setScheduleDate(e.target.value)}
-              className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#D4873A]"
+              className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#E36B11]"
             />
             <input
               type="time"
               value={scheduleTime}
               onChange={(e) => setScheduleTime(e.target.value)}
-              className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#D4873A]"
+              className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#E36B11]"
             />
           </div>
           <p className="text-gray-500 text-xs mt-1">Leave empty to save as draft</p>
@@ -199,7 +199,7 @@ export default function MarketingTab() {
         <button
           onClick={handleSubmit}
           disabled={!selectedFile || selectedPlatforms.length === 0 || isUploading}
-          className="w-full bg-[#D4873A] hover:bg-[#C4772A] disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors"
+          className="w-full bg-[#E36B11] hover:bg-[#C4772A] disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors"
         >
           {isUploading ? (
             <>
@@ -271,7 +271,7 @@ export default function MarketingTab() {
       {/* Info Box */}
       <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700">
         <p className="text-gray-400 text-sm">
-          <strong className="text-[#D4873A]">Coming Soon:</strong> Direct posting to Instagram, Facebook, LinkedIn, X, and YouTube. 
+          <strong className="text-[#E36B11]">Coming Soon:</strong> Direct posting to Instagram, Facebook, LinkedIn, X, and YouTube. 
           For now, posts are saved as drafts. You&apos;ll need to connect your social media accounts in Settings.
         </p>
       </div>

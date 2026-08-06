@@ -75,7 +75,7 @@ const STATUS_COLORS: Record<string, string> = {
   'Ready for Review': 'bg-blue-600 text-white',
   'Approved': 'bg-green-600 text-white',
   'Backlog': 'bg-purple-600 text-white',
-  'In Progress': 'bg-[#D4873A] text-white',
+  'In Progress': 'bg-[#E36B11] text-white',
   'Waiting for Budget': 'bg-yellow-600 text-white',
   'Testing': 'bg-cyan-600 text-white',
   'Completed': 'bg-emerald-600 text-white',
@@ -465,7 +465,7 @@ export default function MikeTab() {
       {/* Chat Section */}
       <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
         <div className="p-3 border-b border-gray-700 flex items-center gap-2">
-          <Brain className="w-5 h-5 text-[#D4873A]" />
+          <Brain className="w-5 h-5 text-[#E36B11]" />
           <span className="font-medium text-white">Mike</span>
           <span className="text-xs text-gray-400">- Dev Manager & Product Owner</span>
         </div>
@@ -475,13 +475,13 @@ export default function MikeTab() {
           {chatMessages.map((msg, i) => (
             <div key={i} className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               {msg.role === 'mike' && (
-                <div className="w-7 h-7 rounded-full bg-[#D4873A]/20 flex items-center justify-center flex-shrink-0">
-                  <Brain className="w-4 h-4 text-[#D4873A]" />
+                <div className="w-7 h-7 rounded-full bg-[#E36B11]/20 flex items-center justify-center flex-shrink-0">
+                  <Brain className="w-4 h-4 text-[#E36B11]" />
                 </div>
               )}
               <div className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
                 msg.role === 'user' 
-                  ? 'bg-[#D4873A] text-white' 
+                  ? 'bg-[#E36B11] text-white' 
                   : 'bg-gray-800 text-gray-200 border border-gray-700'
               }`}>
                 {msg.image && <img src={msg.image} alt="" className="max-h-32 rounded mb-2" />}
@@ -496,11 +496,11 @@ export default function MikeTab() {
           ))}
           {chatLoading && (
             <div className="flex gap-2">
-              <div className="w-7 h-7 rounded-full bg-[#D4873A]/20 flex items-center justify-center">
-                <Brain className="w-4 h-4 text-[#D4873A]" />
+              <div className="w-7 h-7 rounded-full bg-[#E36B11]/20 flex items-center justify-center">
+                <Brain className="w-4 h-4 text-[#E36B11]" />
               </div>
               <div className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2">
-                <Loader2 className="w-4 h-4 animate-spin text-[#D4873A]" />
+                <Loader2 className="w-4 h-4 animate-spin text-[#E36B11]" />
               </div>
             </div>
           )}
@@ -509,16 +509,16 @@ export default function MikeTab() {
         
         {/* Pending Ticket Preview */}
         {pendingTicket && (
-          <div className="p-3 bg-[#D4873A]/10 border-t border-[#D4873A]/30">
+          <div className="p-3 bg-[#E36B11]/10 border-t border-[#E36B11]/30">
             <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2 text-[#D4873A] text-sm font-medium">
+              <div className="flex items-center gap-2 text-[#E36B11] text-sm font-medium">
                 <Ticket className="w-4 h-4" />
                 Ready to create ticket
               </div>
               <button
                 onClick={createTicket}
                 disabled={saving}
-                className="px-3 py-1 bg-[#D4873A] text-white text-xs rounded-lg hover:bg-[#C4772A] disabled:opacity-50"
+                className="px-3 py-1 bg-[#E36B11] text-white text-xs rounded-lg hover:bg-[#C4772A] disabled:opacity-50"
               >
                 {saving ? 'Creating...' : 'Create Ticket'}
               </button>
@@ -565,12 +565,12 @@ export default function MikeTab() {
             onChange={(e) => setChatInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
             placeholder="Frag Mike..."
-            className="flex-1 px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:border-[#D4873A] outline-none"
+            className="flex-1 px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:border-[#E36B11] outline-none"
           />
           <button
             onClick={sendMessage}
             disabled={(!chatInput.trim() && !pendingImage) || chatLoading}
-            className="px-4 py-2 bg-[#D4873A] text-white rounded-lg hover:bg-[#C4772A] disabled:opacity-50"
+            className="px-4 py-2 bg-[#E36B11] text-white rounded-lg hover:bg-[#C4772A] disabled:opacity-50"
           >
             <Send className="w-4 h-4" />
           </button>
@@ -613,7 +613,7 @@ export default function MikeTab() {
           
           {/* Progress Display - Compact */}
           {queueStatus === 'waiting' && cascadeFeedback && (
-            <div className="p-3 bg-gray-900/80 rounded-lg border border-[#D4873A]/20">
+            <div className="p-3 bg-gray-900/80 rounded-lg border border-[#E36B11]/20">
               {(() => {
                 const stepMatch = cascadeFeedback.match(/Step (\d+)\/(\d+)/);
                 const currentStep = stepMatch ? parseInt(stepMatch[1]) : 1;
@@ -625,14 +625,14 @@ export default function MikeTab() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Loader2 className="w-4 h-4 text-[#D4873A] animate-spin" />
+                        <Loader2 className="w-4 h-4 text-[#E36B11] animate-spin" />
                         <span className="text-white text-sm">{stepDesc}</span>
                       </div>
-                      <span className="text-[#D4873A] text-xs font-mono">{currentStep}/{totalSteps}</span>
+                      <span className="text-[#E36B11] text-xs font-mono">{currentStep}/{totalSteps}</span>
                     </div>
                     <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
                       <div 
-                        className="h-full bg-gradient-to-r from-[#D4873A] to-[#E5A55A] transition-all duration-700"
+                        className="h-full bg-gradient-to-r from-[#E36B11] to-[#E5A55A] transition-all duration-700"
                         style={{ width: `${progress}%` }}
                       />
                     </div>
@@ -706,13 +706,13 @@ export default function MikeTab() {
             placeholder="Search..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:border-[#D4873A] outline-none"
+            className="w-full pl-8 pr-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:border-[#E36B11] outline-none"
           />
         </div>
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:border-[#D4873A] outline-none"
+          className="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:border-[#E36B11] outline-none"
         >
           <option value="all">All Status</option>
           {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
@@ -724,7 +724,7 @@ export default function MikeTab() {
         <div className="relative">
           <button 
             onClick={() => setShowNewMenu(!showNewMenu)}
-            className="px-3 py-1.5 bg-[#D4873A] text-white text-sm rounded-lg hover:bg-[#C4772A] flex items-center gap-1"
+            className="px-3 py-1.5 bg-[#E36B11] text-white text-sm rounded-lg hover:bg-[#C4772A] flex items-center gap-1"
           >
             <Ticket className="w-4 h-4" /> New
           </button>
@@ -744,7 +744,7 @@ export default function MikeTab() {
                 }}
                 className="w-full px-3 py-2 text-left text-sm text-white hover:bg-gray-700 flex items-center gap-2"
               >
-                <Brain className="w-4 h-4 text-[#D4873A]" /> With Mike
+                <Brain className="w-4 h-4 text-[#E36B11]" /> With Mike
               </button>
             </div>
           )}
@@ -754,7 +754,7 @@ export default function MikeTab() {
       {/* Task List - Accordion Style */}
       <div className="space-y-2 max-h-[50vh] overflow-y-auto">
         {loading ? (
-          <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin text-[#D4873A] mx-auto" /></div>
+          <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin text-[#E36B11] mx-auto" /></div>
         ) : filteredTasks.length === 0 ? (
           <div className="text-center py-8 text-gray-500">No tasks yet. Chat with Mike to create one!</div>
         ) : (
@@ -858,7 +858,7 @@ export default function MikeTab() {
                       </div>
                       <div className="flex gap-2">
                         <button onClick={() => setEditMode(false)} className="px-3 py-1.5 bg-gray-700 text-gray-300 text-xs rounded-lg">Cancel</button>
-                        <button onClick={() => updateTask(task._id, editedTask)} disabled={saving} className="px-3 py-1.5 bg-[#D4873A] text-white text-xs rounded-lg flex items-center gap-1">
+                        <button onClick={() => updateTask(task._id, editedTask)} disabled={saving} className="px-3 py-1.5 bg-[#E36B11] text-white text-xs rounded-lg flex items-center gap-1">
                           {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Save
                         </button>
                       </div>
@@ -867,7 +867,7 @@ export default function MikeTab() {
                     <>
                       {/* Specification Section */}
                       <div className="bg-gray-800 rounded-lg p-3 border border-gray-700">
-                        <div className="text-[10px] text-[#D4873A] font-medium mb-2 uppercase tracking-wider">📋 Specification</div>
+                        <div className="text-[10px] text-[#E36B11] font-medium mb-2 uppercase tracking-wider">📋 Specification</div>
                         <p className="text-sm text-gray-300 mb-3">{task.description || 'No description provided'}</p>
                         
                         {/* Meta Info */}
@@ -882,18 +882,18 @@ export default function MikeTab() {
                           </div>
                           <div className="bg-gray-900/50 rounded-lg p-2">
                             <div className="text-gray-500 text-[10px]">Est. Cost</div>
-                            <div className="text-[#D4873A] font-medium">~{getEstimate(task.complexity).cost}€</div>
+                            <div className="text-[#E36B11] font-medium">~{getEstimate(task.complexity).cost}€</div>
                           </div>
                         </div>
                       </div>
 
                       {/* Mike's Understanding */}
                       {task.aiSuggestions && (
-                        <div className="bg-[#D4873A]/10 rounded-lg p-3 border border-[#D4873A]/20">
-                          <div className="text-[10px] text-[#D4873A] font-medium mb-2 uppercase tracking-wider flex items-center gap-1">
+                        <div className="bg-[#E36B11]/10 rounded-lg p-3 border border-[#E36B11]/20">
+                          <div className="text-[10px] text-[#E36B11] font-medium mb-2 uppercase tracking-wider flex items-center gap-1">
                             <Brain className="w-3 h-3" /> Mike's Notes
                           </div>
-                          <p className="text-sm text-[#D4873A]/80">{task.aiSuggestions}</p>
+                          <p className="text-sm text-[#E36B11]/80">{task.aiSuggestions}</p>
                         </div>
                       )}
 
@@ -933,7 +933,7 @@ export default function MikeTab() {
           <div className="bg-gray-800 rounded-xl border border-gray-700 w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="p-4 border-b border-gray-700 flex items-center justify-between">
               <h3 className="text-white font-medium flex items-center gap-2">
-                <Ticket className="w-5 h-5 text-[#D4873A]" /> New Ticket (Manual)
+                <Ticket className="w-5 h-5 text-[#E36B11]" /> New Ticket (Manual)
               </h3>
               <button onClick={() => setShowManualCreate(false)} className="text-gray-400 hover:text-white">
                 <X className="w-5 h-5" />
@@ -947,7 +947,7 @@ export default function MikeTab() {
                   type="text"
                   value={manualTicket.title || ''}
                   onChange={(e) => setManualTicket({ ...manualTicket, title: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#D4873A] outline-none"
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#E36B11] outline-none"
                   placeholder="Feature: Campaign Manager in Articles"
                 />
               </div>
@@ -959,7 +959,7 @@ export default function MikeTab() {
                   value={manualTicket.description || ''}
                   onChange={(e) => setManualTicket({ ...manualTicket, description: e.target.value })}
                   rows={5}
-                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#D4873A] outline-none resize-none"
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#E36B11] outline-none resize-none"
                   placeholder="Files: ArticlesTab.tsx, ArticleEditor.tsx&#10;UI: Add Campaign Manager section...&#10;Backend: Store campaign assets..."
                 />
               </div>
@@ -971,7 +971,7 @@ export default function MikeTab() {
                   <select
                     value={manualTicket.category || 'Future Features'}
                     onChange={(e) => setManualTicket({ ...manualTicket, category: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#D4873A] outline-none"
+                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#E36B11] outline-none"
                   >
                     {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
@@ -981,7 +981,7 @@ export default function MikeTab() {
                   <select
                     value={manualTicket.priority || 'Medium'}
                     onChange={(e) => setManualTicket({ ...manualTicket, priority: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#D4873A] outline-none"
+                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#E36B11] outline-none"
                   >
                     {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
@@ -995,7 +995,7 @@ export default function MikeTab() {
                   <select
                     value={manualTicket.status || 'Draft'}
                     onChange={(e) => setManualTicket({ ...manualTicket, status: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#D4873A] outline-none"
+                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#E36B11] outline-none"
                   >
                     {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
@@ -1005,7 +1005,7 @@ export default function MikeTab() {
                   <select
                     value={manualTicket.complexity || 'Medium'}
                     onChange={(e) => setManualTicket({ ...manualTicket, complexity: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#D4873A] outline-none"
+                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#E36B11] outline-none"
                   >
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
@@ -1022,7 +1022,7 @@ export default function MikeTab() {
                   value={manualTicket.notes || ''}
                   onChange={(e) => setManualTicket({ ...manualTicket, notes: e.target.value })}
                   rows={2}
-                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#D4873A] outline-none resize-none"
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#E36B11] outline-none resize-none"
                   placeholder="Additional notes..."
                 />
               </div>
@@ -1037,7 +1037,7 @@ export default function MikeTab() {
               <button
                 onClick={createManualTicket}
                 disabled={!manualTicket.title?.trim() || saving}
-                className="px-4 py-2 bg-[#D4873A] text-white text-sm rounded-lg hover:bg-[#C4772A] disabled:opacity-50 flex items-center gap-2"
+                className="px-4 py-2 bg-[#E36B11] text-white text-sm rounded-lg hover:bg-[#C4772A] disabled:opacity-50 flex items-center gap-2"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 Create Ticket

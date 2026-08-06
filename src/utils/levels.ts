@@ -10,9 +10,9 @@ export interface Level {
 
 export const LEVELS: Level[] = [
   { name: 'Rookie', minBogx: 0, maxBogx: 5, color: '#C4772A' },              // Dark Orange
-  { name: 'Retro Fan', minBogx: 5, maxBogx: 25, color: '#D4873A' },          // Brand Orange
+  { name: 'Retro Fan', minBogx: 5, maxBogx: 25, color: '#E36B11' },          // Brand Orange
   { name: 'GenX Hero', minBogx: 25, maxBogx: 100, color: '#E5A55A' },        // Light Orange
-  { name: 'Nostalgia Master', minBogx: 100, maxBogx: 500, color: '#D4873A' }, // Brand Orange
+  { name: 'Nostalgia Master', minBogx: 100, maxBogx: 500, color: '#E36B11' }, // Brand Orange
   { name: 'Top GenX', minBogx: 500, maxBogx: Infinity, color: '#FFB800' },    // Gold (special)
 ];
 

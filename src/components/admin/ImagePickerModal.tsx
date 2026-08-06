@@ -324,7 +324,7 @@ export default function ImagePickerModal({
               Bild auswählen
             </h3>
             {(dimensions || aspectRatio) && (
-              <p className="text-[10px] text-[#D4873A] mt-0.5">
+              <p className="text-[10px] text-[#E36B11] mt-0.5">
                 📐 Empfohlen: {dimensions}{aspectRatio ? ` (${aspectRatio})` : ''}
               </p>
             )}
@@ -344,7 +344,7 @@ export default function ImagePickerModal({
             onClick={() => setActiveTab('upload')}
             className={`flex-1 px-3 py-2 text-xs font-medium ${
               activeTab === 'upload' 
-                ? 'text-white border-b-2 border-[#D4873A]' 
+                ? 'text-white border-b-2 border-[#E36B11]' 
                 : 'text-gray-400 hover:text-white'
             }`}
           >
@@ -354,7 +354,7 @@ export default function ImagePickerModal({
             onClick={() => setActiveTab('url')}
             className={`flex-1 px-3 py-2 text-xs font-medium ${
               activeTab === 'url' 
-                ? 'text-white border-b-2 border-[#D4873A]' 
+                ? 'text-white border-b-2 border-[#E36B11]' 
                 : 'text-gray-400 hover:text-white'
             }`}
           >
@@ -386,7 +386,7 @@ export default function ImagePickerModal({
             onClick={() => setActiveTab('tenor')}
             className={`flex-1 px-2 py-2 text-xs font-medium ${
               activeTab === 'tenor' 
-                ? 'text-white border-b-2 border-[#D4873A]' 
+                ? 'text-white border-b-2 border-[#E36B11]' 
                 : 'text-gray-400 hover:text-white'
             }`}
           >
@@ -396,7 +396,7 @@ export default function ImagePickerModal({
             onClick={() => setActiveTab('wikimedia')}
             className={`flex-1 px-2 py-2 text-xs font-medium ${
               activeTab === 'wikimedia' 
-                ? 'text-white border-b-2 border-[#D4873A]' 
+                ? 'text-white border-b-2 border-[#E36B11]' 
                 : 'text-gray-400 hover:text-white'
             }`}
           >
@@ -424,7 +424,7 @@ export default function ImagePickerModal({
                 <button
                   onClick={handleSearch}
                   disabled={searching || !search.trim()}
-                  className="px-4 py-2 bg-[#D4873A] hover:bg-[#c57830] text-white text-sm font-bold rounded disabled:opacity-50 flex items-center gap-2"
+                  className="px-4 py-2 bg-[#E36B11] hover:bg-[#c57830] text-white text-sm font-bold rounded disabled:opacity-50 flex items-center gap-2"
                 >
                   {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                   Suchen
@@ -441,7 +441,7 @@ export default function ImagePickerModal({
 
               {searching && (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 text-[#D4873A] animate-spin" />
+                  <Loader2 className="w-6 h-6 text-[#E36B11] animate-spin" />
                 </div>
               )}
 
@@ -453,7 +453,7 @@ export default function ImagePickerModal({
                       onClick={() => setSelectedImage(img.thumbUrl)}
                       className={`relative cursor-pointer rounded overflow-hidden border-2 transition-all ${
                         selectedImage === img.thumbUrl 
-                          ? 'border-[#D4873A] ring-2 ring-[#D4873A]/50' 
+                          ? 'border-[#E36B11] ring-2 ring-[#E36B11]/50' 
                           : 'border-transparent hover:border-gray-500'
                       }`}
                     >
@@ -463,7 +463,7 @@ export default function ImagePickerModal({
                         className="w-full h-24 object-cover"
                       />
                       {selectedImage === img.thumbUrl && (
-                        <div className="absolute inset-0 bg-[#D4873A]/20 flex items-center justify-center">
+                        <div className="absolute inset-0 bg-[#E36B11]/20 flex items-center justify-center">
                           <span className="text-white text-lg">✓</span>
                         </div>
                       )}
@@ -498,7 +498,7 @@ export default function ImagePickerModal({
                 <button
                   onClick={handleTenorSearch}
                   disabled={tenorSearching || !tenorSearch.trim()}
-                  className="px-4 py-2 bg-[#D4873A] hover:bg-[#c57830] text-white text-sm font-bold rounded disabled:opacity-50 flex items-center gap-2"
+                  className="px-4 py-2 bg-[#E36B11] hover:bg-[#c57830] text-white text-sm font-bold rounded disabled:opacity-50 flex items-center gap-2"
                 >
                   {tenorSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                   Search
@@ -515,7 +515,7 @@ export default function ImagePickerModal({
 
               {tenorSearching && (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 text-[#D4873A] animate-spin" />
+                  <Loader2 className="w-6 h-6 text-[#E36B11] animate-spin" />
                 </div>
               )}
 
@@ -527,7 +527,7 @@ export default function ImagePickerModal({
                       onClick={() => setSelectedImage(gif)}
                       className={`relative cursor-pointer rounded overflow-hidden border-2 transition-all ${
                         selectedImage === gif 
-                          ? 'border-[#D4873A] ring-2 ring-[#D4873A]/50' 
+                          ? 'border-[#E36B11] ring-2 ring-[#E36B11]/50' 
                           : 'border-transparent hover:border-gray-500'
                       }`}
                     >
@@ -537,7 +537,7 @@ export default function ImagePickerModal({
                         className="w-full h-24 object-cover"
                       />
                       {selectedImage === gif && (
-                        <div className="absolute inset-0 bg-[#D4873A]/20 flex items-center justify-center">
+                        <div className="absolute inset-0 bg-[#E36B11]/20 flex items-center justify-center">
                           <span className="text-white text-lg">✓</span>
                         </div>
                       )}
@@ -654,7 +654,7 @@ export default function ImagePickerModal({
                 className="border-2 border-dashed border-gray-600 hover:border-gray-500 rounded-lg p-8 cursor-pointer transition-colors"
               >
                 {uploading ? (
-                  <Loader2 className="w-12 h-12 text-[#D4873A] mx-auto mb-3 animate-spin" />
+                  <Loader2 className="w-12 h-12 text-[#E36B11] mx-auto mb-3 animate-spin" />
                 ) : (
                   <Upload className="w-12 h-12 text-gray-500 mx-auto mb-3" />
                 )}

@@ -472,10 +472,10 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
 
   // Unified Header Component - same as QuizzBattle (no online indicator for single player)
   const GameHeader = ({ showBack = true }: { showBack?: boolean }) => (
-    <div className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
+    <div className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
       <div className="flex items-center gap-3">
         {showBack && (
-          <button onClick={onBack} className="p-1 hover:bg-[#D4873A]/10 rounded transition-colors">
+          <button onClick={onBack} className="p-1 hover:bg-[#E36B11]/10 rounded transition-colors">
             <ChevronLeft className="w-5 h-5 text-gray-600" />
           </button>
         )}
@@ -503,7 +503,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
             <div className="flex-1 flex flex-col items-center justify-center text-center">
               {/* Result Badge */}
               <div className="mb-4">
-                <span className="px-4 py-1.5 bg-[#D4873A]/10 border border-[#D4873A]/30 rounded text-xs text-[#D4873A] uppercase tracking-widest font-bold">
+                <span className="px-4 py-1.5 bg-[#E36B11]/10 border border-[#E36B11]/30 rounded text-xs text-[#E36B11] uppercase tracking-widest font-bold">
                   Result
                 </span>
               </div>
@@ -518,12 +518,12 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
               
               {/* Earnings Display - Big Coin */}
               <div className={`py-5 px-10 rounded-xl mb-8 flex items-center gap-4 ${
-                totalEarnings >= 0 ? 'bg-[#D4873A]/10 border border-[#D4873A]/20' : 'bg-red-50 border border-red-200'
+                totalEarnings >= 0 ? 'bg-[#E36B11]/10 border border-[#E36B11]/20' : 'bg-red-50 border border-red-200'
               }`}>
                 <img src="/images/bogxcoin.png" alt="" className="w-14 h-14" />
                 <div className="text-left">
                   <span className={`font-display text-4xl block ${
-                    totalEarnings >= 0 ? 'text-[#D4873A]' : 'text-red-500'
+                    totalEarnings >= 0 ? 'text-[#E36B11]' : 'text-red-500'
                   }`}>
                     {totalEarnings > 0 ? '+' : ''}{formatCurrency(totalEarnings)}
                   </span>
@@ -561,7 +561,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
                   setTotalEarnings(0);
                   setAnswerHistory([]);
                 }}
-                className="flex-1 py-3 bg-[#D4873A] hover:bg-[#C4772A] text-white font-semibold rounded-lg transition-colors uppercase tracking-wider text-sm"
+                className="flex-1 py-3 bg-[#E36B11] hover:bg-[#C4772A] text-white font-semibold rounded-lg transition-colors uppercase tracking-wider text-sm"
               >
                 Play Again
               </button>
@@ -592,14 +592,14 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
                   if (i < answerHistory.length) {
                     color = answerHistory[i] === 'correct' ? 'bg-green-500' : 'bg-red-500';
                   } else if (i === currentIndex) {
-                    color = 'bg-[#D4873A]/50';
+                    color = 'bg-[#E36B11]/50';
                   }
                   return <div key={i} className={`w-3 h-1 rounded ${color}`} />;
                 })}
               </div>
               <div className="flex items-center gap-1">
                 <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
-                <span className="font-display text-sm text-[#D4873A]">{formatCurrency(totalEarnings)}</span>
+                <span className="font-display text-sm text-[#E36B11]">{formatCurrency(totalEarnings)}</span>
               </div>
             </div>
 
@@ -613,7 +613,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
             {/* Countdown Timer */}
             <div className="flex items-center justify-between gap-2 mb-4">
               <div className="flex items-center gap-1">
-                <div className="w-11 h-11 border-2 border-[#D4873A] bg-[#D4873A]/10 rounded-lg flex items-center justify-center">
+                <div className="w-11 h-11 border-2 border-[#E36B11] bg-[#E36B11]/10 rounded-lg flex items-center justify-center">
                   <span className="font-display text-2xl text-gray-900">
                     {countdown === 0 ? 'GO' : countdown}
                   </span>
@@ -665,17 +665,17 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
             <div className="bg-cream rounded-2xl p-8 mx-4 shadow-2xl border border-warm max-w-sm w-full">
               <div className="flex flex-col items-center">
-                <div className="w-16 h-16 rounded-full bg-[#D4873A]/10 flex items-center justify-center mb-4">
-                  <div className="w-10 h-10 border-3 border-[#D4873A]/30 border-t-[#D4873A] rounded-full animate-spin" />
+                <div className="w-16 h-16 rounded-full bg-[#E36B11]/10 flex items-center justify-center mb-4">
+                  <div className="w-10 h-10 border-3 border-[#E36B11]/30 border-t-[#E36B11] rounded-full animate-spin" />
                 </div>
                 <h3 className="font-display text-xl tracking-wider text-gray-900 mb-2">Preparing Questions</h3>
                 <p className="text-gray-500 text-sm text-center">
                   Loading {questionCount} trivia questions{selectedCategory !== 'all' ? ` about ${selectedCategory}` : ''}...
                 </p>
                 <div className="mt-4 flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-[#D4873A] animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <div className="w-2 h-2 rounded-full bg-[#D4873A] animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <div className="w-2 h-2 rounded-full bg-[#D4873A] animate-bounce" style={{ animationDelay: '300ms' }} />
+                  <div className="w-2 h-2 rounded-full bg-[#E36B11] animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-2 h-2 rounded-full bg-[#E36B11] animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-2 h-2 rounded-full bg-[#E36B11] animate-bounce" style={{ animationDelay: '300ms' }} />
                 </div>
               </div>
             </div>
@@ -690,15 +690,15 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
           >
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent" />
             <div className="relative px-6 py-8">
-              <span className="inline-block px-3 py-1 bg-[#D4873A] text-white font-bold uppercase tracking-wider rounded-full mb-4 text-[10px]">
+              <span className="inline-block px-3 py-1 bg-[#E36B11] text-white font-bold uppercase tracking-wider rounded-full mb-4 text-[10px]">
                 Solo Trivia
               </span>
               <h2 className="font-display text-white leading-tight mb-2 text-2xl md:text-3xl">
                 WIN BOGX COINS<br/>
-                IN <span className="text-[#D4873A]">60</span> SECONDS
+                IN <span className="text-[#E36B11]">60</span> SECONDS
               </h2>
               <div className="flex items-center gap-3 mt-4 text-white/90 text-[10px]">
-                <span className="flex items-center gap-1 bg-white/20 px-2.5 py-1 rounded-full"><span className="text-[#D4873A]">⚡</span> Answer fast</span>
+                <span className="flex items-center gap-1 bg-white/20 px-2.5 py-1 rounded-full"><span className="text-[#E36B11]">⚡</span> Answer fast</span>
                 <span className="flex items-center gap-1 bg-white/20 px-2.5 py-1 rounded-full"><img src="/images/bogxcoin.png" alt="" className="w-3 h-3" /> Earn coins</span>
                 <span className="flex items-center gap-1 bg-white/20 px-2.5 py-1 rounded-full"><Trophy className="w-3 h-3" /> Climb ranks</span>
               </div>
@@ -708,7 +708,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
           {/* Step 1: Choose Questions - 4 options in boxes */}
           <div className="mt-4">
             <div className="flex items-center gap-2 mb-3">
-              <span className="w-5 h-5 bg-[#D4873A] rounded-full text-white text-[10px] font-bold flex items-center justify-center">1</span>
+              <span className="w-5 h-5 bg-[#E36B11] rounded-full text-white text-[10px] font-bold flex items-center justify-center">1</span>
               <span className="font-display text-base text-gray-900 uppercase">Choose Number of Questions</span>
             </div>
             <div className="grid grid-cols-4 gap-3">
@@ -716,10 +716,10 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
                 <button
                   key={count}
                   onClick={() => setQuestionCount(count)}
-                  className={`bg-[#D4873A]/5 rounded-2xl border p-4 flex flex-col items-center text-center transition-all ${
+                  className={`bg-[#E36B11]/5 rounded-2xl border p-4 flex flex-col items-center text-center transition-all ${
                     questionCount === count
-                      ? 'border-[#D4873A] border-2'
-                      : 'border-[#D4873A]/20 hover:border-[#D4873A]/40'
+                      ? 'border-[#E36B11] border-2'
+                      : 'border-[#E36B11]/20 hover:border-[#E36B11]/40'
                   }`}
                 >
                   <div className="flex items-center gap-1 mb-1">
@@ -735,7 +735,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
           {/* Step 2: Choose Category */}
           <div className="mt-4">
             <div className="flex items-center gap-2 mb-3">
-              <span className="w-5 h-5 bg-[#D4873A] rounded-full text-white text-[10px] font-bold flex items-center justify-center">2</span>
+              <span className="w-5 h-5 bg-[#E36B11] rounded-full text-white text-[10px] font-bold flex items-center justify-center">2</span>
               <span className="font-display text-base text-gray-900 uppercase">Choose Category</span>
             </div>
             <div className="relative">
@@ -745,9 +745,9 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
                   const container = document.getElementById('category-scroll');
                   if (container) container.scrollBy({ left: -150, behavior: 'smooth' });
                 }}
-                className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/90 border border-[#D4873A]/20 rounded-full shadow-md flex items-center justify-center hover:bg-[#D4873A]/10 transition-colors"
+                className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/90 border border-[#E36B11]/20 rounded-full shadow-md flex items-center justify-center hover:bg-[#E36B11]/10 transition-colors"
               >
-                <span className="text-[#D4873A] text-sm">‹</span>
+                <span className="text-[#E36B11] text-sm">‹</span>
               </button>
               
               <div id="category-scroll" className="flex gap-2 overflow-x-auto pb-1 px-10 scroll-smooth" style={{ scrollbarWidth: 'none' }}>
@@ -755,7 +755,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
                   // Skeleton loader for categories
                   <>
                     {[1, 2, 3, 4, 5].map((i) => (
-                      <div key={i} className="flex-shrink-0 py-1.5 px-6 rounded-lg bg-[#D4873A]/10 animate-pulse h-7 w-20" />
+                      <div key={i} className="flex-shrink-0 py-1.5 px-6 rounded-lg bg-[#E36B11]/10 animate-pulse h-7 w-20" />
                     ))}
                   </>
                 ) : (
@@ -768,8 +768,8 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
                         onClick={() => setSelectedCategory(cat)}
                         className={`flex-shrink-0 py-1.5 px-3 text-[10px] uppercase tracking-wider font-medium rounded-lg transition-all flex items-center gap-1 whitespace-nowrap border ${
                           selectedCategory === cat
-                            ? 'bg-[#D4873A] text-white border-[#D4873A]'
-                            : 'bg-[#D4873A]/5 text-gray-700 border-[#D4873A]/20 hover:border-[#D4873A]/40'
+                            ? 'bg-[#E36B11] text-white border-[#E36B11]'
+                            : 'bg-[#E36B11]/5 text-gray-700 border-[#E36B11]/20 hover:border-[#E36B11]/40'
                         }`}
                       >
                         <Icon className="w-3.5 h-3.5" /> {displayName}
@@ -785,15 +785,15 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
                   const container = document.getElementById('category-scroll');
                   if (container) container.scrollBy({ left: 150, behavior: 'smooth' });
                 }}
-                className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/90 border border-[#D4873A]/20 rounded-full shadow-md flex items-center justify-center hover:bg-[#D4873A]/10 transition-colors"
+                className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/90 border border-[#E36B11]/20 rounded-full shadow-md flex items-center justify-center hover:bg-[#E36B11]/10 transition-colors"
               >
-                <span className="text-[#D4873A] text-sm">›</span>
+                <span className="text-[#E36B11] text-sm">›</span>
               </button>
             </div>
           </div>
 
           {/* Max Win / Wrong Penalty / How it Works - in one box with dividers */}
-          <div className="bg-[#D4873A]/5 rounded-2xl border border-[#D4873A]/20 mt-4 grid grid-cols-3 divide-x divide-[#D4873A]/20">
+          <div className="bg-[#E36B11]/5 rounded-2xl border border-[#E36B11]/20 mt-4 grid grid-cols-3 divide-x divide-[#E36B11]/20">
             <div className="py-4 px-3 text-center">
               <span className="font-display text-sm text-gray-700 uppercase">Correct Answer</span>
               <div className="flex items-center justify-center gap-1.5 mt-1">
@@ -816,8 +816,8 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
             <div className="py-4 px-3 text-center">
               <span className="font-display text-sm text-gray-700 uppercase">How it Works</span>
               <div className="mt-2 text-[10px] text-gray-700 space-y-1">
-                <p className="flex items-center justify-center gap-1"><Timer className="w-3 h-3 text-[#D4873A]" /> 10 sec per question</p>
-                <p className="flex items-center justify-center gap-1"><Trophy className="w-3 h-3 text-[#D4873A]" /> Max: {formatCurrency(questionCount * MAX_POINTS)} BOGX</p>
+                <p className="flex items-center justify-center gap-1"><Timer className="w-3 h-3 text-[#E36B11]" /> 10 sec per question</p>
+                <p className="flex items-center justify-center gap-1"><Trophy className="w-3 h-3 text-[#E36B11]" /> Max: {formatCurrency(questionCount * MAX_POINTS)} BOGX</p>
               </div>
             </div>
           </div>
@@ -828,7 +828,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
               onClick={startGame}
               disabled={loading}
               className="px-20 py-4 rounded-2xl text-white font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
-              style={{ background: 'linear-gradient(135deg, #E8A54B 0%, #D4873A 50%, #C4772A 100%)' }}
+              style={{ background: 'linear-gradient(135deg, #E8A54B 0%, #E36B11 50%, #C4772A 100%)' }}
             >
               <Play className="w-5 h-5" />
               START GAME
@@ -844,7 +844,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
               <Check className="w-3.5 h-3.5 text-green-500" />
               Fair play guaranteed
             </span>
-            <button className="text-[#D4873A] hover:underline">How it works</button>
+            <button className="text-[#E36B11] hover:underline">How it works</button>
           </div>
         </div>
       </div>
@@ -856,7 +856,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
     const timeSeconds = Math.ceil(timeLeft / 1000);
     const timePct = timeLeft / 10000;
     const filledSegments = Math.round(timePct * 10);
-    const timerColor = timePct > 0.5 ? '#D4873A' : timePct > 0.25 ? '#E05A00' : '#DC2626';
+    const timerColor = timePct > 0.5 ? '#E36B11' : timePct > 0.25 ? '#E05A00' : '#DC2626';
     
     return (
       <div className="flex flex-col h-full min-h-full" style={{ backgroundColor: '#F5F0E8' }}>
@@ -876,14 +876,14 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
                     // Already answered - show green for correct, red for wrong
                     color = answerHistory[i] === 'correct' ? 'bg-green-500' : 'bg-red-500';
                   } else if (i === currentIndex) {
-                    color = 'bg-[#D4873A]/50';
+                    color = 'bg-[#E36B11]/50';
                   }
                   return <div key={i} className={`w-3 h-1 rounded ${color}`} />;
                 })}
               </div>
               <div className="flex items-center gap-1">
                 <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
-                <span className="font-display text-sm text-[#D4873A]">{formatCurrency(totalEarnings)}</span>
+                <span className="font-display text-sm text-[#E36B11]">{formatCurrency(totalEarnings)}</span>
               </div>
             </div>
 
@@ -936,7 +936,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
               
               if (showResult) {
                 if (i === currentQuestion.correctIndex) {
-                  className += ' bg-[#D4873A] text-white border-2 border-[#D4873A]';
+                  className += ' bg-[#E36B11] text-white border-2 border-[#E36B11]';
                 } else if (i === selectedAnswer) {
                   className += ' bg-red-500 text-white border-2 border-red-500';
                 } else {
@@ -966,7 +966,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
                 selectedAnswer === -1 
                   ? 'bg-red-500' 
                   : selectedAnswer === currentQuestion.correctIndex 
-                    ? 'bg-[#D4873A]' 
+                    ? 'bg-[#E36B11]' 
                     : 'bg-red-500'
               }`}>
                 {selectedAnswer === -1 ? (
@@ -1016,7 +1016,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
         <p className="text-gray-500 text-sm mb-4">The game encountered an error. Please try again.</p>
         <button
           onClick={onBack}
-          className="px-6 py-2 bg-[#D4873A] text-white font-bold rounded-lg"
+          className="px-6 py-2 bg-[#E36B11] text-white font-bold rounded-lg"
         >
           Go Back
         </button>

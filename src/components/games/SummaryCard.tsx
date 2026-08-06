@@ -354,24 +354,24 @@ export default function SummaryCard({
                 {/* Countdown Timer */}
                 <div className="flex justify-center gap-2 mb-3">
                   <div className="flex flex-col items-center">
-                    <div className="w-12 h-12 bg-[#D4873A]/10 border border-[#D4873A]/30 flex items-center justify-center">
+                    <div className="w-12 h-12 bg-[#E36B11]/10 border border-[#E36B11]/30 flex items-center justify-center">
                       <span className="text-xl font-black text-white">{String(timeUntilNext.hours).padStart(2, '0')}</span>
                     </div>
                     <span className="text-[8px] text-white/40 mt-1">HOURS</span>
                   </div>
-                  <span className="text-xl font-black text-[#D4873A]/50 mt-3">:</span>
+                  <span className="text-xl font-black text-[#E36B11]/50 mt-3">:</span>
                   <div className="flex flex-col items-center">
-                    <div className="w-12 h-12 bg-[#D4873A]/10 border border-[#D4873A]/30 flex items-center justify-center">
+                    <div className="w-12 h-12 bg-[#E36B11]/10 border border-[#E36B11]/30 flex items-center justify-center">
                       <span className="text-xl font-black text-white">{String(timeUntilNext.minutes).padStart(2, '0')}</span>
                     </div>
                     <span className="text-[8px] text-white/40 mt-1">MINS</span>
                   </div>
-                  <span className="text-xl font-black text-[#D4873A]/50 mt-3">:</span>
+                  <span className="text-xl font-black text-[#E36B11]/50 mt-3">:</span>
                   <div className="flex flex-col items-center">
-                    <div className="w-12 h-12 bg-[#D4873A]/20 border border-[#D4873A]/50 flex items-center justify-center">
-                      <span className="text-xl font-black text-[#D4873A]">{String(timeUntilNext.seconds).padStart(2, '0')}</span>
+                    <div className="w-12 h-12 bg-[#E36B11]/20 border border-[#E36B11]/50 flex items-center justify-center">
+                      <span className="text-xl font-black text-[#E36B11]">{String(timeUntilNext.seconds).padStart(2, '0')}</span>
                     </div>
-                    <span className="text-[8px] text-[#D4873A]/60 mt-1">SECS</span>
+                    <span className="text-[8px] text-[#E36B11]/60 mt-1">SECS</span>
                   </div>
                 </div>
                 
@@ -455,8 +455,8 @@ export default function SummaryCard({
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
           <div className="bg-[#111] border border-white/20 p-5 mx-4 max-w-sm w-full">
             <div className="flex justify-between items-start mb-4">
-              <div className="w-12 h-12 bg-[#D4873A]/20 flex items-center justify-center">
-                <Phone className="w-6 h-6 text-[#D4873A]" />
+              <div className="w-12 h-12 bg-[#E36B11]/20 flex items-center justify-center">
+                <Phone className="w-6 h-6 text-[#E36B11]" />
               </div>
               <button 
                 onClick={() => setShowPhoneModal(false)}
@@ -478,7 +478,7 @@ export default function SummaryCard({
                   onGoToProfile();
                 }
               }}
-              className="w-full py-3 bg-[#D4873A] text-white font-bold text-sm hover:bg-[#d10445] transition-colors"
+              className="w-full py-3 bg-[#E36B11] text-white font-bold text-sm hover:bg-[#d10445] transition-colors"
             >
               GO TO PROFILE
             </button>

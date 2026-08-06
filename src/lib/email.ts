@@ -62,7 +62,7 @@ export function createBaseEmailTemplate(params: EmailTemplateParams): string {
       
       <!-- Badge -->
       <div style="text-align: center; margin-bottom: 28px;">
-        <span style="display: inline-flex; align-items: center; gap: 8px; background-color: #FDF6EE; color: #D4873A; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; padding: 10px 20px; border-radius: 24px; border: 1px solid #F5E6D3;">
+        <span style="display: inline-flex; align-items: center; gap: 8px; background-color: #FDF6EE; color: #E36B11; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; padding: 10px 20px; border-radius: 24px; border: 1px solid #F5E6D3;">
           <span style="font-size: 14px;">${badgeIcon}</span>
           ${badgeText}
         </span>
@@ -76,14 +76,14 @@ export function createBaseEmailTemplate(params: EmailTemplateParams): string {
       ${subtitle ? `
       <!-- Subtitle with username highlight -->
       <p style="color: #666666; font-size: 16px; margin: 0 0 24px 0; text-align: center; line-height: 1.5;">
-        ${username ? `Hey <strong style="color: #D4873A;">${username}</strong>, ` : ''}${subtitle}
+        ${username ? `Hey <strong style="color: #E36B11;">${username}</strong>, ` : ''}${subtitle}
       </p>
       ` : ''}
 
       <!-- Decorative divider -->
       <div style="text-align: center; margin: 24px 0;">
         <div style="display: inline-block; width: 60px; height: 1px; background: linear-gradient(90deg, transparent, #E8E4DC, transparent);"></div>
-        <span style="display: inline-block; margin: 0 12px; color: #D4873A; font-size: 14px;">—</span>
+        <span style="display: inline-block; margin: 0 12px; color: #E36B11; font-size: 14px;">—</span>
         <div style="display: inline-block; width: 60px; height: 1px; background: linear-gradient(90deg, transparent, #E8E4DC, transparent);"></div>
       </div>
 
@@ -95,7 +95,7 @@ export function createBaseEmailTemplate(params: EmailTemplateParams): string {
       ${ctaText && ctaUrl ? `
       <!-- CTA Button -->
       <div style="text-align: center; margin: 32px 0;">
-        <a href="${ctaUrl}" style="display: inline-block; background-color: #D4873A; color: #ffffff; font-size: 16px; font-weight: 600; text-decoration: none; padding: 16px 48px; border-radius: 14px; box-shadow: 0 4px 12px rgba(212, 135, 58, 0.3);">
+        <a href="${ctaUrl}" style="display: inline-block; background-color: #E36B11; color: #ffffff; font-size: 16px; font-weight: 600; text-decoration: none; padding: 16px 48px; border-radius: 14px; box-shadow: 0 4px 12px rgba(212, 135, 58, 0.3);">
           ${ctaText}
         </a>
       </div>
@@ -104,8 +104,8 @@ export function createBaseEmailTemplate(params: EmailTemplateParams): string {
       ${footerNote ? `
       <!-- Footer Note with icon -->
       <div style="display: flex; align-items: flex-start; gap: 12px; background-color: #FDF8F0; border-radius: 12px; padding: 16px; margin-top: 24px;">
-        <div style="width: 36px; height: 36px; background-color: #D4873A20; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-          <span style="color: #D4873A; font-size: 14px; font-weight: bold;">i</span>
+        <div style="width: 36px; height: 36px; background-color: #E36B1120; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <span style="color: #E36B11; font-size: 14px; font-weight: bold;">i</span>
         </div>
         <p style="color: #888888; font-size: 13px; line-height: 1.5; margin: 0;">
           ${footerNote}
@@ -116,12 +116,12 @@ export function createBaseEmailTemplate(params: EmailTemplateParams): string {
       ${footerLink ? `
       <!-- Copy Link Section -->
       <div style="display: flex; align-items: flex-start; gap: 12px; background-color: #FDF8F0; border-radius: 12px; padding: 16px; margin-top: 16px;">
-        <div style="width: 36px; height: 36px; background-color: #D4873A20; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-          <span style="color: #D4873A; font-size: 12px; font-weight: bold;">LINK</span>
+        <div style="width: 36px; height: 36px; background-color: #E36B1120; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <span style="color: #E36B11; font-size: 12px; font-weight: bold;">LINK</span>
         </div>
         <div>
           <p style="color: #666666; font-size: 12px; font-weight: 600; margin: 0 0 4px 0;">${footerLink.text}</p>
-          <p style="color: #D4873A; font-size: 11px; margin: 0; word-break: break-all;">${footerLink.url}</p>
+          <p style="color: #E36B11; font-size: 11px; margin: 0; word-break: break-all;">${footerLink.url}</p>
         </div>
       </div>
       ` : ''}
@@ -138,13 +138,13 @@ export function createBaseEmailTemplate(params: EmailTemplateParams): string {
           <p style="color: #999999; font-size: 11px; margin: 2px 0 0 0;">We'll never share your information with third parties.</p>
         </div>
         <div style="text-align: right; margin-left: auto;">
-          <p style="color: #D4873A; font-size: 11px; font-weight: 600; margin: 0;">Privacy</p>
-          <p style="color: #D4873A; font-size: 11px; font-weight: 600; margin: 0;">First</p>
+          <p style="color: #E36B11; font-size: 11px; font-weight: 600; margin: 0;">Privacy</p>
+          <p style="color: #E36B11; font-size: 11px; font-weight: 600; margin: 0;">First</p>
           <p style="color: #999999; font-size: 10px; font-style: italic; margin: 2px 0 0 0;">Always.</p>
         </div>
       </div>
       <p style="color: #AAAAAA; font-size: 11px; margin: 0;">
-        Best of GenX &middot; <a href="https://bestofgenx.com" style="color: #D4873A; text-decoration: none;">bestofgenx.com</a>
+        Best of GenX &middot; <a href="https://bestofgenx.com" style="color: #E36B11; text-decoration: none;">bestofgenx.com</a>
       </p>
     </div>
 
@@ -340,15 +340,15 @@ export function createSongRequestEmail(params: {
       
       <!-- Badge -->
       <div style="text-align: center; margin-bottom: 24px;">
-        <span style="display: inline-block; background-color: #FDF6EE; color: #D4873A; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; padding: 8px 16px; border-radius: 20px; border: 1px solid #F5E6D3;">
+        <span style="display: inline-block; background-color: #FDF6EE; color: #E36B11; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; padding: 8px 16px; border-radius: 20px; border: 1px solid #F5E6D3;">
           Spotify Playlist Request
         </span>
       </div>
 
       <p style="color: #333333; font-size: 16px; margin: 0 0 16px 0; line-height: 1.5;">Hi Team,</p>
       <p style="color: #666666; font-size: 15px; line-height: 1.6; margin: 0 0 24px 0;">
-        <strong style="color: #D4873A;">${username}</strong> has requested a song for the
-        <strong style="color: #D4873A;">${playlist}</strong> playlist:
+        <strong style="color: #E36B11;">${username}</strong> has requested a song for the
+        <strong style="color: #E36B11;">${playlist}</strong> playlist:
       </p>
 
       <!-- Song Details -->
@@ -368,7 +368,7 @@ export function createSongRequestEmail(params: {
           </tr>
           ${link ? `<tr>
             <td style="color: #999999; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; padding: 10px 0; border-top: 1px solid #E8E4DC; vertical-align: top;">Link</td>
-            <td style="padding: 10px 0; border-top: 1px solid #E8E4DC;"><a href="${link}" style="color: #D4873A; font-size: 14px; word-break: break-all;">${link}</a></td>
+            <td style="padding: 10px 0; border-top: 1px solid #E8E4DC;"><a href="${link}" style="color: #E36B11; font-size: 14px; word-break: break-all;">${link}</a></td>
           </tr>` : ''}
         </table>
       </div>
@@ -384,7 +384,7 @@ export function createSongRequestEmail(params: {
         Best of GenX &middot; The 80s, 90s & 2000s Trivia App
       </p>
       <p style="color: #CCCCCC; font-size: 11px; margin: 0;">
-        <a href="https://bestofgenx.com" style="color: #D4873A; text-decoration: none;">bestofgenx.com</a>
+        <a href="https://bestofgenx.com" style="color: #E36B11; text-decoration: none;">bestofgenx.com</a>
       </p>
     </div>
 
@@ -430,7 +430,7 @@ export function createSongApprovedEmail(params: {
       <p style="color: #333333; font-size: 16px; margin: 0 0 16px 0; line-height: 1.5;">Hey ${username}!</p>
       <p style="color: #666666; font-size: 15px; line-height: 1.6; margin: 0 0 24px 0;">
         Great news! Your song request has been <strong style="color: #059669;">approved</strong> and added to our 
-        <strong style="color: #D4873A;">${playlist}</strong> playlist!
+        <strong style="color: #E36B11;">${playlist}</strong> playlist!
       </p>
 
       <!-- Song Details -->
@@ -449,13 +449,13 @@ export function createSongApprovedEmail(params: {
 
       <p style="color: #666666; font-size: 14px; line-height: 1.6; margin: 0; text-align: center;">
         Thanks for helping us build the ultimate GenX playlist!<br>
-        <span style="color: #D4873A; font-weight: 600;">Keep the suggestions coming!</span>
+        <span style="color: #E36B11; font-weight: 600;">Keep the suggestions coming!</span>
       </p>
     </div>
 
     <!-- CTA Button -->
     <div style="text-align: center; margin-bottom: 24px;">
-      <a href="https://bestofgenx.com/mobile" style="display: inline-block; background-color: #D4873A; color: #ffffff; font-size: 14px; font-weight: 600; text-decoration: none; padding: 14px 32px; border-radius: 10px;">
+      <a href="https://bestofgenx.com/mobile" style="display: inline-block; background-color: #E36B11; color: #ffffff; font-size: 14px; font-weight: 600; text-decoration: none; padding: 14px 32px; border-radius: 10px;">
         Open App
       </a>
     </div>
@@ -466,7 +466,7 @@ export function createSongApprovedEmail(params: {
         Best of GenX &middot; The 80s, 90s & 2000s Trivia App
       </p>
       <p style="color: #CCCCCC; font-size: 11px; margin: 0;">
-        <a href="https://bestofgenx.com" style="color: #D4873A; text-decoration: none;">bestofgenx.com</a>
+        <a href="https://bestofgenx.com" style="color: #E36B11; text-decoration: none;">bestofgenx.com</a>
       </p>
     </div>
 
@@ -512,7 +512,7 @@ export function createSongRejectedEmail(params: {
       <p style="color: #333333; font-size: 16px; margin: 0 0 16px 0; line-height: 1.5;">Hey ${username},</p>
       <p style="color: #666666; font-size: 15px; line-height: 1.6; margin: 0 0 24px 0;">
         Thanks for your song suggestion! Unfortunately, we couldn't add this one to the 
-        <strong style="color: #D4873A;">${playlist}</strong> playlist this time.
+        <strong style="color: #E36B11;">${playlist}</strong> playlist this time.
       </p>
 
       <!-- Song Details -->
@@ -531,13 +531,13 @@ export function createSongRejectedEmail(params: {
 
       <p style="color: #666666; font-size: 14px; line-height: 1.6; margin: 0; text-align: center;">
         This could be because it doesn't quite fit the era or the playlist vibe.<br>
-        <span style="color: #D4873A; font-weight: 600;">But don't stop suggesting — we love hearing from you!</span>
+        <span style="color: #E36B11; font-weight: 600;">But don't stop suggesting — we love hearing from you!</span>
       </p>
     </div>
 
     <!-- CTA Button -->
     <div style="text-align: center; margin-bottom: 24px;">
-      <a href="https://bestofgenx.com/mobile" style="display: inline-block; background-color: #D4873A; color: #ffffff; font-size: 14px; font-weight: 600; text-decoration: none; padding: 14px 32px; border-radius: 10px;">
+      <a href="https://bestofgenx.com/mobile" style="display: inline-block; background-color: #E36B11; color: #ffffff; font-size: 14px; font-weight: 600; text-decoration: none; padding: 14px 32px; border-radius: 10px;">
         Suggest Another Song
       </a>
     </div>
@@ -548,7 +548,7 @@ export function createSongRejectedEmail(params: {
         Best of GenX &middot; The 80s, 90s & 2000s Trivia App
       </p>
       <p style="color: #CCCCCC; font-size: 11px; margin: 0;">
-        <a href="https://bestofgenx.com" style="color: #D4873A; text-decoration: none;">bestofgenx.com</a>
+        <a href="https://bestofgenx.com" style="color: #E36B11; text-decoration: none;">bestofgenx.com</a>
       </p>
     </div>
 
@@ -586,7 +586,7 @@ export function createSongInProgressEmail(params: {
       
       <!-- In Progress Badge -->
       <div style="text-align: center; margin-bottom: 24px;">
-        <span style="display: inline-block; background-color: #FDF6EE; color: #D4873A; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; padding: 8px 16px; border-radius: 20px; border: 1px solid #F5E6D3;">
+        <span style="display: inline-block; background-color: #FDF6EE; color: #E36B11; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; padding: 8px 16px; border-radius: 20px; border: 1px solid #F5E6D3;">
           Being Reviewed
         </span>
       </div>
@@ -594,7 +594,7 @@ export function createSongInProgressEmail(params: {
       <p style="color: #333333; font-size: 16px; margin: 0 0 16px 0; line-height: 1.5;">Hey ${username}!</p>
       <p style="color: #666666; font-size: 15px; line-height: 1.6; margin: 0 0 24px 0;">
         Good news! We're currently reviewing your song request for the 
-        <strong style="color: #D4873A;">${playlist}</strong> playlist.
+        <strong style="color: #E36B11;">${playlist}</strong> playlist.
       </p>
 
       <!-- Song Details -->
@@ -613,7 +613,7 @@ export function createSongInProgressEmail(params: {
 
       <p style="color: #666666; font-size: 14px; line-height: 1.6; margin: 0; text-align: center;">
         We'll let you know once we've made a decision.<br>
-        <span style="color: #D4873A; font-weight: 600;">Thanks for your patience!</span>
+        <span style="color: #E36B11; font-weight: 600;">Thanks for your patience!</span>
       </p>
     </div>
 
@@ -623,7 +623,7 @@ export function createSongInProgressEmail(params: {
         Best of GenX &middot; The 80s, 90s & 2000s Trivia App
       </p>
       <p style="color: #CCCCCC; font-size: 11px; margin: 0;">
-        <a href="https://bestofgenx.com" style="color: #D4873A; text-decoration: none;">bestofgenx.com</a>
+        <a href="https://bestofgenx.com" style="color: #E36B11; text-decoration: none;">bestofgenx.com</a>
       </p>
     </div>
 
@@ -638,7 +638,7 @@ export function createVerificationEmail(username: string, verificationUrl: strin
   return createBaseEmailTemplate({
     badgeIcon: '',
     badgeText: 'Verify Your Email',
-    title: 'Welcome to<br>Best of Gen<span style="color: #D4873A;">X</span>!',
+    title: 'Welcome to<br>Best of Gen<span style="color: #E36B11;">X</span>!',
     subtitle: 'thanks for signing up!',
     username: username,
     bodyContent: 'Please verify your email address to activate your account.',

@@ -39,10 +39,10 @@ export default function CommunitySoundPage({ onBack, onOpenRadio, isDesktop = fa
   return (
     <div className="w-full h-full min-h-full flex flex-col overflow-hidden" style={{ backgroundColor: '#F5F0E8' }}>
       {/* Header - consistent with other pages */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
         <div className="flex items-center gap-3">
           {onBack && <BackButton onClick={onBack} />}
-          <Music className="w-5 h-5 text-[#D4873A]" />
+          <Music className="w-5 h-5 text-[#E36B11]" />
           <div>
             <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Community Sound</span>
             <span className="text-[10px] text-gray-500 -mt-0.5 block">Your songs. Our playlist.</span>
@@ -51,7 +51,7 @@ export default function CommunitySoundPage({ onBack, onOpenRadio, isDesktop = fa
         {onOpenRadio && (
           <button
             onClick={onOpenRadio}
-            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-[#D4873A]/10 text-[#D4873A] text-xs font-bold rounded-lg hover:bg-[#D4873A]/20 transition-colors"
+            className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-[#E36B11]/10 text-[#E36B11] text-xs font-bold rounded-lg hover:bg-[#E36B11]/20 transition-colors"
           >
             <Headphones className="w-3.5 h-3.5" />
             Listen on Radio

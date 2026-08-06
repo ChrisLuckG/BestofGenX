@@ -56,7 +56,7 @@ export default function PaymentModal({ isOpen, package_, onClose, onSuccess }: P
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-warm">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-[#D4873A] rounded-lg flex items-center justify-center">
+            <div className="w-6 h-6 bg-[#E36B11] rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-xs">P</span>
             </div>
             <h2 className="text-lg font-bold text-gray-900">Buy BOGX</h2>
@@ -77,7 +77,7 @@ export default function PaymentModal({ isOpen, package_, onClose, onSuccess }: P
           {step === 'confirm' && (
             <>
               {/* Package Info */}
-              <div className="bg-[#D4873A]/10 p-4 rounded-xl border border-[#D4873A]/30 mb-4">
+              <div className="bg-[#E36B11]/10 p-4 rounded-xl border border-[#E36B11]/30 mb-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-gray-500 text-xs uppercase tracking-wider">You're buying</p>
@@ -85,33 +85,33 @@ export default function PaymentModal({ isOpen, package_, onClose, onSuccess }: P
                   </div>
                   <div className="text-right">
                     <p className="text-gray-500 text-xs uppercase tracking-wider">Price</p>
-                    <p className="text-2xl font-black text-[#D4873A]">{package_.price}</p>
+                    <p className="text-2xl font-black text-[#E36B11]">{package_.price}</p>
                   </div>
                 </div>
               </div>
 
               {/* Payment Methods */}
-              <p className="text-[#D4873A] text-[10px] mb-2 uppercase tracking-widest font-semibold">Payment Method</p>
+              <p className="text-[#E36B11] text-[10px] mb-2 uppercase tracking-widest font-semibold">Payment Method</p>
               <div className="space-y-2 mb-4">
                 <button
                   onClick={() => setSelectedMethod('card')}
                   className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all ${
                     selectedMethod === 'card' 
-                      ? 'bg-[#D4873A]/10 border-[#D4873A]' 
+                      ? 'bg-[#E36B11]/10 border-[#E36B11]' 
                       : 'bg-cream border-warm hover:bg-cream'
                   }`}
                 >
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    selectedMethod === 'card' ? 'bg-[#D4873A]/20' : 'bg-cream border border-warm'
+                    selectedMethod === 'card' ? 'bg-[#E36B11]/20' : 'bg-cream border border-warm'
                   }`}>
-                    <CreditCard className={`w-5 h-5 ${selectedMethod === 'card' ? 'text-[#D4873A]' : 'text-gray-500'}`} />
+                    <CreditCard className={`w-5 h-5 ${selectedMethod === 'card' ? 'text-[#E36B11]' : 'text-gray-500'}`} />
                   </div>
                   <div className="flex-1 text-left">
                     <p className="text-gray-900 font-medium text-sm">Credit / Debit Card</p>
                     <p className="text-gray-600 text-xs">Visa, Mastercard, AMEX</p>
                   </div>
                   {selectedMethod === 'card' && (
-                    <div className="w-5 h-5 bg-[#D4873A] rounded-full flex items-center justify-center">
+                    <div className="w-5 h-5 bg-[#E36B11] rounded-full flex items-center justify-center">
                       <Check className="w-3 h-3 text-white" />
                     </div>
                   )}
@@ -121,21 +121,21 @@ export default function PaymentModal({ isOpen, package_, onClose, onSuccess }: P
                   onClick={() => setSelectedMethod('paypal')}
                   className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all ${
                     selectedMethod === 'paypal' 
-                      ? 'bg-[#D4873A]/10 border-[#D4873A]' 
+                      ? 'bg-[#E36B11]/10 border-[#E36B11]' 
                       : 'bg-cream border-warm hover:bg-cream'
                   }`}
                 >
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    selectedMethod === 'paypal' ? 'bg-[#D4873A]/20' : 'bg-cream border border-warm'
+                    selectedMethod === 'paypal' ? 'bg-[#E36B11]/20' : 'bg-cream border border-warm'
                   }`}>
-                    <span className={`text-lg font-bold ${selectedMethod === 'paypal' ? 'text-[#D4873A]' : 'text-gray-500'}`}>P</span>
+                    <span className={`text-lg font-bold ${selectedMethod === 'paypal' ? 'text-[#E36B11]' : 'text-gray-500'}`}>P</span>
                   </div>
                   <div className="flex-1 text-left">
                     <p className="text-gray-900 font-medium text-sm">PayPal</p>
                     <p className="text-gray-600 text-xs">Fast & secure</p>
                   </div>
                   {selectedMethod === 'paypal' && (
-                    <div className="w-5 h-5 bg-[#D4873A] rounded-full flex items-center justify-center">
+                    <div className="w-5 h-5 bg-[#E36B11] rounded-full flex items-center justify-center">
                       <Check className="w-3 h-3 text-white" />
                     </div>
                   )}
@@ -145,12 +145,12 @@ export default function PaymentModal({ isOpen, package_, onClose, onSuccess }: P
                   onClick={() => setSelectedMethod('apple')}
                   className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all ${
                     selectedMethod === 'apple' 
-                      ? 'bg-[#D4873A]/10 border-[#D4873A]' 
+                      ? 'bg-[#E36B11]/10 border-[#E36B11]' 
                       : 'bg-cream border-warm hover:bg-cream'
                   }`}
                 >
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    selectedMethod === 'apple' ? 'bg-[#D4873A]/20' : 'bg-cream border border-warm'
+                    selectedMethod === 'apple' ? 'bg-[#E36B11]/20' : 'bg-cream border border-warm'
                   }`}>
                     <span className="text-lg">⌘</span>
                   </div>
@@ -159,7 +159,7 @@ export default function PaymentModal({ isOpen, package_, onClose, onSuccess }: P
                     <p className="text-gray-600 text-xs">Quick checkout</p>
                   </div>
                   {selectedMethod === 'apple' && (
-                    <div className="w-5 h-5 bg-[#D4873A] rounded-full flex items-center justify-center">
+                    <div className="w-5 h-5 bg-[#E36B11] rounded-full flex items-center justify-center">
                       <Check className="w-3 h-3 text-white" />
                     </div>
                   )}
@@ -175,7 +175,7 @@ export default function PaymentModal({ isOpen, package_, onClose, onSuccess }: P
               {/* Purchase Button */}
               <button
                 onClick={handlePurchase}
-                className="w-full py-4 bg-[#D4873A] rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#c4e000] transition-all"
+                className="w-full py-4 bg-[#E36B11] rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#c4e000] transition-all"
               >
                 Pay {package_.price}
               </button>
@@ -192,11 +192,11 @@ export default function PaymentModal({ isOpen, package_, onClose, onSuccess }: P
 
           {step === 'success' && (
             <div className="py-12 flex flex-col items-center">
-              <div className="w-16 h-16 bg-[#D4873A]/20 rounded-full flex items-center justify-center">
-                <Check className="w-8 h-8 text-[#D4873A]" />
+              <div className="w-16 h-16 bg-[#E36B11]/20 rounded-full flex items-center justify-center">
+                <Check className="w-8 h-8 text-[#E36B11]" />
               </div>
               <p className="text-gray-900 font-bold mt-6">Payment Successful!</p>
-              <p className="text-[#D4873A] text-xl font-black mt-2">+{package_.points.toLocaleString()} BOGX</p>
+              <p className="text-[#E36B11] text-xl font-black mt-2">+{package_.points.toLocaleString()} BOGX</p>
             </div>
           )}
           

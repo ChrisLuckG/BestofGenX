@@ -126,23 +126,23 @@ function RankingCard({ poll, onOpenArticle, onOpenRankroll }: { poll: Poll; onOp
   return (
     <button
       onClick={handleClick}
-      className="w-full text-left rounded-xl overflow-hidden hover:shadow-[0_8px_30px_rgba(212,135,58,0.3)] hover:border-[#D4873A] hover:-translate-y-1.5 transition-all duration-300 group border-2 border-warm bg-cream flex"
+      className="w-full text-left rounded-xl overflow-hidden hover:shadow-[0_8px_30px_rgba(212,135,58,0.3)] hover:border-[#E36B11] hover:-translate-y-1.5 transition-all duration-300 group border-2 border-warm bg-cream flex"
     >
       {/* Left: Large Image Block with Timer */}
       <div className="w-48 flex-shrink-0 relative overflow-hidden">
         {(poll.articleImage || poll.image || poll.items?.[0]?.image) ? (
           <img src={poll.articleImage || poll.image || poll.items?.[0]?.image} alt="" className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-[#D4873A]/40 to-[#D4873A]/20" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#E36B11]/40 to-[#E36B11]/20" />
         )}
         {/* Timer at bottom of image */}
         {countdown && (
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/80 to-transparent px-3 py-4  transition-colors duration-300">
             <div className="flex items-center gap-2.5">
-              <Clock className="w-5 h-5 text-white/70 group-hover:text-[#D4873A] transition-colors duration-300" />
+              <Clock className="w-5 h-5 text-white/70 group-hover:text-[#E36B11] transition-colors duration-300" />
               <div>
-                <span className="text-[9px] text-white/90 uppercase tracking-wider block font-semibold group-hover:text-[#D4873A] transition-colors duration-300">ENDS IN</span>
-                <span className="font-display text-xl text-white tracking-wider group-hover:text-[#D4873A] transition-colors duration-300">
+                <span className="text-[9px] text-white/90 uppercase tracking-wider block font-semibold group-hover:text-[#E36B11] transition-colors duration-300">ENDS IN</span>
+                <span className="font-display text-xl text-white tracking-wider group-hover:text-[#E36B11] transition-colors duration-300">
                   {countdown.expired ? 'ENDED' : (
                     <>
                       {countdown.days > 0 && <>{countdown.days}d </>}
@@ -159,12 +159,12 @@ function RankingCard({ poll, onOpenArticle, onOpenRankroll }: { poll: Poll; onOp
       {/* Right: Header + Items */}
       <div className="flex-1 flex flex-col">
         {/* Header Row */}
-        <div className="flex items-center justify-between px-4 py-3 bg-[#D4873A]/10 border-b border-[#D4873A]/20">
+        <div className="flex items-center justify-between px-4 py-3 bg-[#E36B11]/10 border-b border-[#E36B11]/20">
           {/* Left: Icon + Title */}
           <div className="flex items-center gap-2">
-            <Vote className="w-5 h-5 text-[#D4873A]" />
+            <Vote className="w-5 h-5 text-[#E36B11]" />
             <div>
-              <h4 className="font-display text-lg text-gray-900 group-hover:text-[#D4873A] transition-colors duration-200 uppercase leading-tight">
+              <h4 className="font-display text-lg text-gray-900 group-hover:text-[#E36B11] transition-colors duration-200 uppercase leading-tight">
                 {poll.title}
               </h4>
                           </div>
@@ -172,15 +172,15 @@ function RankingCard({ poll, onOpenArticle, onOpenRankroll }: { poll: Poll; onOp
           
           {/* Right: Vote Button */}
           {hasVoted ? (
-            <span className="px-4 py-2 bg-[#D4873A]/20 text-[#D4873A] border border-[#D4873A]/30 font-display text-sm uppercase tracking-wider rounded-lg flex items-center gap-1.5">
+            <span className="px-4 py-2 bg-[#E36B11]/20 text-[#E36B11] border border-[#E36B11]/30 font-display text-sm uppercase tracking-wider rounded-lg flex items-center gap-1.5">
               <Check className="w-3.5 h-3.5" />
               Voted
-              <span className="text-[#D4873A]/40">·</span>
-              <Vote className="w-3.5 h-3.5 text-[#D4873A]/60" />
+              <span className="text-[#E36B11]/40">·</span>
+              <Vote className="w-3.5 h-3.5 text-[#E36B11]/60" />
               <span>{poll.totalVotes}</span>
             </span>
           ) : (
-            <span className="px-4 py-2 bg-[#D4873A] text-white font-display text-sm uppercase tracking-wider rounded-lg group-hover:bg-[#B5682A] group-hover:scale-105 group-hover:shadow-lg transition-all duration-200 flex items-center gap-1.5">
+            <span className="px-4 py-2 bg-[#E36B11] text-white font-display text-sm uppercase tracking-wider rounded-lg group-hover:bg-[#B5682A] group-hover:scale-105 group-hover:shadow-lg transition-all duration-200 flex items-center gap-1.5">
               Vote Now
               <span className="text-white/60">·</span>
               <Vote className="w-3.5 h-3.5 text-white/80" />
@@ -197,7 +197,7 @@ function RankingCard({ poll, onOpenArticle, onOpenRankroll }: { poll: Poll; onOp
               <div key={item.id} className="flex items-center gap-4 px-4 py-2 border-b border-warm last:border-b-0">
                 {/* Rank Badge */}
                 <span className={`w-7 h-7 rounded flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${
-                  rank === 1 ? 'bg-[#D4873A]' : 'bg-gray-400'
+                  rank === 1 ? 'bg-[#E36B11]' : 'bg-gray-400'
                 }`}>
                   {rank.toString().padStart(2, '0')}
                 </span>
@@ -216,7 +216,7 @@ function RankingCard({ poll, onOpenArticle, onOpenRankroll }: { poll: Poll; onOp
                   <p className="font-display text-gray-900 text-sm truncate uppercase">{item.title}</p>
                 </div>
                 {/* Score */}
-                <div className="flex items-center gap-1 text-[#D4873A] flex-shrink-0">
+                <div className="flex items-center gap-1 text-[#E36B11] flex-shrink-0">
                   <span className="text-xs">↑</span>
                   <span className="font-bold text-sm">{item.upvotes || 0}</span>
                 </div>
@@ -275,23 +275,23 @@ function SimplePollCard({ poll, onClick }: { poll: Poll; onClick: () => void }) 
   return (
     <button
       onClick={onClick}
-      className="w-full text-left rounded-xl overflow-hidden hover:shadow-xl hover:border-[#D4873A]/50 transition-all duration-300 group border border-warm bg-cream flex"
+      className="w-full text-left rounded-xl overflow-hidden hover:shadow-xl hover:border-[#E36B11]/50 transition-all duration-300 group border border-warm bg-cream flex"
     >
       {/* Left: Large Image Block with Timer */}
       <div className="w-48 flex-shrink-0 relative overflow-hidden">
         {(poll.articleImage || poll.image || poll.items?.[0]?.image) ? (
           <img src={poll.articleImage || poll.image || poll.items?.[0]?.image} alt="" className="absolute inset-0 w-full h-full object-cover" />
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-[#D4873A]/40 to-[#D4873A]/20" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#E36B11]/40 to-[#E36B11]/20" />
         )}
         {/* Timer at bottom of image */}
         {countdown && (
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/80 to-transparent px-3 py-4  transition-colors duration-300">
             <div className="flex items-center gap-2.5">
-              <Clock className="w-5 h-5 text-white/70 group-hover:text-[#D4873A] transition-colors duration-300" />
+              <Clock className="w-5 h-5 text-white/70 group-hover:text-[#E36B11] transition-colors duration-300" />
               <div>
-                <span className="text-[9px] text-white/90 uppercase tracking-wider block font-semibold group-hover:text-[#D4873A] transition-colors duration-300">ENDS IN</span>
-                <span className="font-display text-xl text-white tracking-wider group-hover:text-[#D4873A] transition-colors duration-300">
+                <span className="text-[9px] text-white/90 uppercase tracking-wider block font-semibold group-hover:text-[#E36B11] transition-colors duration-300">ENDS IN</span>
+                <span className="font-display text-xl text-white tracking-wider group-hover:text-[#E36B11] transition-colors duration-300">
                   {countdown.expired ? 'ENDED' : (
                     <>
                       {countdown.days > 0 && <>{countdown.days}d </>}
@@ -308,12 +308,12 @@ function SimplePollCard({ poll, onClick }: { poll: Poll; onClick: () => void }) 
       {/* Right: Header + Options */}
       <div className="flex-1 flex flex-col">
         {/* Header Row */}
-        <div className="flex items-center justify-between px-4 py-3 bg-[#D4873A]/10 border-b border-[#D4873A]/20">
+        <div className="flex items-center justify-between px-4 py-3 bg-[#E36B11]/10 border-b border-[#E36B11]/20">
           {/* Left: Icon + Title */}
           <div className="flex items-center gap-2">
-            <Vote className="w-5 h-5 text-[#D4873A]" />
+            <Vote className="w-5 h-5 text-[#E36B11]" />
             <div>
-              <h4 className="font-display text-lg text-gray-900 group-hover:text-[#D4873A] transition-colors uppercase leading-tight">
+              <h4 className="font-display text-lg text-gray-900 group-hover:text-[#E36B11] transition-colors uppercase leading-tight">
                 {poll.title}
               </h4>
                           </div>
@@ -321,15 +321,15 @@ function SimplePollCard({ poll, onClick }: { poll: Poll; onClick: () => void }) 
           
           {/* Right: Vote Button */}
           {hasVoted ? (
-            <span className="px-4 py-2 bg-[#D4873A]/20 text-[#D4873A] border border-[#D4873A]/30 font-display text-sm uppercase tracking-wider rounded-lg flex items-center gap-1.5">
+            <span className="px-4 py-2 bg-[#E36B11]/20 text-[#E36B11] border border-[#E36B11]/30 font-display text-sm uppercase tracking-wider rounded-lg flex items-center gap-1.5">
               <Check className="w-3.5 h-3.5" />
               Voted
-              <span className="text-[#D4873A]/40">·</span>
-              <Vote className="w-3.5 h-3.5 text-[#D4873A]/60" />
+              <span className="text-[#E36B11]/40">·</span>
+              <Vote className="w-3.5 h-3.5 text-[#E36B11]/60" />
               <span>{totalVotes}</span>
             </span>
           ) : (
-            <span className="px-4 py-2 bg-[#D4873A] text-white font-display text-sm uppercase tracking-wider rounded-lg group-hover:bg-[#C4772A] transition-colors flex items-center gap-1.5">
+            <span className="px-4 py-2 bg-[#E36B11] text-white font-display text-sm uppercase tracking-wider rounded-lg group-hover:bg-[#C4772A] transition-colors flex items-center gap-1.5">
               Vote Now
               <span className="text-white/60">·</span>
               <Vote className="w-3.5 h-3.5 text-white/80" />
@@ -346,7 +346,7 @@ function SimplePollCard({ poll, onClick }: { poll: Poll; onClick: () => void }) 
               <div key={option.id} className="flex items-center gap-4 px-4 h-[56px] border-b border-warm last:border-b-0 relative overflow-hidden">
                 {/* Progress bar background */}
                 <div 
-                  className="absolute inset-y-0 left-0 bg-[#D4873A]/10 transition-all duration-500"
+                  className="absolute inset-y-0 left-0 bg-[#E36B11]/10 transition-all duration-500"
                   style={{ width: `${percentage}%` }}
                 />
                 {/* Content */}
@@ -356,7 +356,7 @@ function SimplePollCard({ poll, onClick }: { poll: Poll; onClick: () => void }) 
                 </div>
                 {/* Percentage */}
                 <div className="relative flex items-center gap-3 flex-shrink-0">
-                  <span className="font-bold text-sm text-[#D4873A]">{percentage}%</span>
+                  <span className="font-bold text-sm text-[#E36B11]">{percentage}%</span>
                   <ChevronRight className="w-4 h-4 text-gray-300" />
                 </div>
               </div>
@@ -443,9 +443,9 @@ export default function DesktopRankrollPage({ onOpenArticle, onOpenRankroll }: D
   return (
     <div className="h-full flex flex-col bg-[#F5F0E8] overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
         <div className="flex items-center gap-3">
-          <Vote className="w-5 h-5 text-[#D4873A]" />
+          <Vote className="w-5 h-5 text-[#E36B11]" />
           <div>
             <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Rankroll</span>
             <span className="text-[10px] text-gray-500 -mt-0.5 block">Vote & rank your favorites</span>
@@ -455,8 +455,8 @@ export default function DesktopRankrollPage({ onOpenArticle, onOpenRankroll }: D
           onClick={() => setFilterNotVoted(!filterNotVoted)}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
             filterNotVoted 
-              ? 'bg-[#D4873A] text-white' 
-              : 'bg-[#D4873A]/10 text-[#D4873A] hover:bg-[#D4873A]/20'
+              ? 'bg-[#E36B11] text-white' 
+              : 'bg-[#E36B11]/10 text-[#E36B11] hover:bg-[#E36B11]/20'
           }`}
         >
           <Filter className="w-3.5 h-3.5" />
@@ -465,13 +465,13 @@ export default function DesktopRankrollPage({ onOpenArticle, onOpenRankroll }: D
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 bg-gradient-to-b from-transparent to-[#D4873A]/[0.03]" style={{ scrollbarWidth: "none" }}>
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 bg-gradient-to-b from-transparent to-[#E36B11]/[0.03]" style={{ scrollbarWidth: "none" }}>
 
         {loading ? (
           <PollsSkeleton />
         ) : rankingPolls.length === 0 && otherPolls.length === 0 ? (
           <div className="text-center py-12">
-            <Vote className={`w-10 h-10 mx-auto mb-3 ${filterNotVoted ? 'text-[#D4873A]' : 'text-[#D4873A]/30'}`} />
+            <Vote className={`w-10 h-10 mx-auto mb-3 ${filterNotVoted ? 'text-[#E36B11]' : 'text-[#E36B11]/30'}`} />
             {filterNotVoted ? (
               <>
                 <p className="text-gray-600 text-sm font-medium">All caught up!</p>

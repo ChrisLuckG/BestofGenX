@@ -109,7 +109,7 @@ export default function AuthorPage({ authorName, onBack, onOpenArticle }: Author
         <div className="px-4 py-3 flex items-center gap-3">
           <button
             onClick={onBack}
-            className="w-9 h-9 flex items-center justify-center rounded-full bg-[#D4873A] text-white hover:bg-[#c06a2a] transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-[#E36B11] text-white hover:bg-[#c06a2a] transition-colors"
             aria-label="Back"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -138,7 +138,7 @@ export default function AuthorPage({ authorName, onBack, onOpenArticle }: Author
             <div
               className="w-24 h-24 rounded-full flex items-center justify-center mb-4 shadow-xl"
               style={{
-                background: 'linear-gradient(135deg,#D4873A 0%,#a86b2b 100%)',
+                background: 'linear-gradient(135deg,#E36B11 0%,#a86b2b 100%)',
                 border: '3px solid rgba(212,135,58,0.4)',
               }}
             >
@@ -148,7 +148,7 @@ export default function AuthorPage({ authorName, onBack, onOpenArticle }: Author
 
           {/* Name */}
           <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">{authorInfo?.name}</h2>
-          <p className="text-xs text-[#D4873A] font-medium uppercase tracking-[0.15em] mb-4">
+          <p className="text-xs text-[#E36B11] font-medium uppercase tracking-[0.15em] mb-4">
             BOGX Contributor
           </p>
 
@@ -214,14 +214,14 @@ export default function AuthorPage({ authorName, onBack, onOpenArticle }: Author
                     className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
                   />
                 ) : (
-                  <div className="w-20 h-20 flex-shrink-0 rounded-lg bg-gradient-to-br from-[#D4873A]/20 to-[#D4873A]/5 flex items-center justify-center">
-                    <FileText className="w-6 h-6 text-[#D4873A]/50" />
+                  <div className="w-20 h-20 flex-shrink-0 rounded-lg bg-gradient-to-br from-[#E36B11]/20 to-[#E36B11]/5 flex items-center justify-center">
+                    <FileText className="w-6 h-6 text-[#E36B11]/50" />
                   </div>
                 )}
 
                 {/* Info */}
                 <div className="flex-1 min-w-0 py-1">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#D4873A] mb-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#E36B11] mb-1">
                     {article.category}
                   </p>
                   <h4 className="text-sm font-bold text-gray-800 line-clamp-2 leading-tight mb-1">
@@ -266,7 +266,7 @@ function SocialBtn({ href, label, children }: { href: string; label: string; chi
       style={{
         background: 'rgba(255,255,255,0.04)',
         border: '1px solid rgba(212,135,58,0.25)',
-        color: '#D4873A',
+        color: '#E36B11',
       }}
     >
       {children}
@@ -277,7 +277,7 @@ function SocialBtn({ href, label, children }: { href: string; label: string; chi
 function Stat({ icon, value, label }: { icon: React.ReactNode; value: number; label: string }) {
   return (
     <div className="flex flex-col items-center">
-      <div className="flex items-center gap-1 text-[#D4873A]">
+      <div className="flex items-center gap-1 text-[#E36B11]">
         {icon}
         <span className="text-lg font-bold text-white">{formatNumber(value)}</span>
       </div>

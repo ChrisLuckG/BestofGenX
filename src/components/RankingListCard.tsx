@@ -141,7 +141,7 @@ export default function RankingListCard({ poll, onOpenArticle, onOpenRankroll, o
         {(poll.articleImage || poll.image || poll.items?.[0]?.image) ? (
           <img src={poll.articleImage || poll.image || poll.items?.[0]?.image} alt="" className="absolute inset-0 w-full h-full object-cover" />
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-[#D4873A]/20 to-[#D4873A]/5" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#E36B11]/20 to-[#E36B11]/5" />
         )}
         {/* Dark gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20" />
@@ -150,18 +150,18 @@ export default function RankingListCard({ poll, onOpenArticle, onOpenRankroll, o
         <div className="absolute inset-0 p-4 flex flex-col justify-between">
           {/* Top Row: Badge + Vote Button - same height as desktop */}
           <div className="flex items-center justify-between">
-            <span className="h-6 inline-flex items-center px-2 bg-[#D4873A] text-white text-xs font-display uppercase tracking-wider rounded">
+            <span className="h-6 inline-flex items-center px-2 bg-[#E36B11] text-white text-xs font-display uppercase tracking-wider rounded">
               RANKING
             </span>
             {hasVoted ? (
-              <div className="h-6 flex items-center gap-1 bg-[#D4873A] px-2 rounded transition-colors border border-white/30">
+              <div className="h-6 flex items-center gap-1 bg-[#E36B11] px-2 rounded transition-colors border border-white/30">
                 <span className="text-sm">🪙</span><span className="text-xs font-display text-white">{(votedCount * 0.01).toFixed(2)}/{((poll.items?.length || 0) * 0.01).toFixed(2)} BOGX</span>
                 <span className="text-white/60">·</span>
                 <Vote className="w-2.5 h-2.5 text-white" />
                 <span className="text-xs font-display text-white">{poll.totalVotes}</span>
               </div>
             ) : (
-              <div className="h-6 flex items-center gap-1 bg-white/20 backdrop-blur-sm hover:bg-[#D4873A] px-2 rounded transition-all duration-300 border border-white/30">
+              <div className="h-6 flex items-center gap-1 bg-white/20 backdrop-blur-sm hover:bg-[#E36B11] px-2 rounded transition-all duration-300 border border-white/30">
                 <span className="text-sm">🪙</span><span className="text-xs font-display text-white">0/{((poll.items?.length || 0) * 0.01).toFixed(2)} BOGX</span>
                 <span className="text-white/60">·</span>
                 <Vote className="w-2.5 h-2.5 text-white/80" />
@@ -173,7 +173,7 @@ export default function RankingListCard({ poll, onOpenArticle, onOpenRankroll, o
           
           {/* Bottom: Title + Stats */}
           <div>
-            <h3 className="font-display text-xl text-white group-hover:text-[#D4873A] transition-colors line-clamp-2 leading-tight uppercase">
+            <h3 className="font-display text-xl text-white group-hover:text-[#E36B11] transition-colors line-clamp-2 leading-tight uppercase">
               {poll.title}
             </h3>
           </div>
@@ -196,7 +196,7 @@ export default function RankingListCard({ poll, onOpenArticle, onOpenRankroll, o
               
               {/* Score + Arrow */}
               <div className="flex items-center gap-2 flex-shrink-0">
-                <div className="flex items-center gap-1 text-[#D4873A]">
+                <div className="flex items-center gap-1 text-[#E36B11]">
                   <span className="text-xs">↑</span>
                   <span className="font-bold text-sm">{item.upvotes || 0}</span>
                 </div>
@@ -218,18 +218,18 @@ export default function RankingListCard({ poll, onOpenArticle, onOpenRankroll, o
       
       {/* Countdown Timer Bar - at bottom, after Top 3 */}
       {countdown && (
-        <div className="px-3 py-2.5 flex items-center justify-between bg-[#D4873A]/10 border-t border-[#D4873A]/20">
+        <div className="px-3 py-2.5 flex items-center justify-between bg-[#E36B11]/10 border-t border-[#E36B11]/20">
           {/* Left: Clock + ENDS IN + Time */}
           <div className="flex items-center gap-2">
             <div className="relative flex-shrink-0">
               {!countdown.expired && (
-                <span className="absolute inset-0 rounded-full bg-[#D4873A]/40 animate-ping" />
+                <span className="absolute inset-0 rounded-full bg-[#E36B11]/40 animate-ping" />
               )}
-              <Clock className={`relative w-4 h-4 text-[#D4873A] ${!countdown.expired ? 'animate-pulse' : ''}`} />
+              <Clock className={`relative w-4 h-4 text-[#E36B11] ${!countdown.expired ? 'animate-pulse' : ''}`} />
             </div>
             <div>
               <span className="text-[8px] font-semibold text-gray-600 uppercase tracking-wider block">ENDS IN</span>
-              <span className="font-display text-xl text-[#D4873A] tracking-wider tabular-nums">
+              <span className="font-display text-xl text-[#E36B11] tracking-wider tabular-nums">
                 {countdown.expired ? 'ENDED' : (
                   <>
                     {countdown.days > 0 && <>{countdown.days}d </>}

@@ -23,7 +23,7 @@ export default function PageTemplate({ title, icon, onBack, children, rightActio
         {onBack ? (
           <button 
             onClick={() => { sounds.click(); onBack(); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#D4873A] rounded-lg text-white text-sm font-semibold hover:bg-[#c06a2a] transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#E36B11] rounded-lg text-white text-sm font-semibold hover:bg-[#c06a2a] transition-colors"
           >
             <ChevronLeft className="w-4 h-4" />
             Back

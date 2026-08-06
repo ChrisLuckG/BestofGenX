@@ -60,9 +60,9 @@ export default function BottomNav({ activeTab, onTabChange, userAvatar, profileH
                   )}
                 </div>
               ) : Icon ? (
-                <Icon className={`w-6 h-6 ${isActive ? 'text-[#D4873A]' : 'text-gray-700'}`} />
+                <Icon className={`w-6 h-6 ${isActive ? 'text-[#E36B11]' : 'text-gray-700'}`} />
               ) : null}
-              <span className={`text-[10px] font-bold`} style={{ color: isActive ? '#D4873A' : '#374151' }}>
+              <span className={`text-[10px] font-bold`} style={{ color: isActive ? '#E36B11' : '#374151' }}>
                 {tab.label}
               </span>
             </button>

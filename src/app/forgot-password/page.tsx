@@ -53,7 +53,7 @@ export default function ForgotPasswordPage() {
           </p>
           <a
             href="/"
-            className="inline-block px-6 py-3 bg-[#D4873A] hover:bg-[#C4772A] text-white font-semibold rounded-xl transition-colors"
+            className="inline-block px-6 py-3 bg-[#E36B11] hover:bg-[#C4772A] text-white font-semibold rounded-xl transition-colors"
           >
             Back to Login
           </a>
@@ -87,7 +87,7 @@ export default function ForgotPasswordPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your@email.com"
-                className="w-full pl-11 pr-4 py-3 bg-white border border-warm rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#D4873A]"
+                className="w-full pl-11 pr-4 py-3 bg-white border border-warm rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#E36B11]"
                 required
               />
             </div>
@@ -96,14 +96,14 @@ export default function ForgotPasswordPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-[#D4873A] hover:bg-[#C4772A] text-white font-semibold rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full py-3 bg-[#E36B11] hover:bg-[#C4772A] text-white font-semibold rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {loading ? <GenXLoader size="sm" /> : "Send Reset Link"}
           </button>
         </form>
 
         <p className="text-center text-sm text-gray-500 mt-6">
-          <a href="/" className="text-[#D4873A] font-semibold hover:underline inline-flex items-center gap-1">
+          <a href="/" className="text-[#E36B11] font-semibold hover:underline inline-flex items-center gap-1">
             <ChevronLeft className="w-4 h-4" />
             Back to Login
           </a>

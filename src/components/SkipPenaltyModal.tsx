@@ -19,8 +19,8 @@ export default function SkipPenaltyModal({ isOpen, onPlay, onSkip }: SkipPenalty
       <div className="bg-cream rounded-2xl max-w-sm w-full shadow-xl">
         {/* Header */}
         <div className="p-6 text-center">
-          <div className="w-20 h-20 bg-[#D4873A]/20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <AlertTriangle className="w-10 h-10 text-[#D4873A]" />
+          <div className="w-20 h-20 bg-[#E36B11]/20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle className="w-10 h-10 text-[#E36B11]" />
           </div>
           <h2 className="text-2xl font-black text-gray-900 mb-2">
             Skip Challenge?
@@ -44,7 +44,7 @@ export default function SkipPenaltyModal({ isOpen, onPlay, onSkip }: SkipPenalty
         <div className="px-6 pb-6 space-y-3">
           <button
             onClick={onPlay}
-            className="w-full py-4 bg-[#D4873A] hover:bg-[#c4e000] rounded-xl font-bold text-white text-lg transition-all flex items-center justify-center gap-3"
+            className="w-full py-4 bg-[#E36B11] hover:bg-[#c4e000] rounded-xl font-bold text-white text-lg transition-all flex items-center justify-center gap-3"
           >
             <Play className="w-6 h-6" fill="black" />
             Play Challenge

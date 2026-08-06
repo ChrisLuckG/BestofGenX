@@ -182,9 +182,9 @@ TECH STACK:
 - Web-Push for notifications
 
 DESIGN RULES:
-- Brand color: #D4873A (Orange/Amber)
-- Primary Buttons: bg-[#D4873A] hover:bg-[#C4772A] text-white
-- Secondary: bg-[#D4873A]/10 text-[#D4873A]
+- Brand color: #E36B11 (Orange/Amber)
+- Primary Buttons: bg-[#E36B11] hover:bg-[#C4772A] text-white
+- Secondary: bg-[#E36B11]/10 text-[#E36B11]
 - Backgrounds: bg-cream (warm beige), NOT bg-white
 - Borders: border-warm
 - FORBIDDEN: rounded-full (no round buttons/inputs!)
@@ -242,7 +242,7 @@ FEATURES
 
 MOBILE VS DESKTOP:
 - Separate designs! DON'T mix!
-- Desktop has warm accents: bg-gradient-to-b from-[#D4873A]/5
+- Desktop has warm accents: bg-gradient-to-b from-[#E36B11]/5
 - Mobile is cleaner
 
 ================================================================================

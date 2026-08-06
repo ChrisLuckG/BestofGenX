@@ -76,12 +76,12 @@ export default function LogoLoader({ size = "md", text, showMessages = false }: 
       <div className="relative">
         {/* Glow effect - pulsing */}
         <div 
-          className={`absolute inset-0 ${sizeClasses[size]} bg-[#D4873A] rounded-full blur-xl transition-opacity duration-500`}
+          className={`absolute inset-0 ${sizeClasses[size]} bg-[#E36B11] rounded-full blur-xl transition-opacity duration-500`}
           style={{ opacity: glowIntensity }}
         />
         
         {/* Outer spinning ring */}
-        <div className={`absolute -inset-2 border border-[#D4873A]/20 rounded-full animate-spin`} style={{ animationDuration: '3s' }} />
+        <div className={`absolute -inset-2 border border-[#E36B11]/20 rounded-full animate-spin`} style={{ animationDuration: '3s' }} />
         
         {/* Logo */}
         <div className={`relative ${sizeClasses[size]} animate-bounce`} style={{ animationDuration: '1.5s' }}>
@@ -93,11 +93,11 @@ export default function LogoLoader({ size = "md", text, showMessages = false }: 
         </div>
         
         {/* Inner spinning ring */}
-        <div className={`absolute inset-0 ${sizeClasses[size]} border-2 border-transparent border-t-[#D4873A] border-r-[#D4873A]/50 rounded-full animate-spin`} />
+        <div className={`absolute inset-0 ${sizeClasses[size]} border-2 border-transparent border-t-[#E36B11] border-r-[#E36B11]/50 rounded-full animate-spin`} />
         
         {/* Reverse spinning ring */}
         <div 
-          className={`absolute -inset-1 border border-transparent border-b-[#D4873A]/30 border-l-[#D4873A]/10 rounded-full`}
+          className={`absolute -inset-1 border border-transparent border-b-[#E36B11]/30 border-l-[#E36B11]/10 rounded-full`}
           style={{ animation: 'spin 2s linear infinite reverse' }}
         />
       </div>
@@ -105,7 +105,7 @@ export default function LogoLoader({ size = "md", text, showMessages = false }: 
       {/* Loading text with fade transition */}
       {displayText && (
         <p 
-          className={`${textSizeClasses[size]} font-bold text-[#D4873A]/80 text-center transition-all duration-300`}
+          className={`${textSizeClasses[size]} font-bold text-[#E36B11]/80 text-center transition-all duration-300`}
           key={messageIndex}
           style={{ animation: showMessages ? 'fadeInUp 0.3s ease-out' : undefined }}
         >
@@ -120,7 +120,7 @@ export default function LogoLoader({ size = "md", text, showMessages = false }: 
             key={i}
             className="w-2 h-2 rounded-full transition-all duration-300"
             style={{
-              backgroundColor: i <= dots.length + 1 ? '#D4873A' : 'rgba(212, 240, 0, 0.2)',
+              backgroundColor: i <= dots.length + 1 ? '#E36B11' : 'rgba(212, 240, 0, 0.2)',
               transform: i === dots.length ? 'scale(1.3)' : 'scale(1)',
               boxShadow: i <= dots.length + 1 ? '0 0 8px rgba(212, 240, 0, 0.6)' : 'none'
             }}

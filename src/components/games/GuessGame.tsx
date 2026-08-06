@@ -93,7 +93,7 @@ export default function GuessGame({ onComplete, onStart, disabled = false }: Gue
   const formatQuestion = (question: string) => {
     let result = question;
     gameData.highlightWords.forEach(word => {
-      result = result.replace(word, `<span class="text-[#D4873A]">${word}</span>`);
+      result = result.replace(word, `<span class="text-[#E36B11]">${word}</span>`);
     });
     return result;
   };
@@ -116,7 +116,7 @@ export default function GuessGame({ onComplete, onStart, disabled = false }: Gue
           {/* Top Badges */}
           <div className="px-4 pt-4 flex items-center justify-between">
             <div className="flex items-center gap-2 px-3 py-1.5 bg-black/50 backdrop-blur-sm rounded-full">
-              <HelpCircle className="w-4 h-4 text-[#D4873A]" />
+              <HelpCircle className="w-4 h-4 text-[#E36B11]" />
               <span className="text-xs font-bold text-white">GUESS CARD</span>
             </div>
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-black/50 backdrop-blur-sm rounded-full">
@@ -129,7 +129,7 @@ export default function GuessGame({ onComplete, onStart, disabled = false }: Gue
           <div className="flex-1 flex flex-col items-center justify-center px-6">
             {/* Theme Badge */}
             <div className="mb-2">
-              <span className="text-[#D4873A] text-xs tracking-widest">THEME</span>
+              <span className="text-[#E36B11] text-xs tracking-widest">THEME</span>
             </div>
             
             {/* Theme Title with Icon */}
@@ -142,12 +142,12 @@ export default function GuessGame({ onComplete, onStart, disabled = false }: Gue
 
             {/* Topic */}
             <div className="mb-6">
-              <span className="text-[#D4873A] text-xs tracking-widest">TOPIC</span>
+              <span className="text-[#E36B11] text-xs tracking-widest">TOPIC</span>
               <h2 className="text-white font-bold text-xl">{gameData.topic}</h2>
             </div>
 
             {/* Reward Box */}
-            <div className="bg-gradient-to-r from-[#D4873A]/20 to-[#D4873A]/10 border border-[#D4873A]/50 rounded-full px-6 py-3 mb-6">
+            <div className="bg-gradient-to-r from-[#E36B11]/20 to-[#E36B11]/10 border border-[#E36B11]/50 rounded-full px-6 py-3 mb-6">
               <div className="flex items-center gap-2">
                 <span className="text-white/60 text-sm">YOU CAN WIN</span>
                 <div className="flex items-center gap-1">
@@ -161,7 +161,7 @@ export default function GuessGame({ onComplete, onStart, disabled = false }: Gue
 
             {/* Difficulty */}
             <div className="text-center mb-2">
-              <span className="text-[#D4873A] text-xs tracking-widest">DIFFICULTY</span>
+              <span className="text-[#E36B11] text-xs tracking-widest">DIFFICULTY</span>
               <div className="flex items-center justify-center gap-1 mt-1">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <Star 
@@ -178,7 +178,7 @@ export default function GuessGame({ onComplete, onStart, disabled = false }: Gue
           <div className="px-4 pb-4 space-y-2">
             <button
               onClick={startGame}
-              className="w-full bg-gradient-to-r from-[#D4873A] to-[#d00440] hover:from-[#d00440] hover:to-[#b00030] rounded-full py-4 flex items-center justify-center gap-3 transition-all hover:scale-[1.02] shadow-lg shadow-[#D4873A]/30"
+              className="w-full bg-gradient-to-r from-[#E36B11] to-[#d00440] hover:from-[#d00440] hover:to-[#b00030] rounded-full py-4 flex items-center justify-center gap-3 transition-all hover:scale-[1.02] shadow-lg shadow-[#E36B11]/30"
             >
               <Play className="w-5 h-5 text-white fill-white" />
               <span className="text-white font-black text-lg">PLAY NOW</span>
@@ -202,11 +202,11 @@ export default function GuessGame({ onComplete, onStart, disabled = false }: Gue
           {/* Top Badges */}
           <div className="px-4 pt-4 flex items-center justify-between">
             <div className="flex items-center gap-2 px-3 py-1.5 bg-black/50 backdrop-blur-sm rounded-full">
-              <Dribbble className="w-4 h-4 text-[#D4873A]" />
+              <Dribbble className="w-4 h-4 text-[#E36B11]" />
               <span className="text-xs font-bold text-white">SPORT</span>
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 bg-black/50 backdrop-blur-sm rounded-full">
-              <HelpCircle className="w-4 h-4 text-[#D4873A]" />
+              <HelpCircle className="w-4 h-4 text-[#E36B11]" />
               <span className="text-xs font-bold text-white">GUESS CARD</span>
             </div>
           </div>
@@ -254,7 +254,7 @@ export default function GuessGame({ onComplete, onStart, disabled = false }: Gue
                     selectedAnswer === option
                       ? option === gameData.correctAnswer
                         ? "bg-green-500 text-white"
-                        : "bg-[#D4873A] text-white"
+                        : "bg-[#E36B11] text-white"
                       : "bg-cream/10 text-white hover:bg-cream/20 border border-white/20"
                   }`}
                 >
@@ -295,7 +295,7 @@ export default function GuessGame({ onComplete, onStart, disabled = false }: Gue
 
                 {/* Current Points */}
                 <div className="text-right">
-                  <span className="text-[#D4873A] font-black text-lg">{currentPoints}</span>
+                  <span className="text-[#E36B11] font-black text-lg">{currentPoints}</span>
                   <span className="text-white/50 text-xs ml-1">BOGX</span>
                   <p className="text-white/50 text-[8px]">POSSIBLE</p>
                 </div>
@@ -306,7 +306,7 @@ export default function GuessGame({ onComplete, onStart, disabled = false }: Gue
 
           {/* Swipe Indicator */}
           <div className="pb-2 flex flex-col items-center">
-            <ChevronUp className="w-5 h-5 text-[#D4873A]" />
+            <ChevronUp className="w-5 h-5 text-[#E36B11]" />
             <span className="text-white/40 text-[10px] tracking-widest">SWIPE UP FOR NEXT CARD</span>
           </div>
         </div>
@@ -318,7 +318,7 @@ export default function GuessGame({ onComplete, onStart, disabled = false }: Gue
           {/* Top Badges */}
           <div className="px-4 pt-4 flex items-center justify-between">
             <div className="flex items-center gap-2 px-3 py-1.5 bg-black/50 backdrop-blur-sm rounded-full">
-              <HelpCircle className="w-4 h-4 text-[#D4873A]" />
+              <HelpCircle className="w-4 h-4 text-[#E36B11]" />
               <span className="text-xs font-bold text-white">GUESS CARD</span>
             </div>
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-black/50 backdrop-blur-sm rounded-full">
@@ -449,7 +449,7 @@ export default function GuessGame({ onComplete, onStart, disabled = false }: Gue
 
           {/* Swipe Indicator */}
           <div className="pb-2 flex flex-col items-center">
-            <ChevronUp className="w-5 h-5 text-[#D4873A]" />
+            <ChevronUp className="w-5 h-5 text-[#E36B11]" />
             <span className="text-white/40 text-[10px] tracking-widest">SWIPE UP FOR NEXT CARD</span>
           </div>
         </div>

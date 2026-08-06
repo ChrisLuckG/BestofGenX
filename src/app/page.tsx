@@ -66,10 +66,10 @@ export default function Home() {
                 onChange={(e) => setInput(e.target.value)}
                 autoFocus
                 autoComplete="off"
-                className="w-full px-3 py-2.5 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#D4873A] text-center shadow-lg border border-white/20 text-sm"
+                className="w-full px-3 py-2.5 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#E36B11] text-center shadow-lg border border-white/20 text-sm"
                 style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
               />
-              <button type="submit" className="w-full py-2.5 bg-[#D4873A] text-white text-base font-semibold tracking-wide transition-all hover:bg-[#e5954a] rounded-lg shadow-xl">
+              <button type="submit" className="w-full py-2.5 bg-[#E36B11] text-white text-base font-semibold tracking-wide transition-all hover:bg-[#e5954a] rounded-lg shadow-xl">
                 Enter
               </button>
             </form>

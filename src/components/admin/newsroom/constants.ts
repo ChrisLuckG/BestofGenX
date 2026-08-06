@@ -37,18 +37,18 @@ export const DEPT_THEME: Record<DepartmentId, {
   focusBorder: string;
 }> = {
   authors: {
-    tabActive: 'bg-[#D4873A] text-black',
-    accentText: 'text-[#D4873A]',
-    dot: 'bg-[#D4873A]',
-    rosterActive: 'bg-[#D4873A] border-[#D4873A] text-black',
+    tabActive: 'bg-[#E36B11] text-black',
+    accentText: 'text-[#E36B11]',
+    dot: 'bg-[#E36B11]',
+    rosterActive: 'bg-[#E36B11] border-[#E36B11] text-black',
     rosterActiveSub: 'text-black/70',
-    pieceActive: 'bg-[#D4873A] border-[#D4873A] text-black',
+    pieceActive: 'bg-[#E36B11] border-[#E36B11] text-black',
     pieceCompletedActive: 'bg-green-600 border-green-600 text-white',
     pieceCompletedInactive: 'bg-green-900/30 border-green-800 text-green-400',
-    hoverBorder: 'hover:border-[#D4873A]',
-    hoverText: 'hover:text-[#D4873A]',
-    sendBtn: 'bg-[#D4873A] hover:bg-[#c07830] text-black',
-    focusBorder: 'focus:border-[#D4873A]',
+    hoverBorder: 'hover:border-[#E36B11]',
+    hoverText: 'hover:text-[#E36B11]',
+    sendBtn: 'bg-[#E36B11] hover:bg-[#c07830] text-black',
+    focusBorder: 'focus:border-[#E36B11]',
   },
   it: {
     tabActive: 'bg-blue-500 text-white',

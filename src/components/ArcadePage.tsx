@@ -38,7 +38,7 @@ export default function ArcadePage({ onSelectGame, onShowRankings, onShowBattles
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-cream">
       {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
+      <div className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
         <div className="flex items-center gap-3">
           <img src="/images/Icon/trivia2.png" alt="" className="w-5 h-5 object-contain" />
           <div>
@@ -48,10 +48,10 @@ export default function ArcadePage({ onSelectGame, onShowRankings, onShowBattles
           {/* Open battles button - right side */}
           <button
             onClick={() => userId ? setShowOpenBattles(true) : onShowBattles?.()}
-            className="ml-auto relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#D4873A]/40 bg-[#D4873A]/10 hover:bg-[#D4873A]/20 transition-colors"
+            className="ml-auto relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E36B11]/40 bg-[#E36B11]/10 hover:bg-[#E36B11]/20 transition-colors"
           >
-            <Swords className="w-4 h-4 text-[#D4873A]" />
-            <span className="text-xs font-bold text-[#D4873A]">Open Battles</span>
+            <Swords className="w-4 h-4 text-[#E36B11]" />
+            <span className="text-xs font-bold text-[#E36B11]">Open Battles</span>
             {liveBattleCount > 0 && (
               <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 bg-red-500 rounded-full flex items-center justify-center text-white text-[9px] font-black shadow animate-pulse">
                 {liveBattleCount > 9 ? '9+' : liveBattleCount}
@@ -148,7 +148,7 @@ export default function ArcadePage({ onSelectGame, onShowRankings, onShowBattles
           <div className="relative h-full flex flex-col justify-center items-start text-left px-4 py-3 max-w-[70%]">
             {/* Title */}
             <h3 className="font-display text-[30px] leading-none tracking-wide mt-2">
-              <span className="text-white">SOLO</span> <span className="text-[#D4873A]">TRIVIA</span>
+              <span className="text-white">SOLO</span> <span className="text-[#E36B11]">TRIVIA</span>
             </h3>
 
             {/* Subtitle */}
@@ -176,7 +176,7 @@ export default function ArcadePage({ onSelectGame, onShowRankings, onShowBattles
             </div>
 
             {/* Play Now */}
-            <div className="flex items-center gap-2 mt-3 bg-[#D4873A] px-4 py-1.5 rounded-lg">
+            <div className="flex items-center gap-2 mt-3 bg-[#E36B11] px-4 py-1.5 rounded-lg">
               <span className="text-white text-[11px] font-bold">PLAY NOW</span>
               <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center">
                 <Play className="w-2 h-2 text-white fill-white ml-0.5" />

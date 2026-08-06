@@ -66,13 +66,13 @@ function CategoryRow({ category, videos, showSeparator, onVideoClick }: {
       {/* Category Separator */}
       {showSeparator && (
         <div className="flex items-center gap-3 mb-4 mt-2">
-          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#D4873A]/30 to-transparent" />
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#E36B11]/30 to-transparent" />
         </div>
       )}
       
       {/* Category Header */}
       <div className="flex items-center gap-2 mb-3">
-        <Film className="w-4 h-4 text-[#D4873A]" />
+        <Film className="w-4 h-4 text-[#E36B11]" />
         <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">{category}</h3>
         <span className="text-xs text-gray-400">({videos.length})</span>
       </div>
@@ -132,7 +132,7 @@ function CategoryRow({ category, videos, showSeparator, onVideoClick }: {
               </span>
             </div>
             {/* Title OUTSIDE/below the video */}
-            <h4 className="mt-1.5 font-display text-gray-900 text-sm uppercase tracking-wide line-clamp-2 leading-tight group-hover:text-[#D4873A] transition-colors">
+            <h4 className="mt-1.5 font-display text-gray-900 text-sm uppercase tracking-wide line-clamp-2 leading-tight group-hover:text-[#E36B11] transition-colors">
               {video.title}
             </h4>
           </div>
@@ -144,7 +144,7 @@ function CategoryRow({ category, videos, showSeparator, onVideoClick }: {
           <div className="md:hidden mt-2 flex justify-center">
             <div className="w-16 h-1 bg-gray-200 rounded-full overflow-hidden">
               <div 
-                className="h-full bg-[#D4873A] rounded-full transition-all duration-150"
+                className="h-full bg-[#E36B11] rounded-full transition-all duration-150"
                 style={{ width: `${Math.max(20, scrollProgress * 100)}%`, marginLeft: `${scrollProgress * (100 - Math.max(20, scrollProgress * 100))}%` }}
               />
             </div>
@@ -227,9 +227,9 @@ export default function TVPage() {
   return (
     <div className="h-full min-h-full bg-cream overflow-y-auto">
       {/* Header with Search & Language Filter */}
-      <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
+      <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
         <div className="flex items-center gap-3">
-          <Tv className="w-5 h-5 text-[#D4873A]" />
+          <Tv className="w-5 h-5 text-[#E36B11]" />
           <div>
             <span className="font-display text-lg tracking-wider text-gray-900 block leading-none uppercase">TV</span>
             <span className="text-[10px] text-gray-500 -mt-0.5 block">Movies, shows & more</span>
@@ -245,7 +245,7 @@ export default function TVPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search..."
-              className="w-full bg-cream border border-warm rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4873A]"
+              className="w-full bg-cream border border-warm rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#E36B11]"
             />
           </div>
           
@@ -254,7 +254,7 @@ export default function TVPage() {
             <button
               onClick={() => setLanguageFilter('all')}
               className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                languageFilter === 'all' ? 'bg-[#D4873A] text-white' : 'text-gray-600 hover:bg-[#D4873A]/10'
+                languageFilter === 'all' ? 'bg-[#E36B11] text-white' : 'text-gray-600 hover:bg-[#E36B11]/10'
               }`}
             >
               All
@@ -262,7 +262,7 @@ export default function TVPage() {
             <button
               onClick={() => setLanguageFilter('de')}
               className={`px-2 py-1 rounded flex items-center gap-1 transition-colors ${
-                languageFilter === 'de' ? 'bg-[#D4873A] text-white' : 'text-gray-600 hover:bg-[#D4873A]/10'
+                languageFilter === 'de' ? 'bg-[#E36B11] text-white' : 'text-gray-600 hover:bg-[#E36B11]/10'
               }`}
             >
               <CountryFlag flag="DE" className="w-4 h-3 rounded-sm" />
@@ -270,7 +270,7 @@ export default function TVPage() {
             <button
               onClick={() => setLanguageFilter('en')}
               className={`px-2 py-1 rounded flex items-center gap-1 transition-colors ${
-                languageFilter === 'en' ? 'bg-[#D4873A] text-white' : 'text-gray-600 hover:bg-[#D4873A]/10'
+                languageFilter === 'en' ? 'bg-[#E36B11] text-white' : 'text-gray-600 hover:bg-[#E36B11]/10'
               }`}
             >
               <CountryFlag flag="GB" className="w-4 h-3 rounded-sm" />
@@ -302,7 +302,7 @@ export default function TVPage() {
               <div className="absolute bottom-0 left-0 right-0 p-5">
                 {/* Badges row */}
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="bg-[#D4873A] text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
+                  <span className="bg-[#E36B11] text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
                     Main Feature
                   </span>
                   <span className="bg-white/20 backdrop-blur-sm text-white text-[10px] font-medium px-2.5 py-1 rounded-full flex items-center gap-1">
@@ -340,7 +340,7 @@ export default function TVPage() {
               
               {/* Play button overlay */}
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-20 h-20 bg-[#D4873A]/90 rounded-full flex items-center justify-center shadow-xl transform transition-all duration-300 group-hover:scale-110 group-hover:bg-[#D4873A]">
+                <div className="w-20 h-20 bg-[#E36B11]/90 rounded-full flex items-center justify-center shadow-xl transform transition-all duration-300 group-hover:scale-110 group-hover:bg-[#E36B11]">
                   <Play className="w-10 h-10 text-white fill-current ml-1" />
                 </div>
               </div>

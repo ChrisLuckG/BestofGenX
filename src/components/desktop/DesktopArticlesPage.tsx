@@ -198,9 +198,9 @@ export default function DesktopArticlesPage({ onOpenArticle, onShowLogin }: Desk
   return (
     <div className="h-full flex flex-col bg-[#F5F0E8] overflow-hidden">
       {/* Header with Search */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
         <div className="flex items-center gap-3">
-          <FileText className="w-5 h-5 text-[#D4873A]" />
+          <FileText className="w-5 h-5 text-[#E36B11]" />
           <div>
             <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Articles</span>
             <span className="text-[10px] text-gray-500 -mt-0.5 block">News & stories from the GenX world</span>
@@ -214,18 +214,18 @@ export default function DesktopArticlesPage({ onOpenArticle, onShowLogin }: Desk
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search..."
-            className="w-full pl-9 pr-3 py-1.5 bg-cream border border-warm rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D4873A]"
+            className="w-full pl-9 pr-3 py-1.5 bg-cream border border-warm rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#E36B11]"
           />
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 bg-gradient-to-b from-transparent to-[#D4873A]/[0.03]" style={{ scrollbarWidth: "none" }}>
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 bg-gradient-to-b from-transparent to-[#E36B11]/[0.03]" style={{ scrollbarWidth: "none" }}>
         {loading ? (
           <FeedSkeleton />
         ) : articles.length === 0 ? (
           <div className="text-center py-12">
-            <FileText className="w-10 h-10 text-[#D4873A]/30 mx-auto mb-3" />
+            <FileText className="w-10 h-10 text-[#E36B11]/30 mx-auto mb-3" />
             <p className="text-gray-500 text-sm">No articles yet</p>
           </div>
         ) : (
@@ -240,8 +240,8 @@ export default function DesktopArticlesPage({ onOpenArticle, onShowLogin }: Desk
                     onClick={() => setFilter(f.key)}
                     className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-all border ${
                       filter === f.key
-                        ? 'bg-[#D4873A] text-white border-[#D4873A]'
-                        : 'bg-cream text-gray-700 hover:bg-[#D4873A]/10 border-warm'
+                        ? 'bg-[#E36B11] text-white border-[#E36B11]'
+                        : 'bg-cream text-gray-700 hover:bg-[#E36B11]/10 border-warm'
                     }`}
                   >
                     {Icon && <Icon className="w-4 h-4" />}
@@ -269,7 +269,7 @@ export default function DesktopArticlesPage({ onOpenArticle, onShowLogin }: Desk
                 return (
                   <div
                     key={article._id}
-                    className="w-full text-left p-4 border rounded-xl hover:border-[#D4873A]/50 hover:shadow-lg transition-all duration-200 group bg-cream border-warm"
+                    className="w-full text-left p-4 border rounded-xl hover:border-[#E36B11]/50 hover:shadow-lg transition-all duration-200 group bg-cream border-warm"
                   >
                     <div className="flex items-center gap-4">
                       {/* Thumbnail */}
@@ -281,8 +281,8 @@ export default function DesktopArticlesPage({ onOpenArticle, onShowLogin }: Desk
                             <img src={article.coverImage} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" style={{ objectPosition: `${article.thumbnailPosition?.x || 50}% ${article.thumbnailPosition?.y || 50}%` }} />
                           )
                         ) : (
-                          <div className="w-full h-full bg-[#D4873A]/10 flex items-center justify-center">
-                            <FileText className="w-8 h-8 text-[#D4873A]/50" />
+                          <div className="w-full h-full bg-[#E36B11]/10 flex items-center justify-center">
+                            <FileText className="w-8 h-8 text-[#E36B11]/50" />
                           </div>
                         )}
                       </div>
@@ -298,11 +298,11 @@ export default function DesktopArticlesPage({ onOpenArticle, onShowLogin }: Desk
                               />
                             </span>
                           )}
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#D4873A]">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#E36B11]">
                             {CATEGORY_LABELS[article.category] || article.category}
                           </span>
                         </div>
-                        <h4 className="font-display text-xl tracking-wide text-gray-900 group-hover:text-[#D4873A] transition-colors line-clamp-2 uppercase">{article.title}</h4>
+                        <h4 className="font-display text-xl tracking-wide text-gray-900 group-hover:text-[#E36B11] transition-colors line-clamp-2 uppercase">{article.title}</h4>
                         <div className="text-xs text-gray-400 mt-1 truncate">
                           {article.authorName || 'BOGX Team'} · {formatDate(article.createdAt)}
                         </div>
@@ -314,7 +314,7 @@ export default function DesktopArticlesPage({ onOpenArticle, onShowLogin }: Desk
                       {/* Coin Badge only */}
                       <div className="flex items-center flex-shrink-0">
                         <div className={`px-2 py-1 rounded-lg border-2 font-display text-sm flex items-center gap-1 ${
-                          isRead ? 'border-green-500 text-green-600' : 'border-[#D4873A] text-[#D4873A]'
+                          isRead ? 'border-green-500 text-green-600' : 'border-[#E36B11] text-[#E36B11]'
                         }`}>
                           {isRead && <Check className="w-3 h-3" />}
                           0.05

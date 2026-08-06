@@ -187,7 +187,7 @@ export default function ArticlesListPage({ onOpenArticle, onShowLogin }: Article
       {/* Header with Search */}
       <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm">
         <div className="flex items-center gap-3">
-          <FileText className="w-5 h-5 text-[#D4873A]" />
+          <FileText className="w-5 h-5 text-[#E36B11]" />
           <div>
             <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Articles</span>
             <span className="text-[10px] text-gray-500 -mt-0.5 block">News & stories</span>
@@ -201,7 +201,7 @@ export default function ArticlesListPage({ onOpenArticle, onShowLogin }: Article
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search..."
-            className="w-full pl-8 pr-2 py-1.5 bg-cream border border-warm rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#D4873A]"
+            className="w-full pl-8 pr-2 py-1.5 bg-cream border border-warm rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#E36B11]"
           />
         </div>
       </div>
@@ -223,8 +223,8 @@ export default function ArticlesListPage({ onOpenArticle, onShowLogin }: Article
               onClick={() => setFilter(key)}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-all border ${
                 filter === key 
-                  ? 'bg-[#D4873A] text-white border-[#D4873A]' 
-                  : 'bg-cream text-gray-700 hover:bg-[#D4873A]/10 border-warm'
+                  ? 'bg-[#E36B11] text-white border-[#E36B11]' 
+                  : 'bg-cream text-gray-700 hover:bg-[#E36B11]/10 border-warm'
               }`}
             >
               {Icon && <Icon className="w-4 h-4" />}
@@ -262,7 +262,7 @@ export default function ArticlesListPage({ onOpenArticle, onShowLogin }: Article
             return (
               <div
                 key={article._id}
-                className="w-full text-left flex gap-3 p-3 border rounded-xl hover:border-[#D4873A]/30 hover:shadow-sm transition-all group bg-cream border-warm"
+                className="w-full text-left flex gap-3 p-3 border rounded-xl hover:border-[#E36B11]/30 hover:shadow-sm transition-all group bg-cream border-warm"
               >
                 {/* Thumbnail - square */}
                 <div className="relative w-24 h-24 flex-shrink-0 overflow-hidden cursor-pointer" onClick={() => handleArticleClick(article._id)}>
@@ -298,12 +298,12 @@ export default function ArticlesListPage({ onOpenArticle, onShowLogin }: Article
                 {/* Content */}
                 <div className="flex-1 flex flex-col justify-center min-w-0 cursor-pointer" onClick={() => handleArticleClick(article._id)}>
                   {/* Category Badge */}
-                  <span className="text-[10px] font-semibold uppercase tracking-wider mb-0.5 text-[#D4873A]">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider mb-0.5 text-[#E36B11]">
                     {CATEGORY_LABELS[article.category] || article.category}
                   </span>
                   
                   {/* Title */}
-                  <h3 className="font-display text-base tracking-wide leading-tight mb-1 line-clamp-2 group-hover:text-[#D4873A] transition-colors uppercase text-gray-900">
+                  <h3 className="font-display text-base tracking-wide leading-tight mb-1 line-clamp-2 group-hover:text-[#E36B11] transition-colors uppercase text-gray-900">
                     {article.title}
                   </h3>
 
@@ -328,7 +328,7 @@ export default function ArticlesListPage({ onOpenArticle, onShowLogin }: Article
                   <div className={`px-2 py-1 rounded-lg border-2 font-display text-sm flex items-center gap-1 ${
                     isRead 
                       ? 'border-green-500 text-green-600' 
-                      : 'border-[#D4873A] text-[#D4873A]'
+                      : 'border-[#E36B11] text-[#E36B11]'
                   }`}>
                     {isRead && <Check className="w-3 h-3" />}
                     0.05

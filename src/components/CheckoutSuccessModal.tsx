@@ -105,7 +105,7 @@ export default function CheckoutSuccessModal({ isOpen, onClose, sessionId }: Che
         {/* Loading State */}
         {loading && (
           <div className="text-center py-8">
-            <Loader2 className="w-12 h-12 mx-auto mb-4 text-[#D4873A] animate-spin" />
+            <Loader2 className="w-12 h-12 mx-auto mb-4 text-[#E36B11] animate-spin" />
             <p className="text-gray-600 font-medium">Verifying payment...</p>
             <p className="text-gray-400 text-sm mt-1">Please wait</p>
           </div>
@@ -132,12 +132,12 @@ export default function CheckoutSuccessModal({ isOpen, onClose, sessionId }: Che
         {!loading && paymentVerified === true && (
         <>
         <div className="text-center mb-5">
-          <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-[#D4873A]/10 flex items-center justify-center">
-            <Check className="w-8 h-8 text-[#D4873A]" />
+          <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-[#E36B11]/10 flex items-center justify-center">
+            <Check className="w-8 h-8 text-[#E36B11]" />
           </div>
           <h2 className="text-xl font-bold text-gray-900">Order Confirmed!</h2>
           {order?.oderId && (
-            <p className="text-[#D4873A] text-sm font-medium mt-1">#{order.oderId}</p>
+            <p className="text-[#E36B11] text-sm font-medium mt-1">#{order.oderId}</p>
           )}
           <p className="text-gray-500 text-xs mt-1">Thanks for your purchase</p>
         </div>
@@ -163,7 +163,7 @@ export default function CheckoutSuccessModal({ isOpen, onClose, sessionId }: Che
             {order.total > 0 && (
               <div className="mt-3 pt-3 border-t border-warm flex justify-between">
                 <span className="text-sm font-medium text-gray-600">Total</span>
-                <span className="text-lg font-bold text-[#D4873A]">€{order.total.toFixed(2)}</span>
+                <span className="text-lg font-bold text-[#E36B11]">€{order.total.toFixed(2)}</span>
               </div>
             )}
           </div>
@@ -173,10 +173,10 @@ export default function CheckoutSuccessModal({ isOpen, onClose, sessionId }: Che
         <div className="mb-5 p-3 bg-white rounded-xl border border-warm">
           <div className="flex items-center gap-3">
             <div className="flex flex-col items-center">
-              <div className="w-8 h-8 rounded-full bg-[#D4873A] flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full bg-[#E36B11] flex items-center justify-center">
                 <Check className="w-4 h-4 text-white" />
               </div>
-              <div className="w-0.5 h-6 bg-[#D4873A]" />
+              <div className="w-0.5 h-6 bg-[#E36B11]" />
             </div>
             <div>
               <p className="text-sm font-medium text-gray-900">Order Placed</p>
@@ -187,7 +187,7 @@ export default function CheckoutSuccessModal({ isOpen, onClose, sessionId }: Che
             <div className="flex flex-col items-center">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                 order?.status === 'processing' || order?.status === 'shipped' 
-                  ? 'bg-[#D4873A]' : 'bg-gray-200'
+                  ? 'bg-[#E36B11]' : 'bg-gray-200'
               }`}>
                 <Package className={`w-4 h-4 ${
                   order?.status === 'processing' || order?.status === 'shipped' 
@@ -195,7 +195,7 @@ export default function CheckoutSuccessModal({ isOpen, onClose, sessionId }: Che
                 }`} />
               </div>
               <div className={`w-0.5 h-6 ${
-                order?.status === 'shipped' ? 'bg-[#D4873A]' : 'bg-gray-200'
+                order?.status === 'shipped' ? 'bg-[#E36B11]' : 'bg-gray-200'
               }`} />
             </div>
             <div>
@@ -206,7 +206,7 @@ export default function CheckoutSuccessModal({ isOpen, onClose, sessionId }: Che
           <div className="flex items-center gap-3">
             <div className="flex flex-col items-center">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                order?.status === 'shipped' ? 'bg-[#D4873A]' : 'bg-gray-200'
+                order?.status === 'shipped' ? 'bg-[#E36B11]' : 'bg-gray-200'
               }`}>
                 <Truck className={`w-4 h-4 ${
                   order?.status === 'shipped' ? 'text-white' : 'text-gray-400'
@@ -223,7 +223,7 @@ export default function CheckoutSuccessModal({ isOpen, onClose, sessionId }: Che
         {/* Info */}
         <div className="space-y-2 text-sm text-center mb-5">
           <div className="flex items-center justify-center gap-2 text-gray-600">
-            <Mail className="w-4 h-4 text-[#D4873A]" />
+            <Mail className="w-4 h-4 text-[#E36B11]" />
             <span>Confirmation email on its way</span>
           </div>
         </div>
@@ -231,7 +231,7 @@ export default function CheckoutSuccessModal({ isOpen, onClose, sessionId }: Che
         {/* Button */}
         <button
           onClick={onClose}
-          className="w-full py-3 rounded-xl font-bold bg-[#D4873A] text-white text-sm hover:bg-[#c06a2a] transition-all"
+          className="w-full py-3 rounded-xl font-bold bg-[#E36B11] text-white text-sm hover:bg-[#c06a2a] transition-all"
         >
           Continue Shopping
         </button>

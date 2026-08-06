@@ -150,7 +150,7 @@ export default function EditorialChatModal({ reporter, onClose, onGoToArticles }
               <img src={reporter.user.avatar} alt={reporterName} className="w-9 h-9 rounded-lg object-cover" />
             ) : (
               <div className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold text-white"
-                style={{ background: 'linear-gradient(135deg,#D4873A 0%,#a86b2b 100%)' }}>
+                style={{ background: 'linear-gradient(135deg,#E36B11 0%,#a86b2b 100%)' }}>
                 {reporterName[0]?.toUpperCase()}
               </div>
             )}
@@ -162,7 +162,7 @@ export default function EditorialChatModal({ reporter, onClose, onGoToArticles }
           <div className="flex items-center gap-1">
             <button
               onClick={() => setShowMemories(!showMemories)}
-              className={`p-1.5 rounded text-xs flex items-center gap-1 transition-colors ${showMemories ? 'bg-[#D4873A]/20 text-[#D4873A]' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+              className={`p-1.5 rounded text-xs flex items-center gap-1 transition-colors ${showMemories ? 'bg-[#E36B11]/20 text-[#E36B11]' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
               title="Reporter memories"
             >
               <Brain className="w-3.5 h-3.5" />
@@ -176,7 +176,7 @@ export default function EditorialChatModal({ reporter, onClose, onGoToArticles }
         {/* Memories panel */}
         {showMemories && (
           <div className="bg-gray-800/60 border-b border-gray-700 px-4 py-3 max-h-32 overflow-y-auto">
-            <div className="text-[10px] text-[#D4873A] font-semibold mb-1.5 uppercase tracking-wider">
+            <div className="text-[10px] text-[#E36B11] font-semibold mb-1.5 uppercase tracking-wider">
               {reporterName}'s Memories ({reporter.memories?.length || 0})
             </div>
             {reporter.memories?.length > 0 ? (
@@ -200,7 +200,7 @@ export default function EditorialChatModal({ reporter, onClose, onGoToArticles }
           ) : messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
               <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl"
-                style={{ background: 'linear-gradient(135deg,#D4873A 0%,#a86b2b 100%)' }}>
+                style={{ background: 'linear-gradient(135deg,#E36B11 0%,#a86b2b 100%)' }}>
                 {reporterName[0]?.toUpperCase()}
               </div>
               <div>
@@ -233,7 +233,7 @@ export default function EditorialChatModal({ reporter, onClose, onGoToArticles }
                     <img src={reporter.user.avatar} alt={reporterName} className="w-7 h-7 rounded-lg object-cover flex-shrink-0 mt-0.5" />
                   ) : (
                     <div className="w-7 h-7 rounded-lg flex-shrink-0 flex items-center justify-center text-xs font-bold text-white mt-0.5"
-                      style={{ background: 'linear-gradient(135deg,#D4873A 0%,#a86b2b 100%)' }}>
+                      style={{ background: 'linear-gradient(135deg,#E36B11 0%,#a86b2b 100%)' }}>
                       {reporterName[0]?.toUpperCase()}
                     </div>
                   )
@@ -242,7 +242,7 @@ export default function EditorialChatModal({ reporter, onClose, onGoToArticles }
                 <div className={`max-w-[80%] ${msg.role === 'user' ? 'items-end' : 'items-start'} flex flex-col gap-0.5`}>
                   <div className={`px-3 py-2 rounded-xl text-sm leading-relaxed ${
                     msg.role === 'user'
-                      ? 'bg-[#D4873A] text-white rounded-tr-sm'
+                      ? 'bg-[#E36B11] text-white rounded-tr-sm'
                       : 'bg-gray-800 text-gray-100 rounded-tl-sm'
                   }`}>
                     <p dangerouslySetInnerHTML={{ __html: formatContent(msg.content) }} />
@@ -268,7 +268,7 @@ export default function EditorialChatModal({ reporter, onClose, onGoToArticles }
           {sending && (
             <div className="flex gap-2.5">
               <div className="w-7 h-7 rounded-lg flex-shrink-0 flex items-center justify-center text-xs font-bold text-white"
-                style={{ background: 'linear-gradient(135deg,#D4873A 0%,#a86b2b 100%)' }}>
+                style={{ background: 'linear-gradient(135deg,#E36B11 0%,#a86b2b 100%)' }}>
                 {reporterName[0]?.toUpperCase()}
               </div>
               <div className="px-3 py-2.5 bg-gray-800 rounded-xl rounded-tl-sm">
@@ -293,14 +293,14 @@ export default function EditorialChatModal({ reporter, onClose, onGoToArticles }
               onKeyDown={handleKeyDown}
               placeholder={`Message ${reporterName}... (Enter to send, Shift+Enter for newline)`}
               rows={1}
-              className="flex-1 bg-gray-700 text-white text-sm px-3 py-2 rounded-lg resize-none outline-none focus:ring-1 focus:ring-[#D4873A] placeholder:text-gray-500 max-h-32"
+              className="flex-1 bg-gray-700 text-white text-sm px-3 py-2 rounded-lg resize-none outline-none focus:ring-1 focus:ring-[#E36B11] placeholder:text-gray-500 max-h-32"
               style={{ minHeight: '38px' }}
               autoFocus
             />
             <button
               onClick={sendMessage}
               disabled={!input.trim() || sending}
-              className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-lg bg-[#D4873A] text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#C4772A] transition-colors"
+              className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-lg bg-[#E36B11] text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#C4772A] transition-colors"
             >
               {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </button>

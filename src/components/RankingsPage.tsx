@@ -164,9 +164,9 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-cream">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
         <div className="flex items-center gap-2">
-          <Trophy className="w-5 h-5 text-[#D4873A]" />
+          <Trophy className="w-5 h-5 text-[#E36B11]" />
           <span className="font-display text-lg tracking-wider text-gray-900">Rankings</span>
         </div>
         {onShowRewards && (
@@ -214,12 +214,12 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
         ) : isLoggedIn && currentUserRank ? (
           <div className="mx-4 mt-3 mb-3">
             {/* Main Card */}
-            <div className="bg-gradient-to-r from-[#F5EDE4] to-[#EDE5DC] border border-[#D4873A]/20 rounded-xl overflow-hidden">
+            <div className="bg-gradient-to-r from-[#F5EDE4] to-[#EDE5DC] border border-[#E36B11]/20 rounded-xl overflow-hidden">
               {/* Row 1: Avatar+Name (left) | Rank (right) */}
               <div className="p-3 flex items-center justify-between">
                 {/* LEFT: Avatar + Name + Country */}
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full border-2 border-[#D4873A]/40 overflow-hidden flex-shrink-0">
+                  <div className="w-12 h-12 rounded-full border-2 border-[#E36B11]/40 overflow-hidden flex-shrink-0">
                     <img src={currentUserRank.avatar} alt="" className="w-full h-full object-cover" />
                   </div>
                   <div>
@@ -235,7 +235,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                 </div>
                 
                 {/* RIGHT: Rank Box - solid background */}
-                <div className="flex-shrink-0 bg-[#D4873A] rounded-lg px-3 py-2 flex items-center gap-2">
+                <div className="flex-shrink-0 bg-[#E36B11] rounded-lg px-3 py-2 flex items-center gap-2">
                   <Trophy className="w-5 h-5 text-white" />
                   <div>
                     <div className="text-[8px] text-white/80 uppercase tracking-wider leading-none">Rank</div>
@@ -256,7 +256,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                 const nextName = getNextLevelName(userBogx);
                 
                 return (
-                  <div className="px-3 pb-3 border-t border-dashed border-[#D4873A]/10 pt-2">
+                  <div className="px-3 pb-3 border-t border-dashed border-[#E36B11]/10 pt-2">
                     <div style={{ color: level.color }} className="font-bold text-xs">{level.name.toUpperCase()}</div>
                     <div className="flex items-center gap-2 mt-0.5">
                       {/* Segmented Progress Bar */}
@@ -306,7 +306,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
               {/* Pull handle - toggles Stats Row */}
               <button
                 onClick={() => setStatsExpanded(prev => !prev)}
-                className="w-full flex items-center justify-center gap-1.5 py-1 border-t border-dashed border-[#D4873A]/20 bg-white/30 active:bg-[#D4873A]/5 transition-colors"
+                className="w-full flex items-center justify-center gap-1.5 py-1 border-t border-dashed border-[#E36B11]/20 bg-white/30 active:bg-[#E36B11]/5 transition-colors"
               >
                 <span className="text-[9px] font-semibold uppercase tracking-wider text-gray-500">
                   {statsExpanded ? 'Less' : 'More Stats'}
@@ -322,7 +322,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                 className="overflow-hidden transition-all duration-300 ease-out"
                 style={{ maxHeight: statsExpanded ? '100px' : '0px', opacity: statsExpanded ? 1 : 0 }}
               >
-                <div className="flex items-center justify-around py-3 px-3 border-t border-dashed border-[#D4873A]/20 bg-white/50">
+                <div className="flex items-center justify-around py-3 px-3 border-t border-dashed border-[#E36B11]/20 bg-white/50">
                   <div className="text-center">
                     <Trophy className="w-4 h-4 text-gray-900 mx-auto" />
                     <div className="font-bold text-base text-gray-900">
@@ -351,7 +351,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
         ) : !isLoggedIn && (
           <button 
             onClick={onShowSignup}
-            className="mx-4 mt-3 mb-2 px-3 py-3 bg-cream border border-warm rounded-lg flex items-center gap-3 w-[calc(100%-2rem)] hover:border-[#D4873A] hover:bg-[#D4873A]/5 transition-colors"
+            className="mx-4 mt-3 mb-2 px-3 py-3 bg-cream border border-warm rounded-lg flex items-center gap-3 w-[calc(100%-2rem)] hover:border-[#E36B11] hover:bg-[#E36B11]/5 transition-colors"
           >
             {/* Placeholder Avatar */}
             <div className="w-12 h-12 rounded-full border-2 border-warm bg-cream flex items-center justify-center flex-shrink-0">
@@ -365,7 +365,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
             </div>
             
             {/* Signup button */}
-            <div className="px-3 py-1.5 bg-[#D4873A] text-white text-xs font-bold tracking-wider">
+            <div className="px-3 py-1.5 bg-[#E36B11] text-white text-xs font-bold tracking-wider">
               JOIN NOW
             </div>
           </button>
@@ -389,7 +389,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
               onClick={() => setActiveTab(tab)}
               className={`flex-1 py-3 text-xs font-semibold uppercase tracking-widest transition-all ${
                 activeTab === tab
-                  ? "text-[#D4873A] border-b-2 border-[#D4873A]"
+                  ? "text-[#E36B11] border-b-2 border-[#E36B11]"
                   : "text-gray-600"
               }`}
             >
@@ -409,12 +409,12 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                 {isOnBreak() ? (
                   <>
                     <img src="/images/coffee-break.svg" alt="" className="w-5 h-5" />
-                    <span className="text-[9px] font-semibold tracking-widest text-[#D4873A] uppercase">Break</span>
+                    <span className="text-[9px] font-semibold tracking-widest text-[#E36B11] uppercase">Break</span>
                   </>
                 ) : isLive ? (
                   <>
-                    <div className="w-1.5 h-1.5 bg-[#D4873A] rounded-full animate-pulse" />
-                    <span className="text-[9px] font-semibold tracking-widest text-[#D4873A] uppercase">Live</span>
+                    <div className="w-1.5 h-1.5 bg-[#E36B11] rounded-full animate-pulse" />
+                    <span className="text-[9px] font-semibold tracking-widest text-[#E36B11] uppercase">Live</span>
                   </>
                 ) : null}
               </div>
@@ -545,11 +545,11 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                     key={player.id}
                     onClick={() => setSelectedPlayerId(player.id)}
                     className={`flex items-center gap-3 py-3 border-b border-warm cursor-pointer hover:bg-cream ${
-                      isMe ? 'bg-[#D4873A]/5 border-t border-b border-[#D4873A]/20 -mx-5 px-5' : ''
+                      isMe ? 'bg-[#E36B11]/5 border-t border-b border-[#E36B11]/20 -mx-5 px-5' : ''
                     }`}
                   >
                     {/* Rank */}
-                    <div className={`font-display text-base min-w-[24px] text-center ${isMe ? 'text-[#D4873A]' : 'text-gray-600'}`}>
+                    <div className={`font-display text-base min-w-[24px] text-center ${isMe ? 'text-[#E36B11]' : 'text-gray-600'}`}>
                       {player.rank}
                     </div>
                     
@@ -566,18 +566,18 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                       <div className="flex items-center gap-1.5">
                         <CountryFlag flag={player.flag} className="w-4 h-3 rounded-[2px]" />
                         <span className="text-sm font-semibold text-gray-900 truncate">{player.name}</span>
-                        {isMe && <span className="text-[7px] font-bold bg-[#D4873A] text-white px-1.5 py-0.5">YOU</span>}
+                        {isMe && <span className="text-[7px] font-bold bg-[#E36B11] text-white px-1.5 py-0.5">YOU</span>}
                       </div>
                       <div className="text-[10px] text-gray-600">{player.country}</div>
                     </div>
                     
                     {/* Trend */}
-                    {wentUp && <span className="text-[9px] font-semibold text-[#D4873A]">↑</span>}
+                    {wentUp && <span className="text-[9px] font-semibold text-[#E36B11]">↑</span>}
                     {wentDown && <span className="text-[9px] font-semibold text-red-500">↓</span>}
                     {!wentUp && !wentDown && <span className="text-[9px] text-gray-300">—</span>}
                     
                     {/* Points */}
-                    <div className={`font-display text-lg ${isMe ? 'text-[#D4873A]' : 'text-gray-900'}`}>
+                    <div className={`font-display text-lg ${isMe ? 'text-[#E36B11]' : 'text-gray-900'}`}>
                       {formatCurrency(player.points)} {getCurrencySymbol()}
                     </div>
                   </div>

@@ -145,7 +145,7 @@ export default function RewardsPage({ isOpen, coins, onClose, onRedeem, embedded
             <span className="font-display text-lg tracking-wider">Ranking</span>
           </button>
           <div className="flex items-center gap-2">
-            <Gift className="w-5 h-5 text-[#D4873A]" />
+            <Gift className="w-5 h-5 text-[#E36B11]" />
             <span className="font-display text-lg tracking-wider text-gray-900">Rewards</span>
           </div>
         </div>
@@ -153,13 +153,13 @@ export default function RewardsPage({ isOpen, coins, onClose, onRedeem, embedded
         <div className="flex items-center justify-between p-3 border-b border-warm flex-shrink-0" style={{ backgroundColor: '#F5F0E8' }}>
           <button 
             onClick={onClose}
-            className="flex items-center gap-2 text-gray-700 hover:text-[#D4873A] transition-colors"
+            className="flex items-center gap-2 text-gray-700 hover:text-[#E36B11] transition-colors"
           >
             <ChevronLeft className="w-6 h-6" />
             <span className="text-base font-bold">Back</span>
           </button>
           <div className="flex items-center gap-2">
-            <Gift className="w-5 h-5 text-[#D4873A]" />
+            <Gift className="w-5 h-5 text-[#E36B11]" />
             <h1 className="text-lg font-bold text-gray-900">Rewards</h1>
           </div>
           <div className="w-16" />
@@ -168,7 +168,7 @@ export default function RewardsPage({ isOpen, coins, onClose, onRedeem, embedded
 
       {/* Quick Top Up Buttons */}
       <div className="p-3 border-b border-warm" style={{ backgroundColor: '#F5F0E8' }}>
-        <p className="text-[10px] text-[#D4873A] mb-2 text-center uppercase tracking-wider font-semibold">Top Up</p>
+        <p className="text-[10px] text-[#E36B11] mb-2 text-center uppercase tracking-wider font-semibold">Top Up</p>
         <div className="grid grid-cols-3 gap-2">
           {[
             { points: 0.50, price: '0,50€', priceValue: 50 },
@@ -181,17 +181,17 @@ export default function RewardsPage({ isOpen, coins, onClose, onRedeem, embedded
             <button
               key={pkg.points}
               onClick={() => setPaymentPackage(pkg)}
-              className="flex flex-col items-center py-2 px-1 rounded-xl bg-cream border border-[#D4873A]/20 hover:bg-[#D4873A]/10 hover:border-[#D4873A]/50 transition-all hover:scale-105"
+              className="flex flex-col items-center py-2 px-1 rounded-xl bg-cream border border-[#E36B11]/20 hover:bg-[#E36B11]/10 hover:border-[#E36B11]/50 transition-all hover:scale-105"
             >
               <span className="text-gray-900 font-bold text-sm">+{formatCurrency(pkg.points)}{getCurrencySymbol()}</span>
-              <span className="text-[10px] text-[#D4873A]">{pkg.price}</span>
+              <span className="text-[10px] text-[#E36B11]">{pkg.price}</span>
             </button>
           ))}
         </div>
         
         {/* Watch Ad for Free Points */}
         <div className="mt-3">
-          <p className="text-[10px] text-[#D4873A] mb-2 text-center uppercase tracking-wider font-semibold">Or Earn Free</p>
+          <p className="text-[10px] text-[#E36B11] mb-2 text-center uppercase tracking-wider font-semibold">Or Earn Free</p>
           <RewardedAdButton 
             onReward={(points) => onRedeem(`ad-reward-${Date.now()}`, -points)}
           />
@@ -224,7 +224,7 @@ export default function RewardsPage({ isOpen, coins, onClose, onRedeem, embedded
               onClick={() => setSelectedReward(reward)}
               className={`relative p-4 rounded-xl border transition-all duration-300 transform hover:scale-[1.02] cursor-pointer ${
                 canAfford
-                  ? "border-[#D4873A]/50 bg-gradient-to-r from-[#D4873A]/10 to-white hover:border-[#D4873A] hover:shadow-lg hover:shadow-[#D4873A]/20"
+                  ? "border-[#E36B11]/50 bg-gradient-to-r from-[#E36B11]/10 to-white hover:border-[#E36B11] hover:shadow-lg hover:shadow-[#E36B11]/20"
                   : "border-warm bg-cream"
               }`}
               style={{ animationDelay: `${index * 100}ms` }}
@@ -233,7 +233,7 @@ export default function RewardsPage({ isOpen, coins, onClose, onRedeem, embedded
               {!canAfford && (
                 <div className="absolute bottom-0 left-0 right-0 h-1 bg-cream overflow-hidden rounded-b-xl">
                   <div 
-                    className="h-full bg-[#D4873A] transition-all duration-500"
+                    className="h-full bg-[#E36B11] transition-all duration-500"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
@@ -241,7 +241,7 @@ export default function RewardsPage({ isOpen, coins, onClose, onRedeem, embedded
               
               {/* Glow effect for affordable */}
               {canAfford && (
-                <div className="absolute inset-0 bg-gradient-to-r from-[#D4873A]/20 to-transparent animate-pulse rounded-xl" style={{ animationDuration: '3s' }} />
+                <div className="absolute inset-0 bg-gradient-to-r from-[#E36B11]/20 to-transparent animate-pulse rounded-xl" style={{ animationDuration: '3s' }} />
               )}
               
               <div className="relative flex items-center gap-3">
@@ -249,17 +249,17 @@ export default function RewardsPage({ isOpen, coins, onClose, onRedeem, embedded
                 <div className="flex flex-col items-center gap-1 flex-shrink-0">
                   <div className={`relative w-12 h-12 rounded-xl flex items-center justify-center transition-all ${
                     canAfford 
-                      ? 'bg-[#D4873A] shadow-lg shadow-[#D4873A]/30 animate-pulse' 
-                      : reward.category === 'premium' ? 'bg-[#D4873A]/20' : 'bg-cream'
+                      ? 'bg-[#E36B11] shadow-lg shadow-[#E36B11]/30 animate-pulse' 
+                      : reward.category === 'premium' ? 'bg-[#E36B11]/20' : 'bg-cream'
                   }`}>
                     <IconComponent className={`w-6 h-6 ${canAfford ? 'text-black' : 'text-gray-600'}`} />
                     {canAfford && (
-                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-[#D4873A] rounded-full animate-ping" />
+                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-[#E36B11] rounded-full animate-ping" />
                     )}
                   </div>
                   <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${
                     reward.category === 'premium' 
-                      ? 'bg-[#D4873A]/20 text-[#D4873A] border border-[#D4873A]/30' 
+                      ? 'bg-[#E36B11]/20 text-[#E36B11] border border-[#E36B11]/30' 
                       : 'bg-cream text-gray-500'
                   }`}>
                     {reward.partner}
@@ -279,7 +279,7 @@ export default function RewardsPage({ isOpen, coins, onClose, onRedeem, embedded
                       </span>
                     </div>
                     {!canAfford && (
-                      <span className="text-[10px] text-[#D4873A] bg-[#D4873A]/10 px-2 py-0.5 rounded">
+                      <span className="text-[10px] text-[#E36B11] bg-[#E36B11]/10 px-2 py-0.5 rounded">
                         {formatPoints(reward.cost - coins)} {getCurrencySymbol()} more
                       </span>
                     )}
@@ -290,7 +290,7 @@ export default function RewardsPage({ isOpen, coins, onClose, onRedeem, embedded
                 <div className="flex items-center gap-2">
                   <div className={`px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1 ${
                     canAfford
-                      ? "bg-[#D4873A] text-white"
+                      ? "bg-[#E36B11] text-white"
                       : "bg-cream text-gray-600 border border-warm"
                   }`}>
                     {canAfford ? (

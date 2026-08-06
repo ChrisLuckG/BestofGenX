@@ -90,7 +90,7 @@ function NotificationItem({
   return (
     <div className={`relative flex items-start gap-3 p-3 rounded-xl border transition-colors ${
       isUnread 
-        ? 'bg-[#D4873A]/10 border-[#D4873A]/30 hover:bg-[#D4873A]/15' 
+        ? 'bg-[#E36B11]/10 border-[#E36B11]/30 hover:bg-[#E36B11]/15' 
         : 'bg-cream border-warm hover:bg-cream'
     }`}>
       {/* Trash Button to dismiss */}
@@ -125,7 +125,7 @@ function NotificationItem({
                       ? 'bg-red-500/20'
                       : notif.type === 'song_in_progress'
                         ? 'bg-blue-500/20'
-                        : 'bg-[#D4873A]/20'
+                        : 'bg-[#E36B11]/20'
             }`}>
               {notif.type === 'battle_result' ? (
                 <Trophy className={`w-5 h-5 ${
@@ -140,7 +140,7 @@ function NotificationItem({
               ) : notif.type === 'song_in_progress' ? (
                 <Music className="w-5 h-5 text-blue-500" />
               ) : (
-                <Swords className="w-5 h-5 text-[#D4873A]" />
+                <Swords className="w-5 h-5 text-[#E36B11]" />
               )}
             </div>
           )}
@@ -727,7 +727,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
           }} />
         ) : (
           <div className="flex items-center gap-3">
-            <Bell className="w-5 h-5 text-[#D4873A]" />
+            <Bell className="w-5 h-5 text-[#E36B11]" />
             <div>
               <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">GenX News</span>
               <span className="text-[10px] text-gray-500 -mt-0.5 block">Updates & notifications</span>
@@ -736,7 +736,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
         )}
         {showSettings ? (
           <div className="flex items-center gap-3">
-            <Settings className="w-5 h-5 text-[#D4873A]" />
+            <Settings className="w-5 h-5 text-[#E36B11]" />
             <div>
               <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Settings</span>
               <span className="text-[10px] text-gray-500 -mt-0.5 block">Customize your experience</span>
@@ -762,16 +762,16 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
           {!isLoggedIn && (
             <div className="flex flex-col items-center justify-center py-4 px-4">
               <div className="flex items-center gap-2 mb-1">
-                <Bell className="w-6 h-6 text-[#D4873A]" />
+                <Bell className="w-6 h-6 text-[#E36B11]" />
                 <h3 className="font-display text-2xl text-gray-900 tracking-wide">NEVER MISS A REWARD</h3>
               </div>
               <p className="text-gray-500 text-sm text-center max-w-[300px] mb-4">
-                Enable notifications and claim <span className="font-bold text-[#D4873A]">+0.10 BOGX</span>
+                Enable notifications and claim <span className="font-bold text-[#E36B11]">+0.10 BOGX</span>
               </p>
               <div className="w-full max-w-[300px] space-y-2 mb-4">
                 <div className="flex items-center gap-3 p-3 bg-cream rounded-xl border border-warm">
-                  <div className="w-10 h-10 bg-[#D4873A]/10 rounded-xl flex items-center justify-center">
-                    <Swords className="w-5 h-5 text-[#D4873A]" />
+                  <div className="w-10 h-10 bg-[#E36B11]/10 rounded-xl flex items-center justify-center">
+                    <Swords className="w-5 h-5 text-[#E36B11]" />
                   </div>
                   <div>
                     <span className="text-sm font-semibold text-gray-900">Battle results</span>
@@ -779,8 +779,8 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
                   </div>
                 </div>
                 <div className="flex items-center gap-3 p-3 bg-cream rounded-xl border border-warm">
-                  <div className="w-10 h-10 bg-[#D4873A]/10 rounded-xl flex items-center justify-center">
-                    <Target className="w-5 h-5 text-[#D4873A]" />
+                  <div className="w-10 h-10 bg-[#E36B11]/10 rounded-xl flex items-center justify-center">
+                    <Target className="w-5 h-5 text-[#E36B11]" />
                   </div>
                   <div>
                     <span className="text-sm font-semibold text-gray-900">Prediction outcomes</span>
@@ -788,8 +788,8 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
                   </div>
                 </div>
                 <div className="flex items-center gap-3 p-3 bg-cream rounded-xl border border-warm">
-                  <div className="w-10 h-10 bg-[#D4873A]/10 rounded-xl flex items-center justify-center">
-                    <Music className="w-5 h-5 text-[#D4873A]" />
+                  <div className="w-10 h-10 bg-[#E36B11]/10 rounded-xl flex items-center justify-center">
+                    <Music className="w-5 h-5 text-[#E36B11]" />
                   </div>
                   <div>
                     <span className="text-sm font-semibold text-gray-900">Song request updates</span>
@@ -799,7 +799,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
               </div>
               <button
                 onClick={onGoToProfile}
-                className="w-full max-w-[300px] py-3 bg-[#D4873A] text-white font-bold rounded-lg flex items-center justify-center gap-2"
+                className="w-full max-w-[300px] py-3 bg-[#E36B11] text-white font-bold rounded-lg flex items-center justify-center gap-2"
               >
                 <Bell className="w-5 h-5" />
                 ENABLE & EARN 0.10 BOGX
@@ -820,16 +820,16 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
           {!loadingNotifications && notifications.filter(n => !dismissedNotifications.has(n.id)).length === 0 && isLoggedIn && !pushEnabled && (
             <div className="flex flex-col items-center justify-center py-4 px-4">
               <div className="flex items-center gap-2 mb-1">
-                <Bell className="w-6 h-6 text-[#D4873A]" />
+                <Bell className="w-6 h-6 text-[#E36B11]" />
                 <h3 className="font-display text-2xl text-gray-900 tracking-wide">NEVER MISS A REWARD</h3>
               </div>
               <p className="text-gray-500 text-sm text-center max-w-[300px] mb-4">
-                Enable notifications and claim <span className="font-bold text-[#D4873A]">+0.10 BOGX</span>
+                Enable notifications and claim <span className="font-bold text-[#E36B11]">+0.10 BOGX</span>
               </p>
               <div className="w-full max-w-[300px] space-y-2 mb-5">
                 <div className="flex items-center gap-3 p-3 bg-cream rounded-xl border border-warm">
-                  <div className="w-10 h-10 bg-[#D4873A]/10 rounded-xl flex items-center justify-center">
-                    <Swords className="w-5 h-5 text-[#D4873A]" />
+                  <div className="w-10 h-10 bg-[#E36B11]/10 rounded-xl flex items-center justify-center">
+                    <Swords className="w-5 h-5 text-[#E36B11]" />
                   </div>
                   <div>
                     <span className="text-sm font-semibold text-gray-900">Battle results</span>
@@ -837,8 +837,8 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
                   </div>
                 </div>
                 <div className="flex items-center gap-3 p-3 bg-cream rounded-xl border border-warm">
-                  <div className="w-10 h-10 bg-[#D4873A]/10 rounded-xl flex items-center justify-center">
-                    <Target className="w-5 h-5 text-[#D4873A]" />
+                  <div className="w-10 h-10 bg-[#E36B11]/10 rounded-xl flex items-center justify-center">
+                    <Target className="w-5 h-5 text-[#E36B11]" />
                   </div>
                   <div>
                     <span className="text-sm font-semibold text-gray-900">Prediction outcomes</span>
@@ -846,8 +846,8 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
                   </div>
                 </div>
                 <div className="flex items-center gap-3 p-3 bg-cream rounded-xl border border-warm">
-                  <div className="w-10 h-10 bg-[#D4873A]/10 rounded-xl flex items-center justify-center">
-                    <Music className="w-5 h-5 text-[#D4873A]" />
+                  <div className="w-10 h-10 bg-[#E36B11]/10 rounded-xl flex items-center justify-center">
+                    <Music className="w-5 h-5 text-[#E36B11]" />
                   </div>
                   <div>
                     <span className="text-sm font-semibold text-gray-900">Song request updates</span>
@@ -858,7 +858,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
               <button
                 onClick={() => setShowSettings(true)}
                 disabled={pushLoading}
-                className="w-full max-w-[300px] py-3 bg-[#D4873A] text-white font-bold rounded-lg flex items-center justify-center gap-2"
+                className="w-full max-w-[300px] py-3 bg-[#E36B11] text-white font-bold rounded-lg flex items-center justify-center gap-2"
               >
                 <Bell className="w-5 h-5" />
                 ENABLE & EARN 0.10 BOGX
@@ -874,7 +874,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
           {!loadingNotifications && notifications.filter(n => !dismissedNotifications.has(n.id)).length === 0 && isLoggedIn && pushEnabled && (
             <div className="flex flex-col items-center justify-center py-4 px-4">
               <div className="flex items-center gap-2 mb-1">
-                <Check className="w-6 h-6 text-[#D4873A]" />
+                <Check className="w-6 h-6 text-[#E36B11]" />
                 <h3 className="font-display text-2xl text-gray-900 tracking-wide">NOTHING NEW... YET</h3>
               </div>
               <p className="text-gray-500 text-sm text-center max-w-[300px] mb-4">
@@ -1010,7 +1010,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
             {pushLoading ? (
               <LogoLoader size="sm" />
             ) : pushEnabled && isLoggedIn ? (
-              <Bell className="w-5 h-5 text-[#D4873A] fill-[#D4873A]" />
+              <Bell className="w-5 h-5 text-[#E36B11] fill-[#E36B11]" />
             ) : (
               <BellOff className="w-5 h-5 text-gray-600" />
             )}
@@ -1031,8 +1031,8 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
           className={`w-full flex items-center justify-between py-3 px-4 bg-cream rounded-xl transition-colors ${!pushEnabled || !isLoggedIn ? 'opacity-40' : 'hover:bg-cream'}`}
         >
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#D4873A]/20 flex items-center justify-center">
-              <Zap className="w-4 h-4 text-[#D4873A]" />
+            <div className="w-8 h-8 rounded-lg bg-[#E36B11]/20 flex items-center justify-center">
+              <Zap className="w-4 h-4 text-[#E36B11]" />
             </div>
             <div className="text-left">
               <span className="text-sm font-medium text-gray-900 block">New Match Started</span>
@@ -1088,7 +1088,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
 
       {/* Battle Notifications Section */}
       <div className="px-4 py-3 border-b border-warm/50 space-y-3">
-        <p className="text-[#D4873A] text-[10px] uppercase tracking-wider px-1 font-semibold">Battle Notifications</p>
+        <p className="text-[#E36B11] text-[10px] uppercase tracking-wider px-1 font-semibold">Battle Notifications</p>
         
         {/* Battle Results */}
         <button 
@@ -1222,7 +1222,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
                 {/* Header */}
                 <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5DDD0]">
                   <div className="flex items-center gap-2">
-                    <Swords className="w-5 h-5 text-[#D4873A]" />
+                    <Swords className="w-5 h-5 text-[#E36B11]" />
                     <h3 className="font-bold text-gray-900 text-lg">Battle Challenge!</h3>
                   </div>
                   <button 
@@ -1237,9 +1237,9 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
                   {/* Challenger Info */}
                   <div className="flex items-center gap-4 mb-5 p-4 bg-white rounded-xl border border-[#E5DDD0]">
                     {selectedChallenge.challengerAvatar ? (
-                      <img src={selectedChallenge.challengerAvatar} alt="" className="w-14 h-14 rounded-full border-2 border-[#D4873A]" />
+                      <img src={selectedChallenge.challengerAvatar} alt="" className="w-14 h-14 rounded-full border-2 border-[#E36B11]" />
                     ) : (
-                      <div className="w-14 h-14 rounded-full bg-[#D4873A]/10 flex items-center justify-center border-2 border-[#D4873A]">
+                      <div className="w-14 h-14 rounded-full bg-[#E36B11]/10 flex items-center justify-center border-2 border-[#E36B11]">
                         <span className="text-xl">👤</span>
                       </div>
                     )}
@@ -1262,7 +1262,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
                     </div>
                     <div className="flex justify-between items-center py-2.5">
                       <span className="text-gray-500">Wager</span>
-                      <span className="text-[#D4873A] font-bold text-lg flex items-center gap-1">
+                      <span className="text-[#E36B11] font-bold text-lg flex items-center gap-1">
                         {Number(selectedChallenge.wager).toFixed(2)}
                         <img src="/images/bogxcoin.png" alt="BOGX" className="w-4 h-4" />
                       </span>
@@ -1281,7 +1281,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
                           window.location.href = `/mobile?tab=battles&battle=${battleId}`;
                         }
                       }}
-                      className="w-full py-3 bg-[#D4873A] hover:bg-[#c47830] text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-colors"
+                      className="w-full py-3 bg-[#E36B11] hover:bg-[#c47830] text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-colors"
                     >
                       <Swords className="w-5 h-5" />
                       Accept & Play Now!
@@ -1315,7 +1315,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
           
           {/* Bottom Sheet */}
           <div 
-            className="relative w-full max-w-lg bg-gradient-to-b from-zinc-900 to-black border-t border-[#D4873A]/30 rounded-t-3xl p-6 pb-10 animate-slide-up"
+            className="relative w-full max-w-lg bg-gradient-to-b from-zinc-900 to-black border-t border-[#E36B11]/30 rounded-t-3xl p-6 pb-10 animate-slide-up"
             onClick={(e) => e.stopPropagation()}
             style={{
               animation: 'slideUp 0.3s ease-out',
@@ -1326,8 +1326,8 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
             
             {/* Icon */}
             <div className="flex justify-center mb-6 mt-4">
-              <div className="w-20 h-20 rounded-full bg-[#D4873A]/20 flex items-center justify-center">
-                <Bell className="w-10 h-10 text-[#D4873A]" />
+              <div className="w-20 h-20 rounded-full bg-[#E36B11]/20 flex items-center justify-center">
+                <Bell className="w-10 h-10 text-[#E36B11]" />
               </div>
             </div>
             
@@ -1382,7 +1382,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
                   togglePush();
                 }}
                 disabled={pushLoading}
-                className="w-full py-4 bg-[#D4873A] text-white font-bold text-lg rounded-xl hover:bg-[#c5e000] transition-colors flex items-center justify-center gap-2"
+                className="w-full py-4 bg-[#E36B11] text-white font-bold text-lg rounded-xl hover:bg-[#c5e000] transition-colors flex items-center justify-center gap-2"
               >
                 {pushLoading ? (
                   <LogoLoader size="sm" />

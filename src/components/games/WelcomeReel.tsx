@@ -301,11 +301,11 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
             initialReactions={reactionsMap[article._id]?.reactions}
             initialUserReaction={reactionsMap[article._id]?.userReaction}
           />
-        <button onClick={handleComment} className="flex items-center gap-1.5 hover:text-[#D4873A] transition-colors">
+        <button onClick={handleComment} className="flex items-center gap-1.5 hover:text-[#E36B11] transition-colors">
           <MessageCircle className={iconSize} />
           <span className={`${textSize} font-medium`}>{article.commentsCount || 0}</span>
         </button>
-        <button onClick={handleShare} className="ml-auto hover:text-[#D4873A] transition-colors">
+        <button onClick={handleShare} className="ml-auto hover:text-[#E36B11] transition-colors">
           <Share2 className={iconSize} />
         </button>
       </div>
@@ -397,20 +397,20 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
             {/* Backdrop to close menu */}
             <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setOpen(false); }} />
             <div className="absolute right-0 top-8 bg-white border border-warm rounded-none shadow-xl py-1.5 z-50 min-w-[160px]">
-              <button onClick={handleOpenArticle} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-[#D4873A]/5 flex items-center gap-3">
-                <svg className="w-4 h-4 text-[#D4873A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+              <button onClick={handleOpenArticle} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-[#E36B11]/5 flex items-center gap-3">
+                <svg className="w-4 h-4 text-[#E36B11]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                 Read Article
               </button>
-              <button onClick={handleSave} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-[#D4873A]/5 flex items-center gap-3">
-                <svg className="w-4 h-4 text-[#D4873A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
+              <button onClick={handleSave} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-[#E36B11]/5 flex items-center gap-3">
+                <svg className="w-4 h-4 text-[#E36B11]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
                 Save
               </button>
-              <button onClick={handleShare} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-[#D4873A]/5 flex items-center gap-3">
-                <Share2 className="w-4 h-4 text-[#D4873A]" />
+              <button onClick={handleShare} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-[#E36B11]/5 flex items-center gap-3">
+                <Share2 className="w-4 h-4 text-[#E36B11]" />
                 Share
               </button>
-              <button onClick={handleCopy} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-[#D4873A]/5 flex items-center gap-3">
-                <svg className="w-4 h-4 text-[#D4873A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+              <button onClick={handleCopy} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-[#E36B11]/5 flex items-center gap-3">
+                <svg className="w-4 h-4 text-[#E36B11]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                 Copy Link
               </button>
               <div className="border-t border-warm my-1" />
@@ -427,7 +427,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
 
   // Theme card styles for highlighted containers
   const getCardThemeStyles = (themeName?: string) => {
-    if (!themeName || themeName === 'cream') return { border: 'border-warm', hoverBorder: 'hover:border-[#D4873A]/30' };
+    if (!themeName || themeName === 'cream') return { border: 'border-warm', hoverBorder: 'hover:border-[#E36B11]/30' };
     // All colored themes get white border for consistency
     return { border: 'border-2 border-white/80', hoverBorder: 'hover:border-white' };
   };
@@ -491,7 +491,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       <div className="absolute bottom-0 left-0 right-0 z-10 p-4">
         {/* Read badge inline with title */}
         <div className="flex items-start gap-2">
-          <h2 className={`font-display text-[28px] lg:text-[32px] tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} group-hover:text-[#D4873A] leading-tight mb-1.5 line-clamp-2 transition-colors flex-1`}>{article.title}</h2>
+          <h2 className={`font-display text-[28px] lg:text-[32px] tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} group-hover:text-[#E36B11] leading-tight mb-1.5 line-clamp-2 transition-colors flex-1`}>{article.title}</h2>
         </div>
         <div className="flex items-center justify-between gap-2 text-[11px] text-white/70">
           <div className="flex items-center gap-2 min-w-0">
@@ -499,7 +499,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
               {article.authorAvatar ? (
                 <img src={article.authorAvatar} alt="" className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full bg-[#D4873A] flex items-center justify-center text-white text-[8px] font-bold">
+                <div className="w-full h-full bg-[#E36B11] flex items-center justify-center text-white text-[8px] font-bold">
                   {(article.authorName || 'A')[0].toUpperCase()}
                 </div>
               )}
@@ -544,7 +544,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       tabIndex={0}
       onClick={() => handleArticleClick(article._id)}
       onKeyDown={(e) => e.key === 'Enter' && onOpenArticle?.(article._id)}
-      className={`w-full rounded-none overflow-hidden bg-cream border border-warm text-left shadow-md hover:shadow-lg hover:border-[#D4873A]/30 transition-all duration-200 group cursor-pointer relative ${loadingArticleId === article._id ? 'pointer-events-none' : ''}`}
+      className={`w-full rounded-none overflow-hidden bg-cream border border-warm text-left shadow-md hover:shadow-lg hover:border-[#E36B11]/30 transition-all duration-200 group cursor-pointer relative ${loadingArticleId === article._id ? 'pointer-events-none' : ''}`}
     >
       <LoadingOverlay articleId={article._id} />
       {/* Social Header: Avatar + Name + Time + Menu */}
@@ -553,7 +553,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           {article.authorAvatar ? (
             <img src={article.authorAvatar} alt={article.authorName || 'Author'} className="w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full bg-[#D4873A]/20 flex items-center justify-center text-[#D4873A] font-bold text-sm">
+            <div className="w-full h-full bg-[#E36B11]/20 flex items-center justify-center text-[#E36B11] font-bold text-sm">
               {(article.authorName || 'A')[0].toUpperCase()}
             </div>
           )}
@@ -607,7 +607,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         )}
         {/* Title at bottom with read badge */}
         <div className="absolute bottom-3 left-3 right-3 z-10">
-          <h2 className="font-display text-[22px] lg:text-[26px] tracking-wide text-white group-hover:text-[#D4873A] leading-tight line-clamp-2 drop-shadow-lg transition-colors">
+          <h2 className="font-display text-[22px] lg:text-[26px] tracking-wide text-white group-hover:text-[#E36B11] leading-tight line-clamp-2 drop-shadow-lg transition-colors">
             {article.title}
           </h2>
         </div>
@@ -696,7 +696,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       tabIndex={0}
       onClick={() => handleArticleClick(article._id)}
       onKeyDown={(e) => e.key === 'Enter' && onOpenArticle?.(article._id)}
-      className={`w-full h-[180px] rounded-none overflow-hidden group text-left relative border border-warm hover:shadow-lg hover:border-[#D4873A]/30 transition-all duration-200 cursor-pointer ${loadingArticleId === article._id ? 'pointer-events-none' : ''}`}
+      className={`w-full h-[180px] rounded-none overflow-hidden group text-left relative border border-warm hover:shadow-lg hover:border-[#E36B11]/30 transition-all duration-200 cursor-pointer ${loadingArticleId === article._id ? 'pointer-events-none' : ''}`}
     >
       <LoadingOverlay articleId={article._id} />
       {/* Full background image/video */}
@@ -736,7 +736,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       {/* Content - fixed at bottom: Title with read badge */}
       <div className="absolute bottom-0 left-0 right-0 z-10 p-3">
         <div className="flex items-start gap-1.5">
-          <h3 className={`font-display text-[19px] lg:text-xl tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} group-hover:text-[#D4873A] leading-tight mb-1 line-clamp-2 transition-colors flex-1`}>{article.title}</h3>
+          <h3 className={`font-display text-[19px] lg:text-xl tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} group-hover:text-[#E36B11] leading-tight mb-1 line-clamp-2 transition-colors flex-1`}>{article.title}</h3>
         </div>
         <div className="flex items-center justify-between gap-2 text-[10px] text-white/70">
           <div className="flex items-center gap-2 min-w-0">
@@ -782,7 +782,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       )}
       {/* Content - below image */}
       <div className="p-1.5">
-        <h3 className={`font-display text-[20px] tracking-wide leading-tight line-clamp-2 transition-colors ${hasColorTheme ? 'text-white group-hover:text-gray-900' : 'text-gray-900 group-hover:text-[#D4873A]'}`}>{article.title}</h3>
+        <h3 className={`font-display text-[20px] tracking-wide leading-tight line-clamp-2 transition-colors ${hasColorTheme ? 'text-white group-hover:text-gray-900' : 'text-gray-900 group-hover:text-[#E36B11]'}`}>{article.title}</h3>
         {/* Likes & Comments */}
         <div className={`flex items-center gap-2 mt-1 text-[8px] ${hasColorTheme ? 'text-gray-700' : 'text-gray-500'}`} onClick={(e) => e.stopPropagation()}>
           <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} />
@@ -906,7 +906,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           {article.authorAvatar ? (
             <img src={article.authorAvatar} alt={article.authorName || 'Author'} className="w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full bg-[#D4873A]/20 flex items-center justify-center text-[#D4873A] font-bold text-xs md:text-sm">
+            <div className="w-full h-full bg-[#E36B11]/20 flex items-center justify-center text-[#E36B11] font-bold text-xs md:text-sm">
               {(article.authorName || 'A')[0].toUpperCase()}
             </div>
           )}
@@ -967,7 +967,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           {/* Title ON the image - only on desktop */}
           {isDesktop && (
             <div className="absolute bottom-2 left-2 right-2 z-10">
-              <h3 className={`font-display text-lg lg:text-3xl tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} group-hover:text-[#D4873A] leading-tight line-clamp-3 drop-shadow-lg transition-colors`}>
+              <h3 className={`font-display text-lg lg:text-3xl tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} group-hover:text-[#E36B11] leading-tight line-clamp-3 drop-shadow-lg transition-colors`}>
                 {article.title}
               </h3>
             </div>
@@ -993,7 +993,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
   const FixedBanner = ({ article }: { article: Article }) => (
     <button
       onClick={() => handleArticleClick(article._id)}
-      className="w-full rounded-none overflow-hidden shadow-md hover:shadow-lg hover:border-[#D4873A]/30 transition-all duration-200 block bg-cream border border-warm p-2"
+      className="w-full rounded-none overflow-hidden shadow-md hover:shadow-lg hover:border-[#E36B11]/30 transition-all duration-200 block bg-cream border border-warm p-2"
     >
       {article.coverImage && (
         isVideo(article.coverImage) ? (
@@ -1022,7 +1022,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       role="button"
       tabIndex={0}
       onClick={() => handleArticleClick(article._id)}
-      className={`w-full flex items-center gap-3 p-2 bg-cream border border-warm rounded-none text-left shadow-md hover:shadow-lg hover:border-[#D4873A]/30 transition-all duration-200 relative group cursor-pointer touch-manipulation ${loadingArticleId === article._id ? 'pointer-events-none' : ''}`}
+      className={`w-full flex items-center gap-3 p-2 bg-cream border border-warm rounded-none text-left shadow-md hover:shadow-lg hover:border-[#E36B11]/30 transition-all duration-200 relative group cursor-pointer touch-manipulation ${loadingArticleId === article._id ? 'pointer-events-none' : ''}`}
     >
       <LoadingOverlay articleId={article._id} />
       {/* Thumbnail - bigger */}
@@ -1059,10 +1059,10 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
               />
             </span>
           )}
-          <span className="text-[#D4873A] text-[10px] font-bold uppercase">{article.category ? getSubCategoryLabel(article.category) : getCategoryLabel(article.mainCategory)}</span>
+          <span className="text-[#E36B11] text-[10px] font-bold uppercase">{article.category ? getSubCategoryLabel(article.category) : getCategoryLabel(article.mainCategory)}</span>
           <span className="text-gray-500 text-[10px]">• {article.createdAt ? new Date(article.createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}</span>
         </div>
-        <h3 className={`font-display tracking-wide text-gray-900 group-hover:text-[#D4873A] leading-tight line-clamp-1 transition-colors ${isDesktop ? 'text-[20px]' : 'text-[20px]'}`}>{article.title}</h3>
+        <h3 className={`font-display tracking-wide text-gray-900 group-hover:text-[#E36B11] leading-tight line-clamp-1 transition-colors ${isDesktop ? 'text-[20px]' : 'text-[20px]'}`}>{article.title}</h3>
         <div className="flex items-center gap-3 text-[10px] text-gray-500 mt-0.5" onClick={(e) => e.stopPropagation()}>
           <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} />
           <span className="flex items-center gap-0.5">
@@ -1119,9 +1119,9 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
     return (
       <div className="w-full h-full flex flex-col overflow-hidden bg-cream">
         {/* Header - exactly like Rankings */}
-        <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
+        <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
           <div className="flex items-center gap-3">
-            <Play className="w-5 h-5 text-[#D4873A]" />
+            <Play className="w-5 h-5 text-[#E36B11]" />
             <div>
               <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Feed</span>
               <span className="text-[10px] text-gray-500 -mt-0.5 block">Latest updates & content</span>
@@ -1172,9 +1172,9 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           
           {/* Loading indicator at bottom */}
           <div className="flex items-center justify-center gap-2 py-6">
-            <div className="w-2 h-2 bg-[#D4873A] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-            <div className="w-2 h-2 bg-[#D4873A] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-            <div className="w-2 h-2 bg-[#D4873A] rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            <div className="w-2 h-2 bg-[#E36B11] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+            <div className="w-2 h-2 bg-[#E36B11] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+            <div className="w-2 h-2 bg-[#E36B11] rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
           </div>
         </div>
         
@@ -1244,9 +1244,9 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-cream">
       {/* Header - exactly like Rankings */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
         <div className="flex items-center gap-3">
-          <Play className="w-5 h-5 text-[#D4873A]" />
+          <Play className="w-5 h-5 text-[#E36B11]" />
           <div>
             <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Feed</span>
             <span className="text-[10px] text-gray-500 -mt-0.5 block">Latest updates & content</span>
@@ -1287,8 +1287,8 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                   });
                   // Frontend theme styles - SAME as Admin (ContainerBlock.tsx)
                   const themeStyles: Record<string, { bg: string; border: string; titleColor: string }> = {
-                    cream: { bg: 'bg-[#F5F0E8]', border: 'border-[#E5DDD0]', titleColor: 'text-[#D4873A]' },
-                    bogx: { bg: 'bg-[#D4873A]', border: 'border-[#E5A55A]', titleColor: 'text-white' },
+                    cream: { bg: 'bg-[#F5F0E8]', border: 'border-[#E5DDD0]', titleColor: 'text-[#E36B11]' },
+                    bogx: { bg: 'bg-[#E36B11]', border: 'border-[#E5A55A]', titleColor: 'text-white' },
                     arcade: { bg: 'bg-purple-800', border: 'border-purple-500', titleColor: 'text-white' },
                     sports: { bg: 'bg-green-800', border: 'border-green-500', titleColor: 'text-white' },
                     music: { bg: 'bg-orange-800', border: 'border-orange-500', titleColor: 'text-white' },
@@ -1319,7 +1319,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                           : n.includes('movie') || n.includes('cinema') || n.includes('tv') || n.includes('film') ? Clapperboard
                           : Newspaper;
                         const accentColor = n.includes('birthday') || n.includes('happy') ? '#F4B400'
-                          : n.includes('history') ? '#D4873A'
+                          : n.includes('history') ? '#E36B11'
                           : n.includes('music') ? '#6db94c'
                           : n.includes('arcade') || n.includes('gaming') ? '#7C3AED'
                           : n.includes('sport') ? '#E53935'
@@ -1415,7 +1415,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                                   else onOpenStaticPage?.(bannerLink.replace(/^\//, ''));
                                 }
                               }}
-                              className="block w-full rounded-none overflow-hidden bg-[#F5F0E8] border border-[#E5DDD0] p-1 shadow-md hover:shadow-lg hover:border-[#D4873A]/30 transition-all cursor-pointer"
+                              className="block w-full rounded-none overflow-hidden bg-[#F5F0E8] border border-[#E5DDD0] p-1 shadow-md hover:shadow-lg hover:border-[#E36B11]/30 transition-all cursor-pointer"
                             >
                               <div className="relative w-full aspect-[2/1] md:aspect-[2.5/1] lg:aspect-[2.7/1] overflow-hidden bg-gray-800">
                                 {fixedImg ? (
@@ -1434,8 +1434,8 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                                   return (
                                     <div className="absolute bottom-0 left-0 right-0 flex items-stretch bg-black/55 backdrop-blur-sm">
                                       {/* Date block left - amber accent */}
-                                      <div className="flex flex-row items-center justify-center gap-1.5 px-4 py-3 border-r border-white/20 bg-[#D4873A]/20 whitespace-nowrap">
-                                        <span className="text-[#D4873A] text-sm font-bold uppercase tracking-widest leading-none">{dateStr.split(' ')[0]}</span>
+                                      <div className="flex flex-row items-center justify-center gap-1.5 px-4 py-3 border-r border-white/20 bg-[#E36B11]/20 whitespace-nowrap">
+                                        <span className="text-[#E36B11] text-sm font-bold uppercase tracking-widest leading-none">{dateStr.split(' ')[0]}</span>
                                         <span className="text-white font-black text-2xl leading-none">{dateStr.split(' ')[1]}</span>
                                       </div>
                                       {/* Title + subtitle right */}
@@ -1445,7 +1445,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                                       </div>
                                       {/* Read More button - desktop only */}
                                       <div className="hidden md:flex items-center px-4 py-3 flex-shrink-0">
-                                        <span className="flex items-center gap-1.5 px-3 py-1.5 border border-[#D4873A]/60 text-[#D4873A] text-xs font-bold uppercase tracking-wider rounded hover:bg-[#D4873A]/20 transition-colors whitespace-nowrap">
+                                        <span className="flex items-center gap-1.5 px-3 py-1.5 border border-[#E36B11]/60 text-[#E36B11] text-xs font-bold uppercase tracking-wider rounded hover:bg-[#E36B11]/20 transition-colors whitespace-nowrap">
                                           Read More →
                                         </span>
                                       </div>
@@ -1519,11 +1519,11 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                             'rip': 'RIP', 'eastercorn': 'Eastercorn'
                           };
                           const catColor: Record<string, string> = {
-                            'music': '#22C55E', 'sports': '#E53935', 'history': '#D4873A',
+                            'music': '#22C55E', 'sports': '#E53935', 'history': '#E36B11',
                             'movies-tv': '#F97316', 'gaming': '#7C3AED', 'lifestyle': '#EC4899',
                             'culture': '#EC4899', 'rip': '#6B7280', 'eastercorn': '#1E3A8A',
                           };
-                          const seeMoreColor = catColor[cat] || '#D4873A';
+                          const seeMoreColor = catColor[cat] || '#E36B11';
                           
                           return (
                             <div key={blockIdx} className="space-y-1.5">
@@ -1587,7 +1587,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                   return (
                     <div key={index} className="col-span-6 space-y-2">
                       {/* Title */}
-                      <span className="text-xs font-bold text-[#D4873A] uppercase tracking-wider">More Articles</span>
+                      <span className="text-xs font-bold text-[#E36B11] uppercase tracking-wider">More Articles</span>
                       {vertArticles.slice(0, 3).map((art, i) => (
                         <FullWidthBanner key={i} article={art} />
                       ))}
@@ -1650,21 +1650,21 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
             
             {/* Links */}
             <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-gray-500 mb-4">
-              <button onClick={() => onOpenStaticPage?.('impressum')} className="hover:text-[#D4873A] transition-colors">Impressum</button>
-              <button onClick={() => onOpenStaticPage?.('datenschutz')} className="hover:text-[#D4873A] transition-colors">Datenschutz</button>
-              <button onClick={() => onOpenStaticPage?.('agb')} className="hover:text-[#D4873A] transition-colors">AGB</button>
-              <button onClick={() => onOpenStaticPage?.('kontakt')} className="hover:text-[#D4873A] transition-colors">Kontakt</button>
+              <button onClick={() => onOpenStaticPage?.('impressum')} className="hover:text-[#E36B11] transition-colors">Impressum</button>
+              <button onClick={() => onOpenStaticPage?.('datenschutz')} className="hover:text-[#E36B11] transition-colors">Datenschutz</button>
+              <button onClick={() => onOpenStaticPage?.('agb')} className="hover:text-[#E36B11] transition-colors">AGB</button>
+              <button onClick={() => onOpenStaticPage?.('kontakt')} className="hover:text-[#E36B11] transition-colors">Kontakt</button>
             </div>
             
             {/* Social Links */}
             <div className="flex justify-center gap-3 mb-4">
-              <a href="https://instagram.com/bestofgenx" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-[#D4873A]/10 flex items-center justify-center text-[#D4873A] hover:bg-[#D4873A]/20 transition-colors">
+              <a href="https://instagram.com/bestofgenx" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-[#E36B11]/10 flex items-center justify-center text-[#E36B11] hover:bg-[#E36B11]/20 transition-colors">
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
               </a>
-              <a href="https://facebook.com/bestofgenx" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-[#D4873A]/10 flex items-center justify-center text-[#D4873A] hover:bg-[#D4873A]/20 transition-colors">
+              <a href="https://facebook.com/bestofgenx" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full bg-[#E36B11]/10 flex items-center justify-center text-[#E36B11] hover:bg-[#E36B11]/20 transition-colors">
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
               </a>
-              <a href="mailto:contact@bestofgenx.com" className="w-8 h-8 rounded-full bg-[#D4873A]/10 flex items-center justify-center text-[#D4873A] hover:bg-[#D4873A]/20 transition-colors">
+              <a href="mailto:contact@bestofgenx.com" className="w-8 h-8 rounded-full bg-[#E36B11]/10 flex items-center justify-center text-[#E36B11] hover:bg-[#E36B11]/20 transition-colors">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
               </a>
             </div>
@@ -1674,7 +1674,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
               © {new Date().getFullYear()} Best of GenX. All rights reserved.
             </p>
             <p className="text-center text-[9px] text-gray-300 mt-1 flex items-center justify-center gap-1">
-              Made with <svg className="w-2.5 h-2.5 text-[#D4873A]" fill="currentColor" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> for Generation X
+              Made with <svg className="w-2.5 h-2.5 text-[#E36B11]" fill="currentColor" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> for Generation X
             </p>
           </footer>
         
@@ -1685,7 +1685,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[100] animate-fade-in">
           <div className="flex items-center gap-2 px-4 py-3 bg-gray-900 text-white rounded-full shadow-xl">
             {toast.icon === 'check' && <Check className="w-4 h-4 text-emerald-600" />}
-            {toast.icon === 'bookmark' && <Bookmark className="w-4 h-4 text-[#D4873A]" />}
+            {toast.icon === 'bookmark' && <Bookmark className="w-4 h-4 text-[#E36B11]" />}
             {toast.icon === 'flag' && <Flag className="w-4 h-4 text-yellow-400" />}
             <span className="text-sm font-medium">{toast.message}</span>
           </div>

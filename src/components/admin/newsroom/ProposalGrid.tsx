@@ -128,7 +128,7 @@ export default function ProposalGrid({
               {/* Category badge */}
               {p.category && (
                 <span className={`text-[10px] px-1.5 py-0.5 rounded w-fit mb-1 ${
-                  p.isRIP ? 'bg-gray-700 text-gray-300' : 'bg-[#D4873A]/20 text-[#D4873A]'
+                  p.isRIP ? 'bg-gray-700 text-gray-300' : 'bg-[#E36B11]/20 text-[#E36B11]'
                 }`}>
                   {p.category}
                 </span>
@@ -164,7 +164,7 @@ export default function ProposalGrid({
                     className={`px-2 py-1 rounded text-xs font-bold flex items-center gap-1 ${
                       p.isRIP 
                         ? 'bg-gray-700 hover:bg-gray-600 text-white' 
-                        : 'bg-[#D4873A] hover:bg-[#c07830] text-black'
+                        : 'bg-[#E36B11] hover:bg-[#c07830] text-black'
                     }`}
                   >
                     <Check size={12} /> Select

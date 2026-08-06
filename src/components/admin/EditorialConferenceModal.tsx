@@ -391,7 +391,7 @@ export default function EditorialConferenceModal({
         <div className="p-4 border-b border-gray-700">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Users className="w-5 h-5 text-[#D4873A]" />
+              <Users className="w-5 h-5 text-[#E36B11]" />
               <h2 className="text-white font-bold text-base">Editorial Conference</h2>
               <span className="text-[10px] text-gray-400 bg-gray-800 px-2 py-0.5 rounded-full">{aiReporters.length} reporters</span>
             </div>
@@ -399,8 +399,8 @@ export default function EditorialConferenceModal({
           </div>
 
           {/* Campaign block — only in run view */}
-          <div className={`bg-gray-800/80 border border-[#D4873A]/30 rounded-xl p-3 ${view === 'list' ? 'hidden' : ''}`}>
-            <label className="text-[10px] text-[#D4873A] uppercase tracking-wider font-bold mb-2 block">
+          <div className={`bg-gray-800/80 border border-[#E36B11]/30 rounded-xl p-3 ${view === 'list' ? 'hidden' : ''}`}>
+            <label className="text-[10px] text-[#E36B11] uppercase tracking-wider font-bold mb-2 block">
               Subject — sent as context to all reporters
             </label>
             <div className="flex gap-2">
@@ -408,7 +408,7 @@ export default function EditorialConferenceModal({
                 value={conferenceType}
                 onChange={e => setConferenceType(e.target.value as 'campaign')}
                 disabled={running}
-                className="bg-gray-700 border border-gray-600 rounded px-2 py-2 text-xs text-white focus:outline-none focus:border-[#D4873A] disabled:opacity-50"
+                className="bg-gray-700 border border-gray-600 rounded px-2 py-2 text-xs text-white focus:outline-none focus:border-[#E36B11] disabled:opacity-50"
               >
                 <option value="campaign">🎯 Campaign</option>
                 {/* more types coming: Design, Event, … */}
@@ -419,7 +419,7 @@ export default function EditorialConferenceModal({
                 onChange={e => setCampaignTopic(e.target.value)}
                 disabled={running}
                 placeholder="e.g. Brad Pitt"
-                className="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#D4873A] disabled:opacity-50"
+                className="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#E36B11] disabled:opacity-50"
               />
             </div>
             <p className="text-[9px] text-gray-500 mt-1.5">Assign each reporter a role below — 📝 Article · 🏆 Rankroll · 📺 TV Clips · 👤 Menschen</p>
@@ -431,7 +431,7 @@ export default function EditorialConferenceModal({
           <div className="flex-1 overflow-y-auto p-4 space-y-2">
             <button
               onClick={() => { setView('run'); setLastSession(null); setStatuses({}); setResultLabels({}); setCampaignTopic(''); setTaskTypes(Object.fromEntries(aiReporters.map(r => [r._id, '' as TaskType]))); }}
-              className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#D4873A] hover:bg-[#c07830] text-white text-sm font-bold rounded-xl transition-colors mb-3"
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#E36B11] hover:bg-[#c07830] text-white text-sm font-bold rounded-xl transition-colors mb-3"
             >
               <Send className="w-4 h-4" /> New Conference
             </button>
@@ -447,7 +447,7 @@ export default function EditorialConferenceModal({
                 <button
                   key={s._id}
                   onClick={() => restoreSession(s)}
-                  className="w-full text-left flex items-center gap-3 p-3 rounded-xl border border-gray-700 hover:border-[#D4873A]/50 bg-gray-800/60 hover:bg-gray-800 transition-colors"
+                  className="w-full text-left flex items-center gap-3 p-3 rounded-xl border border-gray-700 hover:border-[#E36B11]/50 bg-gray-800/60 hover:bg-gray-800 transition-colors"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -515,7 +515,7 @@ export default function EditorialConferenceModal({
                   <div key={reporter._id} className={`flex items-center gap-2 p-2 rounded-lg border transition-colors ${
                     isDone ? 'border-green-500/40 bg-green-500/5' :
                     isErr  ? 'border-red-500/40 bg-red-500/5' :
-                    isWorking ? 'border-[#D4873A]/40 bg-[#D4873A]/5' :
+                    isWorking ? 'border-[#E36B11]/40 bg-[#E36B11]/5' :
                     'border-gray-700/50 bg-gray-800/50'
                   }`}>
                     {/* Avatar */}
@@ -523,7 +523,7 @@ export default function EditorialConferenceModal({
                       {reporter.avatar ? (
                         <img src={reporter.avatar} className="w-7 h-7 rounded-full object-cover" alt="" />
                       ) : (
-                        <div className="w-7 h-7 rounded-full bg-[#D4873A]/20 flex items-center justify-center text-[#D4873A] text-xs font-bold">
+                        <div className="w-7 h-7 rounded-full bg-[#E36B11]/20 flex items-center justify-center text-[#E36B11] text-xs font-bold">
                           {(reporter.displayName || reporter.username)[0]?.toUpperCase()}
                         </div>
                       )}
@@ -541,7 +541,7 @@ export default function EditorialConferenceModal({
                         value={taskTypes[reporter._id] || ''}
                         onChange={e => setTaskTypes(prev => ({ ...prev, [reporter._id]: e.target.value as TaskType }))}
                         disabled={running}
-                        className={`bg-gray-700 border rounded px-1.5 py-1 text-[10px] text-white focus:outline-none focus:border-[#D4873A] disabled:opacity-40 flex-shrink-0 ${
+                        className={`bg-gray-700 border rounded px-1.5 py-1 text-[10px] text-white focus:outline-none focus:border-[#E36B11] disabled:opacity-40 flex-shrink-0 ${
                           taskTypes[reporter._id] ? 'border-gray-600' : 'border-gray-500 text-gray-400'
                         }`}
                       >
@@ -583,7 +583,7 @@ export default function EditorialConferenceModal({
 
                     {/* Status or input */}
                     {isWorking ? (
-                      <div className="flex-1 flex items-center gap-2 text-[11px] text-[#D4873A]">
+                      <div className="flex-1 flex items-center gap-2 text-[11px] text-[#E36B11]">
                         <Loader2 className="w-3 h-3 animate-spin" /> Working…
                       </div>
                     ) : isDone ? (
@@ -609,7 +609,7 @@ export default function EditorialConferenceModal({
                         onChange={e => setAssignments(prev => ({ ...prev, [reporter._id]: e.target.value }))}
                         disabled={running}
                         placeholder={campaignTopic.trim() ? `Using campaign: ${campaignTopic.slice(0, 20)}…` : 'Topic / instruction…'}
-                        className="flex-1 bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#D4873A] disabled:opacity-40"
+                        className="flex-1 bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#E36B11] disabled:opacity-40"
                       />
                     )}
 
@@ -664,7 +664,7 @@ export default function EditorialConferenceModal({
             <button
               onClick={runConference}
               disabled={running || !activeCount}
-              className="flex items-center gap-2 px-4 py-2 bg-[#D4873A] hover:bg-[#c06a2a] disabled:opacity-50 text-white text-sm font-bold rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-[#E36B11] hover:bg-[#c06a2a] disabled:opacity-50 text-white text-sm font-bold rounded-lg transition-colors"
             >
               {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               {running ? 'Working…' : anyDone ? 'Run Again' : 'Start Conference'}

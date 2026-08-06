@@ -140,7 +140,7 @@ export default function RewardDetailPage({ isOpen, reward, coins, onClose, onRed
       <div className="flex items-center justify-between p-3 border-b border-white/10 flex-shrink-0 bg-black/80 backdrop-blur-lg">
         <button 
           onClick={onClose}
-          className="flex items-center gap-2 text-white hover:text-[#D4873A] transition-colors"
+          className="flex items-center gap-2 text-white hover:text-[#E36B11] transition-colors"
         >
           <ChevronLeft className="w-6 h-6" />
           <span className="text-base font-bold">Back</span>
@@ -154,7 +154,7 @@ export default function RewardDetailPage({ isOpen, reward, coins, onClose, onRed
       {/* Content */}
       <div className="flex-1 overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         {/* Hero Image */}
-        <div className="relative h-64 bg-gradient-to-b from-[#D4873A]/30 to-black overflow-hidden">
+        <div className="relative h-64 bg-gradient-to-b from-[#E36B11]/30 to-black overflow-hidden">
           {reward.image ? (
             <img 
               src={reward.image} 
@@ -165,7 +165,7 @@ export default function RewardDetailPage({ isOpen, reward, coins, onClose, onRed
             <div className="w-full h-full flex items-center justify-center">
               <div className="relative">
                 <IconComponent className="w-24 h-24 text-white/20" />
-                <div className="absolute inset-0 bg-[#D4873A]/20 rounded-full blur-3xl" />
+                <div className="absolute inset-0 bg-[#E36B11]/20 rounded-full blur-3xl" />
               </div>
             </div>
           )}
@@ -211,10 +211,10 @@ export default function RewardDetailPage({ isOpen, reward, coins, onClose, onRed
               
               {!canAfford && (
                 <div className="text-right">
-                  <p className="text-[#D4873A] text-sm font-bold">{formatPoints(reward.cost - coins)} more needed</p>
+                  <p className="text-[#E36B11] text-sm font-bold">{formatPoints(reward.cost - coins)} more needed</p>
                   <div className="w-32 h-2 bg-cream/10 rounded-full mt-1 overflow-hidden">
                     <div 
-                      className="h-full bg-[#D4873A] rounded-full transition-all"
+                      className="h-full bg-[#E36B11] rounded-full transition-all"
                       style={{ width: `${progress}%` }}
                     />
                   </div>
@@ -240,7 +240,7 @@ export default function RewardDetailPage({ isOpen, reward, coins, onClose, onRed
           {reward.howToRedeem && (
             <div className="bg-gray-900/50  p-5 border border-white/10 mb-4">
               <h2 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
-                <Gift className="w-5 h-5 text-[#D4873A]" />
+                <Gift className="w-5 h-5 text-[#E36B11]" />
                 How to Redeem
               </h2>
               <p className="text-white/70 text-sm leading-relaxed whitespace-pre-line">
@@ -270,13 +270,13 @@ export default function RewardDetailPage({ isOpen, reward, coins, onClose, onRed
           <div className="flex items-center justify-between p-3 border-b border-white/10">
             <button 
               onClick={() => setShowShippingForm(false)}
-              className="flex items-center gap-2 text-white hover:text-[#D4873A] transition-colors"
+              className="flex items-center gap-2 text-white hover:text-[#E36B11] transition-colors"
             >
               <ChevronLeft className="w-6 h-6" />
               <span className="text-base font-bold">Back</span>
             </button>
             <div className="flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-[#D4873A]" />
+              <MapPin className="w-5 h-5 text-[#E36B11]" />
               <span className="font-bold text-white">Shipping Address</span>
             </div>
             <div className="w-16" />
@@ -299,7 +299,7 @@ export default function RewardDetailPage({ isOpen, reward, coins, onClose, onRed
                     type="text"
                     value={shippingAddress.name}
                     onChange={(e) => setShippingAddress(prev => ({ ...prev, name: e.target.value }))}
-                    className="w-full px-4 py-3 bg-cream/5 border border-white/20  text-white focus:border-[#D4873A] focus:outline-none"
+                    className="w-full px-4 py-3 bg-cream/5 border border-white/20  text-white focus:border-[#E36B11] focus:outline-none"
                     placeholder="Max Mustermann"
                   />
                 </div>
@@ -309,7 +309,7 @@ export default function RewardDetailPage({ isOpen, reward, coins, onClose, onRed
                     type="text"
                     value={shippingAddress.street}
                     onChange={(e) => setShippingAddress(prev => ({ ...prev, street: e.target.value }))}
-                    className="w-full px-4 py-3 bg-cream/5 border border-white/20  text-white focus:border-[#D4873A] focus:outline-none"
+                    className="w-full px-4 py-3 bg-cream/5 border border-white/20  text-white focus:border-[#E36B11] focus:outline-none"
                     placeholder="Musterstraße 123"
                   />
                 </div>
@@ -320,7 +320,7 @@ export default function RewardDetailPage({ isOpen, reward, coins, onClose, onRed
                       type="text"
                       value={shippingAddress.zip}
                       onChange={(e) => setShippingAddress(prev => ({ ...prev, zip: e.target.value }))}
-                      className="w-full px-4 py-3 bg-cream/5 border border-white/20  text-white focus:border-[#D4873A] focus:outline-none"
+                      className="w-full px-4 py-3 bg-cream/5 border border-white/20  text-white focus:border-[#E36B11] focus:outline-none"
                       placeholder="12345"
                     />
                   </div>
@@ -330,7 +330,7 @@ export default function RewardDetailPage({ isOpen, reward, coins, onClose, onRed
                       type="text"
                       value={shippingAddress.city}
                       onChange={(e) => setShippingAddress(prev => ({ ...prev, city: e.target.value }))}
-                      className="w-full px-4 py-3 bg-cream/5 border border-white/20  text-white focus:border-[#D4873A] focus:outline-none"
+                      className="w-full px-4 py-3 bg-cream/5 border border-white/20  text-white focus:border-[#E36B11] focus:outline-none"
                       placeholder="Berlin"
                     />
                   </div>
@@ -340,7 +340,7 @@ export default function RewardDetailPage({ isOpen, reward, coins, onClose, onRed
                   <select
                     value={shippingAddress.country}
                     onChange={(e) => setShippingAddress(prev => ({ ...prev, country: e.target.value }))}
-                    className="w-full px-4 py-3 bg-cream/5 border border-white/20  text-white focus:border-[#D4873A] focus:outline-none"
+                    className="w-full px-4 py-3 bg-cream/5 border border-white/20  text-white focus:border-[#E36B11] focus:outline-none"
                   >
                     <option value="Germany">Germany</option>
                     <option value="Austria">Austria</option>
@@ -364,7 +364,7 @@ export default function RewardDetailPage({ isOpen, reward, coins, onClose, onRed
                 disabled={isRedeeming || !isShippingValid}
                 className={`w-full py-3  font-bold transition-all flex items-center justify-center gap-2 ${
                   isShippingValid
-                    ? "bg-[#D4873A] text-white"
+                    ? "bg-[#E36B11] text-white"
                     : "bg-cream/10 text-white/40"
                 }`}
               >
@@ -390,7 +390,7 @@ export default function RewardDetailPage({ isOpen, reward, coins, onClose, onRed
             disabled={!canAfford}
             className={`w-full py-2.5  font-bold text-sm transition-all flex items-center justify-center gap-2 ${
               canAfford
-                ? "bg-[#D4873A] text-white hover:bg-[#c4e000] active:scale-[0.98]"
+                ? "bg-[#E36B11] text-white hover:bg-[#c4e000] active:scale-[0.98]"
                 : "bg-cream/10 text-white/40 border border-white/10 cursor-not-allowed"
             }`}
           >
@@ -407,9 +407,9 @@ export default function RewardDetailPage({ isOpen, reward, coins, onClose, onRed
             )}
           </button>
         ) : (
-          <div className="bg-gray-900  p-4 border border-[#D4873A]/50">
+          <div className="bg-gray-900  p-4 border border-[#E36B11]/50">
             <p className="text-white text-center mb-4">
-              {isShopReward ? 'Order' : 'Redeem'} <span className="font-bold text-[#D4873A]">{reward.name}</span> for <span className="font-bold text-yellow-400">{formatPoints(reward.cost)}</span> coins?
+              {isShopReward ? 'Order' : 'Redeem'} <span className="font-bold text-[#E36B11]">{reward.name}</span> for <span className="font-bold text-yellow-400">{formatPoints(reward.cost)}</span> coins?
             </p>
             <div className="flex gap-3">
               <button
@@ -421,7 +421,7 @@ export default function RewardDetailPage({ isOpen, reward, coins, onClose, onRed
               <button
                 onClick={handleRedeem}
                 disabled={isRedeeming}
-                className="flex-1 py-3 bg-[#D4873A] text-white font-bold hover:bg-[#c4e000] transition-all flex items-center justify-center gap-2"
+                className="flex-1 py-3 bg-[#E36B11] text-white font-bold hover:bg-[#c4e000] transition-all flex items-center justify-center gap-2"
               >
                 {isRedeeming ? (
                   <GenXLoader size="sm" />

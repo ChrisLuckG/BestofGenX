@@ -139,7 +139,7 @@ export default function BattleResultCard({
           {/* Left: Results button */}
           <button 
             onClick={handleFlipToResults}
-            className="px-3 py-1.5 rounded-lg bg-[#D4873A] text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm hover:bg-[#C4772A] transition-colors"
+            className="px-3 py-1.5 rounded-lg bg-[#E36B11] text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm hover:bg-[#C4772A] transition-colors"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
@@ -147,7 +147,7 @@ export default function BattleResultCard({
             Results
           </button>
           {/* Center: Round indicator */}
-          <span className="px-2 py-1 bg-[#D4873A]/10 text-[#D4873A] rounded-lg text-[10px] uppercase tracking-wider font-bold">
+          <span className="px-2 py-1 bg-[#E36B11]/10 text-[#E36B11] rounded-lg text-[10px] uppercase tracking-wider font-bold">
             {viewingQuestion + 1} / {rounds}
           </span>
           {/* Right: Close button - red background, white X */}
@@ -204,7 +204,7 @@ export default function BattleResultCard({
                       <span className="inline-flex items-center px-1 py-0.5 rounded text-[8px] font-bold bg-green-100 text-green-600">
                         {formatTime(myResult.timeMs || 0)}
                       </span>
-                      <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-bold bg-[#D4873A]/10 text-[#D4873A]">
+                      <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-bold bg-[#E36B11]/10 text-[#E36B11]">
                         <img src="/images/bogxcoin.png" alt="" className="w-2.5 h-2.5" />
                         +{myResult.points}
                       </span>

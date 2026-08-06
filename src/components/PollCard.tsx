@@ -118,7 +118,7 @@ export default function PollCard({ poll, userId, visitorId, variant = 'full', on
       <div className="bg-cream border border-warm rounded-xl overflow-hidden p-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <span className="text-[10px] font-bold text-[#D4873A] uppercase tracking-wider">RANKROLL</span>
+            <span className="text-[10px] font-bold text-[#E36B11] uppercase tracking-wider">RANKROLL</span>
             <h3 className="font-display text-lg text-gray-900 uppercase">{poll.title}</h3>
             <div className="flex items-center gap-2 mt-0.5">
               <p className="text-xs text-gray-500">{poll.options.length} options · {localPoll.totalVotes} votes</p>
@@ -127,7 +127,7 @@ export default function PollCard({ poll, userId, visitorId, variant = 'full', on
                   <span className="text-gray-300">·</span>
                   <button
                     onClick={() => onOpenArticle(String(poll.linkedArticleId))}
-                    className="text-xs text-[#D4873A] hover:underline flex items-center gap-1"
+                    className="text-xs text-[#E36B11] hover:underline flex items-center gap-1"
                   >
                     <BookOpen className="w-3 h-3" />
                     Read story
@@ -138,7 +138,7 @@ export default function PollCard({ poll, userId, visitorId, variant = 'full', on
           </div>
           <button
             onClick={() => setIsExpanded(true)}
-            className="px-3 py-1.5 bg-[#D4873A] text-white text-sm font-bold rounded-lg hover:bg-[#C4772A] transition-colors flex-shrink-0"
+            className="px-3 py-1.5 bg-[#E36B11] text-white text-sm font-bold rounded-lg hover:bg-[#C4772A] transition-colors flex-shrink-0"
           >
             Vote
           </button>
@@ -152,7 +152,7 @@ export default function PollCard({ poll, userId, visitorId, variant = 'full', on
     <div className="bg-cream border border-warm rounded-xl overflow-hidden p-4">
       <div className="flex items-center justify-between gap-4">
         <div className="flex-1 min-w-0">
-          <span className="text-[10px] font-bold text-[#D4873A] uppercase tracking-wider">RANKROLL</span>
+          <span className="text-[10px] font-bold text-[#E36B11] uppercase tracking-wider">RANKROLL</span>
           <h3 className="font-display text-lg text-gray-900 uppercase">{poll.title}</h3>
           {poll.subtitle && <p className="text-sm text-gray-700 line-clamp-1">{poll.subtitle}</p>}
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -162,7 +162,7 @@ export default function PollCard({ poll, userId, visitorId, variant = 'full', on
                 <span className="text-gray-300">·</span>
                 <button
                   onClick={(e) => { e.stopPropagation(); onOpenArticle(String(poll.linkedArticleId)); }}
-                  className="text-xs text-[#D4873A] hover:underline flex items-center gap-1"
+                  className="text-xs text-[#E36B11] hover:underline flex items-center gap-1"
                 >
                   <BookOpen className="w-3 h-3" />
                   Read story
@@ -174,10 +174,10 @@ export default function PollCard({ poll, userId, visitorId, variant = 'full', on
         {hasVoted ? (
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="flex-shrink-0 text-center px-3 py-1.5 rounded-lg hover:bg-[#D4873A]/10 transition-colors"
+            className="flex-shrink-0 text-center px-3 py-1.5 rounded-lg hover:bg-[#E36B11]/10 transition-colors"
           >
             <div className="text-xs text-gray-900">Your vote</div>
-            <div className="text-sm font-bold text-[#D4873A] flex items-center gap-1">
+            <div className="text-sm font-bold text-[#E36B11] flex items-center gap-1">
               {localPoll.options.find(o => o.id === votedOption)?.label || '—'}
               <svg className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -187,7 +187,7 @@ export default function PollCard({ poll, userId, visitorId, variant = 'full', on
         ) : (
           <button
             onClick={() => setIsExpanded(true)}
-            className="px-3 py-1.5 bg-[#D4873A] text-white text-sm font-bold rounded-lg hover:bg-[#C4772A] transition-colors flex-shrink-0"
+            className="px-3 py-1.5 bg-[#E36B11] text-white text-sm font-bold rounded-lg hover:bg-[#C4772A] transition-colors flex-shrink-0"
           >
             Vote
           </button>
@@ -205,13 +205,13 @@ export default function PollCard({ poll, userId, visitorId, variant = 'full', on
               <div
                 key={option.id}
                 className={`w-full relative overflow-hidden rounded-lg border ${
-                  isSelected ? 'border-[#D4873A] bg-[#D4873A]/10' : 'border-warm bg-cream'
+                  isSelected ? 'border-[#E36B11] bg-[#E36B11]/10' : 'border-warm bg-cream'
                 }`}
               >
                 {/* Progress bar */}
                 <div 
                   className={`absolute inset-y-0 left-0 transition-all duration-500 ${
-                    isSelected ? 'bg-[#D4873A]/20' : 'bg-gray-100'
+                    isSelected ? 'bg-[#E36B11]/20' : 'bg-gray-100'
                   }`}
                   style={{ width: `${percentage}%` }}
                 />
@@ -221,9 +221,9 @@ export default function PollCard({ poll, userId, visitorId, variant = 'full', on
                     <span className={`font-display text-sm uppercase ${isSelected ? 'text-gray-900' : 'text-gray-900'}`}>
                       {option.label}
                     </span>
-                    {isSelected && <CheckCircle className="w-4 h-4 text-[#D4873A]" />}
+                    {isSelected && <CheckCircle className="w-4 h-4 text-[#E36B11]" />}
                   </div>
-                  <span className={`text-sm font-bold ${isSelected ? 'text-[#D4873A]' : 'text-gray-900'}`}>
+                  <span className={`text-sm font-bold ${isSelected ? 'text-[#E36B11]' : 'text-gray-900'}`}>
                     {percentage}%
                   </span>
                 </div>
@@ -232,7 +232,7 @@ export default function PollCard({ poll, userId, visitorId, variant = 'full', on
               <button
                 key={option.id}
                 onClick={() => handleVote(option.id)}
-                className="w-full flex items-center gap-2 p-3 rounded-lg border border-warm transition-all text-left hover:border-[#D4873A] hover:bg-[#D4873A]/5 cursor-pointer"
+                className="w-full flex items-center gap-2 p-3 rounded-lg border border-warm transition-all text-left hover:border-[#E36B11] hover:bg-[#E36B11]/5 cursor-pointer"
               >
                 {option.emoji && <span className="text-xl">{option.emoji}</span>}
                 <span className="font-display text-sm text-gray-900 uppercase">{option.label}</span>

@@ -52,7 +52,7 @@ export default function ReporterChips({
           {/* Edit button - appears on hover */}
           <button
             onClick={(e) => { e.stopPropagation(); onEdit(p); }}
-            className="absolute -top-1 -right-1 w-4 h-4 bg-gray-700 hover:bg-[#D4873A] rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute -top-1 -right-1 w-4 h-4 bg-gray-700 hover:bg-[#E36B11] rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
             title="Edit reporter"
           >
             <Pencil size={8} className="text-white" />

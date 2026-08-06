@@ -38,12 +38,12 @@ export default function LoginRequiredModal({
             <button
               onClick={onClose}
               aria-label="Close"
-              className="absolute top-4 right-4 w-8 h-8 rounded-full hover:bg-[#D4873A]/10 flex items-center justify-center text-gray-400 hover:text-[#D4873A] transition-colors"
+              className="absolute top-4 right-4 w-8 h-8 rounded-full hover:bg-[#E36B11]/10 flex items-center justify-center text-gray-400 hover:text-[#E36B11] transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
-            <div className="w-12 h-12 rounded-xl bg-[#D4873A]/10 flex items-center justify-center mb-4">
-              <Lock className="w-6 h-6 text-[#D4873A]" />
+            <div className="w-12 h-12 rounded-xl bg-[#E36B11]/10 flex items-center justify-center mb-4">
+              <Lock className="w-6 h-6 text-[#E36B11]" />
             </div>
             <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
             <p className="text-sm text-gray-500 mt-1 leading-relaxed">{message}</p>
@@ -52,14 +52,14 @@ export default function LoginRequiredModal({
           <div className="px-6 py-5 space-y-3">
             <button
               onClick={onLogin}
-              className="w-full flex items-center justify-center gap-2 py-3 bg-[#D4873A] hover:bg-[#C4772A] text-white font-medium rounded-xl text-sm transition-colors"
+              className="w-full flex items-center justify-center gap-2 py-3 bg-[#E36B11] hover:bg-[#C4772A] text-white font-medium rounded-xl text-sm transition-colors"
             >
               <LogIn className="w-4 h-4" />
               Log in
             </button>
             <button
               onClick={onRegister}
-              className="w-full flex items-center justify-center gap-2 py-3 bg-[#D4873A]/10 hover:bg-[#D4873A]/20 text-[#D4873A] font-medium rounded-xl text-sm transition-colors"
+              className="w-full flex items-center justify-center gap-2 py-3 bg-[#E36B11]/10 hover:bg-[#E36B11]/20 text-[#E36B11] font-medium rounded-xl text-sm transition-colors"
             >
               <UserPlus className="w-4 h-4" />
               Create account
@@ -86,13 +86,13 @@ export default function LoginRequiredModal({
           <button
             onClick={onClose}
             aria-label="Close"
-            className="absolute top-4 right-4 w-8 h-8 rounded-full hover:bg-[#D4873A]/10 flex items-center justify-center text-gray-400 hover:text-[#D4873A] transition-colors"
+            className="absolute top-4 right-4 w-8 h-8 rounded-full hover:bg-[#E36B11]/10 flex items-center justify-center text-gray-400 hover:text-[#E36B11] transition-colors"
           >
 
             <X className="w-4 h-4" />
           </button>
-          <div className="w-12 h-12 rounded-xl bg-[#D4873A]/10 flex items-center justify-center mb-4">
-            <Lock className="w-6 h-6 text-[#D4873A]" />
+          <div className="w-12 h-12 rounded-xl bg-[#E36B11]/10 flex items-center justify-center mb-4">
+            <Lock className="w-6 h-6 text-[#E36B11]" />
           </div>
           <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
           <p className="text-sm text-gray-500 mt-1 leading-relaxed">{message}</p>
@@ -101,14 +101,14 @@ export default function LoginRequiredModal({
         <div className="px-6 py-5 space-y-3">
           <button
             onClick={onLogin}
-            className="w-full flex items-center justify-center gap-2 py-3 bg-[#D4873A] hover:bg-[#C4772A] text-white font-medium rounded-xl text-sm transition-colors"
+            className="w-full flex items-center justify-center gap-2 py-3 bg-[#E36B11] hover:bg-[#C4772A] text-white font-medium rounded-xl text-sm transition-colors"
           >
             <LogIn className="w-4 h-4" />
             Log in
           </button>
           <button
             onClick={onRegister}
-            className="w-full flex items-center justify-center gap-2 py-3 bg-[#D4873A]/10 hover:bg-[#D4873A]/20 text-[#D4873A] font-medium rounded-xl text-sm transition-colors"
+            className="w-full flex items-center justify-center gap-2 py-3 bg-[#E36B11]/10 hover:bg-[#E36B11]/20 text-[#E36B11] font-medium rounded-xl text-sm transition-colors"
           >
             <UserPlus className="w-4 h-4" />
             Create account

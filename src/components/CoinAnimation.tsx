@@ -76,7 +76,7 @@ export default function CoinAnimation({ amount, variant, onComplete, isDesktop =
         ))}
         {/* "On hold" label */}
         <div
-          className="absolute left-1/2 -translate-x-1/2 top-28 px-3 py-1 rounded-full bg-[#D4873A]/90 text-white text-xs font-bold tracking-wide"
+          className="absolute left-1/2 -translate-x-1/2 top-28 px-3 py-1 rounded-full bg-[#E36B11]/90 text-white text-xs font-bold tracking-wide"
           style={{ animation: 'goldGlow 1.4s ease-out forwards' }}
         >
           {Math.abs(amount)} {getCurrencySymbol()} on hold

@@ -194,7 +194,7 @@ export default function DesktopRankingDetailPage({ poll, onBack, onOpenArticle, 
     return (
       <div className="h-full flex flex-col bg-[#F5F0E8] overflow-hidden animate-pulse">
         {/* Header Skeleton */}
-        <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-transparent">
+        <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
           <div className="w-8 h-8 rounded-lg bg-skeleton" />
           <div className="flex-1">
             <div className="h-3 w-16 bg-skeleton rounded mb-2" />
@@ -236,11 +236,11 @@ export default function DesktopRankingDetailPage({ poll, onBack, onOpenArticle, 
   return (
     <div className="h-full flex flex-col bg-[#F5F0E8] overflow-hidden">
       {/* Header - sticky like other pages */}
-      <div className="sticky top-0 z-10 flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#D4873A]/5 to-[#F5F0E8]">
+      <div className="sticky top-0 z-10 flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-[#F5F0E8]">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="w-8 h-8 flex items-center justify-center rounded-lg bg-cream border border-warm hover:bg-[#D4873A]/10 transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-cream border border-warm hover:bg-[#E36B11]/10 transition-colors"
           >
             <ChevronLeft className="w-5 h-5 text-gray-600" />
           </button>
@@ -250,7 +250,7 @@ export default function DesktopRankingDetailPage({ poll, onBack, onOpenArticle, 
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#D4873A] rounded-lg shadow-sm">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#E36B11] rounded-lg shadow-sm">
             <span className="text-sm">🪙</span>
             <span className="text-xs font-bold text-white">
               {(Object.keys(userVotes).length * 0.01).toFixed(2)} of {((poll.items?.length || 0) * 0.01).toFixed(2)} BOGX
@@ -259,7 +259,7 @@ export default function DesktopRankingDetailPage({ poll, onBack, onOpenArticle, 
           {poll.linkedArticleId && onOpenArticle && (
             <button
               onClick={() => onOpenArticle(String(poll.linkedArticleId))}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#D4873A]/10 text-[#D4873A] text-xs font-semibold rounded-lg hover:bg-[#D4873A]/20 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#E36B11]/10 text-[#E36B11] text-xs font-semibold rounded-lg hover:bg-[#E36B11]/20 transition-colors"
             >
               <BookOpen className="w-4 h-4" />
               Read Story

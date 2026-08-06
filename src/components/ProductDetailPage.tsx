@@ -122,7 +122,7 @@ export default function ProductDetailPage({ product, onBack }: ProductDetailPage
   return (
     <PageTemplate 
       title="Best of GenX Merch" 
-      icon={<ShoppingBag className="w-5 h-5 text-[#D4873A]" />}
+      icon={<ShoppingBag className="w-5 h-5 text-[#E36B11]" />}
       onBack={onBack}
       rightAction={
         <button 
@@ -131,7 +131,7 @@ export default function ProductDetailPage({ product, onBack }: ProductDetailPage
         >
           <ShoppingCart className="w-6 h-6 text-gray-700" />
           {totalItems > 0 && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#D4873A] rounded-full text-white text-xs font-bold flex items-center justify-center">
+            <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#E36B11] rounded-full text-white text-xs font-bold flex items-center justify-center">
               {totalItems}
             </span>
           )}
@@ -181,7 +181,7 @@ export default function ProductDetailPage({ product, onBack }: ProductDetailPage
               onClick={() => setSelectedImageIndex(index)}
               className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
                 selectedImageIndex === index 
-                  ? 'border-[#D4873A]' 
+                  ? 'border-[#E36B11]' 
                   : 'border-transparent opacity-60 hover:opacity-100'
               }`}
             >
@@ -197,7 +197,7 @@ export default function ProductDetailPage({ product, onBack }: ProductDetailPage
         <p className="text-gray-600 text-sm mt-2">{product.description}</p>
         
         <div className="flex items-center gap-2 mt-3">
-          <span className="px-2 py-1 bg-[#D4873A]/10 rounded-lg text-[#D4873A] text-xs uppercase font-medium">
+          <span className="px-2 py-1 bg-[#E36B11]/10 rounded-lg text-[#E36B11] text-xs uppercase font-medium">
             {product.category}
           </span>
         </div>
@@ -220,8 +220,8 @@ export default function ProductDetailPage({ product, onBack }: ProductDetailPage
                     onClick={() => setSelectedColor(color)}
                     className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
                       selectedColor === color
-                        ? 'bg-[#D4873A] text-white border-[#D4873A]'
-                        : 'bg-cream text-gray-700 border-warm hover:bg-[#D4873A]/10'
+                        ? 'bg-[#E36B11] text-white border-[#E36B11]'
+                        : 'bg-cream text-gray-700 border-warm hover:bg-[#E36B11]/10'
                     }`}
                   >
                     {color}
@@ -248,9 +248,9 @@ export default function ProductDetailPage({ product, onBack }: ProductDetailPage
                       disabled={!variant.available}
                       className={`w-14 py-2 rounded-lg text-sm font-bold transition-all border ${
                         isSelected
-                          ? 'bg-[#D4873A] text-white border-[#D4873A]'
+                          ? 'bg-[#E36B11] text-white border-[#E36B11]'
                           : variant.available
-                            ? 'bg-cream text-gray-700 border-warm hover:bg-[#D4873A]/10'
+                            ? 'bg-cream text-gray-700 border-warm hover:bg-[#E36B11]/10'
                             : 'bg-cream/50 text-gray-300 border-warm cursor-not-allowed line-through'
                       }`}
                     >
@@ -287,7 +287,7 @@ export default function ProductDetailPage({ product, onBack }: ProductDetailPage
           </div>
           <div className="text-right">
             <p className="text-gray-500 text-xs font-medium">Total</p>
-            <span className="text-2xl font-black text-[#D4873A]">
+            <span className="text-2xl font-black text-[#E36B11]">
               €{((parseFloat(selectedVariant?.price || product.price.replace('€', '')) * quantity)).toFixed(2)}
             </span>
           </div>
@@ -302,7 +302,7 @@ export default function ProductDetailPage({ product, onBack }: ProductDetailPage
           className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-lg ${
             addedToCart 
               ? 'bg-green-500 text-white' 
-              : 'bg-[#D4873A] hover:bg-[#c06a2a] text-white'
+              : 'bg-[#E36B11] hover:bg-[#c06a2a] text-white'
           }`}
         >
           {addedToCart ? (
