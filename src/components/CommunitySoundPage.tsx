@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Music, Headphones } from "lucide-react";
 import BackButton from "@/components/BackButton";
 import MusicSongList from "@/components/games/MusicSongList";
@@ -20,6 +20,30 @@ interface CommunityArticle {
 export default function CommunitySoundPage({ onBack, onOpenRadio, isDesktop = false }: CommunitySoundPageProps) {
   const [article, setArticle] = useState<CommunityArticle | null>(null);
   const [loading, setLoading] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to top when component mounts
+  useEffect(() => {
+    const scrollToTop = () => {
+      // Internal scroll container
+      scrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+      // Desktop parent container
+      const parentScroll = document.querySelector('[data-content-scroll]');
+      if (parentScroll) {
+        parentScroll.scrollTop = 0;
+      }
+      // Window scroll as fallback
+      window.scrollTo(0, 0);
+    };
+    
+    // Immediate
+    scrollToTop();
+    // After paint
+    requestAnimationFrame(scrollToTop);
+    // After a short delay as final fallback
+    const timer = setTimeout(scrollToTop, 50);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     fetch('/api/articles?contentType=music-community&status=published&limit=1')
@@ -59,7 +83,7 @@ export default function CommunitySoundPage({ onBack, onOpenRadio, isDesktop = fa
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
         {/* Hero banner */}
         {heroImg && (
           <div className={`relative w-full overflow-hidden bg-gray-800 ${isDesktop ? 'aspect-[3/1]' : 'aspect-[16/9]'}`}>

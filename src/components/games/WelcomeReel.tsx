@@ -8,7 +8,7 @@ import CardMoodReactions from "@/components/CardMoodReactions";
 import CategoryBadge from "@/components/CategoryBadge";
 import LazyImage from "@/components/LazyImage";
 import { useAuth } from "@/context/AuthContext";
-import { getAutoFillSlugs, getCategoryLabel as getSubCategoryLabel } from "@/lib/categories";
+import { getAutoFillSlugs, getCategoryLabel as getSubCategoryLabel, TOP_AREA_EXCLUDED_SLUGS } from "@/lib/categories";
 import { getFlagUrl as resolveFlagUrl } from "@/lib/countryFlags";
 
 interface Article {
@@ -36,6 +36,7 @@ interface Article {
   status?: 'draft' | 'published' | 'archived';
   contentType?: string;
   createdAt?: string;
+  scheduledAt?: string;
   order?: number;  // Manual sort order (lower = higher); drives the Top Area order
   closesAt?: string;  // For voting/poll articles - when the poll closes
   // Styling options
@@ -47,6 +48,18 @@ interface Article {
   personCountry?: string;
   personCountryCode?: string;
 }
+
+// Feed order — must stay identical to the admin Post Manager sort:
+// manual drag order (`order`, lower = higher) wins, then newest first by
+// scheduledAt (falling back to createdAt).
+const articleDate = (a: Article): number =>
+  new Date(a.scheduledAt || a.createdAt || 0).getTime();
+
+const compareArticles = (a: Article, b: Article): number => {
+  const ao = a.order ?? 0, bo = b.order ?? 0;
+  if (ao !== bo) return ao - bo;
+  return articleDate(b) - articleDate(a);
+};
 
 // Main category labels for frontend display
 const MAIN_CATEGORY_LABELS: Record<string, string> = {
@@ -66,6 +79,16 @@ const articleFlagUrl = (
 // Helper to get frontend label from mainCategory
 const getCategoryLabel = (mainCategory: string): string => {
   return MAIN_CATEGORY_LABELS[mainCategory] || 'ARTICLES';
+};
+
+// Format date as "August 10, 2026"
+const formatArticleDate = (dateStr?: string): string => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                  'July', 'August', 'September', 'October', 'November', 'December'];
+  return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
 };
 
 // Helper to check if URL is a video
@@ -489,7 +512,11 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       )}
       {/* Content - fixed at bottom */}
       <div className="absolute bottom-0 left-0 right-0 z-10 p-4">
-        {/* Read badge inline with title */}
+        {/* Date above title (birthday) */}
+        {formatArticleDate(article.createdAt) && (
+          <div className="text-[14px] text-white/90 mb-1.5 font-semibold">{formatArticleDate(article.createdAt)}</div>
+        )}
+        {/* Title */}
         <div className="flex items-start gap-2">
           <h2 className={`font-display text-[28px] lg:text-[32px] tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} group-hover:text-[#E36B11] leading-tight mb-1.5 line-clamp-2 transition-colors flex-1`}>{article.title}</h2>
         </div>
@@ -964,9 +991,12 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
               />
             </div>
           )}
-          {/* Title ON the image - only on desktop */}
+          {/* Date + Title ON the image - only on desktop */}
           {isDesktop && (
             <div className="absolute bottom-2 left-2 right-2 z-10">
+              {formatArticleDate(article.createdAt) && (
+                <div className="text-[13px] text-white/90 mb-1 font-semibold drop-shadow-lg">{formatArticleDate(article.createdAt)}</div>
+              )}
               <h3 className={`font-display text-lg lg:text-3xl tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} group-hover:text-[#E36B11] leading-tight line-clamp-3 drop-shadow-lg transition-colors`}>
                 {article.title}
               </h3>
@@ -977,6 +1007,9 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       
       {/* Content - title below image on mobile, subtitle on desktop */}
       <div className="p-3 pt-2.5">
+        {!isDesktop && formatArticleDate(article.createdAt) && (
+          <div className="text-[12px] text-gray-500 mb-0.5 font-medium">{formatArticleDate(article.createdAt)}</div>
+        )}
         {!isDesktop && <h3 className="font-display text-[19px] tracking-wide text-gray-900 leading-snug line-clamp-2 mb-1">{article.title}</h3>}
         {isDesktop && article.subtitle && <p className="text-[15px] text-gray-900 leading-snug line-clamp-2 mb-1">{article.subtitle}</p>}
       </div>
@@ -1215,7 +1248,8 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
   // Every other category keeps the normal waterfall (newest flows up into the Top Area
   // AND also shows in its own banner — this duplication is intended).
   const DATE_BASED_AREAS = new Set(['gaming', 'history']);
-  const bannerCategories = new Set<string>();
+  // History / Arcade are always excluded, even if their container has no FIXED banner yet.
+  const bannerCategories = new Set<string>(TOP_AREA_EXCLUDED_SLUGS);
   const bannerArticleIds = new Set<string>();
   templateItems
     .filter(item => item.size === 12 && (item.containerBlocks || []).length > 0)
@@ -1277,14 +1311,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                   const containerPool = (isTop
                     ? articles.filter(a => a.status === 'published' && a.contentType !== 'rankroll' && a.contentType !== 'music-community' && a.contentType !== 'banner-page' && (a.featured || (!bannerCategories.has(a.category?.toLowerCase() || '') && !bannerArticleIds.has(a._id))))
                     : articles.filter(a => a.status === 'published' && a.contentType !== 'rankroll' && a.contentType !== 'music-community' && a.contentType !== 'banner-page' && containerCats.includes(a.category?.toLowerCase() || ''))
-                  ).sort((a, b) => {
-                    // Top Area: manual drag order (lower = higher) wins, then newest first.
-                    if (isTop) {
-                      const ao = a.order ?? 0, bo = b.order ?? 0;
-                      if (ao !== bo) return ao - bo;
-                    }
-                    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
-                  });
+                  ).sort(compareArticles);
                   // Frontend theme styles - SAME as Admin (ContainerBlock.tsx)
                   const themeStyles: Record<string, { bg: string; border: string; titleColor: string }> = {
                     cream: { bg: 'bg-[#F5F0E8]', border: 'border-[#E5DDD0]', titleColor: 'text-[#E36B11]' },
@@ -1345,9 +1372,15 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                       {blocks.map((block, blockIdx) => {
                         const containerTheme = item.containerTheme;
                         if (block.type === 'MAIN') {
-                          // Auto-fill primary: newest from pool waterfalls to the top, pinned as fallback
+                          // WATERFALL: newest from the (category-filtered) pool wins
                           let mainArticle: Article | null = containerPool.find(a => !usedArticleIds.has(a._id)) || null;
-                          if (!mainArticle && block.articleId && !usedArticleIds.has(block.articleId)) mainArticle = getArticleById(block.articleId) ?? null;
+                          // Pinned article is only a fallback, and only if its category fits this container
+                          if (!mainArticle && block.articleId && !usedArticleIds.has(block.articleId)) {
+                            const pinned = getArticleById(block.articleId);
+                            if (pinned && (isTop || containerCats.length === 0 || containerCats.includes(pinned.category?.toLowerCase() || ''))) {
+                              mainArticle = pinned;
+                            }
+                          }
                           if (!mainArticle) return null;
                           usedArticleIds.add(mainArticle._id);
                           return <div key={blockIdx}><MainBox article={mainArticle} theme={containerTheme} /></div>;
@@ -1355,13 +1388,25 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                         if (block.type === '2H') {
                           let leftArticle: Article | null = null;
                           let rightArticle: Article | null = null;
-                          // Auto-fill is primary — newest from pool (global for top, category otherwise)
+                          
+                          // Helper to check if pinned article matches container category
+                          const categoryMatches = (art: Article | undefined) => 
+                            !!art && (isTop || containerCats.length === 0 || containerCats.includes(art.category?.toLowerCase() || ''));
+                          
+                          // WATERFALL: auto-fill is primary — newest from pool
                           const pool = containerPool.filter(a => !usedArticleIds.has(a._id));
                           leftArticle = pool[0] || null;
                           rightArticle = pool[1] || null;
-                          // Fallback to pinned IDs only if auto-fill found nothing
-                          if (!leftArticle && block.articleId && !usedArticleIds.has(block.articleId)) leftArticle = getArticleById(block.articleId) ?? null;
-                          if (!rightArticle && block.articleId2 && !usedArticleIds.has(block.articleId2)) rightArticle = getArticleById(block.articleId2) ?? null;
+                          
+                          // Pinned IDs only as fallback, and only if their category fits this container
+                          if (!leftArticle && block.articleId && !usedArticleIds.has(block.articleId)) {
+                            const pinned = getArticleById(block.articleId);
+                            if (categoryMatches(pinned)) leftArticle = pinned!;
+                          }
+                          if (!rightArticle && block.articleId2 && !usedArticleIds.has(block.articleId2)) {
+                            const pinned = getArticleById(block.articleId2);
+                            if (categoryMatches(pinned)) rightArticle = pinned!;
+                          }
                           if (leftArticle) usedArticleIds.add(leftArticle._id);
                           if (rightArticle) usedArticleIds.add(rightArticle._id);
                           if (!leftArticle && !rightArticle) return null;
@@ -1380,12 +1425,12 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                           if (autoCategory === 'music') {
                             fixedArticle = articles.find(a => a.contentType === 'music-community' && a.status === 'published')
                               || articles.filter(a => a.category === 'music' && a.status === 'published')
-                                .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0];
+                                .sort(compareArticles)[0];
                           } else if (DATE_BASED_AREAS.has(autoCategory)) {
                             // Arcade / History: always the newest article of the category
                             fixedArticle = articles
                               .filter(a => a.status === 'published' && cats.includes(a.category?.toLowerCase() || ''))
-                              .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0];
+                              .sort(compareArticles)[0];
                           } else {
                             // Other banners (Eastercorn, Sport, TV/Cinema, Lifestyle, RIP): prefer the
                             // dedicated 'banner-page' general page; fall back to the newest article.
@@ -1393,7 +1438,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                             fixedArticle = articles.find(a => a.contentType === 'banner-page' && a.status === 'published' && cats.includes(a.category?.toLowerCase() || ''))
                               || articles
                                 .filter(a => a.status === 'published' && a.contentType !== 'banner-page' && cats.includes(a.category?.toLowerCase() || ''))
-                                .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0];
+                                .sort(compareArticles)[0];
                           }
                           // Prefer the dedicated banner image stored on the block. For the
                           // Community-Sound feature, fall back to the article's coverImage
@@ -1475,7 +1520,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                                 if (!( artCat === cat || artMain === cat || artCat.includes(cat) || artMain.includes(cat))) return false;
                                 return true;
                               })
-                              .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+                              .sort(compareArticles)
                               .slice(0, limit);
                             
                             // Mark slider articles as used for waterfall
@@ -1501,7 +1546,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                             // Auto-fill: get latest articles from category (newest first), skip already-used
                             vertArticles = articles
                               .filter(a => a.category?.toLowerCase() === cat && a.status === 'published' && a.contentType !== 'rankroll' && a.contentType !== 'music-community' && a.contentType !== 'banner-page' && a.coverImage && !usedArticleIds.has(a._id))
-                              .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+                              .sort(compareArticles)
                               .slice(0, block.autoFillLimit || 3);
                           } else {
                             // Manual: use specified article IDs

@@ -229,12 +229,15 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
   const totalCount = battles.length + declinedBattles.length + incomingChallenges.length;
 
   const modalContent = (
-    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-6">
+    <div
+      className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center px-2 sm:p-6 sm:!pb-6"
+      style={{ paddingBottom: "calc(60px + max(env(safe-area-inset-bottom), 8px) + 8px)" }}
+    >
       {/* Dark overlay - covers EVERYTHING */}
       <div className="fixed inset-0 bg-black/70" onClick={onClose} />
       
-      {/* Modal */}
-      <div className="relative w-full max-w-md bg-[#F5F0E8] rounded-t-2xl sm:rounded-2xl shadow-2xl border-2 border-[#E5DDD0] flex flex-col overflow-hidden" style={{ maxHeight: "80vh" }}>
+      {/* Modal - floats above the bottom nav */}
+      <div className="relative w-full max-w-md bg-[#F5F0E8] rounded-2xl shadow-2xl border-2 border-[#E5DDD0] flex flex-col overflow-hidden" style={{ maxHeight: "72vh" }}>
         {/* Handle - only on mobile */}
         <div className="flex justify-center pt-3 pb-1 sm:hidden">
           <div className={`w-10 h-1 rounded-full ${colors.bgLight}`} />
@@ -258,8 +261,11 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
           </button>
         </div>
 
-        {/* Content - CREAM background */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-[#F5F0E8]" style={{ scrollbarWidth: "none", backgroundColor: "#F5F0E8" }}>
+        {/* Content - CREAM background with top + bottom fade */}
+        <div className="relative flex-1 min-h-0 overflow-y-auto bg-[#F5F0E8]" style={{ scrollbarWidth: "none" }}>
+          {/* Top fade gradient overlay */}
+          <div className="sticky top-0 left-0 right-0 h-5 bg-gradient-to-b from-[#F5F0E8] to-transparent z-10 pointer-events-none" />
+          <div className="px-4 -mt-1 space-y-4">
           {!userId ? (
             <div className="text-center py-10">
               <Swords className="w-10 h-10 text-gray-300 mx-auto mb-3" />
@@ -470,7 +476,7 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
                     {/* YOUR TURN - you need to play */}
                     {yourTurn.length > 0 && (
                       <div>
-                        <p className={`text-xs font-bold ${colors.text} uppercase tracking-wide mb-1`}>🎮 YOUR TURN — Play Now!</p>
+                        <p className={`text-xs font-bold ${colors.text} uppercase tracking-wide mb-1`}>🎮 You haven&apos;t played your rounds yet</p>
                         <div className="space-y-2">
                           {yourTurn.map(battle => {
                             const isCreator = battle.creator?._id === userId;
@@ -488,7 +494,17 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
                                   <div className="flex-1 min-w-0">
                                     <p className="text-gray-900 text-sm font-bold truncate">vs {otherPlayer?.username || "?"}</p>
                                     <p className="text-[10px] text-gray-400 -mt-0.5">
-                                      {isCreator ? 'You created this — your wager was taken at creation' : 'You accepted this challenge'}
+                                      {isCreator
+                                        ? `Your open battle — ${otherPlayer?.username || 'an opponent'} joined it`
+                                        : `${otherPlayer?.username || 'They'} invited you`}
+                                    </p>
+                                    {/* Origin trace — makes it verifiable where this battle came from */}
+                                    <p className="text-[9px] text-gray-400 font-mono mt-0.5 break-all" title={battle._id}>
+                                      ID {battle._id}
+                                    </p>
+                                    <p className="text-[9px] text-gray-400 font-mono">
+                                      created via: {(battle as any).createdVia || 'unknown'}
+                                      {(battle as any).acceptedVia ? ` · joined via: ${(battle as any).acceptedVia}` : ''}
                                     </p>
                                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                                       <span className={`px-2 py-0.5 ${colors.bgLight} ${colors.text} text-xs font-bold rounded-full flex items-center gap-1`}>
@@ -532,7 +548,9 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
                                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-100 border border-gray-300 text-gray-700 rounded-lg text-xs font-bold hover:bg-gray-200 transition-colors disabled:opacity-50"
                                   >
                                     {cancelling === battle._id ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
-                                    {isCreator ? 'Cancel' : 'Deny'}
+                                    {/* This triggers a FORFEIT (wager is lost), not a free cancel:
+                                        the opponent already played, so there is nothing to cancel. */}
+                                    {isCreator ? 'Give Up' : 'Deny'}
                                   </button>
                                   <button
                                     onClick={() => { onClose(); onPlayBattle(battle._id); }}
@@ -598,6 +616,9 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
               })()}
             </>
           )}
+          </div>
+          {/* Bottom fade gradient overlay - content dissolves into the sheet edge */}
+          <div className="sticky bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-[#F5F0E8] to-transparent z-10 pointer-events-none" />
         </div>
       </div>
     </div>

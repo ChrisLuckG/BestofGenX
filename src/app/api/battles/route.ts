@@ -6,6 +6,7 @@ import Card from '@/models/Card';
 import OpenAI from 'openai';
 import { combinePrompts } from '@/lib/loadPrompt';
 import { getQuestionsForUser } from '@/lib/questionService';
+import { themeForTopic } from '@/lib/battleTopics';
 
 // GET - List open battles
 export async function GET(request: NextRequest) {
@@ -88,14 +89,34 @@ export async function GET(request: NextRequest) {
     }
 
     const battles = await Battle.find(query)
-      .select('_id creator opponent topic wager rounds status questions creatorResults opponentResults creatorTotalPoints opponentTotalPoints winner isPrivate challengedUser createdAt acceptedAt')
-      .populate('creator', 'username avatar country countryFlag points isBot')
-      .populate('opponent', 'username avatar country countryFlag points isBot')
+      .select('_id creator opponent topic wager rounds status questions creatorResults opponentResults creatorTotalPoints opponentTotalPoints winner isPrivate challengedUser createdAt acceptedAt createdVia acceptedVia')
+      .populate('creator', 'username avatar country countryFlag points bogxCoins isBot')
+      .populate('opponent', 'username avatar country countryFlag points bogxCoins isBot')
       .populate('challengedUser', 'username avatar country countryFlag')
       .sort({ createdAt: -1 })
       .limit(50);
     
-    console.log('Battles query result - isPrivate values:', battles.map(b => ({ id: b._id, isPrivate: b.isPrivate })));
+    // Get ranking for all users (sorted by bogxCoins)
+    const allUsers = await User.find({ isAdmin: { $ne: true } })
+      .select('_id bogxCoins')
+      .sort({ bogxCoins: -1 })
+      .lean();
+    
+    // Create rank map
+    const rankMap = new Map<string, number>();
+    allUsers.forEach((u, idx) => rankMap.set(u._id.toString(), idx + 1));
+    
+    // Add rank to each battle's creator
+    const battlesWithRank = battles.map(b => {
+      const battle = b.toObject();
+      if (battle.creator?._id) {
+        battle.creator.rank = rankMap.get(battle.creator._id.toString()) || null;
+      }
+      if (battle.opponent?._id) {
+        battle.opponent.rank = rankMap.get(battle.opponent._id.toString()) || null;
+      }
+      return battle;
+    });
     
     // Auto-trigger bot battles if pool is too empty (async, don't wait)
     if (status === 'open' && battles.length < 3) {
@@ -104,7 +125,7 @@ export async function GET(request: NextRequest) {
     
     // Return with no-cache headers to ensure fresh data globally
     return NextResponse.json(
-      { success: true, battles },
+      { success: true, battles: battlesWithRank },
       {
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -141,9 +162,17 @@ export async function POST(request: NextRequest) {
     await dbConnect();
     
     const body = await request.json();
-    const { creatorId, topic, wager, rounds, isPrivate, challengedUserId } = body;
-    
-    console.log('Creating battle with:', { creatorId, topic, wager, rounds, isPrivate, challengedUserId });
+    const { creatorId, topic, wager, rounds, isPrivate, challengedUserId, source } = body;
+
+    const createdVia = source || 'unknown';
+    const createdUserAgent = request.headers.get('user-agent') || '';
+    const createdReferer = request.headers.get('referer') || '';
+
+    console.log('[BATTLE CREATE]', JSON.stringify({
+      at: new Date().toISOString(),
+      creatorId, topic, wager, rounds, isPrivate, challengedUserId,
+      createdVia, createdReferer, createdUserAgent,
+    }));
     
     // Validate
     if (!creatorId || !topic || !wager || !rounds) {
@@ -160,6 +189,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Not enough coins' }, { status: 400 });
     }
     
+    // Map topic to theme for Card model. Resolved BEFORE the wager is deducted so an
+    // unknown topic can be rejected without having to refund.
+    const theme = themeForTopic(topic);
+    // Fail loudly instead of silently falling back to another theme - a fallback would
+    // label the battle with one topic while serving questions from a different one.
+    if (!theme) {
+      console.error(`Battle create: unknown topic "${topic}" - no theme mapping`);
+      return NextResponse.json({ success: false, error: `Unknown topic: ${topic}` }, { status: 400 });
+    }
+    
     // Deduct wager from creator immediately (with atomic check to prevent negative)
     const updateResult = await User.findOneAndUpdate(
       { _id: creatorId, bogxCoins: { $gte: wager } },
@@ -170,14 +209,6 @@ export async function POST(request: NextRequest) {
     if (!updateResult) {
       return NextResponse.json({ success: false, error: 'Not enough coins' }, { status: 400 });
     }
-    
-    // Map topic to theme for Card model
-    // NOTE: must match the ACTUAL theme strings stored in the DB (see /api/trivia/categories)
-    const themeMap: { [key: string]: string } = {
-      sport: 'SPORTS', music: 'MUSIC', film: 'MOVIES', culture: 'CULTURE',
-      fashion: 'FASHION', games: 'GAMING', tv: 'TV SHOWS', art: 'ART', food: 'FOOD'
-    };
-    const theme = themeMap[topic] || 'CULTURE';
     
     // 1. Try to get existing cards from database first, using the same smart
     // rotation Solo Trivia uses: prioritize cards the creator has never seen,
@@ -364,8 +395,13 @@ export async function POST(request: NextRequest) {
       questions: battleQuestions,
       status: 'open',
       isPrivate: isPrivate || false,
-      challengedUser: challengedUserId || null
+      challengedUser: challengedUserId || null,
+      createdVia,
+      createdUserAgent,
+      createdReferer
     });
+
+    console.log('[BATTLE CREATE] done', battle._id.toString(), 'via', createdVia);
     
     // Populate creator and challengedUser info
     await battle.populate('creator', 'username avatar country countryFlag points isBot');

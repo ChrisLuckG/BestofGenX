@@ -74,8 +74,8 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
     });
   };
 
-  // Desktop: render inline in content area
-  // Mobile: render as fixed overlay with slide animation
+  // Desktop: render inline in content area (full width, no popup)
+  // Mobile: render as absolute overlay with slide animation
   return (
     <div 
       className={isDesktop 
@@ -88,7 +88,7 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
         <BackButton onClick={onClose} />
         <div className="flex items-center gap-2">
           <User className="w-5 h-5 text-[#E36B11]" />
-          <span className="font-display text-lg tracking-wider text-gray-900">
+          <span className="font-display text-lg tracking-wider text-gray-900 uppercase">
             Player Profile
           </span>
         </div>
@@ -119,19 +119,23 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
               <div className="px-5 pb-5 -mt-12 relative">
                 <div className="flex items-end gap-4">
                   <div className="relative">
-                    <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-md">
-                      <img 
-                        src={player.avatar || `https://i.pravatar.cc/200?u=${player._id}`} 
-                        alt={player.username}
-                        className="w-full h-full object-cover"
-                      />
+                    {/* Outer orange ring */}
+                    <div className="w-[100px] h-[100px] rounded-full p-1 bg-gradient-to-br from-[#E36B11] to-[#E36B11]/70 shadow-lg">
+                      <div className="w-full h-full rounded-full overflow-hidden border-[3px] border-white bg-white">
+                        <img 
+                          src={player.avatar || `https://i.pravatar.cc/200?u=${player._id}`} 
+                          alt={player.username}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
                     </div>
                     {/* Rank Badge */}
-                    {player.rank && player.rank <= 3 && (
+                    {player.rank && (
                       <div className={`absolute -top-1 -right-1 w-9 h-9 rounded-full flex items-center justify-center shadow-md border-2 border-white ${
                         player.rank === 1 ? 'bg-gradient-to-br from-yellow-400 to-amber-600' :
                         player.rank === 2 ? 'bg-gradient-to-br from-gray-300 to-gray-500' :
-                        'bg-gradient-to-br from-amber-600 to-amber-800'
+                        player.rank === 3 ? 'bg-gradient-to-br from-amber-600 to-amber-800' :
+                        'bg-[#E36B11]'
                       }`}>
                         <span className="text-xs font-black text-white">#{player.rank}</span>
                       </div>
@@ -208,15 +212,15 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
             <div className={`mx-4 mt-3 rounded-2xl shadow-sm border border-warm overflow-hidden ${isDesktop ? 'bg-[#F5F0E8]' : 'bg-white'}`}>
               <div className="grid grid-cols-3 divide-x divide-warm">
                 <div className="p-4 text-center">
-                  <p className="text-2xl font-black text-[#E36B11]">{player.points.toLocaleString()}</p>
+                  <p className="text-2xl font-black text-gray-900">{player.points.toLocaleString()}</p>
                   <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mt-1">BOGX</p>
                 </div>
                 <div className="p-4 text-center">
-                  <p className="text-2xl font-black text-[#FFB800]">{player.wins}</p>
+                  <p className="text-2xl font-black text-gray-900">{player.wins}</p>
                   <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mt-1">Wins</p>
                 </div>
                 <div className="p-4 text-center">
-                  <p className="text-2xl font-black text-blue-500">{player.gamesPlayed}</p>
+                  <p className="text-2xl font-black text-gray-900">{player.gamesPlayed}</p>
                   <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mt-1">Games</p>
                 </div>
               </div>
@@ -235,15 +239,15 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
                 {/* Average Answer Time */}
                 <div className="flex items-center justify-between px-4 py-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
-                      <Clock className="w-4 h-4 text-purple-500" />
+                    <div className="w-8 h-8 rounded-lg bg-[#E36B11]/10 flex items-center justify-center">
+                      <Clock className="w-4 h-4 text-[#E36B11]/70" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-900">Avg. Answer Time</p>
                       <p className="text-[10px] text-gray-400">Speed matters!</p>
                     </div>
                   </div>
-                  <p className="text-base font-bold text-purple-500">
+                  <p className="text-base font-bold text-gray-900">
                     {player.avgAnswerTime ? `${player.avgAnswerTime.toFixed(1)}s` : '—'}
                   </p>
                 </div>
@@ -251,15 +255,15 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
                 {/* Accuracy */}
                 <div className="flex items-center justify-between px-4 py-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center">
-                      <Target className="w-4 h-4 text-green-500" />
+                    <div className="w-8 h-8 rounded-lg bg-[#E36B11]/10 flex items-center justify-center">
+                      <Target className="w-4 h-4 text-[#E36B11]/70" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-900">Accuracy</p>
                       <p className="text-[10px] text-gray-400">Correct answers</p>
                     </div>
                   </div>
-                  <p className="text-base font-bold text-green-500">
+                  <p className="text-base font-bold text-gray-900">
                     {player.accuracy ? `${player.accuracy.toFixed(0)}%` : '—'}
                   </p>
                 </div>
@@ -267,15 +271,15 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
                 {/* Win Rate */}
                 <div className="flex items-center justify-between px-4 py-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-yellow-50 flex items-center justify-center">
-                      <Trophy className="w-4 h-4 text-[#FFB800]" />
+                    <div className="w-8 h-8 rounded-lg bg-[#E36B11]/10 flex items-center justify-center">
+                      <Trophy className="w-4 h-4 text-[#E36B11]/70" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-900">Win Rate</p>
                       <p className="text-[10px] text-gray-400">Games won</p>
                     </div>
                   </div>
-                  <p className="text-base font-bold text-[#FFB800]">
+                  <p className="text-base font-bold text-gray-900">
                     {player.winRate ? `${player.winRate.toFixed(0)}%` : 
                      player.gamesPlayed > 0 ? `${((player.wins / player.gamesPlayed) * 100).toFixed(0)}%` : '—'}
                   </p>
@@ -284,15 +288,15 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
                 {/* Current Streak */}
                 <div className="flex items-center justify-between px-4 py-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
-                      <TrendingUp className="w-4 h-4 text-orange-500" />
+                    <div className="w-8 h-8 rounded-lg bg-[#E36B11]/10 flex items-center justify-center">
+                      <TrendingUp className="w-4 h-4 text-[#E36B11]/70" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-900">Current Streak</p>
                       <p className="text-[10px] text-gray-400">Days in a row</p>
                     </div>
                   </div>
-                  <p className="text-base font-bold text-orange-500">
+                  <p className="text-base font-bold text-gray-900">
                     {player.currentStreak ? `🔥 ${player.currentStreak}` : '—'}
                   </p>
                 </div>
@@ -301,14 +305,14 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
                 <div className="flex items-center justify-between px-4 py-3">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-[#E36B11]/10 flex items-center justify-center">
-                      <Award className="w-4 h-4 text-[#E36B11]" />
+                      <Award className="w-4 h-4 text-[#E36B11]/70" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-900">Best Streak</p>
                       <p className="text-[10px] text-gray-400">Personal record</p>
                     </div>
                   </div>
-                  <p className="text-base font-bold text-[#E36B11]">
+                  <p className="text-base font-bold text-gray-900">
                     {player.bestStreak ? `⭐ ${player.bestStreak}` : '—'}
                   </p>
                 </div>

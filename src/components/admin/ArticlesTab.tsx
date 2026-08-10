@@ -80,7 +80,7 @@ function getSectionAiPrompt(category?: string, _title?: string): string {
   if (cat === 'rip' || cat === 'obituary' || cat === 'memorial')
     return 'Atmospheric candlelight scene. Candles, roses, laurel wreath, vintage black-and-white photograph frames on dark velvet. Deep charcoal, purple and gold tones. Cinematic, emotional, timeless. NO people, NO faces, NO text.';
   if (cat === 'history')
-    return 'Vintage sepia collage. Antique world map, old compass, parchment scroll, pocket watch, aged newspaper clippings. Warm amber tones, aged paper texture. NO people, NO faces, NO text.';
+    return 'Dramatic cinematic collage for a historical "On This Day" article. A large vintage tear-off desk calendar as the FOCAL POINT in the center. Vintage sepia-toned polaroid photos with white borders arranged around the calendar, overlapping slightly. Historical newspaper clippings, old photographs, and vintage memorabilia artfully arranged. Warm sepia and golden-brown tones, aged parchment background, nostalgic 80s/90s aesthetic, film grain texture. The composition should feel like opening a time capsule. NO clocks, watches, compasses, cameras, typewriters. NO people, NO faces.';
   if (cat === 'arcade' || cat === 'gaming')
     return 'Retro arcade scene. Glowing arcade cabinet screens, joystick, neon grid floor, pixel art patterns, cyberpunk purple and cyan lights. NO people, NO faces, NO text.';
   if (cat === 'sports' || cat === 'sport')
@@ -95,6 +95,7 @@ function getSectionAiPrompt(category?: string, _title?: string): string {
 }
 
 export default function ArticlesTab({ userId }: ArticlesTabProps) {
+  console.log('[ArticlesTab] COMPONENT MOUNTED, userId:', userId);
   const [articles, setArticles] = useState<ArticleData[]>([]);
   const [articlesLoading, setArticlesLoading] = useState(false);
   const [editingArticle, setEditingArticle] = useState<Partial<ArticleData> | null>(null);
@@ -317,13 +318,18 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
   const fetchArticles = async () => {
     setArticlesLoading(true);
     try {
+      console.log('[ArticlesTab] Fetching articles...');
       const res = await fetch("/api/articles?admin=true&limit=200");
+      console.log('[ArticlesTab] Response status:', res.status);
       const data = await res.json();
+      console.log('[ArticlesTab] Data:', data.success, 'articles:', data.articles?.length);
       if (data.success) {
         setArticles(data.articles);
+      } else {
+        console.error('[ArticlesTab] API returned success=false:', data);
       }
     } catch (error) {
-      console.error("Error fetching articles:", error);
+      console.error("[ArticlesTab] Error fetching articles:", error);
     } finally {
       setArticlesLoading(false);
     }

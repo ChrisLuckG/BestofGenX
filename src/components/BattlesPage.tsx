@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { 
   Plus, ChevronLeft, ChevronRight, Swords, Check, X, Clock, HelpCircle, Trophy, Coins, Users,
   Dumbbell, Music, Film, Landmark, Shirt, Gamepad2, Tv, Palette, UtensilsCrossed, Play, Lock, LayoutGrid,
-  Target, Zap, RefreshCcw, Shield
+  Target, Zap, RefreshCcw, Shield, Loader2
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -53,6 +54,7 @@ interface Battle {
   winner?: string;
   isPrivate?: boolean;
   challengedUser?: string;
+  createdAt: string;
 }
 
 interface RoundResult {
@@ -125,6 +127,7 @@ interface BattlePageProps {
   onGoToTrivia?: () => void; // Navigate to solo trivia
   onGoToArticles?: () => void; // Navigate to articles
   isDesktop?: boolean; // If true, desktop layout
+  skipSetup?: boolean; // If true, skip setup screen and go directly to pool
 }
 
 // Check if game is on break (9:00-10:00 CET - daily reset period)
@@ -135,7 +138,7 @@ const isGameOnBreak = () => {
   return hour >= 9 && hour < 10;
 };
 
-export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattleId, onBattleViewed, onShowLogin, onBattleActiveChange, pendingBattleId, onPendingBattleHandled, onBack, embedded = false, isDesktop = false, onGoToTrivia, onGoToArticles }: BattlePageProps) {
+export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattleId, onBattleViewed, onShowLogin, onBattleActiveChange, pendingBattleId, onPendingBattleHandled, onBack, embedded = false, isDesktop = false, onGoToTrivia, onGoToArticles, skipSetup = false }: BattlePageProps) {
   const { user, isLoggedIn } = useAuth();
   
   // Check if game is on break (9:00-10:00)
@@ -149,10 +152,10 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     return () => clearInterval(interval);
   }, []);
   
-  // Screen state - start with setup screen, but if a battle was passed in via
+  // Screen state - start with pool if skipSetup is true, or if a battle was passed in via
   // pendingBattleId (e.g. clicking "Play Now" from Open Battles), skip setup
   // and go straight to the intro screen instead of flashing setup first.
-  const [screen, setScreen] = useState<GameScreen>(pendingBattleId ? 'intro' : 'setup');
+  const [screen, setScreen] = useState<GameScreen>(pendingBattleId ? 'intro' : (skipSetup ? 'pool' : 'setup'));
   const [selectedGameType, setSelectedGameType] = useState('quiz');
   const [topicFilter, setTopicFilter] = useState('all');
   const [wagerFilter, setWagerFilter] = useState<number | 'all'>('all');
@@ -191,6 +194,9 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   
   // Own battle cancel modal
   const [selectedOwnBattle, setSelectedOwnBattle] = useState<Battle | null>(null);
+  
+  // Quick battle preview popup
+  const [quickPreviewBattle, setQuickPreviewBattle] = useState<Battle | null>(null);
   
   // Accepting battle loading state
   const [isAccepting, setIsAccepting] = useState(false);
@@ -437,7 +443,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
           topic: createTopic,
           wager: createWager,
           rounds,
-          isPrivate: isInvite // Private battles don't show in pool
+          isPrivate: isInvite, // Private battles don't show in pool
+          source: isInvite ? 'handleCreateBattle:invite' : 'handleCreateBattle:startBattleButton'
         })
       });
       
@@ -552,7 +559,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
           wager: createWager,
           rounds,
           isPrivate: true,
-          challengedUserId: targetUser._id // Direct challenge
+          challengedUserId: targetUser._id, // Direct challenge
+          source: 'handleChallengeUser'
         })
       });
       
@@ -616,6 +624,10 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     }
     
     setCurrentBattle(battle);
+    // Pre-set isCreator based on who created the battle
+    const creatorField: any = battle.creator;
+    const iAmCreator = creatorField?._id === user?.id || creatorField === user?.id;
+    setIsCreator(iAmCreator);
     setScreen('intro');
   };
 
@@ -1245,72 +1257,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
           </div>
         </div>
 
-        {/* Feature Icons - 2x2 on mobile, 4 cols on desktop */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4">
-          <div className="bg-cream rounded-xl border border-warm p-3 flex flex-col items-center text-center">
-            <div className="w-10 h-10 rounded-full bg-[#A855F7]/10 flex items-center justify-center mb-2">
-              <Target className="w-5 h-5 text-[#A855F7]" />
-            </div>
-            <span className="font-display text-gray-900 text-sm leading-tight">Pick a Battle</span>
-            <p className="text-gray-700 text-[10px] mt-1 leading-tight">Choose topic & wager.</p>
-          </div>
-          <div className="bg-cream rounded-xl border border-warm p-3 flex flex-col items-center text-center">
-            <div className="w-10 h-10 rounded-full bg-[#A855F7]/10 flex items-center justify-center mb-2">
-              <Zap className="w-5 h-5 text-[#A855F7]" />
-            </div>
-            <span className="font-display text-gray-900 text-sm leading-tight">Answer Fast</span>
-            <p className="text-gray-700 text-[10px] mt-1 leading-tight">10 sec per question.</p>
-          </div>
-          <div className="bg-cream rounded-xl border border-warm p-3 flex flex-col items-center text-center">
-            <div className="w-10 h-10 rounded-full bg-[#A855F7]/10 flex items-center justify-center mb-2">
-              <Trophy className="w-5 h-5 text-[#A855F7]" />
-            </div>
-            <span className="font-display text-gray-900 text-sm leading-tight">Winner Takes All</span>
-            <p className="text-gray-700 text-[10px] mt-1 leading-tight">Collect both wagers.</p>
-          </div>
-          <div className="bg-cream rounded-xl border border-warm p-3 flex flex-col items-center text-center">
-            <div className="w-10 h-10 rounded-full bg-[#A855F7]/10 flex items-center justify-center mb-2">
-              <RefreshCcw className="w-5 h-5 text-[#A855F7]" />
-            </div>
-            <span className="font-display text-gray-900 text-sm leading-tight">Tie = Refund</span>
-            <p className="text-gray-700 text-[10px] mt-1 leading-tight">Coins back to both.</p>
-          </div>
-        </div>
-
-        {/* Wager Options / Rounds / How it Works - in one box with dividers */}
-        <div className="bg-cream rounded-2xl border border-warm mt-4 grid grid-cols-3 divide-x divide-warm">
-          <div className="py-4 px-3 text-center">
-            <span className="font-display text-sm text-gray-700 uppercase">Wager Options</span>
-            <div className="flex items-center justify-center gap-1 mt-2 flex-wrap">
-              <span className="px-2 py-1 rounded text-[10px] font-bold bg-[#A855F7]/10 text-[#A855F7]">0.10</span>
-              <span className="px-2 py-1 rounded text-[10px] font-bold bg-[#A855F7]/10 text-[#A855F7]">0.25</span>
-              <span className="px-2 py-1 rounded text-[10px] font-bold bg-[#A855F7]/10 text-[#A855F7]">0.50</span>
-              <span className="px-2 py-1 rounded text-[10px] font-bold bg-[#A855F7]/10 text-[#A855F7]">0.75</span>
-              <span className="px-2 py-1 rounded text-[10px] font-bold bg-[#A855F7]/10 text-[#A855F7]">1.00</span>
-              <span className="text-[10px] text-gray-700">BOGX</span>
-            </div>
-            <p className="text-[9px] text-gray-700 mt-1">You choose your wager</p>
-          </div>
-          <div className="py-4 px-3 text-center">
-            <span className="font-display text-sm text-gray-700 uppercase">Rounds</span>
-            <div className="flex items-center justify-center gap-1 mt-2">
-              <span className="text-lg font-bold text-[#A855F7]">3</span>
-              <span className="text-gray-700 text-sm">or</span>
-              <span className="text-lg font-bold text-[#A855F7]">5</span>
-            </div>
-            <p className="text-[9px] text-gray-700 mt-1">Questions per battle</p>
-          </div>
-          <div className="py-4 px-3 text-center">
-            <span className="font-display text-sm text-gray-700 uppercase">How it Works</span>
-            <div className="mt-2 text-[10px] text-gray-900 space-y-1">
-              <p className="flex items-center justify-center gap-1"><Trophy className="w-3 h-3 text-[#A855F7]" /> Winner takes 2x wager</p>
-              <p className="flex items-center justify-center gap-1"><RefreshCcw className="w-3 h-3 text-[#A855F7]" /> Tie = coins back</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Start Button - centered, narrower */}
-        <div className="flex justify-center mt-5">
+        {/* Start Button - centered */}
+        <div className="flex justify-center mt-6">
           <button
             onClick={() => { incrementGamePlayCount("quizzbattle"); setScreen('pool'); }}
             className="px-20 py-4 rounded-2xl text-white font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
@@ -1327,7 +1275,16 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
             <Shield className="w-3.5 h-3.5 text-green-500" />
             Fair play guaranteed
           </span>
-          <button className="text-[#A855F7] hover:underline">How it works</button>
+          <span className="text-gray-400">•</span>
+          <span className="flex items-center gap-1">
+            <Trophy className="w-3.5 h-3.5 text-[#A855F7]" />
+            Winner takes 2x wager
+          </span>
+          <span className="text-gray-400">•</span>
+          <span className="flex items-center gap-1">
+            <RefreshCcw className="w-3.5 h-3.5 text-[#A855F7]" />
+            Tie = coins back
+          </span>
         </div>
       </div>
     </div>
@@ -1337,7 +1294,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   // POOL SCREEN
   // ═══════════════════════════════════════════════════════════════
   const renderPoolScreen = () => (
-    <div className="relative flex flex-col h-full min-h-full" style={{ backgroundColor: '#F5F0E8' }}>
+    <div className="relative flex flex-col h-full min-h-full overflow-hidden" style={{ backgroundColor: '#F5F0E8' }}>
       {/* Header - same style as Setup Screen */}
       <div className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#A855F7]/5 to-transparent">
         <div className="flex items-center gap-3">
@@ -1389,6 +1346,10 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                   onButtonClick: onShowLogin
                 });
                 return;
+              }
+              // Pre-select the current topic filter when opening create panel
+              if (!showCreate && topicFilter !== 'all') {
+                setCreateTopic(topicFilter);
               }
               setShowCreate(!showCreate);
             }}
@@ -1442,28 +1403,30 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
       </div>
 
       {/* Wager Filter Buttons */}
-      <div className="flex gap-2 px-3 py-2 border-b border-warm overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-        <button
-          onClick={() => setWagerFilter('all')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border ${
-            wagerFilter === 'all' ? 'bg-[#A855F7] text-white border-[#A855F7]' : 'bg-cream text-gray-700 hover:bg-[#A855F7]/10 border-warm'
-          }`}
-        >
-          <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
-          All
-        </button>
-        {WAGERS.map(w => (
+      <div className="min-w-0 w-full overflow-hidden border-b border-warm">
+        <div className="flex gap-2 px-3 py-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
           <button
-            key={w.amount}
-            onClick={() => setWagerFilter(w.amount)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border ${
-              wagerFilter === w.amount ? 'bg-[#A855F7] text-white border-[#A855F7]' : 'bg-cream text-gray-700 hover:bg-[#A855F7]/10 border-warm'
+            onClick={() => setWagerFilter('all')}
+            className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border ${
+              wagerFilter === 'all' ? 'bg-[#A855F7] text-white border-[#A855F7]' : 'bg-cream text-gray-700 hover:bg-[#A855F7]/10 border-warm'
             }`}
           >
             <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
-            {formatCurrency(w.amount)}
+            All
           </button>
-        ))}
+          {WAGERS.map(w => (
+            <button
+              key={w.amount}
+              onClick={() => setWagerFilter(w.amount)}
+              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border ${
+                wagerFilter === w.amount ? 'bg-[#A855F7] text-white border-[#A855F7]' : 'bg-cream text-gray-700 hover:bg-[#A855F7]/10 border-warm'
+              }`}
+            >
+              <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
+              {formatCurrency(w.amount)}
+            </button>
+          ))}
+        </div>
       </div>
       
       {/* Create Battle Fullscreen */}
@@ -1575,12 +1538,12 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
 
 
       {/* Battle List */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-2" style={{ scrollbarWidth: 'none' }}>
+      <div className={`flex-1 overflow-y-auto overflow-x-hidden p-4 ${isDesktop ? 'grid grid-cols-3 gap-3 auto-rows-max' : 'space-y-2'}`} style={{ scrollbarWidth: 'none' }}>
         {loading ? (
           // Skeleton Loading
-          <div className="space-y-2">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="p-4 bg-cream border border-warm rounded-xl animate-pulse">
+          <>
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className={`p-4 bg-cream border border-warm rounded-xl animate-pulse ${isDesktop ? '' : 'mb-2'}`}>
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 rounded-full bg-skeleton" />
                   <div className="flex-1">
@@ -1595,9 +1558,9 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                 </div>
               </div>
             ))}
-          </div>
+          </>
         ) : isOnBreak ? (
-          <div className="flex flex-col items-center justify-center h-full px-4">
+          <div className={`flex flex-col items-center justify-center h-full px-4 ${isDesktop ? 'col-span-3' : ''}`}>
             <div className="flex items-center gap-3 mb-6">
               <img src="/images/coffee-break.svg" alt="" className="w-10 h-10" />
               <div>
@@ -1614,7 +1577,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
             </div>
           </div>
         ) : filteredBattles.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 px-4">
+            <div className={`flex flex-col items-center justify-center py-16 px-4 ${isDesktop ? 'col-span-3' : ''}`}>
               <Swords className="w-16 h-16 text-gray-200 mb-4" />
               <p className="text-gray-500 text-lg font-semibold mb-2">No open battles</p>
               <p className="text-gray-600 text-sm text-center mb-6">Be the first to create a challenge!</p>
@@ -1651,6 +1614,10 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                       });
                       return;
                     }
+                    // Pre-select the current topic filter when opening create panel
+                    if (topicFilter !== 'all') {
+                      setCreateTopic(topicFilter);
+                    }
                     setShowCreate(true);
                   }}
                   className="px-3 py-2 bg-[#A855F7] text-white text-sm font-semibold hover:bg-[#9333EA] transition-colors flex items-center gap-1 rounded-lg"
@@ -1664,12 +1631,107 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
           filteredBattles.map((battle: Battle) => {
             const topic = getTopicConfig(battle.topic);
             const isMyBattle = battle.creator._id === user?.id;
+            const creatorCoins = (battle.creator as any).bogxCoins || 0;
             const creatorRank = (battle.creator as any).rank || '-';
             
-            return (
+            // Format created time
+            const createdDate = new Date(battle.createdAt);
+            const now = new Date();
+            const diffMs = now.getTime() - createdDate.getTime();
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+            let timeAgo = '';
+            if (diffMins < 1) timeAgo = 'just now';
+            else if (diffMins < 60) timeAgo = `${diffMins}m ago`;
+            else if (diffHours < 24) timeAgo = `${diffHours}h ago`;
+            else timeAgo = `${diffDays}d ago`;
+            
+            // Format full date
+            const fullDate = createdDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const fullTime = createdDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+            
+            return isDesktop ? (
               <div
                 key={battle._id}
-                onClick={() => isMyBattle ? setSelectedOwnBattle(battle) : showBattleIntro(battle)}
+                onClick={() => isMyBattle ? setSelectedOwnBattle(battle) : setQuickPreviewBattle(battle)}
+                className={`group p-5 border-2 rounded-2xl cursor-pointer transform transition-all duration-300 ease-out hover:scale-[1.02] hover:-translate-y-1 hover:shadow-xl ${
+                  isMyBattle 
+                    ? 'border-[#A855F7]/40 bg-[#A855F7]/5 hover:bg-[#A855F7]/10 hover:border-[#A855F7] hover:shadow-[#A855F7]/20' 
+                    : 'border-warm bg-cream hover:border-[#A855F7] hover:shadow-[#A855F7]/15'
+                }`}
+              >
+                {/* Top Row: Avatar + Name */}
+                <div className="flex items-start gap-4">
+                  <div className="relative flex-shrink-0">
+                    <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-[#A855F7]/30 group-hover:border-[#A855F7] transition-colors duration-300">
+                      <img src={battle.creator.avatar} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
+                    </div>
+                    <div className="absolute -bottom-1 left-0">
+                      <CountryFlag flag={battle.creator.countryFlag} className="w-7 h-5 rounded shadow-sm" />
+                    </div>
+                    <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-cream animate-pulse" />
+                  </div>
+                  <div className="flex-1 min-w-0 pt-2">
+                    <div className="font-display text-2xl text-gray-900 tracking-wide leading-tight group-hover:text-[#A855F7] transition-colors duration-200">{battle.creator.username}</div>
+                    <div className="text-sm text-gray-500 flex items-center gap-2">
+                      <span>Rank #{creatorRank}</span>
+                      <span className="flex items-center gap-1">
+                        <img src="/images/bogxcoin.png" alt="" className="w-3.5 h-3.5 group-hover:animate-bounce" />
+                        {formatCurrency(creatorCoins)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Middle Row: Rounds + Time + Wager */}
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-warm group-hover:border-[#A855F7]/30 transition-colors duration-300">
+                  <div className="flex items-center gap-1.5">
+                    <Users className="w-4 h-4 text-[#A855F7]" />
+                    <span className="font-bold text-gray-900">{battle.rounds}</span>
+                    <span className="text-gray-500 text-sm">Rounds</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-display text-xl text-[#A855F7] group-hover:scale-110 transition-transform duration-200">{formatCurrency(toBOGX(battle.wager))}</span>
+                    <img src="/images/bogxcoin.png" alt="BOGX" className="w-5 h-5 group-hover:rotate-12 transition-transform duration-200" />
+                    <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-[#A855F7] group-hover:translate-x-1 transition-all duration-200" />
+                  </div>
+                </div>
+                
+                {/* Topic Badge Row */}
+                <div className="flex items-center gap-3 mt-3">
+                  <span 
+                    className="text-[10px] font-bold tracking-wider uppercase px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 text-white group-hover:scale-105 transition-transform duration-200"
+                    style={{ backgroundColor: topic.color }}
+                  >
+                    {topic.icon && <topic.icon className="w-3 h-3" />}
+                    {topic.label}
+                  </span>
+                  {isMyBattle && (
+                    <>
+                      <span className="text-[10px] font-bold tracking-wider text-[#A855F7] bg-[#A855F7]/10 px-2.5 py-1.5 rounded-lg animate-pulse">
+                        YOUR BATTLE
+                      </span>
+                      {battle.isPrivate && (
+                        <span className="text-[10px] font-bold tracking-wider text-purple-600 bg-purple-100 px-2.5 py-1.5 rounded-lg flex items-center gap-1">
+                          <Lock className="w-3 h-3" /> PRIVATE
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
+                
+                {/* Date/Time Footer */}
+                <div className="mt-3 pt-3 border-t border-warm group-hover:border-[#A855F7]/30 transition-colors duration-300 flex items-center gap-2 text-gray-400 text-xs">
+                  <Clock className="w-3.5 h-3.5 group-hover:animate-spin" style={{ animationDuration: '3s' }} />
+                  <span>{fullDate} • {fullTime}</span>
+                </div>
+              </div>
+            ) : (
+              /* Mobile Card - Original compact design */
+              <div
+                key={battle._id}
+                onClick={() => isMyBattle ? setSelectedOwnBattle(battle) : setQuickPreviewBattle(battle)}
                 className={`p-4 border-2 rounded-2xl transition-all cursor-pointer ${
                   isMyBattle 
                     ? 'border-[#A855F7]/40 bg-[#A855F7]/5 hover:bg-[#A855F7]/10' 
@@ -1677,23 +1739,25 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  {/* Avatar with online indicator - height matches text block */}
                   <div className="relative flex-shrink-0">
                     <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-[#A855F7]/30">
                       <img src={battle.creator.avatar} alt="" className="w-full h-full object-cover" />
                     </div>
-                    {/* Online indicator */}
                     <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-cream" />
-                    {/* Country flag */}
                     <div className="absolute -bottom-1 -left-1">
                       <CountryFlag flag={battle.creator.countryFlag} className="w-5 h-4 rounded-sm shadow-sm" />
                     </div>
                   </div>
                   
-                  {/* User info */}
                   <div className="flex-1 min-w-0">
                     <div className="text-xl font-display text-gray-900 leading-tight tracking-wide">{battle.creator.username}</div>
-                    <div className="text-[11px] text-gray-500 leading-tight">Rank #{creatorRank}</div>
+                    <div className="text-[11px] text-gray-500 leading-tight flex items-center gap-2">
+                      <span>Rank #{creatorRank}</span>
+                      <span className="flex items-center gap-0.5">
+                        <img src="/images/bogxcoin.png" alt="" className="w-3 h-3" />
+                        {formatCurrency(creatorCoins)}
+                      </span>
+                    </div>
                     <div className="flex items-center gap-1.5 mt-1">
                       <span 
                         className="text-[9px] font-bold tracking-wider uppercase px-1.5 py-0.5 rounded flex items-center gap-1 text-white"
@@ -1702,11 +1766,10 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                         {topic.icon && <topic.icon className="w-2.5 h-2.5" />}
                         {topic.label}
                       </span>
-                      <span className="text-[10px] text-gray-400">· {battle.rounds} Rounds · Sealed</span>
+                      <span className="text-[10px] text-gray-400">· {battle.rounds} Rounds</span>
                     </div>
                   </div>
                   
-                  {/* Wager + Arrow */}
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     <span className="font-display text-xl text-[#A855F7]">{formatCurrency(toBOGX(battle.wager))}</span>
                     <img src="/images/bogxcoin.png" alt="BOGX" className="w-5 h-5" />
@@ -1714,7 +1777,6 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                   </div>
                 </div>
                 
-                {/* Own battle badge */}
                 {isMyBattle && (
                   <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[#A855F7]/20">
                     {battle.isPrivate && (
@@ -2433,8 +2495,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
       
       
       {/* Accepting Battle Modal */}
-      {isAccepting && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      {isAccepting && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <div className="relative bg-cream border-2 border-[#E36B11] rounded-2xl w-full max-w-[300px] p-8 text-center shadow-2xl">
             {/* Animated Swords */}
@@ -2458,7 +2520,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
               <span>-{formatCurrency(toBOGX(currentBattle?.wager || 0))}</span>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       
       {/* Alert Modal */}
@@ -2502,8 +2565,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
       />
 
       {/* Own Battle Cancel Modal */}
-      {selectedOwnBattle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {selectedOwnBattle && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
           <div 
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => setSelectedOwnBattle(null)}
@@ -2544,7 +2607,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Open Battles Modal - purple for BattlesPage */}
@@ -2558,6 +2622,117 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
           accentColor="purple"
         />
       )}
+
+      {/* Quick Battle Preview Popup (Desktop) */}
+      {quickPreviewBattle && (() => {
+        const battle = quickPreviewBattle;
+        const topic = getTopicConfig(battle.topic);
+        const creatorCoins = (battle.creator as any).bogxCoins || 0;
+        const creatorRank = (battle.creator as any).rank || '-';
+        const createdDate = new Date(battle.createdAt);
+        const fullDate = createdDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const fullTime = createdDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+        
+        return createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setQuickPreviewBattle(null)} />
+            <div className="relative bg-cream border-2 border-[#A855F7] rounded-2xl w-full max-w-[360px] p-5 shadow-2xl">
+              {/* Close button */}
+              <button 
+                onClick={() => setQuickPreviewBattle(null)}
+                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+              >
+                <X className="w-4 h-4 text-gray-500" />
+              </button>
+              
+              {/* Avatar + Info */}
+              <div className="flex items-center gap-4">
+                <div className="relative flex-shrink-0">
+                  <div className="w-16 h-16 rounded-full overflow-hidden border-3 border-[#A855F7]/40">
+                    <img src={battle.creator.avatar} alt="" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="absolute -bottom-1 left-0">
+                    <CountryFlag flag={battle.creator.countryFlag} className="w-5 h-4 rounded shadow-sm" />
+                  </div>
+                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-cream" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-display text-xl text-gray-900 tracking-wide">{battle.creator.username}</div>
+                  <div className="text-sm text-gray-500 flex items-center gap-2">
+                    <span>Rank #{creatorRank}</span>
+                    <span className="flex items-center gap-1">
+                      <img src="/images/bogxcoin.png" alt="" className="w-3 h-3" />
+                      {formatCurrency(creatorCoins)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Battle Info */}
+              <div className="flex items-center gap-4 mt-4 pt-4 border-t border-warm">
+                <div className="flex items-center gap-1.5">
+                  <Users className="w-4 h-4 text-[#A855F7]" />
+                  <span className="font-bold text-gray-900">{battle.rounds}</span>
+                  <span className="text-gray-500 text-sm">Rounds</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-display text-lg text-[#A855F7]">{formatCurrency(toBOGX(battle.wager))}</span>
+                  <img src="/images/bogxcoin.png" alt="BOGX" className="w-4 h-4" />
+                </div>
+                <span 
+                  className="text-[10px] font-bold tracking-wider uppercase px-2 py-1 rounded-lg flex items-center gap-1 text-white ml-auto"
+                  style={{ backgroundColor: topic.color }}
+                >
+                  {topic.icon && <topic.icon className="w-3 h-3" />}
+                  {topic.label}
+                </span>
+              </div>
+              
+              {/* Date */}
+              <div className="flex items-center gap-2 mt-3 text-gray-400 text-xs">
+                <Clock className="w-3 h-3" />
+                <span>{fullDate} • {fullTime}</span>
+              </div>
+              
+              {/* Action Button */}
+              <button
+                onClick={async () => {
+                  if (isOnBreak) {
+                    showAlert('info', 'Battles are disabled during the break (9:00-10:00).');
+                    return;
+                  }
+                  if (!isLoggedIn && battle.creator?.isBot !== true) {
+                    showAlert('login', 'Please login to challenge real players! As a guest, you can only play against bots.', {
+                      buttonText: 'LOGIN',
+                      onButtonClick: onShowLogin
+                    });
+                    return;
+                  }
+                  if (coins < toBOGX(battle.wager)) {
+                    showAlert('coins', `You need ${formatCurrency(toBOGX(battle.wager))} coins to join this battle!`);
+                    return;
+                  }
+                  setQuickPreviewBattle(null);
+                  setCurrentBattle(battle);
+                  await beginBattle(battle);
+                }}
+                disabled={isAccepting}
+                className="w-full mt-4 py-3 bg-[#A855F7] hover:bg-[#9333EA] text-white font-display text-sm tracking-wider rounded-xl flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+              >
+                {isAccepting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <Swords className="w-4 h-4" />
+                    START BATTLE
+                  </>
+                )}
+              </button>
+            </div>
+          </div>,
+          document.body
+        );
+      })()}
 
     </div>
   );

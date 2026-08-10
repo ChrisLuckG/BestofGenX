@@ -159,20 +159,17 @@ function RankingCard({ poll, onOpenArticle, onOpenRankroll }: { poll: Poll; onOp
       {/* Right: Header + Items */}
       <div className="flex-1 flex flex-col">
         {/* Header Row */}
-        <div className="flex items-center justify-between px-4 py-3 bg-[#E36B11]/10 border-b border-[#E36B11]/20">
-          {/* Left: Icon + Title */}
-          <div className="flex items-center gap-2">
-            <Vote className="w-5 h-5 text-[#E36B11]" />
-            <div>
-              <h4 className="font-display text-lg text-gray-900 group-hover:text-[#E36B11] transition-colors duration-200 uppercase leading-tight">
-                {poll.title}
-              </h4>
-                          </div>
+        <div className="flex items-center justify-between gap-3 px-4 py-3 bg-[#E36B11]/10 border-b border-[#E36B11]/20">
+          {/* Left: Title */}
+          <div className="flex-1 min-w-0">
+            <h4 className="font-display text-lg text-gray-900 group-hover:text-[#E36B11] transition-colors duration-200 uppercase leading-tight line-clamp-2">
+              {poll.title}
+            </h4>
           </div>
           
           {/* Right: Vote Button */}
           {hasVoted ? (
-            <span className="px-4 py-2 bg-[#E36B11]/20 text-[#E36B11] border border-[#E36B11]/30 font-display text-sm uppercase tracking-wider rounded-lg flex items-center gap-1.5">
+            <span className="flex-shrink-0 px-4 py-2 bg-[#E36B11]/20 text-[#E36B11] border border-[#E36B11]/30 font-display text-sm uppercase tracking-wider rounded-lg flex items-center gap-1.5 whitespace-nowrap">
               <Check className="w-3.5 h-3.5" />
               Voted
               <span className="text-[#E36B11]/40">·</span>
@@ -180,7 +177,7 @@ function RankingCard({ poll, onOpenArticle, onOpenRankroll }: { poll: Poll; onOp
               <span>{poll.totalVotes}</span>
             </span>
           ) : (
-            <span className="px-4 py-2 bg-[#E36B11] text-white font-display text-sm uppercase tracking-wider rounded-lg group-hover:bg-[#B5682A] group-hover:scale-105 group-hover:shadow-lg transition-all duration-200 flex items-center gap-1.5">
+            <span className="flex-shrink-0 px-4 py-2 bg-[#E36B11] text-white font-display text-sm uppercase tracking-wider rounded-lg group-hover:bg-[#B5682A] group-hover:scale-105 group-hover:shadow-lg transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap">
               Vote Now
               <span className="text-white/60">·</span>
               <Vote className="w-3.5 h-3.5 text-white/80" />
@@ -381,6 +378,8 @@ export default function DesktopRankrollPage({ onOpenArticle, onOpenRankroll }: D
   const [loading, setLoading] = useState(true);
   const [filterNotVoted, setFilterNotVoted] = useState(false);
   const [votedPolls, setVotedPolls] = useState<Set<string>>(new Set());
+  const [votesLoading, setVotesLoading] = useState(false);
+  const [votesChecked, setVotesChecked] = useState(false);
 
   const loadPolls = async () => {
     try {
@@ -401,32 +400,55 @@ export default function DesktopRankrollPage({ onOpenArticle, onOpenRankroll }: D
   }, []);
 
   // Check which polls user has voted on
-  useEffect(() => {
-    const checkVotes = async () => {
-      if (polls.length === 0) return;
-      const vid = localStorage.getItem('bogx-visitor-id');
-      if (!user?.id && !vid) return;
+  const checkVotes = async () => {
+    if (polls.length === 0) return;
+    const vid = localStorage.getItem('bogx-visitor-id');
+    if (!user?.id && !vid) return;
 
-      const voted = new Set<string>();
-      for (const poll of polls) {
-        try {
-          const params = new URLSearchParams();
-          if (user?.id) params.set('userId', user.id);
-          else if (vid) params.set('visitorId', vid);
+    setVotesLoading(true);
+    const voted = new Set<string>();
+    
+    // Fetch all votes in parallel for better performance
+    const voteChecks = polls.map(async (poll) => {
+      try {
+        const params = new URLSearchParams();
+        if (user?.id) params.set('userId', user.id);
+        else if (vid) params.set('visitorId', vid);
 
-          const res = await fetch(`/api/polls/${poll._id}/vote?${params}`);
-          const data = await res.json();
-          if (data.success && data.votes && Object.keys(data.votes).length > 0) {
-            voted.add(poll._id);
-          }
-        } catch (e) {
-          // ignore
+        const res = await fetch(`/api/polls/${poll._id}/vote?${params}`);
+        const data = await res.json();
+        if (data.success && data.votes && Object.keys(data.votes).length > 0) {
+          return poll._id;
         }
+      } catch (e) {
+        // ignore
       }
-      setVotedPolls(voted);
-    };
-    checkVotes();
+      return null;
+    });
+    
+    const results = await Promise.all(voteChecks);
+    results.forEach(id => { if (id) voted.add(id); });
+    
+    setVotedPolls(voted);
+    setVotesLoading(false);
+    setVotesChecked(true);
+  };
+
+  // Auto-check votes when polls load (but only once)
+  useEffect(() => {
+    if (polls.length > 0 && !votesChecked) {
+      checkVotes();
+    }
   }, [polls, user?.id]);
+  
+  // Handle filter toggle - check votes if not already done
+  const handleFilterToggle = () => {
+    if (!filterNotVoted && !votesChecked) {
+      // Turning filter ON and votes not checked yet
+      checkVotes();
+    }
+    setFilterNotVoted(!filterNotVoted);
+  };
 
   // Filter to only show ranking type polls
   const allRankingPolls = polls.filter(p => p.type === 'ranking');
@@ -452,7 +474,7 @@ export default function DesktopRankrollPage({ onOpenArticle, onOpenRankroll }: D
           </div>
         </div>
         <button
-          onClick={() => setFilterNotVoted(!filterNotVoted)}
+          onClick={handleFilterToggle}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
             filterNotVoted 
               ? 'bg-[#E36B11] text-white' 
@@ -467,7 +489,7 @@ export default function DesktopRankrollPage({ onOpenArticle, onOpenRankroll }: D
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 bg-gradient-to-b from-transparent to-[#E36B11]/[0.03]" style={{ scrollbarWidth: "none" }}>
 
-        {loading ? (
+        {loading || (votesLoading && filterNotVoted) ? (
           <PollsSkeleton />
         ) : rankingPolls.length === 0 && otherPolls.length === 0 ? (
           <div className="text-center py-12">

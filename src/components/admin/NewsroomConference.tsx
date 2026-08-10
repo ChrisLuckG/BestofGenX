@@ -95,6 +95,7 @@ interface ConferenceMessage {
   };
   activated?: boolean;
   articleDraftId?: string;
+  articlePersonName?: string; // Person name for Rankroll button
   menschenSaved?: boolean;
 }
 
@@ -1073,8 +1074,7 @@ export default function NewsroomConference({
       ]);
       
       try {
-        // Process reporters sequentially like Article flow
-        const rankrollProposals: Proposal[] = [];
+        // Process reporters sequentially - each one updates the UI immediately (like Articles)
         cancelRequestedRef.current = false;
         
         for (const reporter of targetReporters) {
@@ -1135,10 +1135,10 @@ DESCRIPTION: [1 sentence hook that makes people curious]`,
           const categoryMatch = text.match(/CATEGORY:\s*(.+)/i);
           const descMatch = text.match(/DESCRIPTION:\s*(.+)/i);
           
-          const title = titleMatch ? titleMatch[1].trim() : `Top 10 ${topic}`;
+          const title = titleMatch ? titleMatch[1].trim().replace(/^["']|["']$/g, '') : `Top 10 ${topic}`;
           const itemsRaw = itemsMatch ? itemsMatch[1].trim() : '';
           const items = itemsRaw.split(',').map((s: string) => s.trim()).filter((s: string) => s.length > 0);
-          const description = descMatch ? descMatch[1].trim().replace(/\n/g, ' ').slice(0, 200) : '';
+          const description = descMatch ? descMatch[1].trim().replace(/\n/g, ' ').replace(/^["']|["']$/g, '').slice(0, 200) : '';
           
           // Parse and normalize category
           let rawCat = categoryMatch ? categoryMatch[1].trim().toLowerCase().split('\n')[0] : 'culture';
@@ -1148,7 +1148,7 @@ DESCRIPTION: [1 sentence hook that makes people curious]`,
           const validCats = ['sports', 'music', 'movies-tv', 'gaming', 'culture', 'lifestyle'];
           const category = validCats.includes(rawCat) ? rawCat : 'sports';
           
-          rankrollProposals.push({
+          const newProposal: Proposal = {
             name: title,
             birthday: itemsRaw, // FULL items list - needed for selectProposal()
             country: `${items.length} items`,
@@ -1159,21 +1159,31 @@ DESCRIPTION: [1 sentence hook that makes people curious]`,
             category,
             isError: items.length < 3,
             errorReason: items.length < 3 ? 'Not enough items' : undefined,
+          };
+          
+          // Add to messages immediately so card updates (like Article flow)
+          updatePieceMessages(currentPiece.id, msgs => {
+            const existingIdx = msgs.findIndex(m => m.from === 'proposals');
+            if (existingIdx >= 0) {
+              // Add to existing proposals
+              const existing = msgs[existingIdx];
+              return msgs.map((m, i) => i === existingIdx 
+                ? { ...m, proposals: [...(existing.proposals || []), newProposal] }
+                : m
+              );
+            } else {
+              // Create new proposals message
+              return [...msgs, {
+                id: generateId(),
+                from: 'proposals' as const,
+                text: 'Rankroll proposals',
+                proposals: [newProposal],
+              }];
+            }
           });
         }
         
         setTyping(false);
-        
-        // Add proposals as cards
-        updatePieceMessages(currentPiece.id, msgs => [
-          ...msgs,
-          {
-            id: generateId(),
-            from: 'proposals' as const,
-            text: `${rankrollProposals.length} rankroll proposals`,
-            proposals: rankrollProposals,
-          },
-        ]);
         
       } catch (err) {
         setTyping(false);
@@ -1255,18 +1265,19 @@ DESCRIPTION: [1-2 sentences about their life and legacy]`;
       
       // Birthday request - find someone BORN on this day
       const categoryRequirement = globalCategory 
-        ? `\n\n🚫🚫🚫 MANDATORY CATEGORY FILTER: ${globalCategory.toUpperCase()} 🚫🚫🚫\nYou MUST find someone in the ${globalCategory} category. NO sports people if politics is selected. NO actors if politics is selected. ONLY ${globalCategory}!\nIf you suggest someone outside ${globalCategory}, your response will be REJECTED.\n\n⚠️ CHECK THE "Categories available" LINE IN YOUR CONTEXT! If ${globalCategory} shows 0 or is not listed, respond with:\nNAME: NO_CATEGORY_MATCH\nBORN: ${dayMonth}.0000\nCOUNTRY: N/A\nCATEGORY: ${globalCategory}\nDESCRIPTION: No ${globalCategory} people found in today's Wikipedia birthday list. Try a different category.`
+        ? `\n\n🚫🚫🚫 MANDATORY CATEGORY FILTER: ${globalCategory.toUpperCase()} 🚫🚫🚫\nYou MUST find someone in the ${globalCategory} category. NO sports people if politics is selected. NO actors if politics is selected. ONLY ${globalCategory}!\nIf you suggest someone outside ${globalCategory}, your response will be REJECTED.\n\n⚠️ Only if NEITHER the "WORLDWIDE ${globalCategory.toUpperCase()} BIRTHDAYS" block NOR the Wikipedia list contains a single ${globalCategory} person, respond with:\nNAME: NO_CATEGORY_MATCH\nBORN: ${dayMonth}.0000\nCOUNTRY: N/A\nCATEGORY: ${globalCategory}\nDESCRIPTION: No ${globalCategory} people found for this date. Try a different category.`
         : '';
       
       return `Find a GenX celebrity (born 1965-1980) who was ACTUALLY born on ${dayMonth}.
 ${categoryRequirement}
 
-LOOK AT THE BIRTHDAYS TODAY LIST IN YOUR CONTEXT FIRST - these are VERIFIED birthdays.
-Check the "Categories available" line to see what categories have people today.
-${countryName ? `Filter for someone from ${countryName} if available in the list.` : ''}
+SOURCE PRIORITY:
+1. The "🌍 WORLDWIDE ... BIRTHDAYS" block (Wikidata) — complete and global. USE THIS FIRST.
+2. Only if that block is missing, fall back to the shorter "BIRTHDAYS TODAY" Wikipedia list.
+${countryName ? `Prefer someone from ${countryName}; if nobody from there is listed, take the most prominent person from the worldwide list.` : ''}
 
 ⚠️ CRITICAL: Only suggest someone if you are 100% CERTAIN of their birthday. Do NOT guess or invent birthdays!
-If the requested category has 0 people, use the NO_CATEGORY_MATCH format above.
+Only use NO_CATEGORY_MATCH when BOTH lists are empty for this category.
 
 Reply EXACTLY in this format:
 NAME: [full name]
@@ -1337,9 +1348,34 @@ DESCRIPTION: [1 sentence about them]`;
             isError: true,
             errorReason: `Duplicate: ${proposal.name} was already proposed`,
           };
-        } else if (proposal.name && proposal.name !== 'Unknown') {
+        } else if (proposal.name && proposal.name !== 'Unknown' && !proposal.isError) {
           // Track this name to avoid duplicates in next reporters
           alreadyProposed.push(proposal.name);
+          
+          // IMMEDIATELY save to Menschen database (don't wait for article)
+          try {
+            await fetch('/api/menschen', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name: proposal.name,
+                birthday: proposal.birthday,
+                deathday: proposal.deathday,
+                country: proposal.country,
+                category: proposal.category || 'unknown',
+                profession: proposal.profession || '',
+                description: proposal.description || '',
+                isGenX: true,
+                discoveredBy: reporter.id,
+                discoveredByName: reporter.name,
+                discoveredFor: proposal.isRIP ? 'rip' : 'birthday',
+              }),
+            });
+            console.log(`[Menschen] Saved: ${proposal.name}`);
+            proposal.savedToMenschen = true;
+          } catch (err) {
+            console.error(`[Menschen] Failed to save ${proposal.name}:`, err);
+          }
         }
         
         // Add to messages immediately so card updates
@@ -1662,7 +1698,7 @@ DESCRIPTION: [1 sentence about them]`;
         const itemTitles = proposal.birthday
           .replace(/\.\.\.$/,'') // Remove trailing ...
           .split(',')
-          .map((s: string) => s.trim())
+          .map((s: string) => s.trim().replace(/^["']|["']$/g, '')) // Remove quotes
           .filter((s: string) => s.length > 0);
         
         if (itemTitles.length < 3) {
@@ -1843,6 +1879,7 @@ This is a memorial article honoring their life and legacy. Create the full artic
                 text: `✅ Article "${data.articleData.title}" saved to Articles.`,
                 resultType: 'article',
                 articleDraftId: savedId,
+                articlePersonName: proposal.name, // Store person name for Rankroll button
                 activated: true,
               },
             ]);
@@ -2192,7 +2229,7 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
         </div>
 
         {/* Body */}
-        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
           {/* Reporter Row - clean cards, multiple rows */}
           <div className="border-b border-gray-800 bg-gray-950 px-3 py-2">
             {/* Select All button */}
@@ -2522,7 +2559,7 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                           className="w-full h-full object-cover"
                         />
                         {video.duration && (
-                          <span className="absolute bottom-1 right-1 bg-black/80 text-white text-[10px] px-1 rounded">
+                          <span className="absolute top-2 right-2 bg-black/90 text-white text-xs font-bold px-2 py-0.5 rounded">
                             {video.duration}
                           </span>
                         )}
@@ -3201,50 +3238,62 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                               </button>
                             </>
                           ) : proposal ? (
-                            /* Found state - compact layout */
+                            /* Found state - different layout for Rankroll vs Article */
                             <>
-                              {/* Line 1: Finding Name + Birthday + Flag */}
-                              <div className="flex items-center gap-1.5 text-[11px] text-white mb-1">
-                                <span className="font-semibold text-white">{proposal.name}</span>
-                                <span className="text-white/60">·</span>
-                                <span className="text-white/90">{proposal.birthday?.length > 80 ? proposal.birthday.slice(0, 80) + '...' : proposal.birthday}</span>
-                                {proposal.country && (
-                                  <CountryFlag 
-                                    flag={
-                                      proposal.country === 'Canada' ? 'CA' : 
-                                      proposal.country === 'USA' || proposal.country === 'United States' ? 'US' :
-                                      proposal.country === 'UK' || proposal.country === 'United Kingdom' ? 'GB' :
-                                      proposal.country === 'Northern Ireland' || proposal.country?.includes('Northern Ireland') ? 'NI' :
-                                      proposal.country === 'Scotland' ? 'gb-sct' :
-                                      proposal.country === 'Wales' ? 'gb-wls' :
-                                      proposal.country === 'England' ? 'gb-eng' :
-                                      proposal.country === 'Germany' ? 'DE' :
-                                      proposal.country === 'France' ? 'FR' :
-                                      proposal.country === 'Italy' ? 'IT' :
-                                      proposal.country === 'Spain' ? 'ES' :
-                                      proposal.country === 'Japan' ? 'JP' :
-                                      proposal.country === 'Australia' ? 'AU' :
-                                      proposal.country === 'Brazil' ? 'BR' :
-                                      proposal.country === 'Poland' ? 'PL' :
-                                      proposal.country === 'Singapore' ? 'SG' :
-                                      proposal.country === 'Libya' || proposal.country?.includes('Libya') ? 'LY' :
-                                      proposal.country === 'Mexico' ? 'MX' :
-                                      proposal.country === 'Argentina' ? 'AR' :
-                                      proposal.country === 'Netherlands' ? 'NL' :
-                                      proposal.country === 'Sweden' ? 'SE' :
-                                      proposal.country === 'Norway' ? 'NO' :
-                                      proposal.country === 'Russia' ? 'RU' :
-                                      proposal.country === 'China' ? 'CN' :
-                                      proposal.country === 'South Korea' ? 'KR' :
-                                      proposal.country === 'India' ? 'IN' :
-                                      proposal.country === 'Ireland' ? 'IE' :
-                                      'US'
-                                    } 
-                                    className="w-4 h-3 rounded-[1px]"
-                                  />
-                                )}
-                              </div>
-                              <p className="text-[9px] text-white/80 flex-1 line-clamp-2 mb-0.5">{proposal.description}</p>
+                              {currentPiece?.type === 'rankroll' ? (
+                                /* RANKROLL layout */
+                                <>
+                                  <div className="text-[11px] font-semibold text-white mb-1 line-clamp-2">{proposal.name}</div>
+                                  <div className="text-[9px] text-purple-400 mb-1">🏆 {proposal.country}</div>
+                                  <p className="text-[9px] text-white/80 flex-1 line-clamp-2 mb-0.5">{proposal.description}</p>
+                                </>
+                              ) : (
+                                /* ARTICLE layout - Person with Birthday + Flag */
+                                <>
+                                  <div className="flex items-center gap-1.5 text-[11px] text-white mb-1">
+                                    <span className="font-semibold text-white">{proposal.name}</span>
+                                    <span className="text-white/60">·</span>
+                                    <span className="text-white/90">{proposal.birthday?.length > 80 ? proposal.birthday.slice(0, 80) + '...' : proposal.birthday}</span>
+                                    {proposal.country && !proposal.country.includes('items') && (
+                                      <CountryFlag 
+                                        flag={
+                                          proposal.country === 'Canada' ? 'CA' : 
+                                          proposal.country === 'USA' || proposal.country === 'United States' ? 'US' :
+                                          proposal.country === 'UK' || proposal.country === 'United Kingdom' ? 'GB' :
+                                          proposal.country === 'Northern Ireland' || proposal.country?.includes('Northern Ireland') ? 'NI' :
+                                          proposal.country === 'Scotland' ? 'gb-sct' :
+                                          proposal.country === 'Wales' ? 'gb-wls' :
+                                          proposal.country === 'England' ? 'gb-eng' :
+                                          proposal.country === 'Germany' ? 'DE' :
+                                          proposal.country === 'France' ? 'FR' :
+                                          proposal.country === 'Italy' ? 'IT' :
+                                          proposal.country === 'Spain' ? 'ES' :
+                                          proposal.country === 'Japan' ? 'JP' :
+                                          proposal.country === 'Australia' ? 'AU' :
+                                          proposal.country === 'Brazil' ? 'BR' :
+                                          proposal.country === 'Poland' ? 'PL' :
+                                          proposal.country === 'Singapore' ? 'SG' :
+                                          proposal.country === 'Libya' || proposal.country?.includes('Libya') ? 'LY' :
+                                          proposal.country === 'Mexico' ? 'MX' :
+                                          proposal.country === 'Argentina' ? 'AR' :
+                                          proposal.country === 'Netherlands' ? 'NL' :
+                                          proposal.country === 'Sweden' ? 'SE' :
+                                          proposal.country === 'Norway' ? 'NO' :
+                                          proposal.country === 'Russia' ? 'RU' :
+                                          proposal.country === 'China' ? 'CN' :
+                                          proposal.country === 'South Korea' ? 'KR' :
+                                          proposal.country === 'India' ? 'IN' :
+                                          proposal.country === 'Ireland' ? 'IE' :
+                                          'US'
+                                        } 
+                                        className="w-4 h-3 rounded-[1px]"
+                                      />
+                                    )}
+                                  </div>
+                                  <p className="text-[9px] text-white/80 flex-1 line-clamp-2 mb-0.5">{proposal.description}</p>
+                                </>
+                              )}
+                              {/* Common elements for both layouts */}
                               {proposal.savedToMenschen && (
                                 <div className="text-[8px] text-green-500 flex items-center gap-1 mb-1">
                                   <Check className="w-2.5 h-2.5" />
@@ -3345,6 +3394,18 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                           className="shrink-0 px-3 py-1 rounded text-xs font-bold bg-gray-700 hover:bg-gray-600 text-white flex items-center gap-1"
                         >
                           View in Articles
+                        </button>
+                      )}
+                      {m.activated && m.articlePersonName && (
+                        <button
+                          onClick={() => {
+                            // Switch to Rankroll tab and pre-fill the person name
+                            setRankrollInput(m.articlePersonName || '');
+                            createPiece('rankroll');
+                          }}
+                          className="shrink-0 px-3 py-1 rounded text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white flex items-center gap-1"
+                        >
+                          <ListOrdered size={12} /> Create Rankroll
                         </button>
                       )}
                     </div>
@@ -3736,10 +3797,12 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                     if (savingArticle) return;
                     setSavingArticle(true);
                     try {
-                      console.log('Saving article:', articleDraft.title);
-                      // Always POST to create new article (skipSave means it wasn't saved before)
-                      const res = await fetch('/api/articles', {
-                        method: 'POST',
+                      console.log('Saving article:', articleDraft.title, 'id:', articleDraft._id);
+                      // If article has _id, update it (PUT), otherwise create new (POST)
+                      const isUpdate = !!articleDraft._id;
+                      const url = isUpdate ? `/api/articles/${articleDraft._id}` : '/api/articles';
+                      const res = await fetch(url, {
+                        method: isUpdate ? 'PUT' : 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                           userId, // Required by API (caller)
@@ -3766,12 +3829,13 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                       const data = await res.json();
                       console.log('Save response:', data);
                       if (data.success || data._id || data.article) {
-                        const savedId = data._id || data.article?._id;
+                        const savedId = data._id || data.article?._id || articleDraft._id;
                         // Remove from tabs
                         setCreatedArticles(prev => prev.filter(a => a.draft?.title !== articleDraft.title));
                         setSelectedArticleTab(null);
                         setArticleDraft(null);
-                        if (currentPiece) {
+                        // Only add result message for NEW articles, not updates
+                        if (currentPiece && !isUpdate) {
                           updatePieceMessages(currentPiece.id, msgs => [
                             ...msgs,
                             {
@@ -3780,6 +3844,7 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                               text: `✅ Article "${articleDraft.title}" saved to Articles.`,
                               resultType: 'article',
                               articleDraftId: savedId,
+                              articlePersonName: articleDraft.personName, // Store person name for Rankroll button
                               activated: true,
                             },
                           ]);

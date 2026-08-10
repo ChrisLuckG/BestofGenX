@@ -9,6 +9,7 @@ interface Variant {
   title: string;
   price: string;
   available: boolean;
+  image?: string;
 }
 
 interface Product {
@@ -28,6 +29,59 @@ interface ProductDetailInlineProps {
   onClose: () => void;
 }
 
+// Map color names to hex values for visual swatches (Zalando-style)
+const COLOR_HEX: Record<string, string> = {
+  'black': '#1a1a1a',
+  'solid black triblend': '#1a1a1a',
+  'charcoal': '#36454f',
+  'charcoal-black triblend': '#2d3436',
+  'grey': '#808080',
+  'gray': '#808080',
+  'grey triblend': '#808080',
+  'white': '#ffffff',
+  'solid white triblend': '#f5f5f5',
+  'white fleck triblend': '#f8f8f8',
+  'navy': '#000080',
+  'navy blazer': '#1f2f4d',
+  'blue': '#2563eb',
+  'red': '#dc2626',
+  'maroon': '#800000',
+  'brown': '#8b4513',
+  'brown triblend': '#8b4513',
+  'tan': '#d2b48c',
+  'tan triblend': '#d2b48c',
+  'oatmeal': '#f5f0e1',
+  'oatmeal triblend': '#f5f0e1',
+  'clay': '#b66a50',
+  'clay triblend': '#b66a50',
+  'emerald': '#50c878',
+  'emerald triblend': '#50c878',
+  'mustard': '#ffdb58',
+  'mustard triblend': '#ffdb58',
+  'green': '#16a34a',
+  'olive': '#808000',
+  'purple': '#7c3aed',
+  'pink': '#ec4899',
+  'orange': '#f97316',
+  'yellow': '#eab308',
+  'gold': '#ffd700',
+  'silver': '#c0c0c0',
+  'heather': '#9ca3af',
+};
+
+const getColorHex = (colorName: string): string => {
+  const lower = colorName.toLowerCase().trim();
+  if (COLOR_HEX[lower]) return COLOR_HEX[lower];
+  // Try partial match
+  for (const [key, hex] of Object.entries(COLOR_HEX)) {
+    if (lower.includes(key) || key.includes(lower)) return hex;
+  }
+  return '#9ca3af'; // fallback gray
+};
+
+// Standard size order for sorting
+const SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
+
 export default function ProductDetailInline({ product, onClose }: ProductDetailInlineProps) {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null);
@@ -42,48 +96,128 @@ export default function ProductDetailInline({ product, onClose }: ProductDetailI
   const lastTouchDistance = useRef<number | null>(null);
   const { addToCart } = useCart();
 
-  // Parse variants into color → size groups
-  const colors = useMemo(() => {
-    const seen = new Set<string>();
-    return (product.variants || []).reduce<string[]>((acc, v) => {
-      const color = v.title.includes(' / ') ? v.title.split(' / ')[0] : '__single__';
-      if (!seen.has(color)) { seen.add(color); acc.push(color); }
-      return acc;
-    }, []);
-  }, [product.variants]);
+  // Parse variants into color → size groups (Zalando-style)
+  const { colors, colorSizeMap, hasColorChoice, hasSizeChoice } = useMemo(() => {
+    const colorSet = new Set<string>();
+    const sizeSet = new Set<string>();
+    const map: Record<string, { size: string; variant: Variant }[]> = {};
+    
+    (product.variants || []).forEach(v => {
+      let color = '__single__';
 
-  const hasColorChoice = colors.length > 1 && colors[0] !== '__single__';
+      // Printful names variants "<Product name> - <Color> / <Size>".
+      // Strip the product name prefix, then split on the LAST slash so multi-word
+      // colours ("Charcoal-Black Triblend") stay intact.
+      let rest = v.title.trim();
+      if (rest.toLowerCase().startsWith(product.name.trim().toLowerCase())) {
+        rest = rest.slice(product.name.trim().length);
+      }
+      rest = rest.replace(/^[\s\-–/]+/, '');
+
+      const lastSlash = rest.lastIndexOf('/');
+      let size = rest;
+      if (lastSlash !== -1) {
+        const left = rest.slice(0, lastSlash).trim();
+        size = rest.slice(lastSlash + 1).trim();
+        if (left) color = left;
+      }
+      
+      // Skip if the "size" is just the product name (no real size info)
+      const isRealSize = SIZE_ORDER.includes(size.toUpperCase()) ||
+                         /^\d+(\.\d+)?$/.test(size) || // numeric sizes
+                         size.length <= 4; // short codes like "S", "M", "L", "XL"
+      
+      // If it's not a real size and there's no color split, this is a single-variant product
+      if (!isRealSize && color === '__single__') {
+        // Mark as single variant with no selection needed
+        colorSet.add('__none__');
+        if (!map['__none__']) map['__none__'] = [];
+        map['__none__'].push({ size: '__auto__', variant: v });
+        return;
+      }
+      
+      colorSet.add(color);
+      sizeSet.add(size);
+      
+      if (!map[color]) map[color] = [];
+      map[color].push({ size, variant: v });
+    });
+    
+    // Sort sizes by standard order
+    Object.values(map).forEach(arr => {
+      arr.sort((a, b) => {
+        const ai = SIZE_ORDER.indexOf(a.size);
+        const bi = SIZE_ORDER.indexOf(b.size);
+        if (ai !== -1 && bi !== -1) return ai - bi;
+        if (ai !== -1) return -1;
+        if (bi !== -1) return 1;
+        return a.size.localeCompare(b.size);
+      });
+    });
+    
+    // Check if this is a "no selection needed" product
+    const isSingleVariantProduct = colorSet.has('__none__') && colorSet.size === 1;
+    
+    return {
+      colors: Array.from(colorSet),
+      colorSizeMap: map,
+      // Show the colour row only when there are several real colour names
+      hasColorChoice: colorSet.size > 1 && !colorSet.has('__single__') && !colorSet.has('__none__'),
+      hasSizeChoice: sizeSet.size > 1 && !isSingleVariantProduct,
+      isSingleVariantProduct,
+    };
+  }, [product.variants, product.name]);
 
   const sizesForColor = useMemo(() => {
     const colorKey = hasColorChoice ? selectedColor : colors[0];
-    if (!colorKey) return [];
-    return (product.variants || []).filter(v =>
-      colorKey === '__single__' ? true : v.title.startsWith(colorKey + ' / ')
-    );
-  }, [selectedColor, hasColorChoice, colors, product.variants]);
+    if (!colorKey || !colorSizeMap[colorKey]) return [];
+    return colorSizeMap[colorKey];
+  }, [selectedColor, hasColorChoice, colors, colorSizeMap]);
 
-  // Auto-select color if only one
+  // Destructure isSingleVariantProduct from the memo
+  const isSingleVariantProduct = colors.includes('__none__') && colors.length === 1;
+
+  // Auto-select variant for single-variant products (no user selection needed)
   useEffect(() => {
-    if (!hasColorChoice && colors.length > 0) setSelectedColor(colors[0]);
-  }, [hasColorChoice, colors]);
+    if (isSingleVariantProduct && colorSizeMap['__none__']?.[0]?.variant) {
+      setSelectedVariant(colorSizeMap['__none__'][0].variant);
+    }
+  }, [isSingleVariantProduct, colorSizeMap]);
+
+  // Auto-select first color if only one or none selected
+  useEffect(() => {
+    if (!isSingleVariantProduct && colors.length > 0 && !selectedColor) {
+      setSelectedColor(colors[0]);
+    }
+  }, [colors, selectedColor, isSingleVariantProduct]);
 
   // When color changes, reset size
   useEffect(() => {
-    setSelectedSize(null);
-    setSelectedVariant(null);
-  }, [selectedColor]);
+    if (!isSingleVariantProduct) {
+      setSelectedSize(null);
+      setSelectedVariant(null);
+    }
+  }, [selectedColor, isSingleVariantProduct]);
 
   // When size chosen, find the variant
   useEffect(() => {
-    if (!selectedSize) return;
+    if (isSingleVariantProduct || !selectedSize) return;
     const colorKey = hasColorChoice ? selectedColor : colors[0];
-    const match = (product.variants || []).find(v =>
-      colorKey === '__single__' ? v.title === selectedSize : v.title === `${colorKey} / ${selectedSize}`
-    );
-    setSelectedVariant(match || null);
-  }, [selectedSize, selectedColor, hasColorChoice, colors, product.variants]);
+    if (!colorKey || !colorSizeMap[colorKey]) return;
+    const match = colorSizeMap[colorKey].find(s => s.size === selectedSize);
+    setSelectedVariant(match?.variant || null);
+  }, [selectedSize, selectedColor, hasColorChoice, colors, colorSizeMap, isSingleVariantProduct]);
 
   const images = product.images || [product.image];
+
+  // Show the mockup of the picked colour
+  useEffect(() => {
+    if (!selectedColor || !colorSizeMap[selectedColor]) return;
+    const colorImage = colorSizeMap[selectedColor].find(s => s.variant.image)?.variant.image;
+    if (!colorImage) return;
+    const idx = images.indexOf(colorImage);
+    if (idx !== -1) setSelectedImageIndex(idx);
+  }, [selectedColor, colorSizeMap, images]);
 
   // Reset zoom when image changes
   useEffect(() => {
@@ -272,62 +406,90 @@ export default function ProductDetailInline({ product, onClose }: ProductDetailI
         <p className="text-gray-600 text-sm mt-2">{product.description}</p>
       </div>
 
-      {/* Variants — 2-step Color → Size */}
-      {product.variants && product.variants.length > 0 && (
-        <div data-variant-select className="mx-3 mt-4 p-4 bg-cream rounded-xl border border-warm transition-all space-y-4">
+      {/* Variants — Zalando-style: Color swatches + Size buttons */}
+      {/* Hide for single-variant products (e.g. "BOGX -Bulls" with no real sizes) */}
+      {product.variants && product.variants.length > 0 && !isSingleVariantProduct && (
+        <div data-variant-select className="mx-3 mt-4 p-4 bg-cream rounded-xl border border-warm transition-all space-y-5">
 
-          {/* Step 1: Color (only if multiple colors) */}
+          {/* Step 1: Color swatches (only if multiple colors) */}
           {hasColorChoice && (
             <div>
-              <p className="text-gray-500 text-xs mb-2 uppercase tracking-wider font-medium">
-                Color{selectedColor ? <span className="text-gray-900 normal-case tracking-normal ml-1">— {selectedColor}</span> : ''}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {colors.map(color => (
-                  <button
-                    key={color}
-                    onClick={() => setSelectedColor(color)}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
-                      selectedColor === color
-                        ? 'bg-[#E36B11] text-white border-[#E36B11]'
-                        : 'bg-cream text-gray-700 border-warm hover:bg-[#E36B11]/10'
-                    }`}
-                  >
-                    {color}
-                  </button>
-                ))}
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-gray-900 text-sm font-semibold">
+                  Color
+                </p>
+                {selectedColor && selectedColor !== '__single__' && (
+                  <span className="text-gray-600 text-sm">{selectedColor}</span>
+                )}
               </div>
-            </div>
-          )}
-
-          {/* Step 2: Size */}
-          {sizesForColor.length > 0 && (
-            <div>
-              <p className="text-gray-500 text-xs mb-2 uppercase tracking-wider font-medium">Size</p>
               <div className="flex flex-wrap gap-2">
-                {sizesForColor.map(variant => {
-                  const sizeLabel = variant.title.includes(' / ')
-                    ? variant.title.split(' / ').slice(1).join(' / ')
-                    : variant.title;
-                  const isSelected = selectedSize === sizeLabel;
+                {colors.filter(c => c !== '__single__').map(color => {
+                  const hex = getColorHex(color);
+                  const isSelected = selectedColor === color;
+                  const isLight = hex === '#ffffff' || hex === '#f5f5f5' || hex === '#f8f8f8' || hex === '#f5f0e1';
                   return (
                     <button
-                      key={variant.id}
-                      onClick={() => setSelectedSize(sizeLabel)}
-                      disabled={!variant.available}
-                      className={`w-14 py-2 rounded-lg text-sm font-bold transition-all border ${
-                        isSelected
-                          ? 'bg-[#E36B11] text-white border-[#E36B11]'
-                          : variant.available
-                            ? 'bg-cream text-gray-700 border-warm hover:bg-[#E36B11]/10'
-                            : 'bg-cream/50 text-gray-300 border-warm cursor-not-allowed line-through'
-                      }`}
+                      key={color}
+                      onClick={() => setSelectedColor(color)}
+                      title={color}
+                      className={`relative w-10 h-10 rounded-full transition-all ${
+                        isSelected 
+                          ? 'ring-2 ring-offset-2 ring-[#E36B11]' 
+                          : 'hover:ring-2 hover:ring-offset-1 hover:ring-gray-300'
+                      } ${isLight ? 'border border-gray-300' : ''}`}
+                      style={{ backgroundColor: hex }}
                     >
-                      {sizeLabel}
+                      {isSelected && (
+                        <Check className={`absolute inset-0 m-auto w-5 h-5 ${isLight ? 'text-gray-800' : 'text-white'}`} />
+                      )}
                     </button>
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* Step 2: Size buttons */}
+          {sizesForColor.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-gray-900 text-sm font-semibold">
+                  Size
+                </p>
+                {selectedSize && (
+                  <span className="text-gray-600 text-sm">{selectedSize}</span>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {sizesForColor.map(({ size, variant }) => {
+                  const isSelected = selectedSize === size;
+                  const isAvailable = variant.available;
+                  return (
+                    <button
+                      key={variant.id}
+                      onClick={() => isAvailable && setSelectedSize(size)}
+                      disabled={!isAvailable}
+                      className={`min-w-[48px] px-3 py-2.5 rounded-lg text-sm font-semibold transition-all border ${
+                        isSelected
+                          ? 'bg-gray-900 text-white border-gray-900'
+                          : isAvailable
+                            ? 'bg-white text-gray-900 border-gray-300 hover:border-gray-900'
+                            : 'bg-gray-100 text-gray-300 border-gray-200 cursor-not-allowed relative'
+                      }`}
+                    >
+                      {size}
+                      {!isAvailable && (
+                        <span className="absolute inset-0 flex items-center justify-center">
+                          <span className="w-full h-[1px] bg-gray-300 rotate-[-20deg]" />
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              {!selectedSize && sizesForColor.length > 0 && (
+                <p className="text-[#E36B11] text-xs mt-2 font-medium">Please select a size</p>
+              )}
             </div>
           )}
         </div>

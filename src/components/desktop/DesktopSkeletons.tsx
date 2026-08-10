@@ -194,6 +194,41 @@ export function NewsSkeleton() {
   );
 }
 
+// Rankroll Detail skeleton (when clicking on a poll card)
+export function RankrollDetailSkeleton() {
+  return (
+    <div className="p-4 space-y-4 animate-pulse">
+      {/* Header area */}
+      <div className="bg-cream border border-warm rounded-xl overflow-hidden">
+        <div className="h-40 bg-skeleton-light relative overflow-hidden">
+          <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent animate-[shimmer_1.6s_infinite]" />
+        </div>
+        <div className="p-4 space-y-2">
+          <div className="h-5 w-3/4 rounded bg-skeleton-light" />
+          <div className="h-3 w-1/2 rounded bg-skeleton-light" />
+        </div>
+      </div>
+      {/* Ranking items */}
+      {[1, 2, 3, 4, 5].map((i) => (
+        <div key={i} className="flex items-center gap-3 p-3 bg-cream border border-warm rounded-xl">
+          <div className="w-8 h-8 rounded-full bg-skeleton-light" />
+          <div className="w-14 h-14 rounded-lg bg-skeleton-light relative overflow-hidden">
+            <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent animate-[shimmer_1.6s_infinite]" />
+          </div>
+          <div className="flex-1 space-y-2">
+            <div className="h-4 w-2/3 rounded bg-skeleton-light" />
+            <div className="h-3 w-1/3 rounded bg-skeleton-light" />
+          </div>
+          <div className="flex gap-2">
+            <div className="w-10 h-10 rounded-lg bg-skeleton-light" />
+            <div className="w-10 h-10 rounded-lg bg-skeleton-light" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // Profile skeleton
 export function ProfileSkeleton() {
   return (

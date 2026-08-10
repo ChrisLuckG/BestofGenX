@@ -5,6 +5,7 @@ import User from '@/models/User';
 import Card from '@/models/Card';
 import UserQuestionHistory from '@/models/UserQuestionHistory';
 import { sendPushNotification } from '@/lib/webpush';
+import { themeForTopic } from '@/lib/battleTopics';
 import crypto from 'crypto';
 
 // Helper to hash question text
@@ -90,6 +91,7 @@ export async function POST(
     battle.opponent = opponentId;
     battle.status = 'active';
     battle.acceptedAt = new Date();
+    battle.acceptedVia = 'api:battles/[id]/accept';
     
     // If creator is a bot, regenerate questions based on opponent's history
     // This ensures the user doesn't see questions they've already answered
@@ -111,41 +113,54 @@ export async function POST(
       
       console.log(`User has seen ${seenHashes.size} questions in last 60 days`);
       
-      // Get all active cards
-      const allCards = await Card.find({ active: true }).lean();
-      
-      // Collect unseen questions
-      const unseenQuestions: any[] = [];
-      for (const card of allCards) {
-        if (!card.questions || !Array.isArray(card.questions)) continue;
-        for (const q of card.questions as any[]) {
-          if (!q.question || !q.options || q.options.length < 2) continue;
-          
-          const qHash = hashQuestion(q.question);
-          if (seenHashes.has(qHash)) continue; // Skip seen questions
-          
-          const correctIndex = q.options.indexOf(q.correctAnswer);
-          if (correctIndex === -1) continue; // Skip invalid questions
-          
-          unseenQuestions.push({
-            cardId: card._id,
-            question: q.question,
-            answers: q.options,
-            correctIndex,
-            topic: card.topic || card.theme,
-          });
-        }
-      }
-      
-      // Shuffle and pick required number
-      const shuffled = unseenQuestions.sort(() => Math.random() - 0.5);
-      const newQuestions = shuffled.slice(0, battle.rounds);
-      
-      if (newQuestions.length >= battle.rounds) {
-        battle.questions = newQuestions;
-        console.log(`Regenerated ${newQuestions.length} unseen questions for battle`);
+      // Only ever pull cards from the battle's OWN theme. Regenerating from every
+      // active card was the cause of battles labelled e.g. TV serving GAMING or
+      // SPORTS questions: the topic-correct questions picked at creation time were
+      // silently replaced with random ones the moment the battle was accepted.
+      const expectedTheme = themeForTopic(battle.topic);
+      if (!expectedTheme) {
+        console.error(`Accept: unknown topic "${battle.topic}" - keeping original questions`);
       } else {
-        console.log(`Not enough unseen questions (${newQuestions.length}/${battle.rounds}), keeping original`);
+        const allCards = await Card.find({ active: true, theme: expectedTheme }).lean();
+        
+        // Collect unseen questions
+        const unseenQuestions: any[] = [];
+        for (const card of allCards) {
+          if (!card.questions || !Array.isArray(card.questions)) continue;
+          for (const q of card.questions as any[]) {
+            if (!q.question || !q.options || q.options.length < 2) continue;
+            
+            const qHash = hashQuestion(q.question);
+            if (seenHashes.has(qHash)) continue; // Skip seen questions
+            
+            const correctIndex = q.options.indexOf(q.correctAnswer);
+            if (correctIndex === -1) continue; // Skip invalid questions
+            
+            unseenQuestions.push({
+              // Keep the same shape the creation path writes, so a question's origin
+              // stays traceable (used by the battle-topic audit).
+              questionId: `${card._id}_${q.difficulty || 0}`,
+              cardId: card._id,
+              question: q.question,
+              answers: q.options,
+              correctIndex,
+              points: q.maxReward || 100,
+            });
+          }
+        }
+        
+        // Shuffle and pick required number
+        const shuffled = unseenQuestions.sort(() => Math.random() - 0.5);
+        const newQuestions = shuffled.slice(0, battle.rounds);
+        
+        // Never fall back to other themes - keeping the original topic-correct
+        // questions is always better than serving the wrong category.
+        if (newQuestions.length >= battle.rounds) {
+          battle.questions = newQuestions;
+          console.log(`Regenerated ${newQuestions.length} unseen ${expectedTheme} questions for battle`);
+        } else {
+          console.log(`Not enough unseen ${expectedTheme} questions (${newQuestions.length}/${battle.rounds}), keeping original`);
+        }
       }
     }
     

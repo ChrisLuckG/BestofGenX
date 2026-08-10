@@ -8,6 +8,11 @@ import Article from '@/models/Article';
 import { generateReporterSystemPrompt } from '@/lib/generateReporterPrompt';
 import { VALID_CATEGORY_SLUGS } from '@/lib/categories';
 import { combinePrompts } from '@/lib/loadPrompt';
+import { fetchWikidataBirthdays, formatBirthdayContext, hasWikidataCategory } from '@/lib/wikidataBirthdays';
+import { saveMenschen, getMenschenCoverage, markMenschCovered } from '@/lib/menschenDb';
+
+// Increase timeout for article generation (Wikidata + OpenAI + YouTube can take time)
+export const maxDuration = 60;
 
 // Load modular prompts: core + article rules for reporters
 function loadBogxSystemPrompt(): string {
@@ -214,9 +219,10 @@ const CTA_HTML: Record<string, string> = {
 };
 
 // Search YouTube Data API for a real video ID
-async function findYoutubeVideoId(searchTerm: string): Promise<string | null> {
+// preferLong: true = filter for videos >20min (documentaries)
+async function findYoutubeVideoId(searchTerm: string, preferLong: boolean = false): Promise<string | null> {
   const apiKey = process.env.YOUTUBE_API_KEY;
-  console.log('[YouTube] Searching for:', searchTerm, '| API Key exists:', !!apiKey);
+  console.log('[YouTube] Searching for:', searchTerm, '| preferLong:', preferLong, '| API Key exists:', !!apiKey);
   
   if (!apiKey) {
     console.warn('[YouTube] YOUTUBE_API_KEY not set, skipping video search');
@@ -224,7 +230,13 @@ async function findYoutubeVideoId(searchTerm: string): Promise<string | null> {
   }
   
   try {
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(searchTerm)}&type=video&maxResults=1&key=${apiKey}`;
+    // Ask for several candidates instead of blindly trusting rank #1 — YouTube's
+    // top hit for a person + film is often a talk-show or paparazzi clip that has
+    // nothing to do with the passage the video sits next to.
+    // For history articles, add "documentary" and filter for long videos
+    const enhancedTerm = preferLong ? `${searchTerm} documentary` : searchTerm;
+    const durationFilter = preferLong ? '&videoDuration=long' : ''; // long = >20min
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(enhancedTerm)}&type=video&maxResults=8${durationFilter}&key=${apiKey}`;
     const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
     
     if (!res.ok) {
@@ -234,14 +246,69 @@ async function findYoutubeVideoId(searchTerm: string): Promise<string | null> {
     }
     
     const data = await res.json();
-    const videoId = data.items?.[0]?.id?.videoId;
-    console.log('[YouTube] Found video:', videoId);
-    
-    return videoId && /^[a-zA-Z0-9_-]{11}$/.test(videoId) ? videoId : null;
+    const items = (data.items || []).filter(
+      (it: any) => it?.id?.videoId && /^[a-zA-Z0-9_-]{11}$/.test(it.id.videoId)
+    );
+    if (!items.length) return null;
+
+    const best = pickBestYoutubeMatch(items, searchTerm);
+    console.log('[YouTube] Picked:', best.id, '|', best.title, `(score ${best.score})`);
+    return best.id;
   } catch (err) {
     console.error('[YouTube] Search failed:', err);
     return null;
   }
+}
+
+// Words that carry no meaning when comparing a query to a video title.
+const YT_STOPWORDS = new Set([
+  'the', 'a', 'an', 'and', 'or', 'of', 'in', 'on', 'at', 'to', 'for',
+  'with', 'his', 'her', 'their', 'from', 'official', 'video', 'scene', 'clip',
+]);
+
+// Clips that are technically "about" the person but never illustrate the text.
+const YT_JUNK = /\b(access hollywood|entertainment tonight|red carpet|paparazzi|interview|talk show|reaction|tier list|ranking every|top \d+|compilation of|fan edit|edit\b|tiktok|shorts)\b/i;
+
+// Formats that genuinely show the work being discussed.
+const YT_GOOD = /\b(trailer|official trailer|movie ?clips?|scene|full scene|performance|live at|official video|highlights|documentary)\b/i;
+
+/**
+ * Scores candidates by how much of the search phrase actually appears in the
+ * video title, so the embed matches the paragraph it illustrates.
+ */
+function pickBestYoutubeMatch(
+  items: any[],
+  searchTerm: string
+): { id: string; title: string; score: number } {
+  const terms = searchTerm
+    .toLowerCase()
+    .replace(/[^a-z0-9à-ÿ\s]/g, ' ')
+    .split(/\s+/)
+    .filter(t => t.length > 2 && !YT_STOPWORDS.has(t));
+
+  const scored = items.map((it: any, idx: number) => {
+    const title = String(it.snippet?.title || '');
+    const haystack = `${title} ${it.snippet?.description || ''}`.toLowerCase();
+
+    // Core signal: share of meaningful query words present in the result.
+    const hits = terms.filter(t => haystack.includes(t)).length;
+    let score = terms.length ? (hits / terms.length) * 100 : 0;
+
+    // A title match is worth far more than a description match.
+    const titleLower = title.toLowerCase();
+    score += terms.filter(t => titleLower.includes(t)).length * 12;
+
+    if (YT_GOOD.test(title)) score += 15;
+    if (YT_JUNK.test(title)) score -= 40;
+
+    // Keep YouTube's own ranking as a mild tie-breaker.
+    score -= idx;
+
+    return { id: it.id.videoId as string, title, score: Math.round(score) };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored[0];
 }
 
 function buildYoutubeIframe(youtubeId: string): string {
@@ -249,8 +316,9 @@ function buildYoutubeIframe(youtubeId: string): string {
 }
 
 // Convert sections array to HTML content with YouTube videos after each section
-async function convertSectionsToContent(sections: Array<{heading: string | null; text: string; youtubeSearch?: string}>): Promise<string> {
-  console.log('[Sections] Converting', sections.length, 'sections to content');
+// isHistory: true = search for longer documentary videos (>20min)
+async function convertSectionsToContent(sections: Array<{heading: string | null; text: string; youtubeSearch?: string}>, isHistory: boolean = false): Promise<string> {
+  console.log('[Sections] Converting', sections.length, 'sections to content | isHistory:', isHistory);
   const contentParts: string[] = [];
   
   for (const section of sections) {
@@ -263,9 +331,10 @@ async function convertSectionsToContent(sections: Array<{heading: string | null;
     contentParts.push(section.text);
     
     // Find and add YouTube video if search term provided
+    // For history articles, prefer longer documentaries
     if (section.youtubeSearch) {
-      console.log('[Sections] Section has youtubeSearch:', section.youtubeSearch);
-      const youtubeId = await findYoutubeVideoId(section.youtubeSearch);
+      console.log('[Sections] Section has youtubeSearch:', section.youtubeSearch, '| preferLong:', isHistory);
+      const youtubeId = await findYoutubeVideoId(section.youtubeSearch, isHistory);
       if (youtubeId) {
         console.log('[Sections] Adding video iframe:', youtubeId);
         contentParts.push(buildYoutubeIframe(youtubeId));
@@ -492,10 +561,15 @@ export async function POST(request: NextRequest) {
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     // Both are cached per day, so after the first request they resolve instantly.
-    const [liveContext, deathsContext, wikidataDeaths] = await Promise.all([
+    // Wikipedia's curated list is thin and US-heavy, so for a category-filtered
+    // birthday request we additionally pull the complete worldwide pool from Wikidata.
+    const [liveContext, deathsContext, wikidataDeaths, wikidataBirths] = await Promise.all([
       fetchLiveContext(now.getMonth() + 1, now.getDate()),
       fetchRecentDeaths(now),
       fetchWikidataDeaths(now.getMonth() + 1, now.getDate()),
+      hasWikidataCategory(overrideCategory)
+        ? fetchWikidataBirthdays(now.getMonth() + 1, now.getDate(), overrideCategory)
+        : Promise.resolve([]),
     ]);
 
     // Map country codes to full names
@@ -524,6 +598,43 @@ IGNORE your normal specialty. Follow the editor's filters above.
 ================================================================================
 ` : '';
 
+    // Persist every finding to the Menschen DB right away and look up who we
+    // already wrote about, so this date needs no external lookup next year and
+    // nobody gets a second birthday piece.
+    let birthdayCoverage = new Map<string, { title?: string }>();
+    if (wikidataBirths.length) {
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      const [, coverage] = await Promise.all([
+        saveMenschen(wikidataBirths.map(p => ({
+          name: p.name,
+          birthday: `${dd}.${mm}.${p.year}`,
+          birthYear: p.year,
+          country: p.country,
+          profession: p.occupation,
+          description: p.occupation,
+          discoveredBy: reporterUserId,
+          discoveredByName: reporterName,
+          discoveredFor: 'birthday' as const,
+        }))),
+        getMenschenCoverage(wikidataBirths.map(p => p.name)),
+      ]);
+      birthdayCoverage = coverage;
+    }
+
+    // The complete Wikidata pool goes in front of the short Wikipedia list so the
+    // reporter picks from every GenX politician/athlete/... worldwide, not just the US ones.
+    const wikidataBirthContext = wikidataBirths.length
+      ? formatBirthdayContext(
+          wikidataBirths,
+          now.getMonth() + 1,
+          now.getDate(),
+          overrideCategory,
+          countryFullName,
+          birthdayCoverage
+        )
+      : '';
+
     // Combine: reporter persona first (their identity), then full BOGX knowledge
     const systemPrompt = `TODAY'S DATE: ${dateStr}
 You know today's exact date. Never guess or make up the date.
@@ -536,7 +647,7 @@ The sections below already contain LIVE, up-to-date data (today-in-history + the
 USE THEM as your source for any recent-events / "who died" question — interpret the editor's intent from MEANING,
 ignoring typos/spelling/language (e.g. "gestroben" still means "gestorben"). Never claim you have no recent
 information when the data below answers it. If the data truly contains nothing relevant, say so honestly.
-${liveContext}${deathsContext}${wikidataDeaths}
+${wikidataBirthContext}${liveContext}${deathsContext}${wikidataDeaths}
 ${reporterPersona}
 
 ================================================================================
@@ -635,8 +746,10 @@ CRITICAL — YOUTUBE SEARCH RULES:
           
           if (parsed.sections && Array.isArray(parsed.sections)) {
             // New format: sections array with youtubeSearch per section
-            console.log('[Article] Using NEW sections format with', parsed.sections.length, 'sections');
-            finalContent = await convertSectionsToContent(parsed.sections);
+            // For history articles, search for longer documentary videos
+            const isHistoryArticle = (parsed.category || '').toLowerCase().includes('history');
+            console.log('[Article] Using NEW sections format with', parsed.sections.length, 'sections | isHistory:', isHistoryArticle);
+            finalContent = await convertSectionsToContent(parsed.sections, isHistoryArticle);
           } else if (parsed.content) {
             // Legacy format: plain HTML content
             console.log('[Article] Using LEGACY content format (no videos will be added)');
@@ -689,6 +802,14 @@ CRITICAL — YOUTUBE SEARCH RULES:
             articleDraftId = article._id.toString();
             articleTitle = parsed.title || 'Untitled';
             profile.articleCount = (profile.articleCount || 0) + 1;
+
+            // Flag the person as covered so future conferences skip them.
+            await markMenschCovered({
+              articleId: article._id.toString(),
+              title: articleTitle || parsed.title || 'Untitled',
+              personName: parsed.personName,
+              userId: reporterUserId,
+            });
 
             const videoCount = parsed.sections?.length || 0;
             finalResponse = `✅ **Draft saved:** "${articleTitle}"

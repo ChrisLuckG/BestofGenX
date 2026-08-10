@@ -53,6 +53,14 @@ export interface IBattle extends Document {
   // Set when the creator manually dismisses the "declined" notice from My Open Battles
   dismissedByCreator?: boolean;
   
+  // Origin tracing: which client action created this battle
+  createdVia?: string;
+  createdUserAgent?: string;
+  createdReferer?: string;
+
+  // Origin tracing: which server path set the opponent
+  acceptedVia?: string;
+
   // Timestamps
   createdAt: Date;
   acceptedAt?: Date;
@@ -127,6 +135,12 @@ const BattleSchema = new Schema<IBattle>({
   declinedAt: Date,
   dismissedByCreator: { type: Boolean, default: false },
   
+  createdVia: { type: String, default: 'unknown' },
+  createdUserAgent: String,
+  createdReferer: String,
+
+  acceptedVia: String,
+
   acceptedAt: Date,
   completedAt: Date
 }, {

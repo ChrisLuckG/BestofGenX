@@ -78,6 +78,13 @@ export const VALID_CATEGORY_SLUGS: string[] = CATEGORIES.flatMap(
   c => [c.slug, ...(c.aliases || [])]
 );
 
+/**
+ * Categories that NEVER auto-fill the Top Area. History and Arcade/Gaming articles
+ * belong to their own date-based banner sections; they may only reach the Top Area
+ * when an editor pins them manually (star / `featured`).
+ */
+export const TOP_AREA_EXCLUDED_SLUGS: string[] = ['history', 'gaming', 'tech'];
+
 /** Categories shown in admin UI dropdowns (canonical only, no aliases) */
 export const UI_CATEGORIES = CATEGORIES.map(c => ({ value: c.slug, label: c.label }));
 
@@ -119,8 +126,8 @@ export function getAutoFillSlugs(containerName?: string, containerTheme?: string
   const theme = containerTheme?.toLowerCase() || '';
   const name  = (containerName || '').toLowerCase();
 
-  if (THEME_MAP[theme]) return THEME_MAP[theme];
-
+  // Container NAME wins over theme — the theme is only a colour style
+  // (e.g. a "HISTORY" container with the orange 'bogx' theme must stay history).
   // Birthday / celebrity containers pull from celebs + RIP + Cinema
   if (/birthday|happy|celeb|icon|star|legend/.test(name)) {
     return ['movies-tv', 'genx-icons', 'rip', 'music', 'sports'];
@@ -130,6 +137,9 @@ export function getAutoFillSlugs(containerName?: string, containerTheme?: string
   for (const cat of CATEGORIES) {
     if (cat.keywords.test(name)) return [cat.slug, ...(cat.aliases || [])];
   }
+
+  // No name match → fall back to the theme mapping
+  if (THEME_MAP[theme]) return THEME_MAP[theme];
 
   return [];
 }

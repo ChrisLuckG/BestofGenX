@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongoose";
 import Card from "@/models/Card";
 import UserQuestionHistory from "@/models/UserQuestionHistory";
+import { themeForTopic } from "@/lib/battleTopics";
 import mongoose from "mongoose";
 
 // 6 months cooldown for questions
@@ -15,10 +16,20 @@ export async function POST(request: NextRequest) {
     
     console.log(`Fetching ${count} battle questions from Card pool for topic: ${topic || 'random'}`);
 
-    // Build query - get active cards, optionally filter by theme
+    // Build query - get active cards, optionally filter by theme.
+    // NOTE: topic.toUpperCase() was wrong - battle topics don't match the stored
+    // theme strings ('tv' -> 'TV' but the DB holds 'TV SHOWS', 'film' -> 'MOVIES').
+    // That silently matched nothing, or served questions from every category.
     const query: Record<string, unknown> = { active: true };
     if (topic && topic !== 'random' && topic !== 'MIX') {
-      query.theme = topic.toUpperCase();
+      const theme = themeForTopic(topic);
+      if (!theme) {
+        return NextResponse.json(
+          { success: false, error: `Unknown topic: ${topic}` },
+          { status: 400 }
+        );
+      }
+      query.theme = theme;
     }
 
     // Get cards both players have seen in the last 6 months

@@ -1,4 +1,4 @@
-import { getAutoFillSlugs } from "@/lib/categories";
+import { getAutoFillSlugs, TOP_AREA_EXCLUDED_SLUGS } from "@/lib/categories";
 
 // Shared container resolution used by BOTH the live feed (WelcomeReel) and the
 // admin template editor (ContainerBlock / ArticlesTab) so they ALWAYS match.
@@ -10,7 +10,9 @@ export interface FillArticle {
   coverImage?: string;
   category?: string;
   status?: string;
+  featured?: boolean;  // Star = manually allowed into the Top Area
   createdAt?: string;
+  scheduledAt?: string;
   contentType?: string;
   order?: number;  // Manual sort order (lower = higher); drives the Top Area order
 }
@@ -32,14 +34,16 @@ interface ContainerBlockLike {
   autoFillLimit?: number;
 }
 
-const byNewest = (a: FillArticle, b: FillArticle) =>
-  new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+// Single ordering rule for EVERY area, identical to the admin Post Manager list:
+// manual drag order (`order`, lower = higher) wins, then newest first by
+// scheduledAt (falling back to createdAt).
+const articleDate = (a: FillArticle) =>
+  new Date(a.scheduledAt || a.createdAt || 0).getTime();
 
-// Top Area: manual drag order (lower = higher) wins, then newest first.
-const byTopOrder = (a: FillArticle, b: FillArticle) => {
+export const byFeedOrder = (a: FillArticle, b: FillArticle) => {
   const ao = a.order ?? 0, bo = b.order ?? 0;
   if (ao !== bo) return ao - bo;
-  return byNewest(a, b);
+  return articleDate(b) - articleDate(a);
 };
 
 // Date-based banner areas whose WHOLE category belongs to their FIXED banner box and is
@@ -53,7 +57,8 @@ const DATE_BASED_AREAS = new Set(['gaming', 'history']);
 export function computeBannerCategories(
   templateItems: Array<{ size: number; containerName?: string; containerTheme?: string; containerBlocks?: ContainerBlockLike[] }>
 ): Set<string> {
-  const bannerCategories = new Set<string>();
+  // History / Arcade are always excluded, even if their container has no FIXED banner yet.
+  const bannerCategories = new Set<string>(TOP_AREA_EXCLUDED_SLUGS);
   templateItems
     .filter(item => item.size === 12 && (item.containerBlocks || []).length > 0)
     .forEach(item => {
@@ -93,13 +98,24 @@ export function resolveContainer(
 
   // Top container = global newest (any category) EXCEPT date-based banner categories
   // (Arcade gaming/tech, History) which belong only to their banner box. Others = own category.
+  // A starred (featured) article is a manual pick and may always enter the Top Area.
+  const allowedInTop = (a: FillArticle) =>
+    a.featured === true || !bannerCategories.has((a.category || '').toLowerCase());
+
   const autoPool = globalScope
-    ? [...articles].filter(a => isFillable(a) && !bannerCategories.has((a.category || '').toLowerCase())).sort(byTopOrder)
+    ? [...articles].filter(a => isFillable(a) && allowedInTop(a)).sort(byFeedOrder)
     : (catSlugs.length > 0
         ? [...articles]
             .filter(a => isFillable(a) && catSlugs.includes((a.category || '').toLowerCase()))
-            .sort(byNewest)
+            .sort(byFeedOrder)
         : []);
+
+  // A pinned article may only be used as a fallback when its category belongs to
+  // this container — otherwise e.g. a movies-tv article would sit in History.
+  const pinnable = (a: FillArticle | null): FillArticle | null =>
+    a && (globalScope || catSlugs.length === 0 || catSlugs.includes((a.category || '').toLowerCase()))
+      ? a
+      : null;
 
   const perBlock: ResolvedBlock[] = blocks.map((block) => {
     if (block.type === 'MAIN' || block.type === 'SOCIAL') {
@@ -108,7 +124,7 @@ export function resolveContainer(
       if (autoPool.length > 0) {
         main = autoPool.find(a => !localUsed.has(a._id || '')) || null;
       }
-      if (!main && block.articleId && !localUsed.has(block.articleId)) main = byId(block.articleId);
+      if (!main && block.articleId && !localUsed.has(block.articleId)) main = pinnable(byId(block.articleId));
       if (main?._id) localUsed.add(main._id);
       return { type: block.type, main };
     }
@@ -121,8 +137,8 @@ export function resolveContainer(
         left = pool[0] || null;
         right = pool[1] || null;
       }
-      if (!left && block.articleId && !localUsed.has(block.articleId)) left = byId(block.articleId);
-      if (!right && block.articleId2 && !localUsed.has(block.articleId2)) right = byId(block.articleId2);
+      if (!left && block.articleId && !localUsed.has(block.articleId)) left = pinnable(byId(block.articleId));
+      if (!right && block.articleId2 && !localUsed.has(block.articleId2)) right = pinnable(byId(block.articleId2));
       if (left?._id) localUsed.add(left._id);
       if (right?._id) localUsed.add(right._id);
       return { type: '2H', left, right };
@@ -134,7 +150,7 @@ export function resolveContainer(
       if (cat) {
         vertical = [...articles]
           .filter(a => (a.category || '').toLowerCase() === cat && isFillable(a) && a.coverImage && !localUsed.has(a._id || ''))
-          .sort(byNewest)
+          .sort(byFeedOrder)
           .slice(0, block.autoFillLimit || 3);
       } else {
         vertical = (block.articles || []).map(id => byId(id)).filter(Boolean) as FillArticle[];
@@ -150,7 +166,7 @@ export function resolveContainer(
       if (cat) {
         slider = [...articles]
           .filter(a => (a.category || '').toLowerCase() === cat && isFillable(a) && a.coverImage && !localUsed.has(a._id || ''))
-          .sort(byNewest)
+          .sort(byFeedOrder)
           .slice(0, block.autoFillLimit || 20);
       } else if (block.articles && block.articles.length > 0) {
         slider = (block.articles || []).map(id => byId(id)).filter(Boolean) as FillArticle[];

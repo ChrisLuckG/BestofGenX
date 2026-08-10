@@ -3,6 +3,10 @@ import OpenAI from 'openai';
 import dbConnect from '@/lib/mongoose';
 import { Person } from '@/models/Almanac';
 import { combinePrompts } from '@/lib/loadPrompt';
+import { saveMenschen, textToCategory } from '@/lib/menschenDb';
+
+// Increase timeout for briefing generation (Wikipedia + Wikidata + OpenAI)
+export const maxDuration = 60;
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -15,25 +19,45 @@ function loadBogxKnowledge(): string {
 function descToProfession(desc: string): string {
   const d = (desc || '').toLowerCase();
   if (/foot|soccer|athlet|boxer|player|olympic|tennis|basketball|baseball|cyclist|sprinter|swimmer|racer|driver|wrestler|skater|golfer|rugby|cricket|sport/.test(d)) return 'Sport';
-  if (/actor|actress|film|movie|cinema|director|screenwriter|comedian|comic/.test(d) && /comedian|comic/.test(d)) return 'Comedy';
+  if (/comedian|comic/.test(d)) return 'Comedy';
   if (/actor|actress|film|movie|cinema|director|screenwriter/.test(d)) return 'Actor';
   if (/music|singer|rapper|guitar|drummer|bassist|composer|songwriter|\bdj\b|band|rock|pop|jazz|pianist|violinist|cellist|conductor/.test(d)) return 'Music';
   if (/politic|president|minister|senator|governor|mayor|diplomat|statesman|chancellor/.test(d)) return 'Politik';
   if (/artist|painter|sculptor|photograph|designer|illustrator/.test(d)) return 'Art';
-  if (/comedian|comic/.test(d)) return 'Comedy';
   if (/\bmodel\b/.test(d)) return 'Model';
   if (/engineer|scientist|programm|developer|\btech\b|inventor|physicist|chemist/.test(d)) return 'Tech';
   return 'Other';
 }
 
-// Save any verified GenX person the reporters find to the Menschen (Person) DB
-// immediately — idempotent. Handles BOTH birthdays and deaths (and anything with
-// verified born/died data). We already have Wikipedia-verified data, so no GPT call
-// is needed. Backfills born/died on existing records that lack them — never overwrites.
+// Save any verified GenX person the reporters find — idempotent. Writes to BOTH
+// stores: the Almanac `Person` records (used by the Almanac pages) and the
+// `Menschen` DB (used by the newsroom, which also tracks article coverage), so a
+// finding is never looked up externally twice.
 async function savePeopleToDB(
   entries: { name: string; born?: string; died?: string; desc: string }[]
 ): Promise<number> {
   let saved = 0;
+
+  // Menschen DB — birthday must be DD.MM.YYYY, so only entries with a full date qualify.
+  saveMenschen(
+    entries
+      .filter(e => /^\d{4}-\d{2}-\d{2}$/.test(e.born || '') || /^\d{4}-\d{2}-\d{2}$/.test(e.died || ''))
+      .map(e => {
+        const iso = (e.born || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        return {
+          name: e.name,
+          birthday: iso ? `${iso[3]}.${iso[2]}.${iso[1]}` : '',
+          birthYear: iso ? parseInt(iso[1], 10) : undefined,
+          profession: e.desc,
+          description: e.desc,
+          category: textToCategory(e.desc),
+          discoveredByName: 'Wikipedia Import',
+          discoveredFor: (e.died ? 'rip' : 'birthday') as 'birthday' | 'rip',
+        };
+      })
+      .filter(e => !!e.birthday)
+  ).catch(() => {});
+
   try {
     await dbConnect();
     await Promise.all(entries.map(async (e) => {

@@ -15,6 +15,46 @@ export async function POST(request: NextRequest) {
     }
 
     await dbConnect();
+
+    // Targeted mode: cancel exactly ONE battle and refund both sides.
+    // Needed for battles that no UI action can resolve fairly, e.g. a battle the
+    // creator never asked for (see the botActive bug in trigger-bots) where the
+    // opponent has already played, so /cancel and /cancel-waiting both refuse.
+    const battleId = searchParams.get('battleId');
+    if (battleId) {
+      const battle = await Battle.findById(battleId);
+      if (!battle) {
+        return NextResponse.json({ success: false, error: 'Battle not found' }, { status: 404 });
+      }
+      if (battle.status === 'cancelled' || battle.status === 'expired') {
+        return NextResponse.json({ success: false, error: `Battle already ${battle.status}` }, { status: 400 });
+      }
+
+      const refunds: Array<{ userId: string; amount: number }> = [];
+      if (battle.creator) {
+        await User.findByIdAndUpdate(battle.creator, { $inc: { bogxCoins: battle.wager } });
+        refunds.push({ userId: battle.creator.toString(), amount: battle.wager });
+      }
+      if (battle.opponent) {
+        await User.findByIdAndUpdate(battle.opponent, { $inc: { bogxCoins: battle.wager } });
+        refunds.push({ userId: battle.opponent.toString(), amount: battle.wager });
+      }
+
+      const previousStatus = battle.status;
+      battle.status = 'cancelled';
+      await battle.save();
+
+      console.log('[BATTLE CLEANUP] cancelled', battleId, 'was', previousStatus, 'refunds', refunds);
+
+      return NextResponse.json({
+        success: true,
+        message: 'Battle cancelled and both sides refunded',
+        battleId,
+        previousStatus,
+        wager: battle.wager,
+        refunds,
+      });
+    }
     
     // Find all "active" battles older than 2 hours (stuck battles)
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);

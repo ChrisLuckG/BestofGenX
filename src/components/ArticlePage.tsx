@@ -121,84 +121,88 @@ function processArticleHtml(raw: string): string {
     '$1'
   );
 
-  // 3. First, extract all videos and store them
-  const videos: string[] = [];
-  html = html.replace(
-    /<iframe([^>]*?)(?:\s*\/>|>\s*<\/iframe>)/gi,
-    (_match, attrs) => {
-      let cleanAttrs = String(attrs);
-      const srcMatch = String(attrs).match(/src="([^"]+)"/i);
-      const embedUrl = srcMatch?.[1] || '';
-      const titleMatch = String(attrs).match(/title="([^"]+)"/i);
-      const videoTitle = titleMatch?.[1] || '';
-      let watchUrl = embedUrl;
-      let sourceName = 'YouTube';
-      const ytMatch = embedUrl.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/);
-      const vmMatch = embedUrl.match(/player\.vimeo\.com\/video\/(\d+)/);
-      if (ytMatch) {
-        watchUrl = `https://www.youtube.com/watch?v=${ytMatch[1]}`;
-        sourceName = 'YouTube';
-      } else if (vmMatch) {
-        watchUrl = `https://vimeo.com/${vmMatch[1]}`;
-        sourceName = 'Vimeo';
-      }
-      cleanAttrs = cleanAttrs.replace(/\s(width|height)="[^"]*"/gi, '');
-      cleanAttrs = cleanAttrs.replace(/style="[^"]*"/gi, '');
-      const caption = videoTitle || 'Watch the clip';
-      
-      // Store video HTML for later injection - use thumbnail image instead of iframe to avoid double play button
-      // Extract YouTube video ID for thumbnail
-      const thumbnailUrl = ytMatch 
-        ? `https://img.youtube.com/vi/${ytMatch[1]}/mqdefault.jpg`
-        : vmMatch 
-          ? `https://vumbnail.com/${vmMatch[1]}.jpg`
-          : '';
-      
-      // Use thumbnail with click-to-play that replaces with iframe
-      const videoId = ytMatch ? ytMatch[1] : (vmMatch ? vmMatch[1] : '');
-      const embedSrc = ytMatch 
-        ? `https://www.youtube.com/embed/${videoId}?autoplay=1`
-        : vmMatch 
-          ? `https://player.vimeo.com/video/${videoId}?autoplay=1`
-          : '';
-      
-      videos.push(`<div class="article-video-card" style="width:380px;max-width:380px;border-radius:6px;overflow:hidden;margin-top:-10px;"><div style="position:relative;width:380px;height:214px;cursor:pointer;" onclick="this.outerHTML='<iframe src=\\'${embedSrc}\\' style=\\'width:380px;height:214px;border:0;display:block;\\' frameborder=\\'0\\' allow=\\'autoplay; encrypted-media\\' allowfullscreen></iframe>'"><img src="${thumbnailUrl}" alt="" style="width:380px;height:214px;object-fit:cover;display:block;" /><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;"><div style="width:52px;height:52px;border-radius:50%;background:rgba(212,135,58,0.9);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.3);"><span style="color:white;font-size:22px;margin-left:3px;">▶</span></div></div></div></div>`);
-      
-      return ''; // Remove video from original position
-    }
-  );
-  
-  // 3b. Inject videos right after H2/H3 headings, alternating left/right
-  // Also add separator line before headings (except first)
-  let videoIdx = 0;
-  let headingCount = 0;
-  html = html.replace(
-    /(<h[23][^>]*>[\s\S]*?<\/h[23]>)/gi,
-    (match) => {
-      const video = videos[videoIdx] || '';
-      const isLeft = videoIdx % 2 === 0;
-      const floatDir = isLeft ? 'left' : 'right';
-      const marginStyle = isLeft ? 'margin:0 20px 16px 0' : 'margin:0 0 16px 20px';
-      
-      // Add separator before heading (except first one)
-      const separator = headingCount > 0 
-        ? '<div style="clear:both;"></div><hr style="border:none;border-top:1px solid #E8E4DC;margin:32px 0 24px 0;" />' 
+  // 3. Turn an <iframe> into a click-to-play thumbnail card (avoids a double play button).
+  const buildVideoCard = (attrs: string): string => {
+    const embedUrl = String(attrs).match(/src="([^"]+)"/i)?.[1] || '';
+    const ytMatch = embedUrl.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/);
+    const vmMatch = embedUrl.match(/player\.vimeo\.com\/video\/(\d+)/);
+
+    const thumbnailUrl = ytMatch
+      ? `https://img.youtube.com/vi/${ytMatch[1]}/mqdefault.jpg`
+      : vmMatch
+        ? `https://vumbnail.com/${vmMatch[1]}.jpg`
         : '';
-      
-      headingCount++;
-      
-      if (video) {
-        videoIdx++;
-        // Inject video with float right after heading
-        const styledVideo = video.replace(
-          'style="width:380px;',
-          `style="float:${floatDir};${marginStyle};width:380px;`
-        );
-        return `${separator}${match}${styledVideo}`;
-      }
-      return `${separator}${match}`;
+
+    const videoId = ytMatch ? ytMatch[1] : (vmMatch ? vmMatch[1] : '');
+    const embedSrc = ytMatch
+      ? `https://www.youtube.com/embed/${videoId}?autoplay=1`
+      : vmMatch
+        ? `https://player.vimeo.com/video/${videoId}?autoplay=1`
+        : '';
+
+    return `<div class="article-video-card" style="width:380px;max-width:380px;border-radius:6px;overflow:hidden;margin-top:-10px;"><div style="position:relative;width:380px;height:214px;cursor:pointer;" onclick="this.outerHTML='<iframe src=\\'${embedSrc}\\' style=\\'width:380px;height:214px;border:0;display:block;\\' frameborder=\\'0\\' allow=\\'autoplay; encrypted-media\\' allowfullscreen></iframe>'"><img src="${thumbnailUrl}" alt="" style="width:380px;height:214px;object-fit:cover;display:block;" /><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;"><div style="width:52px;height:52px;border-radius:50%;background:rgba(212,135,58,0.9);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.3);"><span style="color:white;font-size:22px;margin-left:3px;">▶</span></div></div></div></div>`;
+  };
+
+  const floatVideo = (card: string, index: number): string => {
+    const isLeft = index % 2 === 0;
+    const marginStyle = isLeft ? 'margin:0 20px 16px 0' : 'margin:0 0 16px 20px';
+    return card.replace(
+      'style="width:380px;',
+      `style="float:${isLeft ? 'left' : 'right'};${marginStyle};width:380px;`
+    );
+  };
+
+  // 3b. Move each video to the top of the section it was written for.
+  //
+  // Videos are authored at the END of their section, which visually attaches them
+  // to the NEXT heading. The previous fix for that collected every iframe into one
+  // flat list and handed them out per heading by index — but the intro section has
+  // no heading, so an intro video shifted every following video into the wrong
+  // section. Splitting on headings keeps each video inside its own section.
+  const iframeRe = /<iframe([^>]*?)(?:\s*\/>|>\s*<\/iframe>)/gi;
+  const takeVideos = (chunk: string): { body: string; cards: string[] } => {
+    const cards: string[] = [];
+    const body = chunk.replace(iframeRe, (_m, attrs) => {
+      cards.push(buildVideoCard(String(attrs)));
+      return '';
+    });
+    return { body, cards };
+  };
+
+  // split() with a capturing group yields [intro, heading, body, heading, body, ...]
+  const parts = html.split(/(<h[23][^>]*>[\s\S]*?<\/h[23]>)/gi);
+  const rebuilt: string[] = [];
+  let placedVideos = 0;
+
+  // Intro (no heading): its video floats alongside the opening paragraphs.
+  const intro = takeVideos(parts[0] || '');
+  if (intro.cards.length) {
+    rebuilt.push(floatVideo(intro.cards[0], placedVideos));
+    placedVideos++;
+  }
+  rebuilt.push(intro.body);
+  rebuilt.push(...intro.cards.slice(1));
+
+  for (let i = 1; i < parts.length; i += 2) {
+    const heading = parts[i];
+    const { body, cards } = takeVideos(parts[i + 1] || '');
+
+    // Separator before every heading except the first.
+    if (i > 1) {
+      rebuilt.push('<div style="clear:both;"></div><hr style="border:none;border-top:1px solid #E8E4DC;margin:32px 0 24px 0;" />');
     }
-  );
+    rebuilt.push(heading);
+
+    if (cards.length) {
+      rebuilt.push(floatVideo(cards[0], placedVideos));
+      placedVideos++;
+    }
+    rebuilt.push(body);
+    // More than one video in a section: keep the extras after the text.
+    rebuilt.push(...cards.slice(1));
+  }
+
+  html = rebuilt.join('');
   
   // 3c. Add clearfix at end and responsive styles
   html += `<div style="clear:both;"></div>

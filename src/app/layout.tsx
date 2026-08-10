@@ -55,6 +55,31 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/images/ioslogo.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="/images/ioslogo.png" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-visual" />
+        {/*
+          Capture the PWA install prompt as early as possible.
+          Chrome fires 'beforeinstallprompt' once, very soon after load - usually
+          BEFORE React has hydrated and InstallBanner could attach its listener.
+          Missing it means the banner can only show manual "Tap menu" instructions
+          instead of a real Install button, which is why the button appeared on
+          some devices but not others (pure timing luck).
+          Stashing the event here makes it available whenever the banner mounts.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.__bogxInstallPrompt = null;
+              window.addEventListener('beforeinstallprompt', function (e) {
+                e.preventDefault();
+                window.__bogxInstallPrompt = e;
+                window.dispatchEvent(new Event('bogx-install-prompt-ready'));
+              });
+              window.addEventListener('appinstalled', function () {
+                window.__bogxInstallPrompt = null;
+                try { localStorage.setItem('bogx_app_installed', 'true'); } catch (err) {}
+              });
+            `,
+          }}
+        />
         {/* Google AdSense */}
         <script 
           async 

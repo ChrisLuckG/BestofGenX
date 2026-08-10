@@ -9,6 +9,22 @@ import { awardBogx } from '@/lib/awardBogx';
 
 const TEAM_EMAIL = 'contact@bestofgenx.com';
 
+// Deezer API - get album cover by searching artist + song (free, no auth needed)
+async function getAlbumCover(band: string, song: string): Promise<string | null> {
+  try {
+    const query = encodeURIComponent(`${band} ${song}`);
+    const res = await fetch(`https://api.deezer.com/search?q=${query}&limit=1`);
+    const data = await res.json();
+    const track = data.data?.[0];
+    if (track?.album?.cover_medium) {
+      return track.album.cover_medium; // 250x250
+    }
+  } catch (e) {
+    console.error('Deezer cover error:', e);
+  }
+  return null;
+}
+
 // POST - Submit a song request. Stores it for the admin infostream,
 // emails the BOGX team, and pushes a notification to all admins.
 export async function POST(request: NextRequest) {
@@ -26,6 +42,9 @@ export async function POST(request: NextRequest) {
 
     const requesterName = username || 'A GenX member';
 
+    // Fetch album cover from Deezer (works for any song, not just Spotify links)
+    const coverImage = await getAlbumCover(band, song);
+
     // 1. Store request (admin infostream / future reuse)
     const saved = await SongRequest.create({
       userId: userId || null,
@@ -34,6 +53,7 @@ export async function POST(request: NextRequest) {
       band,
       song,
       link: link || null,
+      coverImage: coverImage || undefined,
       status: 'new',
     });
 

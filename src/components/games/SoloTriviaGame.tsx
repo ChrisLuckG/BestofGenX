@@ -683,30 +683,8 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
         )}
 
         <div className="flex-1 overflow-y-auto px-4 py-4" style={{ scrollbarWidth: 'none' }}>
-          {/* Hero Banner - in rounded box */}
-          <div 
-            className="relative overflow-hidden bg-cover bg-center rounded-2xl"
-            style={{ backgroundImage: "url('/images/Hintergund/solo.png')", minHeight: '240px' }}
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent" />
-            <div className="relative px-6 py-8">
-              <span className="inline-block px-3 py-1 bg-[#E36B11] text-white font-bold uppercase tracking-wider rounded-full mb-4 text-[10px]">
-                Solo Trivia
-              </span>
-              <h2 className="font-display text-white leading-tight mb-2 text-2xl md:text-3xl">
-                WIN BOGX COINS<br/>
-                IN <span className="text-[#E36B11]">60</span> SECONDS
-              </h2>
-              <div className="flex items-center gap-3 mt-4 text-white/90 text-[10px]">
-                <span className="flex items-center gap-1 bg-white/20 px-2.5 py-1 rounded-full"><span className="text-[#E36B11]">⚡</span> Answer fast</span>
-                <span className="flex items-center gap-1 bg-white/20 px-2.5 py-1 rounded-full"><img src="/images/bogxcoin.png" alt="" className="w-3 h-3" /> Earn coins</span>
-                <span className="flex items-center gap-1 bg-white/20 px-2.5 py-1 rounded-full"><Trophy className="w-3 h-3" /> Climb ranks</span>
-              </div>
-            </div>
-          </div>
-
           {/* Step 1: Choose Questions - 4 options in boxes */}
-          <div className="mt-4">
+          <div>
             <div className="flex items-center gap-2 mb-3">
               <span className="w-5 h-5 bg-[#E36B11] rounded-full text-white text-[10px] font-bold flex items-center justify-center">1</span>
               <span className="font-display text-base text-gray-900 uppercase">Choose Number of Questions</span>
@@ -739,18 +717,18 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
               <span className="font-display text-base text-gray-900 uppercase">Choose Category</span>
             </div>
             <div className="relative">
-              {/* Left scroll button */}
+              {/* Left scroll button - desktop only */}
               <button 
                 onClick={() => {
                   const container = document.getElementById('category-scroll');
                   if (container) container.scrollBy({ left: -150, behavior: 'smooth' });
                 }}
-                className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/90 border border-[#E36B11]/20 rounded-full shadow-md flex items-center justify-center hover:bg-[#E36B11]/10 transition-colors"
+                className="hidden sm:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/90 border border-[#E36B11]/20 rounded-full shadow-md items-center justify-center hover:bg-[#E36B11]/10 transition-colors"
               >
                 <span className="text-[#E36B11] text-sm">‹</span>
               </button>
               
-              <div id="category-scroll" className="flex gap-2 overflow-x-auto pb-1 px-10 scroll-smooth" style={{ scrollbarWidth: 'none' }}>
+              <div id="category-scroll" className="flex gap-2 overflow-x-auto pb-1 sm:px-10 scroll-smooth" style={{ scrollbarWidth: 'none' }}>
                 {categoriesLoading ? (
                   // Skeleton loader for categories
                   <>
@@ -766,26 +744,26 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
                       <button
                         key={cat}
                         onClick={() => setSelectedCategory(cat)}
-                        className={`flex-shrink-0 py-1.5 px-3 text-[10px] uppercase tracking-wider font-medium rounded-lg transition-all flex items-center gap-1 whitespace-nowrap border ${
+                        className={`flex-shrink-0 py-1.5 sm:py-2.5 px-3 sm:px-4 text-[10px] sm:text-xs uppercase tracking-wider font-medium rounded-lg transition-all flex items-center gap-1 sm:gap-1.5 whitespace-nowrap border ${
                           selectedCategory === cat
                             ? 'bg-[#E36B11] text-white border-[#E36B11]'
                             : 'bg-[#E36B11]/5 text-gray-700 border-[#E36B11]/20 hover:border-[#E36B11]/40'
                         }`}
                       >
-                        <Icon className="w-3.5 h-3.5" /> {displayName}
+                        <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> {displayName}
                       </button>
                     );
                   })
                 )}
               </div>
               
-              {/* Right scroll button */}
+              {/* Right scroll button - desktop only */}
               <button 
                 onClick={() => {
                   const container = document.getElementById('category-scroll');
                   if (container) container.scrollBy({ left: 150, behavior: 'smooth' });
                 }}
-                className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/90 border border-[#E36B11]/20 rounded-full shadow-md flex items-center justify-center hover:bg-[#E36B11]/10 transition-colors"
+                className="hidden sm:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/90 border border-[#E36B11]/20 rounded-full shadow-md items-center justify-center hover:bg-[#E36B11]/10 transition-colors"
               >
                 <span className="text-[#E36B11] text-sm">›</span>
               </button>

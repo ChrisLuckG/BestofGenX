@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { ShoppingBag, Shirt, Coffee, Package, ShoppingCart, ChevronRight, Star, Heart } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { ShoppingBag, Shirt, Coffee, Package, ShoppingCart, ChevronRight, Star } from "lucide-react";
 import ProductDetailInline from "@/components/ProductDetailInline";
 import CartPage from "@/components/CartPage";
 import LogoLoader from "@/components/LogoLoader";
@@ -46,6 +46,14 @@ export default function ShopPage({ coins = 0, onCoinsUsed }: ShopPageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { totalItems } = useCart();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Scroll to top when selecting a product
+  const handleSelectProduct = (product: Product) => {
+    setSelectedProduct(product);
+    // Scroll to top of the content area
+    scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+  };
 
   // Fetch products from Printful API
   useEffect(() => {
@@ -111,7 +119,7 @@ export default function ShopPage({ coins = 0, onCoinsUsed }: ShopPageProps) {
       </div>
       
       {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
 
       {/* Product Detail View - Shows inline when product selected */}
       {selectedProduct ? (
@@ -217,17 +225,9 @@ export default function ShopPage({ coins = 0, onCoinsUsed }: ShopPageProps) {
                 return (
                   <div 
                     key={product.id}
-                    onClick={() => setSelectedProduct(product)}
+                    onClick={() => handleSelectProduct(product)}
                     className="bg-cream border border-warm overflow-hidden rounded-xl shadow-sm transition-all cursor-pointer active:scale-95 relative"
                   >
-                    {/* Wishlist */}
-                    <button 
-                      className="absolute top-2 right-2 z-10 w-7 h-7 bg-[#E36B11]/20 backdrop-blur-sm rounded-full flex items-center justify-center"
-                      onClick={(e) => { e.stopPropagation(); }}
-                    >
-                      <Heart className="w-4 h-4 text-[#E36B11]" />
-                    </button>
-
                     {/* Product Image */}
                     <div className="aspect-square relative bg-cream overflow-hidden">
                       <img 

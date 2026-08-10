@@ -35,6 +35,9 @@ export interface IArticle {
   createdAt?: Date;
   updatedAt?: Date;
   // Person/country info (for international articles)
+  personName?: string; // Name of the person the article is about
+  personBirthday?: string; // Birthday in DD.MM.YYYY format
+  personDeathday?: string; // Death day in DD.MM.YYYY format (for RIP articles)
   personCountry?: string; // Country name
   personCountryCode?: string; // ISO code for flag (e.g., "US", "DE")
   // Styling options
@@ -183,6 +186,15 @@ const ArticleSchema = new mongoose.Schema({
     default: false,
   },
   // Person/country info
+  personName: {
+    type: String,
+  },
+  personBirthday: {
+    type: String,
+  },
+  personDeathday: {
+    type: String,
+  },
   personCountry: {
     type: String,
   },

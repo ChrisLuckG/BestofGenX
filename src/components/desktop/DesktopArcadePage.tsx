@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, User, HelpCircle, Trophy, BarChart3, Coins, Zap, Play, LucideIcon, Radio, Clock, Target, Lightbulb, Swords, Crosshair } from "lucide-react";
+import { Users, User, HelpCircle, Trophy, BarChart3, Coins, Zap, Play, LucideIcon, Swords } from "lucide-react";
 import OpenBattlesModal from "../OpenBattlesModal";
 
 interface DesktopArcadePageProps {
@@ -45,11 +45,11 @@ const GAMES: GameBanner[] = [
     titleB: 'BATTLE',
     titleColor: '#A855F7',
     subtitleA: 'Challenge real players.',
-    subtitleB: 'Win their bet!',
+    subtitleB: 'Winner takes 2x wager!',
     features: [
-      { icon: Users, lines: ['Real', 'Opponents'] },
-      { icon: Trophy, lines: ['Big', 'Rewards'] },
-      { icon: BarChart3, lines: ['Climb', 'Rankings'] },
+      { icon: Users, lines: ['3 or 5', 'Rounds'] },
+      { icon: Zap, lines: ['10 Sec', 'Per Question'] },
+      { icon: Trophy, lines: ['High Score', 'Wins'] },
     ],
     featureColor: '#A855F7',
   },
@@ -70,83 +70,40 @@ const GAMES: GameBanner[] = [
     ],
     featureColor: '#E5A55A',
   },
-  {
-    game: 'bogxinvaders',
-    image: '/images/Hintergund/hamster.png',
-    badgeIcon: User,
-    badge: 'Single Player',
-    titleA: 'BOGX',
-    titleB: 'INVADERS',
-    titleColor: '#760b79',
-    subtitleA: 'Shoot the hamster wheels!',
-    subtitleB: '+0.01 BOGX per kill.',
-    features: [
-      { icon: Crosshair, lines: ['Arcade', 'Shooter'] },
-      { icon: Coins, lines: ['Real-time', 'Rewards'] },
-      { icon: Trophy, lines: ['Beat the', 'Boss'] },
-    ],
-    featureColor: '#760b79',
-    overlayColor: 'none',
-  },
-  {
-    game: 'nextplay',
-    image: '/images/Hintergund/nextplay.png',
-    badgeIcon: User,
-    badge: 'Single Player',
-    titleA: 'NEXT',
-    titleB: 'PLAY',
-    titleColor: '#22C55E',
-    subtitleA: 'Call the next play.',
-    subtitleB: 'Win BOGX and cash rewards.',
-    features: [
-      { icon: Radio, lines: ['Live', 'Events'] },
-      { icon: Coins, lines: ['Instant', 'Rewards'] },
-      { icon: Trophy, lines: ['Top', 'Predictors'] },
-    ],
-    featureColor: '#22C55E',
-    comingSoon: true,
-  },
-  {
-    game: 'faceblur',
-    image: '/images/Hintergund/facemash.png',
-    badgeIcon: User,
-    badge: 'Single Player',
-    titleA: 'FACE',
-    titleB: 'BLUR',
-    titleColor: '#DC2626',
-    subtitleA: 'Recognize the face.',
-    subtitleB: 'Before it becomes clear.',
-    features: [
-      { icon: Clock, lines: ['20', 'Seconds'] },
-      { icon: User, lines: ['Famous', 'Faces'] },
-      { icon: Trophy, lines: ['Beat the', 'Clock'] },
-    ],
-    featureColor: '#DC2626',
-    comingSoon: true,
-  },
-  {
-    game: 'prediction',
-    image: '/images/Hintergund/predict.png',
-    badgeIcon: User,
-    badge: 'Single Player',
-    titleA: 'PREDICT',
-    titleB: 'IONS',
-    titleColor: '#84CC16',
-    subtitleA: 'Predict the outcome.',
-    subtitleB: 'Prove you know.',
-    features: [
-      { icon: Lightbulb, lines: ['Make', 'Predictions'] },
-      { icon: Target, lines: ['Earn', 'BOGX'] },
-      { icon: BarChart3, lines: ['Top', 'Predictors'] },
-    ],
-    featureColor: '#84CC16',
-    comingSoon: true,
-  },
+];
+
+// Preload banner images to prevent slow loading
+const PRELOAD_IMAGES = [
+  '/images/Hintergund/battle.png',
+  '/images/Hintergund/solo.png',
 ];
 
 export default function DesktopArcadePage({ onSelectGame, userId, battleAlertCount = 0, onCoinsChange, onPlaySpecificBattle, onShowLogin }: DesktopArcadePageProps) {
   const [showOpenBattles, setShowOpenBattles] = useState(false);
   const [liveBattleCount, setLiveBattleCount] = useState(battleAlertCount);
+  const [onlinePlayers, setOnlinePlayers] = useState(0);
+  const [onlineLoading, setOnlineLoading] = useState(true);
+  
+  // Preload banner images on mount
+  useEffect(() => {
+    PRELOAD_IMAGES.forEach((src) => {
+      const img = new Image();
+      img.src = src;
+    });
+  }, []);
+
+  // Fetch online players count
+  useEffect(() => {
+    fetch('/api/users/online')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setOnlinePlayers(data.count || data.users?.length || 0);
+        }
+        setOnlineLoading(false);
+      })
+      .catch(() => setOnlineLoading(false));
+  }, []);
 
   // Fetch live battle count when arcade is shown
   useEffect(() => {
@@ -172,17 +129,17 @@ export default function DesktopArcadePage({ onSelectGame, userId, battleAlertCou
         <div className="flex items-center gap-3">
           <Swords className="w-5 h-5 text-[#E36B11]" />
           <div>
-            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Arcade</span>
-            <span className="text-[10px] text-gray-500 -mt-0.5 block">Challenge yourself & others</span>
+            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Trivia</span>
+            <span className="text-[10px] text-gray-500 -mt-0.5 block">Test your GenX knowledge!</span>
           </div>
         </div>
         {/* Open Battles button */}
         <button
           onClick={() => setShowOpenBattles(true)}
-          className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E36B11]/40 bg-[#E36B11]/10 hover:bg-[#E36B11]/20 transition-colors"
+          className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#A855F7]/40 bg-[#A855F7]/10 hover:bg-[#A855F7]/20 transition-colors"
         >
-          <Swords className="w-4 h-4 text-[#E36B11]" />
-          <span className="text-xs font-semibold text-[#E36B11]">Open Battles</span>
+          <Swords className="w-4 h-4 text-[#A855F7]" />
+          <span className="text-xs font-semibold text-[#A855F7]">Open Battles</span>
           {liveBattleCount > 0 && (
             <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">
               {liveBattleCount}
@@ -199,64 +156,133 @@ export default function DesktopArcadePage({ onSelectGame, userId, battleAlertCou
         onPlayBattle={(battleId) => { setShowOpenBattles(false); onPlaySpecificBattle?.(battleId) || onSelectGame('quizzbattle'); }}
         onCoinsChange={onCoinsChange}
         onShowLogin={onShowLogin}
+        accentColor="purple"
       />
 
-      {/* Grid */}
+      {/* Vertical Stack Layout */}
       <div className="flex-1 overflow-y-auto px-6 py-6">
-        <div className="grid grid-cols-2 gap-5 max-w-5xl">
-          {GAMES.map((g) => {
+        <div className="flex flex-col gap-5 max-w-5xl mx-auto">
+          
+          {/* QuizzyBattle Banner - same style as Solo Trivia */}
+          <button
+            onClick={() => onSelectGame('quizzbattle')}
+            className="group relative overflow-hidden rounded-2xl shadow-lg transition-all bg-cover bg-center hover:scale-[1.01] active:scale-[0.99]"
+            style={{ backgroundImage: "url('/images/Hintergund/battle.png')", minHeight: '320px' }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/50 to-transparent" />
+
+            {/* Online Badge - top right */}
+            <div className="absolute top-4 right-4 flex items-center gap-2 bg-white/15 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/20 z-10">
+              <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse" />
+              {onlineLoading ? (
+                <div className="w-5 h-4 bg-white/30 rounded animate-pulse" />
+              ) : (
+                <span className="text-[14px] font-bold text-white">{onlinePlayers}</span>
+              )}
+              <span className="text-[10px] text-white/80 uppercase font-semibold">Online</span>
+            </div>
+
+            <div className="relative h-full flex flex-col justify-center items-start text-left px-8 py-6 max-w-[60%]">
+              {/* Badge */}
+              <div className="inline-flex items-center gap-1.5 bg-black/50 backdrop-blur-sm border border-white/20 text-white text-[9px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                <Users className="w-3.5 h-3.5" />
+                Multiplayer
+              </div>
+
+              {/* Title */}
+              <h3 className="font-display text-[48px] leading-none tracking-wide mt-3">
+                <span className="text-white">QUIZZ</span>
+                <span className="text-[#A855F7]">BATTLE</span>
+              </h3>
+
+              {/* Subtitle */}
+              <p className="text-white text-[16px] font-semibold leading-tight mt-2.5">
+                Challenge real players.<br />
+                <span className="text-[#A855F7]">Winner takes 2x wager!</span>
+              </p>
+
+              {/* Features */}
+              <div className="flex items-center gap-5 mt-4">
+                <div className="flex items-center gap-2">
+                  <Users className="w-5 h-5 text-[#A855F7]" />
+                  <span className="text-white/90 text-[12px] font-medium leading-tight">3 or 5<br/>Rounds</span>
+                </div>
+                <div className="w-px h-8 bg-white/25" />
+                <div className="flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-[#A855F7]" />
+                  <span className="text-white/90 text-[12px] font-medium leading-tight">10 Sec<br/>Per Question</span>
+                </div>
+                <div className="w-px h-8 bg-white/25" />
+                <div className="flex items-center gap-2">
+                  <Trophy className="w-5 h-5 text-[#A855F7]" />
+                  <span className="text-white/90 text-[12px] font-medium leading-tight">High Score<br/>Wins</span>
+                </div>
+              </div>
+
+              {/* Wagers */}
+              <div className="flex items-center gap-2 mt-4">
+                <span className="text-white/70 text-[11px] uppercase font-bold">Wagers:</span>
+                {[0.10, 0.25, 0.50, 0.75, 1.00].map((w) => (
+                  <span key={w} className="px-2.5 py-1 rounded text-[12px] font-bold bg-transparent text-white border border-white/40">
+                    {w.toFixed(2)}
+                  </span>
+                ))}
+                <span className="text-white/60 text-[11px] ml-1">BOGX</span>
+              </div>
+
+              {/* Play Now + Tie */}
+              <div className="flex items-center gap-4 mt-5">
+                <div className="flex items-center gap-2 font-bold text-[14px] px-6 py-3 rounded-lg shadow-md bg-[#A855F7]">
+                  <span className="text-white">PLAY NOW</span>
+                  <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center">
+                    <Play className="w-2.5 h-2.5 text-white fill-white ml-0.5" />
+                  </span>
+                </div>
+                <span className="text-white/50 text-[11px]">Tie = coins back to both</span>
+              </div>
+            </div>
+          </button>
+
+          {/* Solo Trivia Banner */}
+          {GAMES.filter(g => g.game === 'trivia').map((g) => {
             const BadgeIcon = g.badgeIcon;
             return (
               <button
                 key={g.game}
-                onClick={() => !g.comingSoon && onSelectGame(g.game)}
-                disabled={g.comingSoon}
-                className={`group relative overflow-hidden rounded-2xl shadow-md transition-all bg-cover bg-center aspect-[16/9] ${
-                  g.comingSoon ? 'cursor-default opacity-80' : 'hover:scale-[1.02] active:scale-[0.99]'
-                }`}
+                onClick={() => onSelectGame(g.game)}
+                className="group relative overflow-hidden rounded-2xl shadow-lg transition-all bg-cover bg-center aspect-[2.5/1] hover:scale-[1.01] active:scale-[0.99]"
                 style={{ backgroundImage: `url('${g.image}')` }}
               >
-                {/* Left fade for text readability */}
-                {g.overlayColor !== 'none' && (
-                  <div 
-                    className="absolute inset-0 bg-gradient-to-r to-transparent" 
-                    style={{ 
-                      background: g.overlayColor 
-                        ? `linear-gradient(to right, ${g.overlayColor}cc, ${g.overlayColor}70, transparent)`
-                        : 'linear-gradient(to right, rgba(0,0,0,0.85), rgba(0,0,0,0.45), transparent)'
-                    }}
-                  />
-                )}
+                <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/50 to-transparent" />
 
-                <div className="relative h-full flex flex-col justify-center items-start text-left px-6 py-5 max-w-[70%]">
+                <div className="relative h-full flex flex-col justify-center items-start text-left px-8 py-6 max-w-[60%]">
                   {/* Badge */}
-                  <div className="inline-flex items-center gap-1 bg-black/50 backdrop-blur-sm border border-white/20 text-white text-[8px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                    <BadgeIcon className="w-3 h-3" />
+                  <div className="inline-flex items-center gap-1.5 bg-black/50 backdrop-blur-sm border border-white/20 text-white text-[9px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                    <BadgeIcon className="w-3.5 h-3.5" />
                     {g.badge}
                   </div>
 
                   {/* Title */}
-                  <h3 className="font-display text-[38px] leading-none tracking-wide mt-2.5">
-                    <span className="text-white">{g.titleA}</span>
-                    {(g.titleA === 'SOLO' || g.titleA === 'NEXT') && ' '}
+                  <h3 className="font-display text-[48px] leading-none tracking-wide mt-3">
+                    <span className="text-white">{g.titleA}</span>{' '}
                     <span style={{ color: g.titleColor }}>{g.titleB}</span>
                   </h3>
 
                   {/* Subtitle */}
-                  <p className="text-white text-[14px] font-semibold leading-tight mt-2">
+                  <p className="text-white text-[16px] font-semibold leading-tight mt-2.5">
                     {g.subtitleA}<br />
                     <span style={{ color: g.featureColor }}>{g.subtitleB}</span>
                   </p>
 
                   {/* Features */}
-                  <div className="flex items-center gap-4 mt-3.5">
+                  <div className="flex items-center gap-5 mt-4">
                     {g.features.map((f, i) => {
                       const FIcon = f.icon;
                       return (
-                        <div key={i} className="flex items-center gap-1.5">
-                          {i > 0 && <div className="w-px h-7 bg-white/25 -ml-2.5 mr-1" />}
-                          <FIcon className="w-4 h-4 flex-shrink-0" style={{ color: g.featureColor }} />
-                          <span className="text-white/90 text-[11px] font-medium leading-tight">
+                        <div key={i} className="flex items-center gap-2">
+                          {i > 0 && <div className="w-px h-8 bg-white/25 -ml-3 mr-1" />}
+                          <FIcon className="w-5 h-5 flex-shrink-0" style={{ color: g.featureColor }} />
+                          <span className="text-white/90 text-[12px] font-medium leading-tight">
                             {f.lines[0]}<br />{f.lines[1]}
                           </span>
                         </div>
@@ -264,23 +290,16 @@ export default function DesktopArcadePage({ onSelectGame, userId, battleAlertCou
                     })}
                   </div>
 
-                  {/* Play Now or Coming Soon */}
-                  {g.comingSoon ? (
-                    <div className="flex items-center gap-1.5 mt-4 bg-black/50 backdrop-blur-sm border border-white/30 px-4 py-2 rounded-lg">
-                      <Clock className="w-4 h-4 text-white" />
-                      <span className="text-white text-[12px] font-semibold uppercase tracking-wider">Coming Soon</span>
-                    </div>
-                  ) : (
-                    <div 
-                      className="flex items-center gap-2 mt-4 font-bold text-[13px] px-5 py-2.5 rounded-lg shadow-sm transition-colors"
-                      style={{ backgroundColor: g.titleColor }}
-                    >
-                      <span className="text-white">PLAY NOW</span>
-                      <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center">
-                        <Play className="w-2.5 h-2.5 text-white fill-white ml-0.5" />
-                      </span>
-                    </div>
-                  )}
+                  {/* Play Now */}
+                  <div 
+                    className="flex items-center gap-2 mt-5 font-bold text-[14px] px-6 py-3 rounded-lg shadow-md transition-colors"
+                    style={{ backgroundColor: g.titleColor }}
+                  >
+                    <span className="text-white">PLAY NOW</span>
+                    <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center">
+                      <Play className="w-2.5 h-2.5 text-white fill-white ml-0.5" />
+                    </span>
+                  </div>
                 </div>
               </button>
             );

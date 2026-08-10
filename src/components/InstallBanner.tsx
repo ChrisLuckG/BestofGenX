@@ -9,6 +9,14 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
+// Stashed by the early inline script in app/layout.tsx, because Chrome fires
+// 'beforeinstallprompt' before React hydrates.
+declare global {
+  interface Window {
+    __bogxInstallPrompt?: BeforeInstallPromptEvent | null;
+  }
+}
+
 const REFRESH_COUNT_KEY = 'bogx_refresh_count';
 const REFRESH_COUNT_KEY_IOS = 'bogx_refresh_count_ios';
 const BANNER_DISMISSED_KEY = 'bogx_banner_dismissed';
@@ -33,6 +41,30 @@ export default function InstallBanner() {
   const [isVisible, setIsVisible] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isIOS, setIsIOS] = useState(false);
+
+  // Keep the install prompt in sync, independently of whether the banner is
+  // currently allowed to show. This must never be gated behind the
+  // refresh-count logic below, otherwise the prompt is lost on most loads.
+  useEffect(() => {
+    const sync = () => setDeferredPrompt(window.__bogxInstallPrompt || null);
+
+    // The event may already have fired before this component mounted.
+    sync();
+
+    const onReady = () => sync();
+    const onInstalled = () => {
+      setDeferredPrompt(null);
+      setIsVisible(false);
+      setBannerType(null);
+    };
+
+    window.addEventListener('bogx-install-prompt-ready', onReady);
+    window.addEventListener('appinstalled', onInstalled);
+    return () => {
+      window.removeEventListener('bogx-install-prompt-ready', onReady);
+      window.removeEventListener('appinstalled', onInstalled);
+    };
+  }, []);
 
   useEffect(() => {
     // Check if dismissed this session
@@ -91,35 +123,16 @@ export default function InstallBanner() {
       }
     }
 
-    // Decide which banner to show
-    const decideBanner = async () => {
-      // Show install banner
-      if (iOS) {
-        setBannerType('install');
-        setTimeout(() => setIsVisible(true), 100);
-      } else {
-          // Listen for install prompt
-          const handleBeforeInstall = (e: Event) => {
-            e.preventDefault();
-            setDeferredPrompt(e as BeforeInstallPromptEvent);
-            setBannerType('install');
-            setTimeout(() => setIsVisible(true), 100);
-          };
-          window.addEventListener('beforeinstallprompt', handleBeforeInstall);
-          
-          // Fallback for browsers that don't fire beforeinstallprompt
-          setTimeout(() => {
-            if (!deferredPrompt && !bannerType) {
-              setBannerType('install');
-              setTimeout(() => setIsVisible(true), 100);
-            }
-          }, 1500);
-          
-          return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
-      }
-    };
-
-    decideBanner();
+    // Show the install banner. The Install button itself is rendered from the
+    // deferredPrompt state kept up to date by the effect above, so the banner
+    // upgrades itself from instructions to a real button the moment Chrome's
+    // prompt arrives - no timing race, no stale-closure fallback needed.
+    setBannerType('install');
+    // Give Chrome a brief moment to deliver the prompt, so users normally see
+    // the button straight away instead of it appearing a beat later.
+    const showDelay = iOS ? 100 : 1200;
+    const timer = setTimeout(() => setIsVisible(true), showDelay);
+    return () => clearTimeout(timer);
   }, [isLoggedIn]);
 
   // Separate effect for notification banner (when already installed)
@@ -135,16 +148,18 @@ export default function InstallBanner() {
   }, [isLoggedIn]);
 
   const handleInstall = async () => {
-    if (deferredPrompt) {
-      await deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        // Mark as installed so banner won't show again
-        localStorage.setItem('bogx_app_installed', 'true');
-        handleDismiss();
-      }
-      setDeferredPrompt(null);
+    if (!deferredPrompt) return;
+    await deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      // Mark as installed so banner won't show again
+      localStorage.setItem('bogx_app_installed', 'true');
+      handleDismiss();
     }
+    // A beforeinstallprompt event can only be used once - drop the stashed copy
+    // too, so we don't offer a button that would silently do nothing.
+    window.__bogxInstallPrompt = null;
+    setDeferredPrompt(null);
   };
 
   const handleEnableNotifications = async () => {
@@ -232,8 +247,9 @@ export default function InstallBanner() {
             )}
           </div>
           
-          {/* Action Button */}
-          {bannerType === 'install' && !isIOS && deferredPrompt && (
+          {/* Action Button - shown whenever the browser gave us a real prompt
+              (iOS never does, which is exactly why iOS gets instructions) */}
+          {bannerType === 'install' && deferredPrompt && (
             <button
               onClick={handleInstall}
               className="px-4 py-2.5 bg-white text-[#E36B11] text-sm font-bold rounded-xl flex items-center gap-1.5 hover:bg-white/90 transition-colors flex-shrink-0 shadow-lg"

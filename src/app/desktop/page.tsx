@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { Play, FileText, Gamepad2, Vote, ShoppingBag, Trophy, Tv, Radio, Bell, User, Users, X, ChevronRight, Gift, Clock } from "lucide-react";
+import { Play, FileText, Brain, Vote, ShoppingBag, Trophy, Tv, Radio, Bell, User, Users, X, ChevronLeft, ChevronRight, Gift, Clock } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useBogxCoins } from "@/hooks/useBogxCoins";
 import { usePendingWager } from "@/hooks/usePendingWager";
@@ -42,11 +42,12 @@ import CommunitySoundPage from "@/components/CommunitySoundPage";
 import WelcomeBackModal, { WelcomeBackRankChange } from "@/components/WelcomeBackModal";
 import CheckoutSuccessModal from "@/components/CheckoutSuccessModal";
 import StaticPageInline from "@/components/StaticPageInline";
+import PlayerCard from "@/components/PlayerCard";
 
 // Navigation tabs
 const navTabs = [
   { id: "feed" as NavTab, label: "Feed", icon: Play },
-  { id: "arcade" as NavTab, label: "Arcade", icon: Gamepad2 },
+  { id: "arcade" as NavTab, label: "Trivia", icon: Brain },
   { id: "articles" as NavTab, label: "Articles", icon: FileText },
   { id: "voting" as NavTab, label: "Rankroll", icon: Vote },
   { id: "shop" as NavTab, label: "Shop", icon: ShoppingBag },
@@ -63,6 +64,18 @@ export default function DesktopPage() {
   const [activeTab, setActiveTab] = useState<NavTab>("feed");
   const [previousTab, setPreviousTab] = useState<NavTab>("feed");
   const [tabRestored, setTabRestored] = useState(false);
+  
+  // Preload arcade banner images early so they're ready when user visits Trivia
+  useEffect(() => {
+    const preloadImages = [
+      '/images/Hintergund/battle.png',
+      '/images/Hintergund/solo.png',
+    ];
+    preloadImages.forEach((src) => {
+      const img = document.createElement('img');
+      img.src = src;
+    });
+  }, []);
   
   // Restore activeTab from sessionStorage after mount (SSR-safe)
   useEffect(() => {
@@ -170,6 +183,7 @@ export default function DesktopPage() {
   // Sidebar data with loading states
   const [rankings, setRankings] = useState<any[]>([]);
   const [rankingsLoading, setRankingsLoading] = useState(true);
+  const [leaderboardDayOffset, setLeaderboardDayOffset] = useState(0); // 0 = today, -1 = yesterday, etc.
   const [shopProducts, setShopProducts] = useState<any[]>([]);
   const [tvVideos, setTvVideos] = useState<any[]>([]);
   const [tvLoading, setTvLoading] = useState(true);
@@ -280,9 +294,10 @@ export default function DesktopPage() {
       loadUserRank();
       
       // Refresh rank + leaderboard instantly when BOGX changes (no page refresh needed)
+      // Use silent mode to avoid showing loading spinner during gameplay
       const onBogxUpdate = () => {
         loadUserRank();
-        loadLeaderboard();
+        loadLeaderboard(leaderboardDayOffset, true); // silent=true for smooth updates
       };
       window.addEventListener('bogx-updated', onBogxUpdate);
       // cleanup happens below via combined return
@@ -362,23 +377,29 @@ export default function DesktopPage() {
     fetchWelcomeMessage();
   }, [mounted, isLoggedIn, user?.id, searchParams]);
 
-  // Load leaderboard data - during break time, load yesterday's winners
-  const loadLeaderboard = async () => {
-    setRankingsLoading(true);
+  // Load leaderboard data - supports day navigation
+  // silent=true means no loading spinner (for live score updates during gameplay)
+  const loadLeaderboard = async (dayOffset: number = 0, silent: boolean = false) => {
+    if (!silent) setRankingsLoading(true);
     try {
-      // Check if we're in break time (9:00 - 10:00 Berlin)
       const now = new Date();
       const berlinTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
       const berlinHour = berlinTime.getHours();
       const inBreak = berlinHour === 9;
       
+      // Calculate target date based on offset
+      const targetDate = new Date(berlinTime);
+      targetDate.setDate(targetDate.getDate() + dayOffset);
+      
+      // If viewing today (offset 0) and in break time, show yesterday instead
+      const effectiveOffset = (dayOffset === 0 && inBreak) ? -1 : dayOffset;
+      const effectiveDate = new Date(berlinTime);
+      effectiveDate.setDate(effectiveDate.getDate() + effectiveOffset);
+      
       let url = '/api/rankings/snapshot?period=day';
-      if (inBreak) {
-        // During break, get yesterday's final rankings
-        const yesterday = new Date(berlinTime);
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split('T')[0];
-        url = `/api/rankings/snapshot?period=day&date=${yesterdayStr}`;
+      if (effectiveOffset !== 0 || inBreak) {
+        const dateStr = effectiveDate.toISOString().split('T')[0];
+        url = `/api/rankings/snapshot?period=day&date=${dateStr}`;
       }
       
       const res = await fetch(url);
@@ -389,9 +410,14 @@ export default function DesktopPage() {
     } catch (error) {
       console.error('Error loading leaderboard:', error);
     } finally {
-      setRankingsLoading(false);
+      if (!silent) setRankingsLoading(false);
     }
   };
+  
+  // Reload leaderboard when day offset changes
+  useEffect(() => {
+    loadLeaderboard(leaderboardDayOffset);
+  }, [leaderboardDayOffset]);
 
   // Countdown logic - handles both game time and break time
   useEffect(() => {
@@ -488,6 +514,7 @@ export default function DesktopPage() {
     setOpenRankrollData(null);
     setShowCommunitySound(false);
     setStaticPageSlug(null); // Close static page when changing tabs
+    setSelectedPlayerId(null); // Close player profile when changing tabs
     // Scroll to top when changing tabs
     contentRef.current?.scrollTo(0, 0);
   };
@@ -568,7 +595,10 @@ export default function DesktopPage() {
 
   const handleOpenCommunitySound = useCallback(() => {
     setShowCommunitySound(true);
-    contentRef.current?.scrollTo(0, 0);
+    // Scroll after React re-renders with new content
+    setTimeout(() => {
+      contentRef.current?.scrollTo(0, 0);
+    }, 0);
   }, []);
 
   if (!mounted) {
@@ -689,37 +719,90 @@ export default function DesktopPage() {
           <aside className="w-60 flex-shrink-0 hidden lg:block space-y-5">
             {/* Leaderboard */}
             <div className="rounded-xl border border-warm overflow-hidden shadow-sm relative" style={{ backgroundImage: 'url(/images/leader.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
-              <div className="absolute inset-0 bg-[#F5F0E8]/0" />
-              <div className="relative px-4 py-3 border-b border-warm">
+              <div className="absolute inset-0 bg-[#F5F0E8]/0 pointer-events-none" />
+              {/* Header with Day Navigation */}
+              <div className="relative px-4 pt-4 pb-2 bg-[#F5F0E8]">
                 <div className="flex items-center justify-between">
+                  {/* Left arrow - go to previous day */}
+                  <button
+                    onClick={() => setLeaderboardDayOffset(prev => prev - 1)}
+                    disabled={leaderboardDayOffset <= -7}
+                    className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-[#E36B11]/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft className="w-5 h-5 text-[#E36B11]" />
+                  </button>
+                  
+                  {/* Day label */}
                   <div className="flex items-center gap-2">
-                    <Trophy className="w-4 h-4 text-[#E36B11]" />
-                    <span className="font-display text-sm tracking-wider uppercase text-gray-900">
-                      {isBreakTime ? "Yesterday's Winners" : 'Today'}
+                    <span className="font-display text-2xl font-bold leading-none tracking-tight uppercase text-[#1A2238]">
+                      {(() => {
+                        const effectiveOffset = (leaderboardDayOffset === 0 && isBreakTime) ? -1 : leaderboardDayOffset;
+                        if (effectiveOffset === 0) return 'Today';
+                        if (effectiveOffset === -1) return 'Yesterday';
+                        const date = new Date();
+                        date.setDate(date.getDate() + effectiveOffset);
+                        return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                      })()}
                     </span>
                     {rankingsLoading && (
                       <div className="w-3 h-3 border-2 border-[#E36B11]/30 border-t-[#E36B11] rounded-full animate-spin" />
                     )}
                   </div>
-                  <button onClick={() => handleTabChange('rankings')} className="text-[10px] font-semibold text-[#E36B11] hover:underline uppercase">View All</button>
+                  
+                  {/* Right arrow - go to next day (disabled if already at today) */}
+                  <button
+                    onClick={() => setLeaderboardDayOffset(prev => prev + 1)}
+                    disabled={leaderboardDayOffset >= 0}
+                    className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-[#E36B11]/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <ChevronRight className="w-5 h-5 text-[#E36B11]" />
+                  </button>
                 </div>
-                {/* Break time countdown */}
-                {isBreakTime && (
-                  <div className="flex items-center justify-center gap-2 py-2 mt-2 bg-[#FDF6E9] rounded-lg border border-[#E36B11]/20">
-                    <img src="/images/coffee-break.svg" alt="" className="w-5 h-5" />
-                    <span className="text-xs text-[#8B4513] font-medium">Nächstes Spiel in</span>
-                    <span className="font-mono text-base font-bold text-[#E36B11] tabular-nums">{breakCountdown}</span>
-                  </div>
-                )}
-                {/* Game countdown - only show if there are rankings and not break time */}
-                {!isBreakTime && rankings.length > 0 && (
-                  <div className="flex items-center justify-center gap-2 py-1.5 mt-2 bg-warm/30 rounded-lg">
-                    <Clock className="w-3.5 h-3.5 text-[#E36B11]" />
-                    <span className="text-[10px] text-gray-600">Matchday ends in</span>
-                    <span className="font-mono text-sm font-bold text-[#E36B11] tabular-nums">{leaderboardCountdown}</span>
-                  </div>
-                )}
               </div>
+              {/* Countdown row - only show for today */}
+              {(() => {
+                if (leaderboardDayOffset !== 0) return null; // Hide countdown when viewing past days
+                const cd = isBreakTime ? breakCountdown : leaderboardCountdown;
+                if (!cd || (!isBreakTime && rankings.length === 0)) return null;
+                const [h, m, s] = cd.split(':').map((v) => parseInt(v, 10) || 0);
+                const remaining = h * 3600 + m * 60 + s;
+                const total = 24 * 3600;
+                const progress = Math.min(100, Math.max(0, (1 - remaining / total) * 100));
+                return (
+                  <div className="relative px-3 pb-2.5 bg-[#F5F0E8]">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Clock className="w-5 h-5 text-[#E36B11] flex-shrink-0" />
+                      <span className="font-display text-xs leading-[1.1] text-gray-500 uppercase tracking-wide flex-shrink-0">
+                        {isBreakTime ? <>Next<br/>game in</> : <>Matchday<br/>ends in</>}
+                      </span>
+                      {/* Timer */}
+                      <div className="ml-auto flex items-center flex-shrink-0">
+                        {cd.split(':').map((part, idx) => (
+                          <div key={idx} className="flex items-center">
+                            <div className="flex flex-col items-center">
+                              <span className="font-display text-2xl font-bold leading-none text-[#E36B11] tabular-nums">{part}</span>
+                              <span className="font-display text-[6px] leading-none text-gray-500 uppercase tracking-wide mt-0.5">{['HRS', 'MIN', 'SEC'][idx]}</span>
+                            </div>
+                            {idx < 2 && <span className="font-display text-2xl font-bold leading-none text-[#E36B11] mx-0.5 self-start">:</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    {/* Progress timeline - full width */}
+                    <div className="mt-3 -mx-3 relative h-1.5">
+                      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[1.5px] bg-gray-300 rounded-full" />
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 h-[1.5px] bg-[#E36B11] rounded-full" style={{ width: `${progress}%` }} />
+                      {/* Sonar/pulse marker */}
+                      <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2" style={{ left: `${progress}%` }}>
+                        <span className="absolute inset-0 -m-1 rounded-full bg-[#E36B11]/40 animate-ping" />
+                        <span className="absolute inset-0 -m-0.5 rounded-full bg-[#E36B11]/25 animate-pulse" />
+                        <span className="relative block w-2 h-2 bg-[#E36B11] rounded-full shadow-[0_0_6px_rgba(227,107,17,0.7)]" />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+              {/* Rankings list */}
               <div className="relative divide-y divide-warm/50">
                 {
                   // Always show all 10 slots immediately (layout never collapses to a spinner).
@@ -738,7 +821,7 @@ export default function DesktopPage() {
                     const r = rankings[i];
                     if (r) {
                       return (
-                        <button key={r._id} onClick={() => { setSelectedPlayerId(r._id); handleTabChange('rankings'); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/70 transition-colors">
+                        <button key={r._id} onClick={() => setSelectedPlayerId(r._id)} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/70 transition-colors">
                           {/* Rank number */}
                           <span className={`text-sm font-bold tabular-nums w-4 text-center ${
                             i === 0 ? 'text-[#E36B11]' :
@@ -760,10 +843,10 @@ export default function DesktopPage() {
                           </div>
                           {/* Username */}
                           <span className="flex-1 text-left font-display text-[13px] tracking-wide font-normal text-gray-800 truncate">{r.username}</span>
-                          {/* BOGX Coins */}
-                          <div className="flex items-center gap-1">
+                          {/* BOGX Coins - with transition for smooth score updates */}
+                          <div className="flex items-center gap-1 transition-all duration-300">
                             <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
-                            <span className="font-display text-[13px] tracking-wide font-semibold tabular-nums text-[#E36B11]">{formatCurrency(r.bogxCoins || r.points)}</span>
+                            <span className="font-display text-[13px] tracking-wide font-semibold tabular-nums text-[#E36B11] transition-all duration-300">{formatCurrency(r.bogxCoins || r.points)}</span>
                           </div>
                         </button>
                       );
@@ -785,6 +868,14 @@ export default function DesktopPage() {
                   })
                 }
               </div>
+              {/* View All button at bottom */}
+              <button 
+                onClick={() => { setSelectedPlayerId(null); handleTabChange('rankings'); }} 
+                className="relative z-10 w-full py-2 text-center text-[10px] font-semibold text-[#E36B11] hover:bg-[#E36B11]/10 transition-colors uppercase tracking-wider flex items-center justify-center gap-1 border-t border-warm cursor-pointer"
+              >
+                View All
+                <ChevronRight className="w-3 h-3" />
+              </button>
             </div>
 
             {/* GenX TV */}
@@ -864,9 +955,9 @@ export default function DesktopPage() {
               {/* Static Page View */}
               {staticPageSlug && <StaticPageInline slug={staticPageSlug} defaultTitle={staticPageSlug} onClose={() => { setStaticPageSlug(null); contentRef.current?.scrollTo(0, 0); }} />}
               {/* Content Tabs */}
-              {!staticPageSlug && activeTab === "feed" && !openArticleId && !showCommunitySound && <WelcomeReel onOpenArticle={handleOpenArticle} readArticles={readArticles} isDesktop={true} onShowLogin={handleShowLogin} onOpenCommunitySound={handleOpenCommunitySound} />}
-              {!staticPageSlug && showCommunitySound && <CommunitySoundPage isDesktop={true} onBack={() => setShowCommunitySound(false)} onOpenRadio={() => { setShowCommunitySound(false); handleTabChange('radio'); }} />}
-              {!staticPageSlug && openArticleId && <ArticlePage articleId={openArticleId} onBack={() => {
+              {!staticPageSlug && !selectedPlayerId && activeTab === "feed" && !openArticleId && !showCommunitySound && <WelcomeReel onOpenArticle={handleOpenArticle} readArticles={readArticles} isDesktop={true} onShowLogin={handleShowLogin} onOpenCommunitySound={handleOpenCommunitySound} />}
+              {!staticPageSlug && !selectedPlayerId && showCommunitySound && <CommunitySoundPage isDesktop={true} onBack={() => setShowCommunitySound(false)} onOpenRadio={() => { setShowCommunitySound(false); handleTabChange('radio'); }} />}
+              {!staticPageSlug && !selectedPlayerId && openArticleId && <ArticlePage articleId={openArticleId} onBack={() => {
                 setOpenArticleId(null);
                 // Clear article from URL
                 window.history.pushState({}, '', '/desktop');
@@ -888,7 +979,7 @@ export default function DesktopPage() {
                 setCoinAnimation({ show: true, amount, variant: 'gain' });
                 animateCoins(amount);
               }} />}
-              {!staticPageSlug && activeTab === "arcade" && (
+              {!staticPageSlug && !selectedPlayerId && activeTab === "arcade" && (
                 arcadeGame === 'quizzbattle' ? (
                   <DesktopBattlesPage coins={coins} setCoins={setCoins} onCoinAnimation={(amount, variant) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount, variant }); }} onShowLogin={() => setShowLoginPage(true)} onBattleActiveChange={setIsBattleActive} pendingBattleId={pendingBattleId} onPendingBattleHandled={() => setPendingBattleId(null)} onBack={() => setArcadeGame(null)} />
                 ) : arcadeGame === 'genxmen' ? (
@@ -907,16 +998,25 @@ export default function DesktopPage() {
                   <DesktopContentWrapper><DesktopArcadePage onSelectGame={(game) => setArcadeGame(game)} onShowRankings={() => handleTabChange('rankings')} userId={user?.id} onCoinsChange={(amount) => animateCoins(amount)} onShowLogin={() => setShowLoginPage(true)} onPlaySpecificBattle={(battleId) => { setPendingBattleId(battleId); setArcadeGame('quizzbattle'); }} /></DesktopContentWrapper>
                 )
               )}
-              {!staticPageSlug && activeTab === "articles" && !openArticleId && <DesktopArticlesPage onOpenArticle={(id: string) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onShowLogin={() => setShowLoginPage(true)} />}
-              {!staticPageSlug && activeTab === "voting" && !openArticleId && !openRankrollData && <DesktopRankrollPage onOpenArticle={(id: string) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onOpenRankroll={(poll: any) => { setOpenRankrollData(poll); contentRef.current?.scrollTo(0, 0); }} onShowLogin={() => setShowLoginPage(true)} onCoinAnimation={(amount) => { animateCoins(amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} />}
-              {!staticPageSlug && activeTab === "voting" && openRankrollData && <DesktopRankingDetailPage poll={openRankrollData} onBack={() => setOpenRankrollData(null)} onOpenArticle={(id: string) => { setOpenArticleId(id); }} onShowLogin={() => setShowLoginPage(true)} onCoinAnimation={(amount) => { animateCoins(amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} />}
-              {!staticPageSlug && activeTab === "shop" && <DesktopContentWrapper><ShopPage coins={coins} onCoinsUsed={(amount) => { setCoins(prev => prev - amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount: -amount }); }} /></DesktopContentWrapper>}
-              {!staticPageSlug && activeTab === "tv" && <DesktopContentWrapper><TVPage /></DesktopContentWrapper>}
-              {!staticPageSlug && activeTab === "radio" && <DesktopContentWrapper transparent><RadioPage isDesktop={true} /></DesktopContentWrapper>}
-              {!staticPageSlug && activeTab === "notifications" && <DesktopContentWrapper transparent><NotificationPage onGoToProfile={() => handleTabChange('profile')} onGoToBattle={(id) => { handleTabChange('arcade'); setArcadeGame('quizzbattle'); setPendingBattleId(id); }} onPointsAwarded={(amount) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} /></DesktopContentWrapper>}
-              {!staticPageSlug && activeTab === "profile" && (isLoggedIn ? <DesktopContentWrapper><ProfilePage coins={coins} /></DesktopContentWrapper> : <DesktopLoginPage onClose={() => handleTabChange("feed")} onSuccess={() => {}} showBack={true} />)}
-              {!staticPageSlug && activeTab === "rankings" && <DesktopRankingsPage currentUserScore={coins} onBack={() => handleTabChange('home')} onShowSignup={() => setShowLoginPage(true)} onShowRewards={() => handleTabChange('rewards')} selectedPlayerId={selectedPlayerId} onPlayerClose={() => setSelectedPlayerId(null)} />}
-              {!staticPageSlug && activeTab === "rewards" && <DesktopRewardsPage coins={coins} onClose={() => handleTabChange('rankings')} onRedeem={(rewardId: string, cost: number) => { const change = -cost; setCoins(prev => prev + change); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount: change }); }} />}
+              {!staticPageSlug && !selectedPlayerId && activeTab === "articles" && !openArticleId && <DesktopArticlesPage onOpenArticle={(id: string) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onShowLogin={() => setShowLoginPage(true)} />}
+              {!staticPageSlug && !selectedPlayerId && activeTab === "voting" && !openArticleId && !openRankrollData && <DesktopRankrollPage onOpenArticle={(id: string) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onOpenRankroll={(poll: any) => { setOpenRankrollData(poll); contentRef.current?.scrollTo(0, 0); }} onShowLogin={() => setShowLoginPage(true)} onCoinAnimation={(amount) => { animateCoins(amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} />}
+              {!staticPageSlug && !selectedPlayerId && activeTab === "voting" && openRankrollData && <DesktopRankingDetailPage poll={openRankrollData} onBack={() => setOpenRankrollData(null)} onOpenArticle={(id: string) => { setOpenArticleId(id); }} onShowLogin={() => setShowLoginPage(true)} onCoinAnimation={(amount) => { animateCoins(amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} />}
+              {!staticPageSlug && !selectedPlayerId && activeTab === "shop" && <DesktopContentWrapper><ShopPage coins={coins} onCoinsUsed={(amount) => { setCoins(prev => prev - amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount: -amount }); }} /></DesktopContentWrapper>}
+              {!staticPageSlug && !selectedPlayerId && activeTab === "tv" && <DesktopContentWrapper><TVPage /></DesktopContentWrapper>}
+              {!staticPageSlug && !selectedPlayerId && activeTab === "radio" && <DesktopContentWrapper transparent><RadioPage isDesktop={true} /></DesktopContentWrapper>}
+              {!staticPageSlug && !selectedPlayerId && activeTab === "notifications" && <DesktopContentWrapper transparent><NotificationPage onGoToProfile={() => handleTabChange('profile')} onGoToBattle={(id) => { handleTabChange('arcade'); setArcadeGame('quizzbattle'); setPendingBattleId(id); }} onPointsAwarded={(amount) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} /></DesktopContentWrapper>}
+              {!staticPageSlug && !selectedPlayerId && activeTab === "profile" && (isLoggedIn ? <DesktopContentWrapper><ProfilePage coins={coins} /></DesktopContentWrapper> : <DesktopLoginPage onClose={() => handleTabChange("feed")} onSuccess={() => {}} showBack={true} />)}
+              {!staticPageSlug && activeTab === "rankings" && !selectedPlayerId && <DesktopRankingsPage currentUserScore={coins} onBack={() => handleTabChange('home')} onShowSignup={() => setShowLoginPage(true)} onShowRewards={() => handleTabChange('rewards')} selectedPlayerId={null} onPlayerClose={() => {}} />}
+              {/* Player Profile - renders in content area, back returns to current tab */}
+              {!staticPageSlug && selectedPlayerId && (
+                <PlayerCard
+                  isOpen={true}
+                  playerId={selectedPlayerId}
+                  onClose={() => setSelectedPlayerId(null)}
+                  isDesktop={true}
+                />
+              )}
+              {!staticPageSlug && !selectedPlayerId && activeTab === "rewards" && <DesktopRewardsPage coins={coins} onClose={() => handleTabChange('rankings')} onRedeem={(rewardId: string, cost: number) => { const change = -cost; setCoins(prev => prev + change); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount: change }); }} />}
             </div>
           </main>
 
@@ -1030,10 +1130,10 @@ export default function DesktopPage() {
               <div className="absolute inset-0 bg-gradient-to-r from-[#E36B11] via-[#E36B11]/90 to-transparent" />
               <div className="relative p-4">
                 <div className="flex items-center gap-2 mb-1">
-                  <Gamepad2 className="w-5 h-5 text-white" />
-                  <span className="font-display text-lg tracking-wider uppercase text-white">Arcade</span>
+                  <Brain className="w-5 h-5 text-white" />
+                  <span className="font-display text-lg tracking-wider uppercase text-white">Trivia</span>
                 </div>
-                <p className="text-xs text-white/80 mb-3">Test your knowledge & win BOGX.</p>
+                <p className="text-xs text-white/80 mb-3">Test your GenX knowledge & win BOGX.</p>
                 <span className="inline-flex items-center gap-1 text-xs font-bold text-[#E36B11] bg-white px-3 py-1.5 rounded-lg">
                   PLAY NOW <ChevronRight className="w-3 h-3" />
                 </span>
@@ -1080,7 +1180,7 @@ export default function DesktopPage() {
         
         {/* Copyright */}
         <p className="text-center text-xs text-gray-400">
-          © {new Date().getFullYear()} Best of GenX. All rights reserved.
+          © {new Date().getFullYear()} <span className="font-display tracking-wide">Best of GenX</span>. All rights reserved.
         </p>
         
         {/* Made with love - using Lucide Heart icon instead of emoji */}
@@ -1143,6 +1243,7 @@ export default function DesktopPage() {
         onClose={() => setShowCheckoutSuccess(false)}
         sessionId={checkoutSessionId || undefined}
       />
+
     </div>
   );
 }

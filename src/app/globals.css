@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Fallback Fonts from CDN (in case next/font/google fails) */
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;700;800&display=swap');
+
 /* iOS Safe Area Support */
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
   html {
@@ -210,9 +213,14 @@ a:active {
 
 /* Font display class - extends Tailwind's font-display with additional styles */
 .font-display {
-  font-family: var(--font-display), 'Bebas Neue', Impact, sans-serif !important;
+  font-family: var(--font-display, 'Bebas Neue'), 'Bebas Neue', Impact, sans-serif !important;
   letter-spacing: 0.01em !important;
   text-transform: uppercase !important;
+}
+
+/* Ensure body uses Inter with fallback */
+body {
+  font-family: var(--font-body, 'Inter'), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 .font-serif-i {

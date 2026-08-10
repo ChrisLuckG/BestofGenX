@@ -82,6 +82,7 @@ export default function DesktopBattlesPage(props: DesktopBattlesPageProps) {
         {...props}
         embedded={true}
         isDesktop={true}
+        skipSetup={true}
         onBack={props.onBack}
       />
     </div>

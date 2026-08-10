@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Music, ChevronRight, ChevronUp, Crown, Plus, ExternalLink, Radio, Disc3, Users, Clock, BarChart2, Mic2, ListMusic, Headphones } from "lucide-react";
+import { Music, ChevronRight, ChevronUp, Crown, Plus, ExternalLink, Radio, Disc3, Users, Clock, BarChart2, Mic2, ListMusic, Headphones, Play } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 interface SongRequest {
@@ -11,6 +11,7 @@ interface SongRequest {
   band: string;
   song: string;
   link?: string;
+  coverImage?: string;
   status: 'new' | 'in_progress' | 'added' | 'rejected';
   votes: number;
   votedBy: string[];
@@ -120,6 +121,12 @@ export default function MusicSongList({ playlist, onOpenRadio }: MusicSongListPr
   const [songSent, setSongSent] = useState(false);
   const [stations, setStations] = useState<{ _id: string; name: string }[]>([]);
   const [sortBy, setSortBy] = useState<'votes' | 'newest'>('votes');
+  // Handle song click - open Spotify directly
+  const handlePlaySong = (song: SongRequest) => {
+    if (song.link) {
+      window.open(song.link, '_blank');
+    }
+  };
 
   const loadSongs = useCallback(async () => {
     try {
@@ -186,7 +193,12 @@ export default function MusicSongList({ playlist, onOpenRadio }: MusicSongListPr
               const idx = ((song.band.charCodeAt(0) || 0) + (song.song.charCodeAt(0) || 0)) % ART_COLORS.length;
               const c = ART_COLORS[idx];
               return (
-                <div key={song._id} className="flex-shrink-0 w-32 rounded-xl overflow-hidden relative group" style={{ backgroundColor: c.bg }}>
+                <div 
+                  key={song._id} 
+                  onClick={() => handlePlaySong(song)}
+                  className="flex-shrink-0 w-32 rounded-xl overflow-hidden relative group cursor-pointer hover:scale-105 transition-transform" 
+                  style={{ backgroundColor: c.bg }}
+                >
                   <div className="absolute top-2 left-2 z-10 w-6 h-6 rounded-full bg-[#E36B11] flex items-center justify-center">
                     <span className="text-[10px] font-bold text-white">{i + 1}</span>
                   </div>
@@ -197,8 +209,17 @@ export default function MusicSongList({ playlist, onOpenRadio }: MusicSongListPr
                       <ExternalLink className="w-3.5 h-3.5 text-white/70" />
                     </a>
                   )}
-                  <div className="h-28 flex items-center justify-center">
-                    <Music style={{ color: c.accent }} className="w-12 h-12" />
+                  <div className="h-28 flex items-center justify-center relative overflow-hidden">
+                    {song.coverImage ? (
+                      <img src={song.coverImage} alt={song.song} className="w-full h-full object-cover group-hover:opacity-30 transition-opacity" />
+                    ) : (
+                      <Music style={{ color: c.accent }} className="w-12 h-12 group-hover:opacity-30 transition-opacity" />
+                    )}
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="w-10 h-10 rounded-full bg-[#1DB954] flex items-center justify-center shadow-lg">
+                        <Play className="w-5 h-5 text-white fill-white ml-0.5" />
+                      </div>
+                    </div>
                   </div>
                   <div className="p-2 bg-black/40">
                     <p className="text-[11px] font-bold text-white truncate">{song.song}</p>
@@ -302,8 +323,27 @@ export default function MusicSongList({ playlist, onOpenRadio }: MusicSongListPr
           {sorted.map(song => {
             const voted = votedIds.has(song._id);
             return (
-              <div key={song._id} className="flex items-center gap-3 p-3 bg-cream border border-warm rounded-xl hover:border-[#E36B11]/30 hover:shadow-sm transition-all">
-                <AlbumArt band={song.band} song={song.song} />
+              <div 
+                key={song._id} 
+                onClick={() => song.link && handlePlaySong(song)}
+                className={`flex items-center gap-3 p-3 bg-cream border border-warm rounded-xl hover:border-[#E36B11]/30 hover:shadow-sm transition-all ${song.link ? 'cursor-pointer' : ''}`}
+              >
+                {/* Album cover or play icon */}
+                <div 
+                  className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden relative"
+                  style={{ opacity: song.link ? 1 : 0.4, backgroundColor: song.coverImage ? undefined : '#1DB954' }}
+                >
+                  {song.coverImage ? (
+                    <>
+                      <img src={song.coverImage} alt={song.song} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                        <Play className="w-4 h-4 text-white fill-white ml-0.5" />
+                      </div>
+                    </>
+                  ) : (
+                    <Play className="w-4 h-4 text-white fill-white ml-0.5" />
+                  )}
+                </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-gray-900 truncate">{song.song}</p>
                   <p className="text-xs text-gray-600 truncate">{song.band}</p>
@@ -318,7 +358,7 @@ export default function MusicSongList({ playlist, onOpenRadio }: MusicSongListPr
                   <span className="text-sm font-bold text-gray-900">{song.votes || 0}</span>
                   <span className="text-[9px] text-gray-400 uppercase tracking-wide">VOTES</span>
                 </div>
-                <button onClick={() => handleVote(song._id)}
+                <button onClick={(e) => { e.stopPropagation(); handleVote(song._id); }}
                   className={`w-9 h-9 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${
                     voted ? 'bg-[#E36B11] text-white shadow-md scale-105'
                     : isLoggedIn ? 'bg-[#E36B11]/10 text-[#E36B11] hover:bg-[#E36B11] hover:text-white'
@@ -356,6 +396,7 @@ export default function MusicSongList({ playlist, onOpenRadio }: MusicSongListPr
           )}
         </div>
       </div>
+
     </div>
   );
 }

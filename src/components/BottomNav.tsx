@@ -16,7 +16,7 @@ interface BottomNavProps {
 
 const tabs = [
   { id: "home" as NavTab, label: "Feed", icon: Play },
-  { id: "arcade" as NavTab, label: "Arcade", image: "/images/Icon/trivia1.png", imageActive: "/images/Icon/trivia2.png" },
+  { id: "arcade" as NavTab, label: "Trivia", image: "/images/Icon/trivia1.png", imageActive: "/images/Icon/trivia2.png" },
   { id: "articles" as NavTab, label: "Articles", icon: FileText },
   { id: "voting" as NavTab, label: "Rankroll", icon: Vote },
   { id: "shop" as NavTab, label: "Shop", icon: ShoppingBag },

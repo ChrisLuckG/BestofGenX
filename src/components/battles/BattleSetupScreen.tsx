@@ -70,72 +70,8 @@ export default function BattleSetupScreen({
           </div>
         </div>
 
-        {/* Feature Icons */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4">
-          <div className="bg-cream rounded-xl border border-warm p-3 flex flex-col items-center text-center">
-            <div className="w-10 h-10 rounded-full bg-[#A855F7]/10 flex items-center justify-center mb-2">
-              <Target className="w-5 h-5 text-[#A855F7]" />
-            </div>
-            <span className="font-display text-gray-900 text-sm leading-tight">Pick a Battle</span>
-            <p className="text-gray-700 text-[10px] mt-1 leading-tight">Choose topic & wager.</p>
-          </div>
-          <div className="bg-cream rounded-xl border border-warm p-3 flex flex-col items-center text-center">
-            <div className="w-10 h-10 rounded-full bg-[#A855F7]/10 flex items-center justify-center mb-2">
-              <Zap className="w-5 h-5 text-[#A855F7]" />
-            </div>
-            <span className="font-display text-gray-900 text-sm leading-tight">Answer Fast</span>
-            <p className="text-gray-700 text-[10px] mt-1 leading-tight">10 sec per question.</p>
-          </div>
-          <div className="bg-cream rounded-xl border border-warm p-3 flex flex-col items-center text-center">
-            <div className="w-10 h-10 rounded-full bg-[#A855F7]/10 flex items-center justify-center mb-2">
-              <Trophy className="w-5 h-5 text-[#A855F7]" />
-            </div>
-            <span className="font-display text-gray-900 text-sm leading-tight">Winner Takes All</span>
-            <p className="text-gray-700 text-[10px] mt-1 leading-tight">Collect both wagers.</p>
-          </div>
-          <div className="bg-cream rounded-xl border border-warm p-3 flex flex-col items-center text-center">
-            <div className="w-10 h-10 rounded-full bg-[#A855F7]/10 flex items-center justify-center mb-2">
-              <RefreshCcw className="w-5 h-5 text-[#A855F7]" />
-            </div>
-            <span className="font-display text-gray-900 text-sm leading-tight">Tie = Refund</span>
-            <p className="text-gray-700 text-[10px] mt-1 leading-tight">Coins back to both.</p>
-          </div>
-        </div>
-
-        {/* Wager Options / Rounds / How it Works */}
-        <div className="bg-cream rounded-2xl border border-warm mt-4 grid grid-cols-3 divide-x divide-warm">
-          <div className="py-4 px-3 text-center">
-            <span className="font-display text-sm text-gray-700 uppercase">Wager Options</span>
-            <div className="flex items-center justify-center gap-1 mt-2 flex-wrap">
-              <span className="px-2 py-1 rounded text-[10px] font-bold bg-[#A855F7]/10 text-[#A855F7]">0.10</span>
-              <span className="px-2 py-1 rounded text-[10px] font-bold bg-[#A855F7]/10 text-[#A855F7]">0.25</span>
-              <span className="px-2 py-1 rounded text-[10px] font-bold bg-[#A855F7]/10 text-[#A855F7]">0.50</span>
-              <span className="px-2 py-1 rounded text-[10px] font-bold bg-[#A855F7]/10 text-[#A855F7]">0.75</span>
-              <span className="px-2 py-1 rounded text-[10px] font-bold bg-[#A855F7]/10 text-[#A855F7]">1.00</span>
-              <span className="text-[10px] text-gray-700">BOGX</span>
-            </div>
-            <p className="text-[9px] text-gray-700 mt-1">You choose your wager</p>
-          </div>
-          <div className="py-4 px-3 text-center">
-            <span className="font-display text-sm text-gray-700 uppercase">Rounds</span>
-            <div className="flex items-center justify-center gap-1 mt-2">
-              <span className="text-lg font-bold text-[#A855F7]">3</span>
-              <span className="text-gray-700 text-sm">or</span>
-              <span className="text-lg font-bold text-[#A855F7]">5</span>
-            </div>
-            <p className="text-[9px] text-gray-700 mt-1">Questions per battle</p>
-          </div>
-          <div className="py-4 px-3 text-center">
-            <span className="font-display text-sm text-gray-700 uppercase">How it Works</span>
-            <div className="mt-2 text-[10px] text-gray-900 space-y-1">
-              <p className="flex items-center justify-center gap-1"><Trophy className="w-3 h-3 text-[#A855F7]" /> Winner takes 2x wager</p>
-              <p className="flex items-center justify-center gap-1"><RefreshCcw className="w-3 h-3 text-[#A855F7]" /> Tie = coins back</p>
-            </div>
-          </div>
-        </div>
-
         {/* Start Button */}
-        <div className="flex justify-center mt-5">
+        <div className="flex justify-center mt-6">
           <button
             onClick={() => {
               incrementGamePlayCount("quizzbattle");
@@ -155,7 +91,16 @@ export default function BattleSetupScreen({
             <Shield className="w-3.5 h-3.5 text-green-500" />
             Fair play guaranteed
           </span>
-          <button className="text-[#A855F7] hover:underline">How it works</button>
+          <span className="text-gray-400">•</span>
+          <span className="flex items-center gap-1">
+            <Trophy className="w-3.5 h-3.5 text-[#A855F7]" />
+            Winner takes 2x wager
+          </span>
+          <span className="text-gray-400">•</span>
+          <span className="flex items-center gap-1">
+            <RefreshCcw className="w-3.5 h-3.5 text-[#A855F7]" />
+            Tie = coins back
+          </span>
         </div>
       </div>
     </div>

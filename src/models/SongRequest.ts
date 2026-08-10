@@ -7,6 +7,7 @@ export interface ISongRequest extends Document {
   band: string;
   song: string;
   link?: string; // Optional Spotify/YouTube link
+  coverImage?: string; // Album cover from Spotify
   status: 'new' | 'in_progress' | 'added' | 'rejected';
   votes: number;
   votedBy: string[];
@@ -38,6 +39,10 @@ const SongRequestSchema = new Schema<ISongRequest>(
       required: true,
     },
     link: {
+      type: String,
+      default: null,
+    },
+    coverImage: {
       type: String,
       default: null,
     },

@@ -44,6 +44,7 @@ interface RadioStation {
   name: string;
   description: string;
   playlistId: string;
+  imageUrl?: string;
 }
 
 interface RadioPageProps {
@@ -110,8 +111,18 @@ export default function RadioPage({ isDesktop = false }: RadioPageProps) {
               onClick={() => window.open(`https://open.spotify.com/playlist/${station.playlistId}`, '_blank')}
               className="relative flex items-center gap-3 p-4 rounded-xl bg-white/50 backdrop-blur-sm shadow-md hover:shadow-lg hover:bg-white/70 transition-all text-left group border border-white/60"
             >
-                            <div className="w-12 h-12 rounded-full bg-[#E36B11] flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform shadow-md">
-                <Play className="w-5 h-5 text-white fill-white ml-0.5" />
+              <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 group-hover:scale-105 transition-transform shadow-md bg-[#E36B11]">
+                {station.imageUrl ? (
+                  <img 
+                    src={station.imageUrl} 
+                    alt={station.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Play className="w-5 h-5 text-white fill-white ml-0.5" />
+                  </div>
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-display text-sm tracking-wide text-gray-900 truncate group-hover:text-[#E36B11] transition-colors">{station.name}</p>

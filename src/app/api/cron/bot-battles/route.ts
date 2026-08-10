@@ -5,6 +5,7 @@ import User from '@/models/User';
 import Card from '@/models/Card';
 import GameResult from '@/models/GameResult';
 import { compareBattleResults } from '@/utils/battleWinner';
+import { TOPIC_TO_THEME } from '@/lib/battleTopics';
 
 // Helper: record net wager change so bot rankings stay in sync with their wallet
 async function saveBotBattleGameResult(userId: string, opponentName: string, pointsChange: number, won: boolean) {
@@ -110,9 +111,10 @@ export async function POST(request: NextRequest) {
           // Check bot has enough BOGX
           if ((bot.bogxCoins || 0) < wagerConfig.amount) continue;
           
-          // Get questions
+          // Get questions - MUST match the battle topic, otherwise the battle is
+          // labelled e.g. FILM but serves SPORTS questions.
           const cards = await Card.aggregate([
-            { $match: { active: true } },
+            { $match: { active: true, theme: TOPIC_TO_THEME[topic] } },
             { $sample: { size: wagerConfig.rounds } }
           ]);
           
@@ -218,6 +220,7 @@ export async function POST(request: NextRequest) {
         battle.opponent = bot._id;
         battle.status = 'active';
         battle.acceptedAt = new Date();
+        battle.acceptedVia = 'cron:bot-battles';
         
         // Simulate bot playing (instant results for creator side if bot)
         const botSkillCreator = 0.5 + Math.random() * 0.4; // 50-90% accuracy

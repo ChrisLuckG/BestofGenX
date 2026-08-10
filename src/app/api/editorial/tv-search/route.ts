@@ -2,7 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import TVVideo from '@/models/TVVideo';
 
-// Search YouTube Data API for real videos
+// Parse ISO 8601 duration (PT1H30M45S) to human readable (1:30:45)
+function parseDuration(isoDuration: string): string {
+  if (!isoDuration) return '';
+  const match = isoDuration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!match) return '';
+  const hours = match[1] ? parseInt(match[1]) : 0;
+  const minutes = match[2] ? parseInt(match[2]) : 0;
+  const seconds = match[3] ? parseInt(match[3]) : 0;
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  }
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+// Search YouTube Data API for real videos - prioritize longer documentaries
 async function searchYouTube(query: string, maxResults: number = 6): Promise<any[]> {
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) {
@@ -11,8 +25,10 @@ async function searchYouTube(query: string, maxResults: number = 6): Promise<any
   }
   
   try {
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=${maxResults}&key=${apiKey}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    // Add "documentary" or "full" to query to find longer content, filter for long videos (>20min)
+    const enhancedQuery = `${query} documentary OR interview OR full`;
+    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(enhancedQuery)}&type=video&videoDuration=long&maxResults=${maxResults}&key=${apiKey}`;
+    const res = await fetch(searchUrl, { signal: AbortSignal.timeout(8000) });
     
     if (!res.ok) {
       console.error('YouTube API error:', res.status);
@@ -20,7 +36,32 @@ async function searchYouTube(query: string, maxResults: number = 6): Promise<any
     }
     
     const data = await res.json();
-    return data.items || [];
+    const items = data.items || [];
+    
+    // Get video IDs to fetch duration
+    const videoIds = items.map((item: any) => item.id?.videoId).filter(Boolean).join(',');
+    if (!videoIds) return items;
+    
+    // Fetch video details including duration
+    const detailsUrl = `https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${videoIds}&key=${apiKey}`;
+    const detailsRes = await fetch(detailsUrl, { signal: AbortSignal.timeout(5000) });
+    
+    if (detailsRes.ok) {
+      const detailsData = await detailsRes.json();
+      const durationMap: Record<string, string> = {};
+      (detailsData.items || []).forEach((v: any) => {
+        durationMap[v.id] = parseDuration(v.contentDetails?.duration || '');
+      });
+      
+      // Add duration to each item
+      items.forEach((item: any) => {
+        if (item.id?.videoId && durationMap[item.id.videoId]) {
+          item.duration = durationMap[item.id.videoId];
+        }
+      });
+    }
+    
+    return items;
   } catch (err) {
     console.error('YouTube search failed:', err);
     return [];
@@ -88,7 +129,7 @@ export async function POST(request: NextRequest) {
       youtubeId: item.id?.videoId || '',
       title: item.snippet?.title || '',
       description: item.snippet?.description || '',
-      duration: '', // YouTube search API doesn't return duration
+      duration: item.duration || '', // Duration fetched from contentDetails API
       thumbnail: item.snippet?.thumbnails?.medium?.url || `https://img.youtube.com/vi/${item.id?.videoId}/mqdefault.jpg`,
     })).filter(v => v.youtubeId);
 

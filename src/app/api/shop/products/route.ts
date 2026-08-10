@@ -101,7 +101,8 @@ export async function GET() {
           const firstVariant = fullProduct.sync_variants?.[0];
           const price = firstVariant?.retail_price || '0.00';
           
-          // Get available variants
+          // Get available variants — include the variant's own preview mockup so the
+          // detail page can swap the hero image when a colour is picked.
           const variants = (fullProduct.sync_variants || []).map((v: any) => ({
             id: v.id,
             title: v.name,
@@ -109,6 +110,7 @@ export async function GET() {
             available: true,
             sku: v.sku,
             variantId: v.variant_id,
+            image: (v.files || []).find((f: any) => f.type === 'preview' && f.preview_url)?.preview_url || '',
           }));
           
           // Determine category

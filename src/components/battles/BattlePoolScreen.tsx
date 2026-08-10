@@ -70,7 +70,7 @@ export default function BattlePoolScreen({
   });
 
   return (
-    <div className="relative flex flex-col h-full min-h-full" style={{ backgroundColor: '#F5F0E8' }}>
+    <div className="relative flex flex-col h-full min-h-full overflow-hidden" style={{ backgroundColor: '#F5F0E8' }}>
       {/* Header */}
       <div className="flex items-center justify-between px-3 pt-4 pb-3 border-b border-warm">
         <div className="flex items-center gap-2">
@@ -111,6 +111,10 @@ export default function BattlePoolScreen({
               if (!isLoggedIn) {
                 showAlert('login', 'Please login to create battles!', { buttonText: 'LOGIN', onButtonClick: onShowLogin });
                 return;
+              }
+              // Pre-select the current topic filter when opening create panel
+              if (!showCreate && topicFilter !== 'all') {
+                onCreateTopicChange(topicFilter);
               }
               onShowCreate(!showCreate);
             }}
@@ -168,28 +172,30 @@ export default function BattlePoolScreen({
       </div>
 
       {/* Wager Filter */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-warm overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-        <button
-          onClick={() => onWagerFilterChange('all')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap transition-all border flex-shrink-0 ${
-            wagerFilter === 'all' ? 'bg-[#A855F7] text-white border-[#A855F7]' : 'bg-cream text-gray-700 hover:bg-[#A855F7]/10 border-warm'
-          }`}
-        >
-          <LayoutGrid className="w-3.5 h-3.5" />
-          <span className="text-xs font-semibold">All Wagers</span>
-        </button>
-        {WAGERS.map(w => (
+      <div className="min-w-0 w-full overflow-hidden border-b border-warm">
+        <div className="flex items-center gap-2 px-3 py-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
           <button
-            key={w.amount}
-            onClick={() => onWagerFilterChange(w.amount)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap transition-all border flex-shrink-0 ${
-              wagerFilter === w.amount ? 'bg-[#A855F7] text-white border-[#A855F7]' : 'bg-cream text-gray-700 hover:bg-[#A855F7]/10 border-warm'
+            onClick={() => onWagerFilterChange('all')}
+            className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap transition-all border ${
+              wagerFilter === 'all' ? 'bg-[#A855F7] text-white border-[#A855F7]' : 'bg-cream text-gray-700 hover:bg-[#A855F7]/10 border-warm'
             }`}
           >
-            <img src="/images/bogxcoin.png" alt="" className="w-3.5 h-3.5" />
-            <span className="text-xs font-semibold">{formatCurrency(w.amount)}</span>
+            <LayoutGrid className="w-3.5 h-3.5" />
+            <span className="text-xs font-semibold">All Wagers</span>
           </button>
-        ))}
+          {WAGERS.map(w => (
+            <button
+              key={w.amount}
+              onClick={() => onWagerFilterChange(w.amount)}
+              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap transition-all border ${
+                wagerFilter === w.amount ? 'bg-[#A855F7] text-white border-[#A855F7]' : 'bg-cream text-gray-700 hover:bg-[#A855F7]/10 border-warm'
+              }`}
+            >
+              <img src="/images/bogxcoin.png" alt="" className="w-3.5 h-3.5" />
+              <span className="text-xs font-semibold">{formatCurrency(w.amount)}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Create Battle Fullscreen */}
@@ -339,9 +345,13 @@ export default function BattlePoolScreen({
                     showAlert('login', 'Please login to create battles!', { buttonText: 'LOGIN', onButtonClick: onShowLogin });
                     return;
                   }
+                  // Pre-select the current topic filter when opening create panel
+                  if (topicFilter !== 'all') {
+                    onCreateTopicChange(topicFilter);
+                  }
                   onShowCreate(true);
                 }}
-                className="px-3 py-2 bg-[#A855F7] text-white text-sm font-semibold hover:bg-[#c5e000] transition-colors flex items-center gap-1"
+                className="px-3 py-2 bg-[#A855F7] text-white text-sm font-semibold hover:bg-[#9333EA] transition-colors flex items-center gap-1 rounded-lg"
               >
                 <Plus className="w-4 h-4" />
                 Create

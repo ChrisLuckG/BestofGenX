@@ -5,6 +5,7 @@ import User from '@/models/User';
 import Card from '@/models/Card';
 import Notification from '@/models/Notification';
 import { sendPushNotification } from '@/lib/webpush';
+import { TOPIC_TO_THEME } from '@/lib/battleTopics';
 
 // Users to challenge (by username) and which bot challenges them
 const CHALLENGE_TARGETS = [
@@ -48,10 +49,11 @@ export async function POST(request: NextRequest) {
         });
         if (existing) { results.push({ target: target.username, skipped: 'challenge already open' }); continue; }
 
-        // Pick questions
+        // Pick questions - MUST match the battle topic, otherwise the battle is
+        // labelled e.g. FILM but serves SPORTS questions.
         const topic = TOPICS[Math.floor(Math.random() * TOPICS.length)];
         const cards = await Card.aggregate([
-          { $match: { active: true } },
+          { $match: { active: true, theme: TOPIC_TO_THEME[topic] } },
           { $sample: { size: ROUNDS + 3 } }
         ]);
 

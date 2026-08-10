@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
+import { v2 as cloudinary } from "cloudinary";
+import sharp from "sharp";
 
 // Generate a history banner image with date calendar and event thumbnails
 
@@ -70,21 +72,75 @@ RULES:
 - NO other text, captions, labels, or titles anywhere
 - NO clocks, watches, compasses, cameras, typewriters`;
 
-    const response = await openai.images.generate({
-      model: "gpt-image-2",
-      prompt,
-      n: 1,
-      size: "2016x864",  // 21:9 ultrawide, divisible by 16
-      quality: "high",
-    } as Parameters<typeof openai.images.generate>[0]) as any;
+    // Try up to 2 times with retry on failure
+    let response: any = null;
+    let lastError: any = null;
+    
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        console.log(`History banner generation attempt ${attempt}/2`);
+        response = await openai.images.generate({
+          model: "gpt-image-1",  // Faster, consistent style
+          prompt,
+          n: 1,
+          size: "1024x1024",  // Square, faster generation
+          quality: "medium",  // Much faster, still good quality
+        } as Parameters<typeof openai.images.generate>[0]) as any;
+        break; // Success, exit loop
+      } catch (err: any) {
+        lastError = err;
+        console.error(`Attempt ${attempt} failed:`, err?.message || err);
+        if (attempt < 2) {
+          await new Promise(r => setTimeout(r, 2000)); // Wait 2s before retry
+        }
+      }
+    }
+    
+    if (!response) {
+      return NextResponse.json({ 
+        success: false, 
+        error: `Image generation failed: ${lastError?.message || 'Unknown error'}` 
+      });
+    }
 
     // Handle both URL and base64 responses
     let imageUrl = response.data?.[0]?.url;
     const b64Json = response.data?.[0]?.b64_json;
     
     if (!imageUrl && b64Json) {
-      // Convert base64 to data URL
-      imageUrl = `data:image/png;base64,${b64Json}`;
+      // Compress and upload to Cloudinary instead of storing huge base64
+      try {
+        const originalBuffer = Buffer.from(b64Json, 'base64');
+        
+        // Crop to 21:9 aspect ratio (1200x514) and convert to WebP
+        const compressedBuffer = await sharp(originalBuffer)
+          .resize(1200, 514, { fit: 'cover', position: 'center' })
+          .webp({ quality: 80 })
+          .toBuffer();
+        
+        console.log(`History banner compressed: ${originalBuffer.length} -> ${compressedBuffer.length} bytes`);
+        
+        // Upload to Cloudinary
+        cloudinary.config({
+          cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+          api_key: process.env.CLOUDINARY_API_KEY,
+          api_secret: process.env.CLOUDINARY_API_SECRET,
+        });
+        
+        const publicId = `images/history-banner-${Date.now()}`;
+        const uploadResult = await new Promise<any>((resolve, reject) => {
+          const uploadStream = cloudinary.uploader.upload_stream(
+            { public_id: publicId, resource_type: 'image', folder: 'bestofgenx' },
+            (error, result) => error ? reject(error) : resolve(result)
+          );
+          uploadStream.end(compressedBuffer);
+        });
+        
+        imageUrl = uploadResult.secure_url;
+      } catch (uploadErr) {
+        console.error("Failed to compress/upload history banner:", uploadErr);
+        return NextResponse.json({ success: false, error: "Failed to process image" });
+      }
     }
     
     if (!imageUrl) {

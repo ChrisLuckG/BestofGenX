@@ -1898,22 +1898,58 @@ export default function MobilePage() {
         onRedeem={handleRedeem}
       />
 
-      {/* Rankroll Loading Overlay - true root-level sibling of Header, guarantees it renders above it */}
+      {/* Rankroll Loading Overlay - skeleton loader instead of spinner */}
       {rankrollLoading && (
-        <div className="absolute inset-x-0 bottom-0 top-16 z-[60] bg-cream flex flex-col items-center justify-center gap-4">
-          <div className="relative">
-            <div className="w-12 h-12 border-4 border-[#E36B11]/20 rounded-full" />
-            <div className="absolute inset-0 w-12 h-12 border-4 border-[#E36B11] border-t-transparent rounded-full animate-spin" />
+        <div className="absolute inset-x-0 bottom-0 top-16 z-[60] bg-cream overflow-y-auto">
+          {/* Header skeleton */}
+          <div className="sticky top-0 z-10 flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-cream">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-skeleton-light animate-pulse" />
+              <div className="space-y-1">
+                <div className="h-5 w-24 rounded bg-skeleton-light animate-pulse" />
+                <div className="h-3 w-32 rounded bg-skeleton-light animate-pulse" />
+              </div>
+            </div>
+            <div className="h-8 w-28 rounded-lg bg-skeleton-light animate-pulse" />
           </div>
-          <p className="text-sm text-gray-500">Loading ranking...</p>
+          {/* Content skeleton */}
+          <div className="p-4 space-y-4">
+            {/* Hero image skeleton */}
+            <div className="bg-cream border border-warm rounded-xl overflow-hidden animate-pulse">
+              <div className="h-40 bg-skeleton-light relative overflow-hidden">
+                <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent animate-[shimmer_1.6s_infinite]" />
+              </div>
+              <div className="p-4 space-y-2">
+                <div className="h-5 w-3/4 rounded bg-skeleton-light" />
+                <div className="h-3 w-1/2 rounded bg-skeleton-light" />
+              </div>
+            </div>
+            {/* Ranking items skeleton */}
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="flex items-center gap-3 p-3 bg-cream border border-warm rounded-xl animate-pulse">
+                <div className="w-8 h-8 rounded-full bg-skeleton-light" />
+                <div className="w-14 h-14 rounded-lg bg-skeleton-light relative overflow-hidden">
+                  <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent animate-[shimmer_1.6s_infinite]" />
+                </div>
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-2/3 rounded bg-skeleton-light" />
+                  <div className="h-3 w-1/3 rounded bg-skeleton-light" />
+                </div>
+                <div className="flex gap-2">
+                  <div className="w-10 h-10 rounded-lg bg-skeleton-light" />
+                  <div className="w-10 h-10 rounded-lg bg-skeleton-light" />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
       {/* Rankroll Detail Page - true root-level sibling of Header, guarantees it renders above it */}
       {openRankrollData && (
         <div className="absolute inset-x-0 bottom-0 top-16 z-[60] bg-cream overflow-y-auto">
-          {/* Header - sticky like other pages */}
-          <div className="sticky top-0 z-10 flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-cream">
+          {/* Header - sticky like other pages, solid background to prevent overlap */}
+          <div className="sticky top-0 z-10 flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-[#F5F0E8]">
             <div className="flex items-center gap-3">
               <button 
                 onClick={() => { setOpenRankrollData(null); setRankrollRefreshKey(k => k + 1); }}
@@ -2131,6 +2167,7 @@ export default function MobilePage() {
                 onBack={() => setArcadeGame(null)}
                 onGoToTrivia={() => setArcadeGame('trivia')}
                 onGoToArticles={() => setActiveTab('articles')}
+                skipSetup={true}
               />
             ) : arcadeGame === 'genxmen' ? (
               <GenXManGame 
@@ -2227,7 +2264,7 @@ export default function MobilePage() {
         
         {/* Battles Tab (accessed from Arcade -> QuizzBattle) */}
         <div className={`absolute inset-0 transition-opacity duration-150 ${activeTab === "battles" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"}`}>
-          {activeTab === "battles" && <BattlesPage coins={coins} setCoins={setCoins} onCoinAnimation={(amount, variant) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount, variant }); }} onShowLogin={() => setShowLoginPage(true)} onBattleActiveChange={setIsBattleActive} pendingBattleId={pendingBattleId} onPendingBattleHandled={() => setPendingBattleId(null)} onGoToTrivia={() => { setActiveTab('arcade'); setArcadeGame('trivia'); }} onGoToArticles={() => setActiveTab('articles')} />}
+          {activeTab === "battles" && <BattlesPage coins={coins} setCoins={setCoins} onCoinAnimation={(amount, variant) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount, variant }); }} onShowLogin={() => setShowLoginPage(true)} onBattleActiveChange={setIsBattleActive} pendingBattleId={pendingBattleId} onPendingBattleHandled={() => setPendingBattleId(null)} onGoToTrivia={() => { setActiveTab('arcade'); setArcadeGame('trivia'); }} onGoToArticles={() => setActiveTab('articles')} skipSetup={true} />}
         </div>
         
         {/* Notifications Tab */}

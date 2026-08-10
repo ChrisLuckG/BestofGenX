@@ -5,6 +5,7 @@ import Article from '@/models/Article';
 import User from '@/models/User';
 import Comment from '@/models/Comment';
 import Menschen from '@/models/Menschen';
+import { markMenschCovered } from '@/lib/menschenDb';
 import { getAutoFillSlugs } from '@/lib/categories';
 import { countryNameToCode } from '@/lib/countryFlags';
 import mongoose from 'mongoose';
@@ -104,23 +105,16 @@ export async function GET(request: NextRequest) {
     // For listing, exclude heavy fields - content can be huge (base64 images etc.)
     // Use ?includeContent=true only when opening a single article
     const includeContent = searchParams.get('includeContent') === 'true';
-    const projection = includeContent ? {} : { content: 0, coverImageBase64: 0 };
     
-    // Sort: archived articles go to bottom, then by order, then by date
-    // Use aggregation to add a sortPriority field (archived = 1, others = 0)
+    // MongoDB Free Tier has 32MB sort limit - use index-backed sort on createdAt only
+    // Exclude heavy fields first, then sort
+    const projection = includeContent ? {} : { content: 0, coverImage: 0, coverImageBase64: 0 };
     const [articles, total] = await Promise.all([
-      Article.aggregate([
-        { $match: query },
-        { 
-          $addFields: { 
-            sortPriority: { $cond: [{ $eq: ['$status', 'archived'] }, 1, 0] } 
-          } 
-        },
-        { $sort: { sortPriority: 1, order: 1, createdAt: -1 } },
-        { $skip: skip },
-        { $limit: limit },
-        ...(includeContent ? [] : [{ $project: { content: 0, coverImage: 0 } }])
-      ]),
+      Article.find(query, projection)
+        .sort({ createdAt: -1 })  // Uses _id index implicitly
+        .skip(skip)
+        .limit(limit)
+        .lean(),
       Article.countDocuments(query)
     ]);
     
@@ -270,6 +264,9 @@ export async function POST(request: NextRequest) {
 
     const personCountryRaw = body.personCountry;
     const personCountryCode = countryNameToCode(personCountryRaw);
+    
+    // Extract person data for Menschen database
+    const { personName, personBirthday, personDeathday, personCauseOfDeath, isRIP } = body;
 
     const article = await Article.create({
       title,
@@ -288,12 +285,15 @@ export async function POST(request: NextRequest) {
       featured: featured || false,
       trending: trending || false,
       publishedAt: status === 'published' ? new Date() : undefined,
+      // Person data - stored in article for reference
+      personName: personName || undefined,
+      personBirthday: personBirthday || undefined,
+      personDeathday: personDeathday || undefined,
       personCountry: personCountryRaw || undefined,
       personCountryCode: personCountryCode || undefined,
     });
     
     // Auto-create Menschen entry if person data is provided
-    const { personName, personBirthday, personDeathday, personCauseOfDeath, isRIP } = body;
     const personCountry = personCountryRaw;
     let menschCreated = false;
     
@@ -344,7 +344,21 @@ export async function POST(request: NextRequest) {
         console.error('Menschen creation failed (non-fatal):', menschErr.message);
       }
     }
-    
+
+    // Fallback coverage flag: the block above only runs when BOTH personName and
+    // personBirthday are supplied and matches on that exact pair. Newsroom articles
+    // built from the Wikidata pool often carry no birthday, so we additionally match
+    // by name (or by the name appearing in the headline) and set hasArticle there.
+    // This is what stops the same person being proposed again next year.
+    if (!menschCreated) {
+      menschCreated = await markMenschCovered({
+        articleId: article._id.toString(),
+        title,
+        personName,
+        userId,
+      });
+    }
+
     return NextResponse.json({ success: true, article, menschCreated });
   } catch (error: unknown) {
     console.error('Failed to create article:', error);

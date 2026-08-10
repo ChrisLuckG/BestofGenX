@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
+import { v2 as cloudinary } from "cloudinary";
+import sharp from "sharp";
 import dbConnect from "@/lib/mongoose";
 import Article from "@/models/Article";
 import User from "@/models/User";
@@ -23,7 +25,7 @@ interface HistoryEvent {
   reporterName: string;
 }
 
-// Generate cover image using DALL-E
+// Generate cover image using DALL-E - compress and upload to Cloudinary
 async function generateCoverImage(dayNumber: number, monthName: string, events: HistoryEvent[]): Promise<string | null> {
   try {
     const apiKey = process.env.OPENAI_API_KEY;
@@ -40,11 +42,44 @@ async function generateCoverImage(dayNumber: number, monthName: string, events: 
       model: "gpt-image-1",
       prompt,
       n: 1,
-      size: "1536x1024",
-      quality: "high",
+      size: "1024x1024",  // Smaller size to reduce costs and file size
+      quality: "medium",  // Medium quality is sufficient
     } as Parameters<typeof openai.images.generate>[0]) as any;
 
-    return response.data?.[0]?.url || response.data?.[0]?.b64_json || null;
+    const imageUrl = response.data?.[0]?.url;
+    const b64Json = response.data?.[0]?.b64_json;
+    
+    if (imageUrl) return imageUrl;
+    
+    if (b64Json) {
+      // Compress and upload to Cloudinary
+      const originalBuffer = Buffer.from(b64Json, 'base64');
+      const compressedBuffer = await sharp(originalBuffer)
+        .resize(800, undefined, { withoutEnlargement: true })
+        .webp({ quality: 80 })
+        .toBuffer();
+      
+      console.log(`History cover compressed: ${originalBuffer.length} -> ${compressedBuffer.length} bytes`);
+      
+      cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
+      });
+      
+      const publicId = `images/history-cover-${Date.now()}`;
+      const uploadResult = await new Promise<any>((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          { public_id: publicId, resource_type: 'image', folder: 'bestofgenx' },
+          (error, result) => error ? reject(error) : resolve(result)
+        );
+        uploadStream.end(compressedBuffer);
+      });
+      
+      return uploadResult.secure_url;
+    }
+    
+    return null;
   } catch (err) {
     console.error("Image generation failed:", err);
     return null;
@@ -89,8 +124,11 @@ export async function POST(request: NextRequest) {
     const systemPrompt = `You are writing a "On This Day in History" article for ${todayStr}.
 You have ${sortedEvents.length} historical events to include, each from a different reporter.
 
+IMPORTANT: ALL events MUST have happened on ${todayStr} (this exact date). 
+If an event's date doesn't match ${todayStr}, DO NOT include it.
+
 Create an engaging article that weaves these events together chronologically.
-Each event should have its own H2 section with the year in the heading.
+Each event should have its own H2 section with the FULL DATE in the heading.
 
 Format:
 - Title: "${todayStr}: [Creative subtitle summarizing the day]"
@@ -98,7 +136,7 @@ Format:
 - Content: HTML with <h2> for each event, <p> for paragraphs
 
 For each event section:
-1. H2 heading with year and event title (e.g. "<h2>1985: Live Aid Rocks the World</h2>")
+1. H2 heading with FULL DATE and event title (e.g. "<h2>${todayStr}, 1985: Live Aid Rocks the World</h2>")
 2. 2-3 paragraphs expanding on the event with GenX nostalgia
 3. If a YouTube video ID is provided, include it as: <iframe src="https://www.youtube.com/embed/VIDEO_ID" ...></iframe>
 
@@ -106,7 +144,7 @@ Respond with JSON:
 {
   "title": "${todayStr}: [Creative subtitle]",
   "subtitle": "Teaser sentence max 120 chars",
-  "content": "<h2>1985: Event Title</h2><p>Content...</p>..."
+  "content": "<h2>${todayStr}, 1985: Event Title</h2><p>Content...</p>..."
 }`;
 
     const eventsJson = sortedEvents.map(e => ({

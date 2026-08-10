@@ -97,7 +97,16 @@ Each section MUST have a "youtubeSearch" field with a SPECIFIC search term to fi
 - For movies: "Movie Title trailer" or "Actor Name famous scene movie name"
 - For sports: "Athlete Name best moments" or "Match Name highlights year"
 - Be SPECIFIC: "Sepultura Inner Self live 1991" NOT just "Sepultura"
-- The video should directly relate to what that section discusses
+
+🔗 THE VIDEO MUST MATCH THE TEXT OF ITS OWN SECTION — NON-NEGOTIABLE:
+- The "youtubeSearch" MUST name a work (film, song, match, event) that you explicitly
+  mention in the "text" of THAT SAME section. Never a title from another section.
+- If a section names several works, search for the one you write about FIRST.
+- Example — section text: "She headlined <strong>Mad Max: Fury Road</strong> as Furiosa..."
+  ✅ CORRECT: "Mad Max Fury Road Furiosa official trailer"
+  ❌ WRONG:   "Charlize Theron The Devil's Advocate scene"  (that film belongs to another section)
+- If a section names no concrete work, use the person's name + the topic of that
+  section — never a generic celebrity clip.
 
 CATEGORY SELECTION RULES — pick the single most relevant slug:
 - "music"       → songs, bands, albums, concerts, artists, music videos

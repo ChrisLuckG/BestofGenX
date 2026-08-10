@@ -3,6 +3,7 @@ import dbConnect from '@/lib/mongoose';
 import Battle from '@/models/Battle';
 import User from '@/models/User';
 import Card from '@/models/Card';
+import { TOPIC_TO_THEME } from '@/lib/battleTopics';
 
 // NOTE: culture removed - not enough DB questions for this theme yet
 const TOPICS = ['sport', 'music', 'film', 'fashion', 'games', 'tv'];
@@ -53,9 +54,10 @@ async function ensureShadowHunterBattle(): Promise<{ created: boolean; joined: b
     const topic = TOPICS[Math.floor(Math.random() * TOPICS.length)];
     const wagerConfig = WAGERS[Math.floor(Math.random() * WAGERS.length)];
     
-    // Get random cards using aggregation with $sample
+    // Get random cards using aggregation with $sample - MUST match the battle topic,
+    // otherwise the battle is labelled e.g. FILM but serves SPORTS questions.
     const cards = await Card.aggregate([
-      { $match: { active: true } },
+      { $match: { active: true, theme: TOPIC_TO_THEME[topic] } },
       { $sample: { size: wagerConfig.rounds } }
     ]);
     
@@ -80,6 +82,7 @@ async function ensureShadowHunterBattle(): Promise<{ created: boolean; joined: b
         questions,
         creatorResults: [],
         opponentResults: [],
+        createdVia: 'trigger-bots:ensureShadowHunterBattle',
       });
       
       result.created = true;
@@ -102,6 +105,9 @@ async function ensureShadowHunterBattle(): Promise<{ created: boolean; joined: b
       openUserBattle.opponent = shadowHunter._id;
       openUserBattle.status = 'active';
       openUserBattle.acceptedAt = new Date();
+      openUserBattle.acceptedVia = 'trigger-bots:ensureShadowHunterBattle';
+      console.log('[BATTLE JOIN] trigger-bots ShadowHunter joined', openUserBattle._id.toString(),
+        'creator=', (creator as any)?.username, 'createdAt=', openUserBattle.createdAt);
 
       // CRITICAL: simulate the bot's answers immediately upon joining.
       // Without this, the bot becomes "opponent" but never actually plays,
@@ -179,11 +185,16 @@ export async function POST(request: NextRequest) {
       });
     }
     
-    // Get 1-2 random active bots with enough points
+    // Get 1-2 random active bots with enough points.
+    // MUST match on isBot only. Matching `botActive: true` as an alternative was a
+    // severe bug: botActive defaults to true on normal user accounts, so real users
+    // were picked as "bots" and had battles created under their name (wager deducted
+    // from them) without ever clicking anything.
     const bots = await User.aggregate([
       { 
         $match: { 
-          $or: [{ isBot: true }, { botActive: true }],
+          isBot: true,
+          botActive: { $ne: false },
           bogxCoins: { $gte: 25 }
         } 
       },
@@ -213,9 +224,9 @@ export async function POST(request: NextRequest) {
         const wagerConfig = WAGERS[Math.floor(Math.random() * WAGERS.length)];
         
         if (bot.bogxCoins >= wagerConfig.amount) {
-          // Get random cards for this battle using $sample
+          // Get random cards for this battle using $sample - MUST match the battle topic
           const cards = await Card.aggregate([
-            { $match: { active: true } },
+            { $match: { active: true, theme: TOPIC_TO_THEME[topic] } },
             { $sample: { size: wagerConfig.rounds } }
           ]);
           
@@ -240,6 +251,7 @@ export async function POST(request: NextRequest) {
               questions,
               creatorResults: [],
               opponentResults: [],
+              createdVia: 'trigger-bots:botLoop',
             });
             
             // Deduct wager
@@ -268,6 +280,8 @@ export async function POST(request: NextRequest) {
             openBattle.opponent = bot._id;
             openBattle.status = 'active';
             openBattle.acceptedAt = new Date();
+            openBattle.acceptedVia = 'trigger-bots:botLoop';
+            console.log('[BATTLE JOIN] trigger-bots bot joined', openBattle._id.toString(), 'bot=', bot.username);
 
             // Simulate the bot's answers immediately upon joining — without
             // this the battle gets permanently stuck waiting for an
@@ -318,8 +332,10 @@ export async function GET(request: NextRequest) {
     await dbConnect();
     
     // Find all bots
+    // isBot only — `botActive: true` is the default on every user account and would
+    // list real users as bots here.
     const allBots = await User.find({ 
-      $or: [{ isBot: true }, { botActive: true }] 
+      isBot: true 
     }).select('username isBot botActive points avatar country').limit(20);
     
     // Find Shadow Hunter specifically
