@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
     
     // Add rank to each battle's creator
     const battlesWithRank = battles.map(b => {
-      const battle = b.toObject();
+      const battle = b.toObject() as any;
       if (battle.creator?._id) {
         battle.creator.rank = rankMap.get(battle.creator._id.toString()) || null;
       }
