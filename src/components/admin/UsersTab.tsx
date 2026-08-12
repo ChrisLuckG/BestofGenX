@@ -49,6 +49,7 @@ interface UserData {
   username: string;
   email: string;
   coins: number;
+  bogxCoins?: number;
   wins: number;
   gamesPlayed: number;
   isBot?: boolean;
@@ -69,6 +70,10 @@ interface UserData {
     website?: string;
   };
   createdAt: string;
+  // Bot stats
+  readArticles?: string[];
+  watchedVideos?: string[];
+  reactionsCount?: number;
 }
 
 interface GameResultItem {
@@ -380,9 +385,12 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
   // Filter out AI reporters - they are managed in the Conference tab
   const displayUsers = users.filter(u => !u.isAIReporter);
   
-  const totalCoins = displayUsers.reduce((sum, u) => sum + (u.coins || 0), 0);
+  const totalCoins = displayUsers.reduce((sum, u) => sum + (u.bogxCoins || u.coins || 0), 0);
   const totalWins = displayUsers.reduce((sum, u) => sum + (u.wins || 0), 0);
   const totalGames = displayUsers.reduce((sum, u) => sum + (u.gamesPlayed || 0), 0);
+  const totalArticles = displayUsers.reduce((sum, u) => sum + (u.readArticles?.length || 0), 0);
+  const totalVideos = displayUsers.reduce((sum, u) => sum + (u.watchedVideos?.length || 0), 0);
+  const totalLikes = displayUsers.reduce((sum, u) => sum + (u.reactionsCount || 0), 0);
   const botCount = displayUsers.filter(u => u.isBot).length;
   const realUserCount = displayUsers.length - botCount;
 
@@ -401,7 +409,7 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
           <div>
             <h2 className="text-sm font-bold">Users ({displayUsers.length})</h2>
             <p className="text-[11px] text-gray-400">
-              {realUserCount} real · {botCount} bots · {totalCoins.toLocaleString()} total coins · {totalWins} wins · {totalGames} games
+              {realUserCount} real · {botCount} bots · <span className="text-yellow-400">{totalCoins.toFixed(2)} coins</span> · <span className="text-green-400">{totalWins} wins</span> · {totalGames} games · <span className="text-blue-400">{totalArticles} articles</span> · <span className="text-purple-400">{totalVideos} videos</span> · <span className="text-pink-400">{totalLikes} likes</span>
             </p>
           </div>
           <div className="flex gap-1.5">
@@ -478,6 +486,9 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                   <th className="pb-2 text-right font-medium">Coins</th>
                   <th className="pb-2 text-right font-medium">Wins</th>
                   <th className="pb-2 text-right font-medium">Games</th>
+                  <th className="pb-2 text-right font-medium">Articles</th>
+                  <th className="pb-2 text-right font-medium">Videos</th>
+                  <th className="pb-2 text-right font-medium">Likes</th>
                   <th className="pb-2 font-medium">Type</th>
                   <th className="pb-2 font-medium">Joined</th>
                   <th className="pb-2 font-medium">Actions</th>
@@ -518,9 +529,12 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                       </div>
                     </td>
                     <td className="py-2 text-gray-400">{user.email || '-'}</td>
-                    <td className="py-2 text-right">{(user.coins || 0).toLocaleString()}</td>
+                    <td className="py-2 text-right text-yellow-400">{(user.bogxCoins || user.coins || 0).toFixed(2)}</td>
                     <td className="py-2 text-right text-green-400">{user.wins || 0}</td>
                     <td className="py-2 text-right">{user.gamesPlayed || 0}</td>
+                    <td className="py-2 text-right text-blue-400">{user.readArticles?.length || 0}</td>
+                    <td className="py-2 text-right text-purple-400">{user.watchedVideos?.length || 0}</td>
+                    <td className="py-2 text-right text-pink-400">{user.reactionsCount || 0}</td>
                     <td className="py-2">
                       <div className="flex items-center gap-1 flex-wrap">
                         {user.isBot ? (

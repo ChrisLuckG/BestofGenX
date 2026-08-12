@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import User from '@/models/User';
+import Reaction from '@/models/Reaction';
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,10 +21,17 @@ export async function GET(request: NextRequest) {
       .sort({ createdAt: -1 })
       .lean();
     
+    // Get reaction counts per user
+    const reactionCounts = await Reaction.aggregate([
+      { $group: { _id: '$odooUserId', count: { $sum: 1 } } }
+    ]);
+    const reactionMap = new Map(reactionCounts.map(r => [r._id, r.count]));
+    
     // Ensure isBot is always defined (default false for old users)
     const usersWithBot = users.map(u => ({
       ...u,
-      isBot: u.isBot === true
+      isBot: u.isBot === true,
+      reactionsCount: reactionMap.get(u._id.toString()) || 0,
     }));
     
     return NextResponse.json({ success: true, users: usersWithBot });
