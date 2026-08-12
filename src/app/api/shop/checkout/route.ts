@@ -36,6 +36,15 @@ export async function POST(request: Request) {
     if (paymentMethod === 'points' && userId && pointsToDeduct > 0) {
       await dbConnect();
       
+      // Block bots from using the shop
+      const checkUser = await User.findById(userId).select('isBot');
+      if (checkUser?.isBot) {
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Bots cannot use the shop' 
+        }, { status: 403 });
+      }
+      
       // Check if user has enough BOGX (atomic operation)
       const user = await User.findOneAndUpdate(
         { _id: userId, bogxCoins: { $gte: pointsToDeduct } },
