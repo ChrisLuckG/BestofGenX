@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { 
   X, Send, Loader2, ListOrdered, FileText, Tv, Radio, Plus, Check, ChevronDown, 
   CheckCircle, AlertCircle, Users, Sparkles, ExternalLink, User, Eye, Pencil, Save,
-  RefreshCw, Trash2, Calendar, Square, BookOpen, Play, RotateCcw, Video
+  RefreshCw, Trash2, Calendar, Square, BookOpen, Play, RotateCcw, Video, Music
 } from "lucide-react";
 import BlockEditor from "@/components/admin/BlockEditor";
 import ImagePickerModal from "@/components/admin/ImagePickerModal";
@@ -223,6 +223,8 @@ const PROMPT_TEMPLATES = [
   { id: 'album', label: '💿 Album', prompt: 'ON THIS DAY — find an album that was RELEASED ON THIS EXACT DATE (any year 1975-2000). Give the exact release date, artist, album name, and why it was significant to GenX. NOT a person — an EVENT.' },
   { id: 'tvseries', label: '📺 TV Series', prompt: 'ON THIS DAY — find a TV series event that happened ON THIS EXACT DATE (any year 1975-2000). Could be: a series premiere, a finale, a famous episode, etc. Give the exact date, show name, and why it mattered. NOT a person — an EVENT.' },
   { id: 'game', label: '🎮 Game', prompt: 'ON THIS DAY — find a video game that was RELEASED ON THIS EXACT DATE (any year 1975-2000). Could be: an arcade game debut, a console launch, a legendary game release, etc. Give the exact date, game name, and why it mattered to GenX. NOT a person — an EVENT.' },
+  // Special templates (load data dynamically)
+  { id: 'radio', label: '📻 Radio', prompt: 'RADIO_SONG_REQUESTS', isDynamic: true },
   { id: 'custom', label: '✏️ Custom', prompt: '' },
 ];
 
@@ -531,6 +533,20 @@ export default function NewsroomConference({
   ];
   const [apiStatus, setApiStatus] = useState<{ status: string; message: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  
+  // Radio Song Requests state (for Radio template)
+  const [songRequests, setSongRequests] = useState<Array<{
+    _id: string;
+    username: string;
+    playlist: string;
+    band: string;
+    song: string;
+    link?: string;
+    coverImage?: string;
+    status: string;
+    createdAt: string;
+  }>>([]);
+  const [songRequestsLoading, setSongRequestsLoading] = useState(false);
 
   // Reporter Edit Modal state
   const [editingReporter, setEditingReporter] = useState<{
@@ -574,6 +590,7 @@ export default function NewsroomConference({
     title: string;
     reporterName: string;
     draft: typeof articleDraft;
+    saved?: boolean;
   }>>([]);
   const [selectedArticleTab, setSelectedArticleTab] = useState<string | null>(null);
   const [selectingProposal, setSelectingProposal] = useState<string | null>(null); // Track which proposal is being selected
@@ -698,6 +715,20 @@ export default function NewsroomConference({
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, typing]);
+
+  // Auto-load song requests when Radio tab is opened
+  useEffect(() => {
+    if (currentPiece?.type === 'radio' && songRequests.length === 0 && !songRequestsLoading) {
+      setSongRequestsLoading(true);
+      fetch('/api/song-request?status=added')
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) setSongRequests(data.requests || []);
+        })
+        .catch(e => console.error('Failed to load song requests:', e))
+        .finally(() => setSongRequestsLoading(false));
+    }
+  }, [currentPiece?.type, songRequests.length, songRequestsLoading]);
 
   // Color for a person
   function colorFor(personId: string) {
@@ -947,14 +978,16 @@ export default function NewsroomConference({
     const diedMatch = text.match(/DIED:\s*(\d{1,2}\.\d{1,2}\.\d{4})/i);
     const causeMatch = text.match(/CAUSE:\s*(.+)/i);
     const countryMatch = text.match(/COUNTRY:\s*(.+)/i);
+    const typeMatch = text.match(/TYPE:\s*(.+)/i);
     const categoryMatch = text.match(/CATEGORY:\s*(.+)/i);
-    const descMatch = text.match(/DESCRIPTION:\s*([\s\S]+?)(?=\n(?:NAME|BORN|DIED|CAUSE|COUNTRY|CATEGORY):|$)/i);
+    const descMatch = text.match(/DESCRIPTION:\s*([\s\S]+?)(?=\n(?:NAME|BORN|DIED|CAUSE|COUNTRY|CATEGORY|TYPE):|$)/i);
     
     let name = nameMatch ? nameMatch[1].trim().split('\n')[0] : 'Unknown';
     const birthday = bornMatch ? bornMatch[1].trim() : '';
     const deathday = diedMatch ? diedMatch[1].trim() : undefined;
     const causeOfDeath = causeMatch ? causeMatch[1].trim().split('\n')[0] : undefined;
     const country = countryMatch ? countryMatch[1].trim().split('\n')[0] : '';
+    const eventType = typeMatch ? typeMatch[1].trim().split('\n')[0] : undefined;
     let rawCategory = categoryMatch ? categoryMatch[1].trim().toLowerCase().split('\n')[0] : '';
     // Normalize common variations
     if (rawCategory === 'sport') rawCategory = 'sports';
@@ -963,6 +996,7 @@ export default function NewsroomConference({
     if (rawCategory === 'musician' || rawCategory === 'singer' || rawCategory === 'band') rawCategory = 'music';
     if (rawCategory === 'actor' || rawCategory === 'actress') rawCategory = 'movies-tv';
     if (rawCategory === 'athlete' || rawCategory === 'football' || rawCategory === 'basketball' || rawCategory === 'soccer' || rawCategory === 'nfl' || rawCategory === 'nba') rawCategory = 'sports';
+    if (rawCategory === 'history' || rawCategory === 'historical') rawCategory = 'culture';
     const validCategories = ['sports', 'music', 'movies-tv', 'gaming', 'politics', 'tech', 'culture', 'lifestyle', 'rip'];
     const category = validCategories.includes(rawCategory) ? rawCategory : (globalCategory || 'culture');
     const description = descMatch ? descMatch[1].trim().slice(0, 300) : text.slice(0, 200);
@@ -978,19 +1012,28 @@ export default function NewsroomConference({
       noCategoryMatch = true;
     }
     
-    // Validate GenX
+    // Validate - different rules for events vs people
     let isValid = name !== 'Unknown' && birthday;
     let errorReason = '';
     if (noCategoryMatch) {
-      errorReason = `No ${category || 'matching'} people in today's Wikipedia list. Try a different category.`;
+      errorReason = `No ${category || 'matching'} events found for this date. Try a different category.`;
     } else if (!isValid) {
-      errorReason = 'Could not find anyone for this date';
+      errorReason = isEvent ? 'Could not find any event for this date' : 'Could not find anyone for this date';
     } else if (!isEvent && birthday) {
+      // Only validate GenX year for PEOPLE, not events
       const yearMatch = birthday.match(/(\d{4})/);
       if (yearMatch) {
         const year = parseInt(yearMatch[1]);
         if (year < 1965) { isValid = false; errorReason = `Born ${year} - too old for GenX (need 1965-1980)`; }
         else if (year > 1980) { isValid = false; errorReason = `Born ${year} - too young for GenX (need 1965-1980)`; }
+      }
+    } else if (isEvent && birthday) {
+      // For events, validate year is in GenX era (1975-2000)
+      const yearMatch = birthday.match(/(\d{4})/);
+      if (yearMatch) {
+        const year = parseInt(yearMatch[1]);
+        if (year < 1975) { isValid = false; errorReason = `Event from ${year} - too early (need 1975-2000)`; }
+        else if (year > 2000) { isValid = false; errorReason = `Event from ${year} - too recent (need 1975-2000)`; }
       }
     }
     
@@ -999,7 +1042,7 @@ export default function NewsroomConference({
       birthday,
       deathday,
       causeOfDeath,
-      country,
+      country: isEvent ? (eventType || '') : country, // For events, show event type instead of country
       profession: '',
       description,
       reporterId: reporter.id,
@@ -1219,10 +1262,22 @@ DESCRIPTION: [1 sentence hook that makes people curious]`,
       lowerMsg.includes('not a person') ||
       lowerMsg.includes('an event') ||
       lowerMsg.includes('film premiere') ||
+      lowerMsg.includes('series premiere') ||
       lowerMsg.includes('series finale') ||
+      lowerMsg.includes('famous episode') ||
       lowerMsg.includes('oscar win') ||
       lowerMsg.includes('album release') ||
-      lowerMsg.includes('game release')
+      lowerMsg.includes('released') ||
+      lowerMsg.includes('game release') ||
+      lowerMsg.includes('console launch') ||
+      lowerMsg.includes('arcade game') ||
+      lowerMsg.includes('championship game') ||
+      lowerMsg.includes('world record') ||
+      lowerMsg.includes('legendary match') ||
+      lowerMsg.includes('legendary concert') ||
+      lowerMsg.includes('band forming') ||
+      lowerMsg.includes('band breaking') ||
+      lowerMsg.includes('#1 hit')
     );
     
     // Simple prompt - the system prompt already has birthday data from Wikipedia
@@ -1263,6 +1318,65 @@ COUNTRY: [country]
 DESCRIPTION: [1-2 sentences about their life and legacy]`;
       }
       
+      if (isEventRequest) {
+        // EVENT request - find a movie premiere, album release, sports event, etc.
+        // Build category-specific prompt
+        let eventTypeDesc: string;
+        let examples: string;
+        let typeOptions: string;
+        
+        if (globalCategory === 'movies-tv') {
+          eventTypeDesc = 'a movie premiere, TV series premiere/finale, famous episode airing, or Oscar win';
+          examples = `- A blockbuster movie that premiered on this date (e.g. "Pulp Fiction premiered October 14, 1994")
+- A TV series that debuted or ended on this date (e.g. "Friends finale aired May 6, 2004")
+- A famous episode that aired on this date (e.g. "Who Shot J.R.? aired November 21, 1980")
+- An Oscar ceremony or major award on this date`;
+          typeOptions = 'movie-premiere, tv-premiere, tv-finale, famous-episode, oscar-win';
+        } else if (globalCategory === 'music') {
+          eventTypeDesc = 'an album release, legendary concert, #1 hit, band forming, or band breaking up';
+          examples = `- An iconic album released on this date (e.g. "Nevermind released September 24, 1991")
+- A legendary concert on this date (e.g. "Live Aid July 13, 1985")
+- A song hitting #1 on this date
+- A band forming or breaking up on this date (e.g. "The Beatles broke up April 10, 1970")`;
+          typeOptions = 'album-release, concert, number-one-hit, band-formed, band-breakup';
+        } else if (globalCategory === 'sports') {
+          eventTypeDesc = 'a championship game, world record, legendary match, historic upset, or retirement';
+          examples = `- A Super Bowl, World Cup final, or championship game on this date
+- A world record set on this date (e.g. "Usain Bolt 9.58s August 16, 2009")
+- A legendary match or upset on this date (e.g. "Miracle on Ice February 22, 1980")
+- A famous athlete retiring on this date`;
+          typeOptions = 'championship, world-record, legendary-match, upset, retirement';
+        } else if (globalCategory === 'gaming') {
+          eventTypeDesc = 'a video game release, console launch, or arcade debut';
+          examples = `- A legendary game released on this date (e.g. "Super Mario Bros. September 13, 1985")
+- A console launched on this date (e.g. "PlayStation December 3, 1994")
+- An arcade game debuted on this date (e.g. "Pac-Man May 22, 1980")`;
+          typeOptions = 'game-release, console-launch, arcade-debut';
+        } else {
+          eventTypeDesc = 'a significant cultural event (movie, music, sports, tech, or historical)';
+          examples = `- A movie premiere, album release, or TV event
+- A sports championship or world record
+- A tech launch (e.g. "iPhone announced January 9, 2007")
+- A historical moment (e.g. "Berlin Wall fell November 9, 1989")`;
+          typeOptions = 'movie-premiere, album-release, championship, tech-launch, historical';
+        }
+        
+        return `Find ${eventTypeDesc} that happened ON THIS EXACT DATE (${dayMonth}) in any year between 1975-2000.
+
+⚠️ THIS IS AN EVENT, NOT A PERSON! Do NOT suggest a birthday or death anniversary.
+Find something that PREMIERED, RELEASED, or HAPPENED on ${dayMonth}.
+
+Examples for this category:
+${examples}
+
+Reply in EXACTLY this format:
+EVENT: [title of the event/movie/album/game]
+DATE: ${dayMonth}.[year between 1975-2000]
+TYPE: [${typeOptions}]
+CATEGORY: [movies-tv, music, sports, gaming, history]
+DESCRIPTION: [1-2 sentences about why this event mattered to GenX]`;
+      }
+      
       // Birthday request - find someone BORN on this day
       const categoryRequirement = globalCategory 
         ? `\n\n🚫🚫🚫 MANDATORY CATEGORY FILTER: ${globalCategory.toUpperCase()} 🚫🚫🚫\nYou MUST find someone in the ${globalCategory} category. NO sports people if politics is selected. NO actors if politics is selected. ONLY ${globalCategory}!\nIf you suggest someone outside ${globalCategory}, your response will be REJECTED.\n\n⚠️ Only if NEITHER the "WORLDWIDE ${globalCategory.toUpperCase()} BIRTHDAYS" block NOR the Wikipedia list contains a single ${globalCategory} person, respond with:\nNAME: NO_CATEGORY_MATCH\nBORN: ${dayMonth}.0000\nCOUNTRY: N/A\nCATEGORY: ${globalCategory}\nDESCRIPTION: No ${globalCategory} people found for this date. Try a different category.`
@@ -1288,6 +1402,11 @@ DESCRIPTION: [1 sentence about them]`;
     };
 
     try {
+      // Clear old proposals before starting new search
+      updatePieceMessages(currentPiece.id, msgs => 
+        msgs.filter(m => m.from !== 'proposals')
+      );
+      
       // Process reporters ONE BY ONE (sequential, not parallel)
       const results: { reporter: typeof targetReporters[0]; response: string; success: boolean }[] = [];
       const alreadyProposed: string[] = []; // Track names to avoid duplicates
@@ -1352,29 +1471,69 @@ DESCRIPTION: [1 sentence about them]`;
           // Track this name to avoid duplicates in next reporters
           alreadyProposed.push(proposal.name);
           
-          // IMMEDIATELY save to Menschen database (don't wait for article)
+          // IMMEDIATELY save to Almanac Person database (same DB as MenschenTab)
           try {
-            await fetch('/api/menschen', {
+            // Split name into firstname/lastname
+            const nameParts = proposal.name.trim().split(' ');
+            const firstname = nameParts[0] || '';
+            const lastname = nameParts.slice(1).join(' ') || '';
+            
+            // Convert birthday from DD.MM.YYYY to YYYY-MM-DD
+            let born = '';
+            if (proposal.birthday) {
+              const match = proposal.birthday.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+              if (match) {
+                born = `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
+              }
+            }
+            
+            // Convert deathday from DD.MM.YYYY to YYYY-MM-DD
+            let died = '';
+            if (proposal.deathday) {
+              const match = proposal.deathday.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+              if (match) {
+                died = `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
+              }
+            }
+            
+            // Map category to profession enum
+            const professionMap: Record<string, string> = {
+              'music': 'Music',
+              'sports': 'Sport',
+              'movies-tv': 'Actor',
+              'politics': 'Politik',
+              'tech': 'Tech',
+              'culture': 'Art',
+              'lifestyle': 'Other',
+              'gaming': 'Other',
+            };
+            const profession = professionMap[proposal.category?.toLowerCase() || ''] || 'Other';
+            
+            await fetch('/api/almanac', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                name: proposal.name,
-                birthday: proposal.birthday,
-                deathday: proposal.deathday,
-                country: proposal.country,
-                category: proposal.category || 'unknown',
-                profession: proposal.profession || '',
-                description: proposal.description || '',
-                isGenX: true,
+                type: 'people',
+                firstname,
+                lastname,
+                born,
+                died,
+                causeOfDeath: '',
+                profession,
+                subcat: proposal.category || '',
+                knownfor: proposal.description || '',
+                countryBorn: proposal.country || '',
+                // Discovery tracking
                 discoveredBy: reporter.id,
                 discoveredByName: reporter.name,
                 discoveredFor: proposal.isRIP ? 'rip' : 'birthday',
+                hasArticle: false,
               }),
             });
-            console.log(`[Menschen] Saved: ${proposal.name}`);
+            console.log(`[Almanac] Saved: ${proposal.name}`);
             proposal.savedToMenschen = true;
           } catch (err) {
-            console.error(`[Menschen] Failed to save ${proposal.name}:`, err);
+            console.error(`[Almanac] Failed to save ${proposal.name}:`, err);
           }
         }
         
@@ -2307,7 +2466,22 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                 {PROMPT_TEMPLATES.filter(t => t.id !== 'custom').map(t => (
                   <button
                     key={t.id}
-                    onClick={() => setSelectedTemplate(selectedTemplate === t.id ? null : t.id)}
+                    onClick={async () => {
+                      const newTemplate = selectedTemplate === t.id ? null : t.id;
+                      setSelectedTemplate(newTemplate);
+                      // Load song requests when Radio template is selected
+                      if (newTemplate === 'radio' && songRequests.length === 0) {
+                        setSongRequestsLoading(true);
+                        try {
+                          const res = await fetch('/api/song-request?status=added');
+                          const data = await res.json();
+                          if (data.success) setSongRequests(data.requests || []);
+                        } catch (e) {
+                          console.error('Failed to load song requests:', e);
+                        }
+                        setSongRequestsLoading(false);
+                      }
+                    }}
                     className={`px-2 py-1 rounded text-[10px] font-medium transition-colors ${
                       selectedTemplate === t.id 
                         ? 'bg-[#E36B11] text-black' 
@@ -2408,7 +2582,7 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
               </div>
               
               {/* Row 2: Prompt preview + Send button (shows when template selected) */}
-              {selectedTemplate && selectedTemplate !== 'rank' && (
+              {selectedTemplate && selectedTemplate !== 'rank' && selectedTemplate !== 'radio' && (
                 <div className="flex items-start gap-2 bg-gray-800 rounded p-2">
                   <p className="flex-1 text-xs text-gray-300 leading-relaxed">
                     {PROMPT_TEMPLATES.find(t => t.id === selectedTemplate)?.prompt}
@@ -2423,6 +2597,66 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                   >
                     {typing ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Send
                   </button>
+                </div>
+              )}
+              
+              {/* Radio template - show song requests */}
+              {selectedTemplate === 'radio' && (
+                <div className="bg-gray-800 rounded p-2">
+                  {songRequestsLoading ? (
+                    <div className="flex items-center gap-2 text-xs text-gray-400">
+                      <Loader2 size={12} className="animate-spin" /> Loading song requests...
+                    </div>
+                  ) : songRequests.length === 0 ? (
+                    <p className="text-xs text-gray-400">No added song requests found. Mark songs as "Added" in the Requests tab first.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-gray-300">
+                          <span className="font-bold text-[#E36B11]">{songRequests.length}</span> songs from our community ready for article:
+                        </p>
+                        <button
+                          onClick={() => {
+                            // Build the Radio article prompt with song data
+                            const songList = songRequests.map(r => `- "${r.song}" by ${r.band} (requested by ${r.username} for ${r.playlist})`).join('\n');
+                            const radioPrompt = `RADIO ARTICLE — Write a monthly "Community Radio" article celebrating the songs our readers requested this month.
+
+SONG REQUESTS FROM OUR COMMUNITY:
+${songList}
+
+Write an engaging article that:
+1. Thanks our community for their great taste in music
+2. Groups songs by genre/mood/era if possible
+3. Tells a short story or fun fact about 3-5 of the most interesting songs
+4. Mentions the usernames who requested them (they'll love seeing their name!)
+5. Encourages more song requests
+
+Tone: Warm, appreciative, music-nerd enthusiastic. Like a DJ thanking callers.
+Category: music
+Length: 800-1200 words`;
+                            sendMessage(radioPrompt);
+                          }}
+                          disabled={!!typing || songRequests.length === 0}
+                          className={`flex items-center gap-1.5 px-4 py-2 rounded text-xs font-bold shrink-0 disabled:opacity-50 ${theme.sendBtn}`}
+                        >
+                          {typing ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Generate Article
+                        </button>
+                      </div>
+                      <div className="max-h-32 overflow-y-auto space-y-1">
+                        {songRequests.slice(0, 10).map(r => (
+                          <div key={r._id} className="text-[10px] text-gray-400 flex items-center gap-2">
+                            <span className="text-white font-medium">{r.band}</span>
+                            <span className="text-gray-500">—</span>
+                            <span>{r.song}</span>
+                            <span className="text-gray-600">({r.username})</span>
+                          </div>
+                        ))}
+                        {songRequests.length > 10 && (
+                          <p className="text-[10px] text-gray-500">...and {songRequests.length - 10} more</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               
@@ -2643,6 +2877,159 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                   <span className="text-sm">Searching YouTube...</span>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Radio Row - shows when Radio type is selected */}
+          {currentPiece?.type === 'radio' && (
+            <div className="border-b border-gray-800 bg-gray-900/50 px-3 py-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Radio size={16} className="text-[#1DB954]" />
+                  <span className="text-sm font-medium text-gray-300">Community Radio Article</span>
+                  <span className="text-xs text-gray-500">
+                    {songRequestsLoading ? 'Loading...' : `${songRequests.length} songs ready`}
+                  </span>
+                </div>
+                <button
+                  onClick={async () => {
+                    const activePeople = roster.filter(r => activeReporters[r.id]);
+                    if (activePeople.length === 0) {
+                      alert('Select at least one reporter first');
+                      return;
+                    }
+                    if (songRequests.length === 0) {
+                      alert('No song requests available. Wait for them to load.');
+                      return;
+                    }
+                    
+                    // Use the first selected reporter
+                    const reporter = activePeople[0];
+                    setTyping(reporter.name);
+                    
+                    // Build the Radio article prompt with song data INCLUDING Spotify links
+                    const songList = songRequests.map(r => {
+                      const spotifyLink = r.link || '';
+                      return `- "${r.song}" by ${r.band} (requested by @${r.username} for ${r.playlist})${spotifyLink ? ` [SPOTIFY: ${spotifyLink}]` : ''}`;
+                    }).join('\n');
+                    
+                    const radioPrompt = `Write a "Community Radio" article celebrating the songs our readers requested this month.
+
+SONG REQUESTS FROM OUR COMMUNITY:
+${songList}
+
+Write an engaging article that:
+1. Thanks our community for their great taste in music
+2. Groups songs by genre/mood/era if possible  
+3. Tells a short story or fun fact about 3-5 of the most interesting songs
+4. Mentions the usernames who requested them (they'll love seeing their name!)
+5. Encourages more song requests
+
+IMPORTANT FORMATTING:
+- For each section, use "spotifyEmbed" instead of "youtubeSearch"
+- Use the SPOTIFY links provided above (the [SPOTIFY: ...] URLs)
+- DO NOT search for YouTube videos - this is a MUSIC article with Spotify embeds only
+
+Tone: Warm, appreciative, music-nerd enthusiastic. Like a DJ thanking callers.
+Category: music
+Length: 800-1200 words
+
+IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the SONGS listed above.`;
+
+                    try {
+                      // Call editorial chat API directly to generate article
+                      // articleMode: true forces article generation (not proposal)
+                      // skipYoutube: true prevents YouTube video search (use Spotify instead)
+                      const res = await fetch('/api/editorial/chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          reporterUserId: reporter.id,
+                          message: radioPrompt,
+                          articleMode: true,
+                          skipYoutube: true,
+                          spotifyLinks: songRequests.map(r => ({ song: r.song, band: r.band, link: r.link, coverImage: r.coverImage })),
+                        }),
+                      });
+                      const data = await res.json();
+                      console.log('[Radio] API response:', data);
+                      
+                      // API returns articleDraftId, not articleId
+                      const createdArticleId = data.articleDraftId || data.articleId;
+                      
+                      if (createdArticleId) {
+                        // Article was created - fetch it and show in editor
+                        console.log('[Radio] Fetching article:', createdArticleId);
+                        const articleRes = await fetch(`/api/articles/${createdArticleId}`);
+                        const articleData = await articleRes.json();
+                        console.log('[Radio] Article data:', articleData);
+                        if (articleData.success && articleData.article) {
+                          const a = articleData.article;
+                          setArticleDraft({
+                            _id: a._id,
+                            title: a.title || '',
+                            subtitle: a.subtitle || '',
+                            content: a.content || '',
+                            category: a.category || 'music',
+                            tags: a.tags || [],
+                            coverImage: a.coverImage || '',
+                            reporterId: reporter.id,
+                            reporterName: reporter.name,
+                            personName: 'Community Radio',
+                          });
+                          // Add to created articles tabs
+                          setCreatedArticles(prev => [...prev, {
+                            id: a._id,
+                            title: a.title || 'Community Radio Article',
+                            reporterName: reporter.name,
+                            draft: {
+                              _id: a._id,
+                              title: a.title || '',
+                              subtitle: a.subtitle || '',
+                              content: a.content || '',
+                              category: a.category || 'music',
+                              tags: a.tags || [],
+                              coverImage: a.coverImage || '',
+                              reporterId: reporter.id,
+                              reporterName: reporter.name,
+                              personName: 'Community Radio',
+                            },
+                          }]);
+                          setSelectedArticleTab(a._id);
+                        }
+                      } else {
+                        // No articleId - show error or reply
+                        console.warn('[Radio] No articleDraftId in response. Reply:', data.reply, 'Error:', data.error, 'Response:', data.response);
+                        alert(data.response || data.reply || data.error || 'Article generation failed - check console');
+                      }
+                      
+                      // Add message to chat (only if currentPiece exists)
+                      if (currentPiece?.id) {
+                        updatePieceMessages(currentPiece.id, msgs => [
+                          ...msgs,
+                          { id: generateId(), from: reporter.id, name: reporter.name, text: createdArticleId ? '✅ Article created! Click to edit.' : (data.response || data.reply || data.error || 'No article generated.') },
+                        ]);
+                      }
+                    } catch (err: any) {
+                      console.error('Radio article generation failed:', err);
+                      alert('Radio article generation failed: ' + (err?.message || 'Unknown error'));
+                      if (currentPiece?.id) {
+                        updatePieceMessages(currentPiece.id, msgs => [
+                          ...msgs,
+                          { id: generateId(), from: 'system', text: '❌ Failed to generate article: ' + (err?.message || 'Unknown error') },
+                        ]);
+                      }
+                    }
+                    
+                    setTyping(false);
+                  }}
+                  disabled={!!typing || songRequestsLoading || songRequests.length === 0 || !roster.some(r => activeReporters[r.id])}
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-[#1DB954] hover:bg-[#1ed760] text-white"
+                >
+                  {typing ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+                  Start Article
+                </button>
+              </div>
             </div>
           )}
 
@@ -2905,7 +3292,11 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                             <button
                               onClick={async (e) => {
                                 e.stopPropagation();
-                                // Show loading state on video
+                                // Remember the current video: the search now filters for
+                                // long/medium duration, so "nothing found" is a real
+                                // outcome. Without restoring it, clearing the id for the
+                                // loading state would drop a perfectly good video.
+                                const previousVideoId = event.youtubeVideoId;
                                 setHistoryEvents(prev => prev.map(ev => 
                                   ev.id === event.id ? { ...ev, youtubeVideoId: undefined } : ev
                                 ));
@@ -2916,17 +3307,20 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                                     body: JSON.stringify({ 
                                       query: event.youtubeSearch || event.title,
                                       year: event.year,
-                                      excludeVideoId: event.youtubeVideoId,
+                                      excludeVideoId: previousVideoId,
                                     }),
                                   });
                                   const data = await res.json();
-                                  if (data.success && data.videoId) {
-                                    setHistoryEvents(prev => prev.map(ev => 
-                                      ev.id === event.id ? { ...ev, youtubeVideoId: data.videoId } : ev
-                                    ));
-                                  }
+                                  setHistoryEvents(prev => prev.map(ev => 
+                                    ev.id === event.id
+                                      ? { ...ev, youtubeVideoId: (data.success && data.videoId) ? data.videoId : previousVideoId }
+                                      : ev
+                                  ));
                                 } catch {
-                                  // Silently fail - video is optional
+                                  // Network error - put the original video back
+                                  setHistoryEvents(prev => prev.map(ev => 
+                                    ev.id === event.id ? { ...ev, youtubeVideoId: previousVideoId } : ev
+                                  ));
                                 }
                               }}
                               className="text-[10px] text-gray-500 hover:text-gray-300 flex items-center gap-1"
@@ -3535,54 +3929,28 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
         </div>
       </div>
 
-      {/* Created Articles & Rankrolls Tabs - shown below chat */}
-      {(createdArticles.length > 0 || createdRankrolls.length > 0) && (
+      {/* Created Rankrolls tabs - shown below chat */}
+      {createdRankrolls.length > 0 && (
         <div className="fixed bottom-0 left-0 right-0 z-[55] bg-gray-900 border-t border-gray-700">
           <div className="flex items-center gap-1 px-4 py-2 overflow-x-auto">
-            {createdArticles.length > 0 && (
-              <>
-                <span className="text-[10px] text-gray-500 mr-2">Articles:</span>
-                {createdArticles.map(article => (
-                  <button
-                    key={article.id}
-                    onClick={() => {
-                      setArticleDraft(article.draft);
-                      setSelectedArticleTab(article.id);
-                      setSelectedRankrollTab(null);
-                    }}
-                    className={`px-3 py-1.5 rounded text-xs font-medium whitespace-nowrap transition-all ${
-                      selectedArticleTab === article.id 
-                        ? 'bg-[#E36B11] text-white' 
-                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                    }`}
-                  >
-                    📝 {article.title.slice(0, 25)}{article.title.length > 25 ? '...' : ''}
-                  </button>
-                ))}
-              </>
-            )}
-            {createdRankrolls.length > 0 && (
-              <>
-                <span className="text-[10px] text-gray-500 mx-2">Rankings:</span>
-                {createdRankrolls.map(rankroll => (
-                  <button
-                    key={rankroll.id}
-                    onClick={() => {
-                      setSelectedRankrollTab(rankroll.id);
-                      setSelectedArticleTab(null);
-                      setArticleDraft(null);
-                    }}
-                    className={`px-3 py-1.5 rounded text-xs font-medium whitespace-nowrap transition-all ${
-                      selectedRankrollTab === rankroll.id 
-                        ? 'bg-purple-600 text-white' 
-                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                    }`}
-                  >
-                    🏆 {rankroll.title.slice(0, 25)}{rankroll.title.length > 25 ? '...' : ''}
-                  </button>
-                ))}
-              </>
-            )}
+            <span className="text-[10px] text-gray-500 mr-2">Rankings:</span>
+            {createdRankrolls.map(rankroll => (
+              <button
+                key={rankroll.id}
+                onClick={() => {
+                  setSelectedRankrollTab(rankroll.id);
+                  setSelectedArticleTab(null);
+                  setArticleDraft(null);
+                }}
+                className={`px-3 py-1.5 rounded text-xs font-medium whitespace-nowrap transition-all ${
+                  selectedRankrollTab === rankroll.id 
+                    ? 'bg-purple-600 text-white' 
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                🏆 {rankroll.title.slice(0, 25)}{rankroll.title.length > 25 ? '...' : ''}
+              </button>
+            ))}
           </div>
         </div>
       )}
@@ -3830,13 +4198,20 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                       console.log('Save response:', data);
                       if (data.success || data._id || data.article) {
                         const savedId = data._id || data.article?._id || articleDraft._id;
-                        // Remove from tabs
-                        setCreatedArticles(prev => prev.filter(a => a.draft?.title !== articleDraft.title));
+                        // Mark as saved in tabs (keep visible in bottom bar)
+                        setCreatedArticles(prev => prev.map(a => 
+                          a.draft?.title === articleDraft.title 
+                            ? { ...a, saved: true, id: savedId, draft: { ...a.draft!, _id: savedId } }
+                            : a
+                        ));
+                        // Close the editor modal
                         setSelectedArticleTab(null);
                         setArticleDraft(null);
-                        // Only add result message for NEW articles, not updates
-                        if (currentPiece && !isUpdate) {
-                          updatePieceMessages(currentPiece.id, msgs => [
+                        // Add result message to current piece (or find the radio piece)
+                        const radioPiece = Object.values(pieces).flat().find((p: Piece) => p.type === 'radio');
+                        const targetPieceId = currentPiece?.id || radioPiece?.id;
+                        if (targetPieceId && !isUpdate) {
+                          updatePieceMessages(targetPieceId, msgs => [
                             ...msgs,
                             {
                               id: generateId(),
@@ -3844,7 +4219,7 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                               text: `✅ Article "${articleDraft.title}" saved to Articles.`,
                               resultType: 'article',
                               articleDraftId: savedId,
-                              articlePersonName: articleDraft.personName, // Store person name for Rankroll button
+                              articlePersonName: articleDraft.personName || articleDraft.title,
                               activated: true,
                             },
                           ]);

@@ -10,14 +10,19 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// This job waits on /api/generate-image, which needs ~2 minutes at quality
+// "high", plus the article-writing completion. Without this it hits the
+// platform's default serverless timeout and no article gets created.
+export const maxDuration = 300;
+
 // Generate cover image via /api/generate-image
 async function generateCoverImage(winnerName: string, dateNice: string, baseUrl: string): Promise<string | null> {
   try {
-    const prompt = `Retro 80s 90s arcade championship podium scene. Neon lights, trophy, pixel art scoreboard showing "DAILY CHAMPIONS". Dramatic stage lighting, confetti, crowd silhouettes. GenX gaming aesthetic, synthwave colors, cinematic. NO people, NO faces, NO text.`;
+    const prompt = `Championship podium with golden trophy, winner's stage. Background color #F5F0E8 warm cream beige. Soft orange #E36B11 accents. Minimalist flat illustration style, subtle confetti. Warm cozy retro 80s 90s nostalgia aesthetic. Simple clean composition. NO people, NO faces, NO text, NO neon, NO dark colors.`;
     const response = await fetch(`${baseUrl}/api/generate-image`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, style: 'article' }),
+      body: JSON.stringify({ prompt, style: 'article', aspectRatio: 'landscape' }),
     });
     if (!response.ok) return null;
     const data = await response.json();

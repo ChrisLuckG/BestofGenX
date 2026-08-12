@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import dbConnect from "@/lib/mongoose";
 import ReporterProfile from "@/models/ReporterProfile";
 import User from "@/models/User";
+import { searchYouTubeVideo, PREFER_LONG } from "@/lib/youtubeSearch";
 
 // Generate a single "On This Day" event proposal from a reporter
 // Each reporter finds ONE historical event that happened on today's date
@@ -64,49 +65,19 @@ interface HistoryEvent {
   reporterName: string;
 }
 
-// Search YouTube for a relevant video - tries multiple search strategies
+// Search YouTube for a relevant video.
+// History events want documentaries and archive footage, so the shared helper is
+// used with its long-then-medium preference. This endpoint previously ran an
+// unfiltered search and kept result #1, which is why events ended up with short
+// clips instead of proper footage.
 async function searchYouTube(query: string, year?: number): Promise<string | null> {
-  try {
-    const apiKey = process.env.YOUTUBE_API_KEY;
-    if (!apiKey) {
-      console.log("No YouTube API key configured");
-      return null;
-    }
-    
-    // Try multiple search queries to find a relevant video
-    const searchQueries = [
-      `${query} ${year || ''} documentary`,
-      `${query} ${year || ''} history`,
-      `${query} original footage`,
-      query,
-    ];
-    
-    for (const q of searchQueries) {
-      const searchQuery = encodeURIComponent(q.trim());
-      const response = await fetch(
-        `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${searchQuery}&type=video&maxResults=3&key=${apiKey}`
-      );
-      
-      if (!response.ok) {
-        console.error("YouTube API error:", response.status);
-        continue;
-      }
-      
-      const data = await response.json();
-      const videoId = data.items?.[0]?.id?.videoId;
-      
-      if (videoId) {
-        console.log(`Found YouTube video for "${q}": ${videoId}`);
-        return videoId;
-      }
-    }
-    
-    console.log(`No YouTube video found for: ${query}`);
-    return null;
-  } catch (err) {
-    console.error("YouTube search failed:", err);
-    return null;
-  }
+  const hit = await searchYouTubeVideo({
+    query,
+    year,
+    tiers: PREFER_LONG,
+    extraQueries: [`${query} ${year || ''} history`.trim()],
+  });
+  return hit?.videoId || null;
 }
 
 export async function POST(request: NextRequest) {

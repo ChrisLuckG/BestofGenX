@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, User, HelpCircle, Trophy, BarChart3, Coins, Zap, Play, Swords } from "lucide-react";
+import { Users, User, HelpCircle, Trophy, BarChart3, Coins, Zap, Play, Swords, Brain } from "lucide-react";
 import OpenBattlesModal from "./OpenBattlesModal";
 
 interface ArcadePageProps {
@@ -55,7 +55,7 @@ export default function ArcadePage({ onSelectGame, onShowRankings, onShowBattles
       {/* Header */}
       <div className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
         <div className="flex items-center gap-3">
-          <img src="/images/Icon/trivia2.png" alt="" className="w-5 h-5 object-contain" />
+          <Brain className="w-5 h-5 text-[#E36B11]" />
           <div>
             <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Trivia</span>
             <span className="text-[10px] text-gray-500 -mt-0.5 block">Test your GenX knowledge!</span>

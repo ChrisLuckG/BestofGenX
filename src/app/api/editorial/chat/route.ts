@@ -233,27 +233,45 @@ async function findYoutubeVideoId(searchTerm: string, preferLong: boolean = fals
     // Ask for several candidates instead of blindly trusting rank #1 — YouTube's
     // top hit for a person + film is often a talk-show or paparazzi clip that has
     // nothing to do with the passage the video sits next to.
-    // For history articles, add "documentary" and filter for long videos
-    const enhancedTerm = preferLong ? `${searchTerm} documentary` : searchTerm;
-    const durationFilter = preferLong ? '&videoDuration=long' : ''; // long = >20min
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(enhancedTerm)}&type=video&maxResults=8${durationFilter}&key=${apiKey}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-    
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error('[YouTube] API error:', res.status, errorText);
-      return null;
-    }
-    
-    const data = await res.json();
-    const items = (data.items || []).filter(
-      (it: any) => it?.id?.videoId && /^[a-zA-Z0-9_-]{11}$/.test(it.id.videoId)
-    );
-    if (!items.length) return null;
+    //
+    // For history articles we want documentaries. `videoDuration` takes a single
+    // value, so "long or medium" needs one request per tier. Previously only
+    // `long` (>20min) was tried and a miss meant NO video at all - many single
+    // events simply have no 20-minute upload, only a solid 8-minute report.
+    // Medium (4-20min) is the fallback; `short` is never requested.
+    const attempts: Array<{ term: string; duration: string }> = preferLong
+      ? [
+          { term: `${searchTerm} documentary`, duration: '&videoDuration=long' },
+          { term: `${searchTerm} documentary`, duration: '&videoDuration=medium' },
+          { term: searchTerm, duration: '&videoDuration=medium' },
+        ]
+      : [{ term: searchTerm, duration: '' }];
 
-    const best = pickBestYoutubeMatch(items, searchTerm);
-    console.log('[YouTube] Picked:', best.id, '|', best.title, `(score ${best.score})`);
-    return best.id;
+    for (const attempt of attempts) {
+      const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(attempt.term)}&type=video&maxResults=8${attempt.duration}&key=${apiKey}`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('[YouTube] API error:', res.status, errorText);
+        continue;
+      }
+
+      const data = await res.json();
+      const items = (data.items || []).filter(
+        (it: any) => it?.id?.videoId && /^[a-zA-Z0-9_-]{11}$/.test(it.id.videoId)
+      );
+      if (!items.length) {
+        console.log('[YouTube] No results for', attempt.duration || 'any duration');
+        continue;
+      }
+
+      const best = pickBestYoutubeMatch(items, searchTerm);
+      console.log('[YouTube] Picked:', best.id, '|', best.title, `(score ${best.score}${attempt.duration ? ', ' + attempt.duration.split('=')[1] : ''})`);
+      return best.id;
+    }
+
+    return null;
   } catch (err) {
     console.error('[YouTube] Search failed:', err);
     return null;
@@ -315,11 +333,94 @@ function buildYoutubeIframe(youtubeId: string): string {
   return `<iframe src="https://www.youtube.com/embed/${youtubeId}" frameborder="0" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>`;
 }
 
-// Convert sections array to HTML content with YouTube videos after each section
+// Build Spotify embed iframe from track URL
+function buildSpotifyEmbed(spotifyUrl: string): string {
+  // Extract track ID from various Spotify URL formats
+  // https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC
+  // https://open.spotify.com/intl-de/track/4uLU6hMCjMI75M1A2tKUQC
+  // spotify:track:4uLU6hMCjMI75M1A2tKUQC
+  let trackId = '';
+  
+  // Handle /intl-XX/track/ format
+  const trackMatch = spotifyUrl.match(/\/track\/([a-zA-Z0-9]+)/);
+  if (trackMatch) {
+    trackId = trackMatch[1];
+  } else if (spotifyUrl.includes('spotify:track:')) {
+    trackId = spotifyUrl.split('spotify:track:')[1]?.split('?')[0] || '';
+  }
+  
+  if (!trackId) {
+    console.log('[Spotify] Could not extract track ID from:', spotifyUrl);
+    return '';
+  }
+  
+  console.log('[Spotify] Building embed for track:', trackId);
+  
+  return `<div class="spotify-embed" style="margin: 20px 0;">
+<iframe style="border-radius:12px" src="https://open.spotify.com/embed/track/${trackId}?utm_source=generator&theme=0" width="100%" height="152" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+</div>`;
+}
+
+// Build a single song card (compact, for grid layout)
+function buildSongCardItem(song: string, band: string, coverImage?: string, spotifyLink?: string): string {
+  const searchQuery = encodeURIComponent(`${band} ${song}`);
+  const spotifySearchUrl = spotifyLink || `https://open.spotify.com/search/${searchQuery}`;
+  const cover = coverImage || 'https://i.scdn.co/image/ab67616d0000b273a9f6c04ba168640b48aa5f8f';
+  
+  return `<a href="${spotifySearchUrl}" target="_blank" rel="noopener" class="song-card-item" style="display: flex; flex-direction: column; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 12px; overflow: hidden; border: 1px solid rgba(34, 197, 94, 0.3); text-decoration: none; transition: transform 0.2s, box-shadow 0.2s;">
+  <div style="position: relative;">
+    <img src="${cover}" alt="${song}" style="width: 100%; aspect-ratio: 1; object-fit: cover;" />
+    <div style="position: absolute; bottom: 8px; right: 8px; width: 40px; height: 40px; background: #1DB954; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.4);">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
+    </div>
+  </div>
+  <div style="padding: 10px;">
+    <div style="font-weight: 700; color: #fff; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${song}</div>
+    <div style="color: #22C55E; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${band}</div>
+  </div>
+</a>`;
+}
+
+// Wrap multiple song cards in a 3-column grid
+function buildSongGrid(cards: string[]): string {
+  if (cards.length === 0) return '';
+  return `<div class="song-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 20px 0;">
+${cards.join('\n')}
+</div>`;
+}
+
+// Highlight @usernames in article content with green styling
+function highlightUsernames(content: string): string {
+  // Match @username patterns and wrap them in styled spans
+  return content.replace(/@([a-zA-Z0-9_]+)/g, '<span class="username-mention" style="color: #22C55E; font-weight: 700; background: rgba(34, 197, 94, 0.1); padding: 2px 6px; border-radius: 4px;">@$1</span>');
+}
+
+// Convert sections array to HTML content with YouTube videos or Spotify embeds after each section
 // isHistory: true = search for longer documentary videos (>20min)
-async function convertSectionsToContent(sections: Array<{heading: string | null; text: string; youtubeSearch?: string}>, isHistory: boolean = false): Promise<string> {
-  console.log('[Sections] Converting', sections.length, 'sections to content | isHistory:', isHistory);
+// skipYoutube: true = don't search YouTube, use Spotify embeds instead
+// spotifyLinks: array of {song, band, link, coverImage} for Spotify embeds
+async function convertSectionsToContent(
+  sections: Array<{heading: string | null; text: string; youtubeSearch?: string; spotifyEmbed?: string}>,
+  isHistory: boolean = false,
+  skipYoutube: boolean = false,
+  spotifyLinks: Array<{song: string; band: string; link?: string; coverImage?: string}> = []
+): Promise<string> {
+  console.log('[Sections] Converting', sections.length, 'sections to content | isHistory:', isHistory, '| skipYoutube:', skipYoutube, '| spotifyLinks:', spotifyLinks.length);
+  if (spotifyLinks.length > 0) {
+    console.log('[Sections] Spotify links available:', spotifyLinks.map(s => `${s.song} by ${s.band}`).join(', '));
+  }
   const contentParts: string[] = [];
+  
+  // Build a lookup map for Spotify links by song/band
+  const spotifyMap = new Map<string, string>();
+  for (const s of spotifyLinks) {
+    if (s.link) {
+      const key = `${s.song.toLowerCase()}|${s.band.toLowerCase()}`;
+      spotifyMap.set(key, s.link);
+      // Also add partial matches
+      spotifyMap.set(s.song.toLowerCase(), s.link);
+    }
+  }
   
   for (const section of sections) {
     // Add heading if present
@@ -330,9 +431,45 @@ async function convertSectionsToContent(sections: Array<{heading: string | null;
     // Add text content
     contentParts.push(section.text);
     
-    // Find and add YouTube video if search term provided
-    // For history articles, prefer longer documentaries
-    if (section.youtubeSearch) {
+    // If skipYoutube is true, try to add Spotify embeds for songs mentioned in this section
+    if (skipYoutube && spotifyLinks.length > 0) {
+      // Check if section has explicit spotifyEmbed URL
+      if (section.spotifyEmbed) {
+        const embed = buildSpotifyEmbed(section.spotifyEmbed);
+        if (embed) {
+          console.log('[Sections] Adding Spotify embed from section:', section.spotifyEmbed);
+          contentParts.push(embed);
+        }
+      } else {
+        // Search for song names mentioned in the section text and collect song cards
+        const sectionTextLower = section.text.toLowerCase();
+        const addedSongs = new Set<string>(); // Avoid duplicates
+        const sectionCards: string[] = [];
+        
+        for (const songData of spotifyLinks) {
+          const songKey = `${songData.song}|${songData.band}`;
+          if (addedSongs.has(songKey)) continue;
+          
+          // Check if song title or band is mentioned in the section
+          const songLower = songData.song.toLowerCase();
+          const bandLower = songData.band.toLowerCase();
+          
+          if (sectionTextLower.includes(songLower) || sectionTextLower.includes(bandLower)) {
+            // Build compact song card for grid
+            const card = buildSongCardItem(songData.song, songData.band, songData.coverImage, songData.link);
+            console.log('[Sections] Adding song card for:', songData.song, 'by', songData.band, '| hasCover:', !!songData.coverImage);
+            sectionCards.push(card);
+            addedSongs.add(songKey);
+          }
+        }
+        
+        // Wrap all cards in a 3-column grid
+        if (sectionCards.length > 0) {
+          contentParts.push(buildSongGrid(sectionCards));
+        }
+      }
+    } else if (section.youtubeSearch) {
+      // Original YouTube behavior
       console.log('[Sections] Section has youtubeSearch:', section.youtubeSearch, '| preferLong:', isHistory);
       const youtubeId = await findYoutubeVideoId(section.youtubeSearch, isHistory);
       if (youtubeId) {
@@ -342,7 +479,14 @@ async function convertSectionsToContent(sections: Array<{heading: string | null;
     }
   }
   
-  return contentParts.join('\n');
+  let finalContent = contentParts.join('\n');
+  
+  // For radio articles (skipYoutube), highlight @usernames
+  if (skipYoutube) {
+    finalContent = highlightUsernames(finalContent);
+  }
+  
+  return finalContent;
 }
 
 // Inject YouTube iframe after 2nd </p> and spread CTAs through content
@@ -509,7 +653,7 @@ export async function POST(request: NextRequest) {
     await dbConnect();
 
     const body = await request.json();
-    const { reporterUserId, message, conversationId, autoPublish, overrideCategory, overrideCountry, proposalOnly } = body;
+    const { reporterUserId, message, conversationId, autoPublish, overrideCategory, overrideCountry, proposalOnly, articleMode: forceArticleMode, skipYoutube, spotifyLinks } = body;
 
     if (!reporterUserId || !message) {
       return NextResponse.json({ success: false, error: 'reporterUserId and message required' }, { status: 400 });
@@ -521,7 +665,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Reporter not found' }, { status: 404 });
     }
     const user = await User.findById(reporterUserId).select('displayName username avatar').lean();
-    const reporterName = (user as any)?.displayName || (user as any)?.username || 'Reporter';
+    const reporterName = (user as any)?.displayName || (user as any)?.username || profile.name || 'Reporter';
 
     // Load or create conversation
     let conversation = conversationId
@@ -655,10 +799,28 @@ FULL BOGX PLATFORM KNOWLEDGE (study this — it is your employer's complete guid
 ================================================================================
 ${bogxKnowledge}`;
 
-    const articleMode = isArticleApproval(message);
+    const articleMode = forceArticleMode === true || isArticleApproval(message);
 
-    const userMessageContent = articleMode
-      ? `${message}\n\n⚠️ EDITOR APPROVED — OUTPUT FORMAT IS MANDATORY ⚠️
+    // Different JSON format instructions for Radio articles (Spotify) vs regular articles (YouTube)
+    const radioArticleInstructions = `\n\n⚠️ EDITOR APPROVED — OUTPUT FORMAT IS MANDATORY ⚠️
+Output ONLY valid JSON. Use the SECTIONS array format:
+{
+  "title": "...",
+  "subtitle": "...",
+  "sections": [
+    {"heading": null, "text": "<p>Intro paragraph...</p>"},
+    {"heading": "Section Title", "text": "<p>Content about the songs...</p>"}
+  ],
+  "tags": ["community", "music", "playlist", "genx"],
+  "category": "music",
+  "imageSearchTerm": "retro radio music vinyl",
+  "ctas": ["radio", "articles"]
+}
+IMPORTANT: This is a Community Radio article. Do NOT include youtubeSearch fields. 
+Write engaging content about the songs mentioned in the prompt.
+Use 3-5 sections to group songs by theme/genre/mood.`;
+
+    const regularArticleInstructions = `\n\n⚠️ EDITOR APPROVED — OUTPUT FORMAT IS MANDATORY ⚠️
 Output ONLY valid JSON. Use the SECTIONS array format (NOT the old "content" field):
 {
   "title": "...",
@@ -686,7 +848,10 @@ CRITICAL — YOUTUBE SEARCH RULES:
 - For ACTORS: "Name + movie title + scene" or "Name + interview + show year"
 - For RIP: "Name + tribute" or "Name + best moments compilation" or "Name + final performance"
 - personCountry and personCountryCode are REQUIRED - use the person's BIRTH country.
-- DO NOT use the old "content" field. Use "sections" array ONLY.`
+- DO NOT use the old "content" field. Use "sections" array ONLY.`;
+
+    const userMessageContent = articleMode
+      ? message + (skipYoutube ? radioArticleInstructions : regularArticleInstructions)
       : message;
 
     const openaiMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
@@ -747,9 +912,15 @@ CRITICAL — YOUTUBE SEARCH RULES:
           if (parsed.sections && Array.isArray(parsed.sections)) {
             // New format: sections array with youtubeSearch per section
             // For history articles, search for longer documentary videos
+            // For radio/music articles with skipYoutube, use Spotify embeds instead
             const isHistoryArticle = (parsed.category || '').toLowerCase().includes('history');
-            console.log('[Article] Using NEW sections format with', parsed.sections.length, 'sections | isHistory:', isHistoryArticle);
-            finalContent = await convertSectionsToContent(parsed.sections, isHistoryArticle);
+            console.log('[Article] Using NEW sections format with', parsed.sections.length, 'sections | isHistory:', isHistoryArticle, '| skipYoutube:', !!skipYoutube);
+            finalContent = await convertSectionsToContent(
+              parsed.sections, 
+              isHistoryArticle, 
+              skipYoutube === true, 
+              spotifyLinks || []
+            );
           } else if (parsed.content) {
             // Legacy format: plain HTML content
             console.log('[Article] Using LEGACY content format (no videos will be added)');

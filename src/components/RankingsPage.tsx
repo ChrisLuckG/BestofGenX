@@ -389,7 +389,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
               onClick={() => setActiveTab(tab)}
               className={`flex-1 py-3 text-xs font-semibold uppercase tracking-widest transition-all ${
                 activeTab === tab
-                  ? "text-[#E36B11] border-b-2 border-[#E36B11]"
+                  ? "text-gray-900 border-b-2 border-gray-900"
                   : "text-gray-600"
               }`}
             >
@@ -549,7 +549,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                     }`}
                   >
                     {/* Rank */}
-                    <div className={`font-display text-base min-w-[24px] text-center ${isMe ? 'text-[#E36B11]' : 'text-gray-600'}`}>
+                    <div className={`font-display text-base min-w-[24px] text-center ${isMe ? 'text-gray-900 font-bold' : 'text-gray-600'}`}>
                       {player.rank}
                     </div>
                     
@@ -572,12 +572,12 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                     </div>
                     
                     {/* Trend */}
-                    {wentUp && <span className="text-[9px] font-semibold text-[#E36B11]">↑</span>}
+                    {wentUp && <span className="text-[9px] font-semibold text-green-600">↑</span>}
                     {wentDown && <span className="text-[9px] font-semibold text-red-500">↓</span>}
                     {!wentUp && !wentDown && <span className="text-[9px] text-gray-300">—</span>}
                     
                     {/* Points */}
-                    <div className={`font-display text-lg ${isMe ? 'text-[#E36B11]' : 'text-gray-900'}`}>
+                    <div className={`font-display text-lg ${isMe ? 'text-gray-900 font-bold' : 'text-gray-900'}`}>
                       {formatCurrency(player.points)} {getCurrencySymbol()}
                     </div>
                   </div>

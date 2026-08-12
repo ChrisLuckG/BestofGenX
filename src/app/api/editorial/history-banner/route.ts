@@ -5,6 +5,12 @@ import sharp from "sharp";
 
 // Generate a history banner image with date calendar and event thumbnails
 
+// gpt-image-2 at quality "high" takes ~2 minutes for a 1536x1024 image, plus the
+// Cloudinary upload and the headline call. Without this the route dies on the
+// platform's default serverless timeout (~10-15s) - it only appears to work
+// locally because `next dev` has no limit.
+export const maxDuration = 300;
+
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
@@ -79,12 +85,16 @@ RULES:
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         console.log(`History banner generation attempt ${attempt}/2`);
+        // This is a WIDE banner, so it must be generated in landscape.
+        // It used to be generated square (1024x1024) and then cropped to 21:9,
+        // which threw away ~57% of the height and cut straight through the
+        // centre calendar and the polaroids around it.
         response = await openai.images.generate({
-          model: "gpt-image-1",  // Faster, consistent style
+          model: "gpt-image-2",   // newest image model available on this account
           prompt,
           n: 1,
-          size: "1024x1024",  // Square, faster generation
-          quality: "medium",  // Much faster, still good quality
+          size: "1536x1024",      // landscape 3:2
+          quality: "high",        // highest quality tier
         } as Parameters<typeof openai.images.generate>[0]) as any;
         break; // Success, exit loop
       } catch (err: any) {
@@ -104,45 +114,59 @@ RULES:
     }
 
     // Handle both URL and base64 responses
-    let imageUrl = response.data?.[0]?.url;
+    const openaiUrl = response.data?.[0]?.url;
     const b64Json = response.data?.[0]?.b64_json;
-    
-    if (!imageUrl && b64Json) {
-      // Compress and upload to Cloudinary instead of storing huge base64
-      try {
-        const originalBuffer = Buffer.from(b64Json, 'base64');
-        
-        // Crop to 21:9 aspect ratio (1200x514) and convert to WebP
-        const compressedBuffer = await sharp(originalBuffer)
-          .resize(1200, 514, { fit: 'cover', position: 'center' })
-          .webp({ quality: 80 })
-          .toBuffer();
-        
-        console.log(`History banner compressed: ${originalBuffer.length} -> ${compressedBuffer.length} bytes`);
-        
-        // Upload to Cloudinary
-        cloudinary.config({
-          cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-          api_key: process.env.CLOUDINARY_API_KEY,
-          api_secret: process.env.CLOUDINARY_API_SECRET,
-        });
-        
-        const publicId = `images/history-banner-${Date.now()}`;
-        const uploadResult = await new Promise<any>((resolve, reject) => {
-          const uploadStream = cloudinary.uploader.upload_stream(
-            { public_id: publicId, resource_type: 'image', folder: 'bestofgenx' },
-            (error, result) => error ? reject(error) : resolve(result)
-          );
-          uploadStream.end(compressedBuffer);
-        });
-        
-        imageUrl = uploadResult.secure_url;
-      } catch (uploadErr) {
-        console.error("Failed to compress/upload history banner:", uploadErr);
-        return NextResponse.json({ success: false, error: "Failed to process image" });
+
+    const persistBanner = async (sourceBuffer: Buffer): Promise<string> => {
+      // Keep the generated 3:2 landscape frame instead of cropping to 21:9.
+      // The old 1200x514 crop cut the centre calendar in half; a light trim to
+      // 16:9 keeps the composition intact and still reads as a wide banner.
+      // Full 1536px width is kept - 1200px looked soft on desktop.
+      const processed = await sharp(sourceBuffer)
+        .resize(1536, 864, { fit: 'cover', position: 'center' })
+        .webp({ quality: 92 })
+        .toBuffer();
+
+      console.log(`History banner: ${sourceBuffer.length} -> ${processed.length} bytes (1536x864 webp q92)`);
+
+      cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
+      });
+
+      const publicId = `images/history-banner-${Date.now()}`;
+      const uploadResult = await new Promise<any>((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          { public_id: publicId, resource_type: 'image', folder: 'bestofgenx' },
+          (error, result) => error ? reject(error) : resolve(result)
+        );
+        uploadStream.end(processed);
+      });
+      return uploadResult.secure_url;
+    };
+
+    // base64 is handled first because that is what gpt-image-* returns. A URL from
+    // OpenAI is only a short-lived link that expires within the hour, so it is
+    // downloaded and pushed to Cloudinary rather than stored directly - storing it
+    // would leave the article with a dead image.
+    let imageUrl: string | undefined;
+    try {
+      if (b64Json) {
+        imageUrl = await persistBanner(Buffer.from(b64Json, 'base64'));
+      } else if (openaiUrl) {
+        const dl = await fetch(openaiUrl);
+        if (!dl.ok) {
+          console.error('Failed to download generated banner:', dl.status);
+          return NextResponse.json({ success: false, error: "Failed to download image" });
+        }
+        imageUrl = await persistBanner(Buffer.from(await dl.arrayBuffer()));
       }
+    } catch (uploadErr) {
+      console.error("Failed to compress/upload history banner:", uploadErr);
+      return NextResponse.json({ success: false, error: "Failed to process image" });
     }
-    
+
     if (!imageUrl) {
       return NextResponse.json({ success: false, error: "Failed to generate image" });
     }

@@ -14,6 +14,7 @@ import { useAuth } from "@/context/AuthContext";
 import { isVideoUrl } from "@/utils/media";
 import MusicSongList from './games/MusicSongList';
 import { getFlagUrl } from "@/lib/countryFlags";
+import { VIDEO_REWARD } from "@/config/rewards";
 
 interface Article {
   _id: string;
@@ -122,6 +123,7 @@ function processArticleHtml(raw: string): string {
   );
 
   // 3. Turn an <iframe> into a click-to-play thumbnail card (avoids a double play button).
+  // Shows a "0.02 BOGX" badge and marks as "WATCHED" after clicking.
   const buildVideoCard = (attrs: string): string => {
     const embedUrl = String(attrs).match(/src="([^"]+)"/i)?.[1] || '';
     const ytMatch = embedUrl.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/);
@@ -140,7 +142,17 @@ function processArticleHtml(raw: string): string {
         ? `https://player.vimeo.com/video/${videoId}?autoplay=1`
         : '';
 
-    return `<div class="article-video-card" style="width:380px;max-width:380px;border-radius:6px;overflow:hidden;margin-top:-10px;"><div style="position:relative;width:380px;height:214px;cursor:pointer;" onclick="this.outerHTML='<iframe src=\\'${embedSrc}\\' style=\\'width:380px;height:214px;border:0;display:block;\\' frameborder=\\'0\\' allow=\\'autoplay; encrypted-media\\' allowfullscreen></iframe>'"><img src="${thumbnailUrl}" alt="" style="width:380px;height:214px;object-fit:cover;display:block;" /><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;"><div style="width:52px;height:52px;border-radius:50%;background:rgba(212,135,58,0.9);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.3);"><span style="color:white;font-size:22px;margin-left:3px;">▶</span></div></div></div></div>`;
+    // Reward badge and watched badge share identical geometry (position, padding,
+    // radius, font size) so they read as the same chip in two states.
+    // The coin keeps data-keep-size: step 4 below rewrites every other <img> to
+    // width:100%, which is what previously blew this icon up to full width.
+    const rewardBadge = `<div class="video-reward-badge" style="position:absolute;top:8px;right:8px;display:flex;align-items:center;gap:4px;background:rgba(0,0,0,0.75);padding:3px 8px;border-radius:10px;font-size:10px;font-weight:600;color:#FFD700;z-index:2;"><img src="/images/bogxcoin.png" data-keep-size alt="" style="width:11px;height:11px;max-width:11px;display:block;flex-shrink:0;"/>+0,02</div>`;
+    const watchedOverlay = `<div class="video-watched-overlay" style="display:none;position:absolute;top:8px;right:8px;background:rgba(34,197,94,0.9);padding:3px 8px;border-radius:10px;font-size:10px;font-weight:600;color:white;text-transform:uppercase;letter-spacing:0.3px;z-index:2;">✓ Watched</div>`;
+
+    // The onclick handler: hide badge, show watched label, then swap to iframe
+    const onClickHandler = `(function(el){var card=el.closest('.article-video-card');var badge=card.querySelector('.video-reward-badge');var watched=card.querySelector('.video-watched-overlay');if(badge)badge.style.display='none';if(watched)watched.style.display='block';setTimeout(function(){el.outerHTML='<iframe src=\\'${embedSrc}\\' style=\\'width:380px;height:214px;border:0;display:block;\\' frameborder=\\'0\\' allow=\\'autoplay; encrypted-media\\' allowfullscreen></iframe>';},150);})(this)`;
+
+    return `<div class="article-video-card" data-video-id="${videoId}" style="width:380px;max-width:380px;border-radius:6px;overflow:hidden;margin-top:-10px;"><div style="position:relative;width:380px;height:214px;cursor:pointer;" onclick="${onClickHandler}"><img src="${thumbnailUrl}" data-keep-size alt="" style="width:380px;height:214px;object-fit:cover;display:block;" />${rewardBadge}${watchedOverlay}<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;"><div style="width:52px;height:52px;border-radius:50%;background:rgba(212,135,58,0.9);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.3);"><span style="color:white;font-size:22px;margin-left:3px;">▶</span></div></div></div></div>`;
   };
 
   const floatVideo = (card: string, index: number): string => {
@@ -212,10 +224,15 @@ function processArticleHtml(raw: string): string {
     }
   </style>`;
 
-  // 4. Wrap standalone images - full width, no max-width restriction
+  // 4. Wrap standalone images - full width, no max-width restriction.
+  // Images carrying data-keep-size are skipped: they belong to UI chrome we built
+  // ourselves above (video thumbnails, the BOGX coin in the reward badge) and
+  // already have deliberate dimensions. Without this guard the rewrite strips
+  // their inline style and blows them up to width:100%.
   html = html.replace(
     /<img([^>]*?)\/?>/gi,
-    (_match, attrs) => {
+    (match, attrs) => {
+      if (/data-keep-size/i.test(String(attrs))) return match;
       let cleanAttrs = String(attrs);
       // Strip inline style to use our own
       cleanAttrs = cleanAttrs.replace(/style="[^"]*"/gi, '');
@@ -283,6 +300,8 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
   const [countdown, setCountdown] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const proseRef = useRef<HTMLDivElement>(null);
+  // Videos already reported in this session, so one click can't fire twice
+  const watchedVideosRef = useRef<Set<string>>(new Set());
   
   // Countdown timer for linked poll OR article closesAt (for voting articles)
   useEffect(() => {
@@ -349,6 +368,8 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
           if (user?.id && data.pointsAwarded > 0) {
             console.log('Triggering coin animation for logged in user:', data.pointsAwarded);
             onCoinAnimation?.(data.pointsAwarded); // Already in BOGX
+            // Notify leaderboard/rankings to refresh instantly
+            window.dispatchEvent(new CustomEvent('bogx-updated'));
           } else if (!user?.id) {
             // Guest user: reward locally via localStorage
             const GUEST_REWARD = 0.05; // Same as DEFAULT_CURRENCY_CONFIG.readArticle
@@ -505,6 +526,95 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
       proseRef.current.innerHTML = processedHtml;
     }
   }, [processedHtml]);
+
+  // Mark already-watched videos on load: hide the reward badge, show "Watched" label.
+  useEffect(() => {
+    const el = proseRef.current;
+    if (!el || !user?.id) return;
+
+    const cards = el.querySelectorAll('.article-video-card[data-video-id]');
+    if (!cards.length) return;
+
+    const videoIds = Array.from(cards).map((c: any) => c.dataset.videoId).filter(Boolean);
+    if (!videoIds.length) return;
+
+    fetch(`/api/articles/watch-video?userId=${user.id}&videoIds=${videoIds.join(',')}`)
+      .then(res => res.json())
+      .then(data => {
+        if (!data.success) return;
+        const watchedSet = new Set(data.watchedIds || []);
+        cards.forEach((card: any) => {
+          const vid = card.dataset.videoId;
+          if (watchedSet.has(vid)) {
+            watchedVideosRef.current.add(vid);
+            const badge = card.querySelector('.video-reward-badge') as HTMLElement | null;
+            const watched = card.querySelector('.video-watched-overlay') as HTMLElement | null;
+            if (badge) badge.style.display = 'none';
+            if (watched) watched.style.display = 'block';
+          }
+        });
+      })
+      .catch(() => {});
+  }, [processedHtml, user?.id]);
+
+  // Reward BOGX for watching an embedded video. The video cards are raw HTML with an
+  // inline onclick that swaps the thumbnail for an iframe, so we listen on the container
+  // in the CAPTURE phase - by the time the inline handler ran, the clicked node is
+  // already detached and closest() would find nothing.
+  useEffect(() => {
+    const el = proseRef.current;
+    if (!el || !article?._id) return;
+
+    const handleClick = (e: Event) => {
+      const target = e.target as HTMLElement | null;
+      const card = target?.closest?.('.article-video-card') as HTMLElement | null;
+      const videoId = card?.dataset.videoId;
+      if (!videoId) return;
+      // Already handled in this session - the server is idempotent anyway,
+      // this just avoids a pointless request and a 0-coin animation.
+      if (watchedVideosRef.current.has(videoId)) return;
+      watchedVideosRef.current.add(videoId);
+
+      // Guest user: handle locally with localStorage
+      if (!isLoggedIn || !user?.id) {
+        const guestWatchedKey = `bogx_guest_watched_${videoId}`;
+        if (!localStorage.getItem(guestWatchedKey)) {
+          localStorage.setItem(guestWatchedKey, '1');
+          const guestCoins = parseFloat(localStorage.getItem('bogx_guest_coins') || '0');
+          localStorage.setItem('bogx_guest_coins', String(Math.round((guestCoins + VIDEO_REWARD) * 100) / 100));
+          onCoinAnimation?.(VIDEO_REWARD);
+        }
+        return;
+      }
+
+      // Play the coin animation NOW rather than when the POST answers. Reaching
+      // this line already means the reward is due: the video is not in the
+      // watched set, which was seeded from the server on load. Waiting for the
+      // round trip made the reward feel detached from the click.
+      onCoinAnimation?.(VIDEO_REWARD);
+      // Notify leaderboard/rankings to refresh instantly
+      window.dispatchEvent(new CustomEvent('bogx-updated'));
+
+      fetch('/api/articles/watch-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoId, articleId: article._id, userId: user.id }),
+      })
+        .then(res => res.json())
+        .then(data => {
+          // Reward already animated above. Only release the local claim if the
+          // server did NOT pay out and it was not a duplicate, so a retry can
+          // still earn it.
+          if (!data.success) watchedVideosRef.current.delete(videoId);
+        })
+        .catch(() => {
+          watchedVideosRef.current.delete(videoId);
+        });
+    };
+
+    el.addEventListener('click', handleClick, true);
+    return () => el.removeEventListener('click', handleClick, true);
+  }, [processedHtml, isLoggedIn, user?.id, article?._id, onCoinAnimation]);
 
   // Gallery Slider: carousel arrows + lightbox
   useEffect(() => {
@@ -926,6 +1036,7 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
             userId={user?.id}
             isLoggedIn={isLoggedIn}
             onShowLogin={onShowLogin}
+            onCoinAnimation={onCoinAnimation}
             showAll
           />
         </div>

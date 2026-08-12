@@ -401,16 +401,30 @@ export async function GET(request: Request) {
     // So we use the snapshot from the previous "ranking day"
     const today = getRankingDayString(); // Uses Berlin time, accounts for 10:00 cutoff
     
+    // Support "untilTime" parameter for timeline scrubbing (0-100 progress percentage)
+    const untilTimeParam = searchParams.get('untilTime');
+    
     // For today (current ranking day), calculate from GameResults using the
     // precise 10:00 Berlin boundary (playedAt >= ranking day start).
     if (!dateString || dateString === today) {
       // Let bots play occasionally (throttled, spread over the day)
-      await maybeSimulateBotActivity();
+      if (!untilTimeParam) await maybeSimulateBotActivity();
       
-      const rankedResults = await buildPeriodRankings(rankingDayStartInstant());
+      const dayStart = rankingDayStartInstant();
+      let endInstant: Date | undefined = undefined;
+      
+      // If untilTime is provided, calculate the end time based on progress percentage
+      if (untilTimeParam) {
+        const progress = Math.max(0, Math.min(100, parseFloat(untilTimeParam)));
+        const dayDurationMs = 24 * 60 * 60 * 1000; // 24 hours
+        const elapsedMs = (progress / 100) * dayDurationMs;
+        endInstant = new Date(dayStart.getTime() + elapsedMs);
+      }
+      
+      const rankedResults = await buildPeriodRankings(dayStart, endInstant);
       
       return NextResponse.json(
-        { rankings: rankedResults, isLive: true, date: today },
+        { rankings: rankedResults, isLive: !untilTimeParam, date: today, untilTime: untilTimeParam ? parseFloat(untilTimeParam) : null },
         { headers: NO_CACHE_HEADERS }
       );
     }

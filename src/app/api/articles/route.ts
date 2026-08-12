@@ -4,6 +4,7 @@ import clientPromise from '@/lib/mongodb';
 import Article from '@/models/Article';
 import User from '@/models/User';
 import Comment from '@/models/Comment';
+import Reaction from '@/models/Reaction';
 import Menschen from '@/models/Menschen';
 import { markMenschCovered } from '@/lib/menschenDb';
 import { getAutoFillSlugs } from '@/lib/categories';
@@ -32,15 +33,6 @@ async function getBannerImageByCategory(): Promise<Record<string, string>> {
     return {};
   }
 }
-
-// Reaction model (same as in react/route.ts)
-const ReactionSchema = new mongoose.Schema({
-  articleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article', required: true },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  emojiId: { type: String, required: true },
-}, { timestamps: true });
-ReactionSchema.index({ articleId: 1, userId: 1 }, { unique: true });
-const Reaction = mongoose.models.Reaction || mongoose.model('Reaction', ReactionSchema);
 
 // GET - List articles (public: published only, admin: all)
 export async function GET(request: NextRequest) {
@@ -129,8 +121,10 @@ export async function GET(request: NextRequest) {
     );
 
     // Get reaction counts per article (grouped by emojiId)
+    // emojiId: null means the user removed their reaction - those documents are
+    // kept (to persist the `rewarded` flag) but must not be counted.
     const reactionAggregation = await Reaction.aggregate([
-      { $match: { articleId: { $in: articleIds } } },
+      { $match: { articleId: { $in: articleIds }, emojiId: { $ne: null } } },
       { $group: { _id: { articleId: '$articleId', emojiId: '$emojiId' }, count: { $sum: 1 } } }
     ]);
     const reactionsMap = new Map<string, Record<string, number>>();

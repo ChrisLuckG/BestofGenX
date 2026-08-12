@@ -455,7 +455,7 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
               onClick={() => setActiveTab(tab)}
               className={`flex-1 py-3 text-xs font-semibold uppercase tracking-widest transition-all ${
                 activeTab === tab
-                  ? "text-[#E36B11] border-b-2 border-[#E36B11]"
+                  ? "text-gray-900 border-b-2 border-gray-900"
                   : "text-gray-600 hover:text-gray-800"
               }`}
             >
@@ -623,7 +623,7 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
                       isMe ? 'bg-[#E36B11]/5 border-t border-b border-[#E36B11]/20 -mx-5 px-5' : ''
                     }`}
                   >
-                    <div className={`font-display text-base min-w-[24px] text-center ${isMe ? 'text-[#E36B11]' : 'text-gray-600'}`}>
+                    <div className={`font-display text-base min-w-[24px] text-center ${isMe ? 'text-gray-900 font-bold' : 'text-gray-600'}`}>
                       {player.rank}
                     </div>
                     <div className="relative flex-shrink-0">
@@ -640,12 +640,12 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
                       </div>
                       <div className="text-[10px] text-gray-600">{player.country}</div>
                     </div>
-                    {wentUp && <span className="text-[9px] font-semibold text-[#E36B11]">↑</span>}
+                    {wentUp && <span className="text-[9px] font-semibold text-green-600">↑</span>}
                     {wentDown && <span className="text-[9px] font-semibold text-red-500">↓</span>}
                     {!wentUp && !wentDown && <span className="text-[9px] text-gray-300">—</span>}
                     <div className="flex items-center gap-1">
                       <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
-                      <span className={`font-display text-lg ${isMe ? 'text-[#E36B11]' : 'text-gray-900'}`}>
+                      <span className={`font-display text-lg ${isMe ? 'text-gray-900 font-bold' : 'text-gray-900'}`}>
                         {formatCurrency(player.points)}
                       </span>
                     </div>

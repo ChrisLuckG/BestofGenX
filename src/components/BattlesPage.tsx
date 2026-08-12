@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { 
   Plus, ChevronLeft, ChevronRight, Swords, Check, X, Clock, HelpCircle, Trophy, Coins, Users,
   Dumbbell, Music, Film, Landmark, Shirt, Gamepad2, Tv, Palette, UtensilsCrossed, Play, Lock, LayoutGrid,
-  Target, Zap, RefreshCcw, Shield, Loader2
+  Target, Zap, RefreshCcw, Shield, Loader2, Search
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -92,7 +92,7 @@ const GAME_TYPES = [
   { id: 'dice', label: 'Dice Duel', icon: '🎲', available: false },
 ];
 
-type GameScreen = 'setup' | 'pool' | 'intro' | 'countdown' | 'quiz' | 'inter' | 'result';
+type GameScreen = 'setup' | 'pool' | 'invite' | 'intro' | 'countdown' | 'quiz' | 'inter' | 'result';
 
 // Country code to flag emoji mapping
 const FLAG_MAP: Record<string, string> = {
@@ -166,8 +166,17 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   const [createWager, setCreateWager] = useState(0.10);
   const [createTopic, setCreateTopic] = useState('sport');
   
-  // Challenge modal
+  // Challenge modal (legacy - now using invite screen)
   const [showChallengeModal, setShowChallengeModal] = useState(false);
+  
+  // Invite screen state
+  const [inviteSearchQuery, setInviteSearchQuery] = useState('');
+  const [inviteSearchResults, setInviteSearchResults] = useState<any[]>([]);
+  const [inviteOnlinePlayers, setInviteOnlinePlayers] = useState<any[]>([]);
+  const [invitePlayerFilter, setInvitePlayerFilter] = useState<'online' | 'country' | 'level'>('online');
+  const [inviteIsSearching, setInviteIsSearching] = useState(false);
+  const [inviteLoadingOnline, setInviteLoadingOnline] = useState(false);
+  const [selectedInviteUser, setSelectedInviteUser] = useState<any>(null);
 
   // Open Battles modal (same as ArcadePage)
   const [showOpenBattles, setShowOpenBattles] = useState(false);
@@ -529,9 +538,14 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   };
 
   // Challenge a specific user
-  const handleChallengeUser = async (targetUser: any) => {
+  // wager and topic are passed directly to avoid React state async issues
+  const handleChallengeUser = async (targetUser: any, wager?: number, topic?: string) => {
     setShowChallengeModal(false);
     setIsGenerating(true);
+    
+    // Use passed values or fall back to state (for backwards compatibility)
+    const effectiveWager = wager ?? createWager;
+    const effectiveTopic = topic ?? createTopic;
     
     try {
       // First sync coins from DB to ensure we have accurate balance
@@ -539,7 +553,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
       const syncData = await syncRes.json();
       if (syncData.success) {
         const dbCoins = syncData.bogxCoins;
-        if (dbCoins < createWager) {
+        if (dbCoins < effectiveWager) {
           setIsGenerating(false);
           setCoins(() => dbCoins); // Sync local coins with DB
           showAlert('coins', `Not enough coins. You have ${dbCoins.toFixed(2)} BOGX.`);
@@ -549,14 +563,14 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         setCoins(() => dbCoins);
       }
       
-      const rounds = createWager >= 0.15 ? 5 : 3;
+      const rounds = effectiveWager >= 0.15 ? 5 : 3;
       const res = await fetch('/api/battles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           creatorId: user?.id,
-          topic: createTopic,
-          wager: createWager,
+          topic: effectiveTopic,
+          wager: effectiveWager,
           rounds,
           isPrivate: true,
           challengedUserId: targetUser._id, // Direct challenge
@@ -571,7 +585,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
       if (data.success && data.battle) {
         setShowCreate(false);
         // Wager already deducted on server - parked on hold (not lost)
-        onCoinAnimation?.(-createWager, 'hold');
+        onCoinAnimation?.(-effectiveWager, 'hold');
         // Sync coins + pending wager indicator instantly (mobile & desktop)
         window.dispatchEvent(new CustomEvent('bogx-updated'));
         
@@ -1148,6 +1162,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         return renderSetupScreen();
       case 'pool':
         return renderPoolScreen();
+      case 'invite':
+        return renderInviteScreen();
       case 'intro':
         return renderIntroScreen();
       case 'countdown':
@@ -1322,7 +1338,11 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                 });
                 return;
               }
-              setShowChallengeModal(true);
+              // Navigate to invite screen instead of modal
+              setSelectedInviteUser(null);
+              setInviteSearchQuery('');
+              setInviteSearchResults([]);
+              setScreen('invite');
             }}
             disabled={isOnBreak}
             className={`flex flex-col items-center px-2 py-1.5 border rounded-lg text-[10px] font-semibold tracking-wider transition-colors ${
@@ -1560,20 +1580,36 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
             ))}
           </>
         ) : isOnBreak ? (
-          <div className={`flex flex-col items-center justify-center h-full px-4 ${isDesktop ? 'col-span-3' : ''}`}>
-            <div className="flex items-center gap-3 mb-6">
-              <img src="/images/coffee-break.svg" alt="" className="w-10 h-10" />
-              <div>
-                <p className="font-display text-xl tracking-wider text-[#A855F7]">DAILY BREAK</p>
-                <p className="text-gray-500 text-xs">9:00 - 10:00 AM</p>
+          <div className={`relative overflow-hidden ${isDesktop ? 'col-span-3' : ''}`} style={{ minHeight: '400px' }}>
+            {/* Background image */}
+            <div 
+              className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+              style={{ backgroundImage: 'url(/images/Hintergund/break.png)' }}
+            />
+            
+            {/* Content */}
+            <div className="relative flex flex-col items-center justify-center text-center px-6 h-full" style={{ paddingTop: '200px', paddingBottom: '80px' }}>
+              <div className="flex items-center gap-3 mb-2">
+                <img src="/images/coffee-break.svg" alt="" className="w-8 h-8" />
+                <div className="text-left">
+                  <h3 className="font-display text-base font-bold text-[#A855F7] uppercase tracking-wide">Daily Break</h3>
+                  <p className="text-[11px] text-gray-500">9:00 – 10:00 AM</p>
+                </div>
               </div>
-            </div>
-            
-            <p className="text-gray-600 text-sm mb-4">Relax! We're preparing the next round.</p>
-            
-            <div className="flex items-center gap-2 text-[#A855F7] text-sm animate-pulse">
-              <span>⚡</span>
-              <span>Back at 10:00 AM</span>
+              
+              <p className="text-lg text-gray-800 font-semibold mb-2 mt-4">Relax! We're preparing the next round.</p>
+              <p className="text-sm text-gray-500 mb-6 max-w-[320px]">Take a short break and come back at 10:00 for new questions and exciting challenges.</p>
+              
+              {/* Back at 10:00 card */}
+              <div className="flex items-center gap-3 px-5 py-3 bg-white/90 rounded-xl border border-[#A855F7]/20 shadow-sm">
+                <div className="w-10 h-10 rounded-full bg-[#A855F7]/15 flex items-center justify-center">
+                  <span className="text-[#A855F7] text-lg">⚡</span>
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-bold text-[#A855F7]">Back at 10:00 AM</p>
+                  <p className="text-[10px] text-gray-500">New round, new chances to win!</p>
+                </div>
+              </div>
             </div>
           </div>
         ) : filteredBattles.length === 0 ? (
@@ -1599,7 +1635,11 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                       });
                       return;
                     }
-                    setShowChallengeModal(true);
+                    // Navigate to invite screen instead of modal
+                    setSelectedInviteUser(null);
+                    setInviteSearchQuery('');
+                    setInviteSearchResults([]);
+                    setScreen('invite');
                   }}
                   className="px-3 py-2 border border-gray-300 text-gray-700 text-sm font-semibold hover:border-[#A855F7] hover:text-[#A855F7] transition-colors rounded-lg"
                 >
@@ -1793,6 +1833,261 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
             );
           })
         )}
+      </div>
+    </div>
+  );
+
+  // ═══════════════════════════════════════════════════════════════
+  // INVITE SCREEN - Same style as Create Battle
+  // ═══════════════════════════════════════════════════════════════
+  
+  // Fetch online players for invite screen
+  useEffect(() => {
+    if (screen !== 'invite') return;
+    
+    const fetchPlayers = async () => {
+      setInviteLoadingOnline(true);
+      try {
+        const res = await fetch(`/api/users/online?limit=50&excludeUserId=${user?.id || ''}`);
+        const data = await res.json();
+        if (data.success) {
+          // Filter by selected filter
+          let players = data.users || [];
+          if (invitePlayerFilter === 'country' && user?.country) {
+            players = players.filter((p: any) => p.country === user.country);
+          }
+          setInviteOnlinePlayers(players);
+        }
+      } catch {
+        setInviteOnlinePlayers([]);
+      } finally {
+        setInviteLoadingOnline(false);
+      }
+    };
+    
+    fetchPlayers();
+  }, [screen, invitePlayerFilter, user?.id, user?.country]);
+  
+  // Search users for invite
+  useEffect(() => {
+    if (screen !== 'invite' || !inviteSearchQuery.trim()) {
+      setInviteSearchResults([]);
+      return;
+    }
+    
+    const searchUsers = async () => {
+      setInviteIsSearching(true);
+      try {
+        const res = await fetch(`/api/users/search?q=${encodeURIComponent(inviteSearchQuery)}&excludeUserId=${user?.id || ''}`);
+        const data = await res.json();
+        if (data.success) {
+          setInviteSearchResults(data.users || []);
+        }
+      } catch {
+        setInviteSearchResults([]);
+      } finally {
+        setInviteIsSearching(false);
+      }
+    };
+    
+    const debounce = setTimeout(searchUsers, 300);
+    return () => clearTimeout(debounce);
+  }, [screen, inviteSearchQuery, user?.id]);
+  
+  const renderInviteScreen = () => (
+    <div className="flex flex-col h-full min-h-full flex-1" style={{ backgroundColor: '#F5F0E8' }}>
+      {/* Header */}
+      <div className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#A855F7]/5 to-transparent">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setScreen('pool')} className="p-1 hover:bg-[#A855F7]/10 rounded transition-colors">
+            <ChevronLeft className="w-5 h-5 text-gray-600" />
+          </button>
+          <Swords className="w-5 h-5 text-[#A855F7]" />
+          <div>
+            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Invite Player</span>
+            <span className="text-[10px] text-gray-500 -mt-0.5 block">Challenge a friend to battle</span>
+          </div>
+        </div>
+      </div>
+      
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        {/* Step 1: Choose Wager */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-6 h-6 bg-[#A855F7] rounded text-white text-xs font-bold flex items-center justify-center">1</span>
+            <span className="text-sm font-semibold tracking-wider text-[#A855F7] uppercase">Choose Wager</span>
+          </div>
+          <div className="grid grid-cols-5 gap-2">
+            {WAGERS.map(w => (
+              <button
+                key={w.amount}
+                onClick={() => setCreateWager(w.amount)}
+                className={`py-3 text-center rounded-xl transition-colors ${
+                  createWager === w.amount
+                    ? 'bg-[#A855F7] text-white'
+                    : 'bg-cream border border-warm text-gray-600'
+                }`}
+              >
+                <div className="font-bold text-sm">{w.amount.toFixed(2).replace('.', ',')}</div>
+                <div className="text-[10px] opacity-70">{w.rounds}R</div>
+              </button>
+            ))}
+          </div>
+        </div>
+        
+        {/* Step 2: Choose Topic */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-6 h-6 bg-[#A855F7] rounded text-white text-xs font-bold flex items-center justify-center">2</span>
+            <span className="text-sm font-semibold tracking-wider text-[#A855F7] uppercase">Choose Topic</span>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {TOPICS.map(t => {
+              const Icon = t.icon;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setCreateTopic(t.id)}
+                  className={`py-3 text-sm font-semibold tracking-wider rounded-xl transition-colors flex items-center justify-center gap-2 ${
+                    createTopic === t.id
+                      ? 'bg-[#A855F7] text-white'
+                      : 'bg-cream border border-warm text-gray-600'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        
+        {/* Step 3: Select Player */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-6 h-6 bg-[#A855F7] rounded text-white text-xs font-bold flex items-center justify-center">3</span>
+            <span className="text-sm font-semibold tracking-wider text-[#A855F7] uppercase">Select Player</span>
+          </div>
+          
+          {/* Search Input */}
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by username..."
+              value={inviteSearchQuery}
+              onChange={(e) => setInviteSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-warm bg-cream text-sm focus:outline-none focus:border-[#A855F7]"
+            />
+          </div>
+          
+          {/* Filter Tabs */}
+          <div className="flex gap-2 mb-3">
+            {(['online', 'country', 'level'] as const).map(filter => (
+              <button
+                key={filter}
+                onClick={() => setInvitePlayerFilter(filter)}
+                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-colors ${
+                  invitePlayerFilter === filter
+                    ? 'bg-[#A855F7] text-white'
+                    : 'bg-cream border border-warm text-gray-600'
+                }`}
+              >
+                {filter === 'online' && '🟢 Online'}
+                {filter === 'country' && '🌍 Country'}
+                {filter === 'level' && '📊 Same Level'}
+              </button>
+            ))}
+          </div>
+          
+          {/* Player List */}
+          <div className="bg-cream border border-warm rounded-xl overflow-hidden max-h-[200px] overflow-y-auto">
+            {inviteLoadingOnline || inviteIsSearching ? (
+              <div className="p-4 text-center text-gray-500 text-sm">Loading players...</div>
+            ) : (inviteSearchQuery ? inviteSearchResults : inviteOnlinePlayers).length === 0 ? (
+              <div className="p-4 text-center text-gray-500 text-sm">No players found</div>
+            ) : (
+              (inviteSearchQuery ? inviteSearchResults : inviteOnlinePlayers).map((player: any) => (
+                <button
+                  key={player._id}
+                  onClick={() => setSelectedInviteUser(selectedInviteUser?._id === player._id ? null : player)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 border-b border-warm/50 last:border-b-0 transition-colors ${
+                    selectedInviteUser?._id === player._id ? 'bg-[#A855F7]/10' : 'hover:bg-white/50'
+                  }`}
+                >
+                  <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-warm bg-cream">
+                    {player.avatar ? (
+                      <img src={player.avatar} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold">
+                        {player.username?.[0]?.toUpperCase() || '?'}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 text-left">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-gray-900">{player.username}</span>
+                      {player.countryFlag && <CountryFlag flag={player.countryFlag} className="w-4 h-3" />}
+                      {player.isOnline && <span className="w-2 h-2 bg-green-500 rounded-full" />}
+                    </div>
+                    <div className="text-[10px] text-gray-500">{(player.bogxCoins || 0).toFixed(2)} coins</div>
+                  </div>
+                  {selectedInviteUser?._id === player._id && (
+                    <div className="w-6 h-6 bg-[#A855F7] rounded-full flex items-center justify-center">
+                      <Check className="w-4 h-4 text-white" />
+                    </div>
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+        
+        {/* Estimated Prize */}
+        <div className="flex items-center justify-between px-4 py-3 bg-cream border border-warm rounded-xl mb-4">
+          <div className="flex items-center gap-2">
+            <Trophy className="w-4 h-4 text-[#A855F7]" />
+            <span className="text-sm text-gray-600">Winner takes all</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <img src="/images/bogxcoin.png" alt="" className="w-5 h-5" />
+            <span className="font-bold text-[#A855F7]">{(createWager * 2).toFixed(2)} coins</span>
+          </div>
+        </div>
+        
+        {/* Start Battle Button */}
+        <button
+          onClick={() => {
+            if (!selectedInviteUser) {
+              showAlert('info', 'Please select a player to challenge');
+              return;
+            }
+            handleChallengeUser(selectedInviteUser, createWager, createTopic);
+          }}
+          disabled={!selectedInviteUser || isGenerating}
+          className={`w-full py-4 rounded-2xl text-white font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2 ${
+            selectedInviteUser && !isGenerating
+              ? 'hover:scale-[1.02] active:scale-[0.98]'
+              : 'opacity-50 cursor-not-allowed'
+          }`}
+          style={{ background: 'linear-gradient(135deg, #C084FC 0%, #A855F7 50%, #9333EA 100%)' }}
+        >
+          {isGenerating ? (
+            <>
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              Sending Challenge...
+            </>
+          ) : (
+            <>
+              <Swords className="w-5 h-5" />
+              START BATTLE
+            </>
+          )}
+        </button>
+        
+        <p className="text-center text-xs text-gray-500 mt-3">
+          {selectedInviteUser ? `Challenge ${selectedInviteUser.username}` : 'Select a player above'}
+        </p>
       </div>
     </div>
   );
@@ -2548,10 +2843,10 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         isOpen={showChallengeModal}
         onClose={() => setShowChallengeModal(false)}
         onSendChallenge={async (targetUser, wager, topic) => {
-          // Use the selected wager and topic from the modal
+          // Pass wager and topic directly to avoid React state async issues
           setCreateWager(wager);
           setCreateTopic(topic);
-          handleChallengeUser(targetUser);
+          handleChallengeUser(targetUser, wager, topic);
           return { success: true };
         }}
         onChallengeStarted={(battle) => {

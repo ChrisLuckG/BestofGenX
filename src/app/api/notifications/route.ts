@@ -132,7 +132,17 @@ export async function GET(request: NextRequest) {
     }
     
     // Add pending challenges (someone challenged you!)
+    // Skip if a DB notification already exists for this battle (to avoid duplicates)
+    const existingBattleNotifIds = new Set(
+      dbNotifications
+        .filter((n: any) => n.type === 'battle_challenge' && n.data?.battleId)
+        .map((n: any) => n.data.battleId)
+    );
+    
     for (const battle of pendingChallenges) {
+      // Skip if we already have a DB notification for this battle
+      if (existingBattleNotifIds.has(battle._id.toString())) continue;
+      
       const creatorUser = battle.creator as any;
       const notifId = `battle-challenge-${battle._id}`;
       notifications.push({

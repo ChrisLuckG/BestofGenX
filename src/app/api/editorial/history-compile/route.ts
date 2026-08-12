@@ -8,6 +8,11 @@ import User from "@/models/User";
 
 // Compile selected history events into a single "On This Day" article
 
+// Cover generation with gpt-image-2 at quality "high" takes ~2 minutes, on top of
+// the article-writing completion. Without this the route hits the platform's
+// default serverless timeout (~10-15s) in production.
+export const maxDuration = 300;
+
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
@@ -36,49 +41,69 @@ async function generateCoverImage(dayNumber: number, monthName: string, events: 
     // Build event description for the prompt
     const eventKeywords = events.slice(0, 3).map(e => e.title).join(', ');
     
-    const prompt = `A dramatic cinematic collage for "${monthName} ${dayNumber}" in history. The large number "${dayNumber}" prominently displayed in elegant vintage typography, slightly weathered. Subtle visual references to: ${eventKeywords}. Historical newspaper clippings, old photographs, and vintage memorabilia artfully arranged. Sepia and warm golden tones, nostalgic 80s/90s aesthetic, museum exhibition quality, dramatic lighting, film grain texture. The composition should feel like opening a time capsule. 8K photorealistic, editorial magazine cover style.`;
+    // "magazine cover" was removed on purpose: covers are portrait, and asking for
+    // one fought the landscape format. The prompt now states the wide format up
+    // front and describes a horizontal composition.
+    const prompt = `A wide cinematic landscape banner (16:9 horizontal composition) for "${monthName} ${dayNumber}" in history. The large number "${dayNumber}" prominently displayed in elegant vintage typography, slightly weathered, positioned to one side. Subtle visual references to: ${eventKeywords}. Historical newspaper clippings, old photographs, and vintage memorabilia artfully arranged and spread horizontally across the full width of the frame. Sepia and warm golden tones, nostalgic 80s/90s aesthetic, museum exhibition quality, dramatic lighting, film grain texture. The composition should feel like opening a time capsule. Photorealistic, high detail, wide editorial banner - fill the entire wide frame edge to edge, no borders, no vertical poster framing.`;
 
+    // Article banners are displayed wide, so the image MUST be landscape.
+    // The previous 1024x1024 was square and got cropped hard in the header.
+    // gpt-image-2 is the newest image model available on this account.
     const response = await openai.images.generate({
-      model: "gpt-image-1",
+      model: "gpt-image-2",
       prompt,
       n: 1,
-      size: "1024x1024",  // Smaller size to reduce costs and file size
-      quality: "medium",  // Medium quality is sufficient
+      size: "1536x1024",   // landscape 3:2
+      quality: "high",     // highest quality tier
     } as Parameters<typeof openai.images.generate>[0]) as any;
 
     const imageUrl = response.data?.[0]?.url;
     const b64Json = response.data?.[0]?.b64_json;
-    
-    if (imageUrl) return imageUrl;
-    
-    if (b64Json) {
-      // Compress and upload to Cloudinary
-      const originalBuffer = Buffer.from(b64Json, 'base64');
-      const compressedBuffer = await sharp(originalBuffer)
-        .resize(800, undefined, { withoutEnlargement: true })
-        .webp({ quality: 80 })
+
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+
+    const uploadToCloudinary = async (buffer: Buffer): Promise<string> => {
+      // Keep the full 1536px width: this is a banner, and downscaling to 800px
+      // made it visibly soft on desktop. Landscape ratio is enforced here too,
+      // so a non-landscape source can never slip through.
+      const processed = await sharp(buffer)
+        .resize(1536, 1024, { fit: 'cover', position: 'centre', withoutEnlargement: true })
+        .webp({ quality: 92 })
         .toBuffer();
-      
-      console.log(`History cover compressed: ${originalBuffer.length} -> ${compressedBuffer.length} bytes`);
-      
-      cloudinary.config({
-        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-        api_key: process.env.CLOUDINARY_API_KEY,
-        api_secret: process.env.CLOUDINARY_API_SECRET,
-      });
-      
+
+      console.log(`History cover: ${buffer.length} -> ${processed.length} bytes (1536x1024 webp q92)`);
+
       const publicId = `images/history-cover-${Date.now()}`;
       const uploadResult = await new Promise<any>((resolve, reject) => {
         const uploadStream = cloudinary.uploader.upload_stream(
           { public_id: publicId, resource_type: 'image', folder: 'bestofgenx' },
           (error, result) => error ? reject(error) : resolve(result)
         );
-        uploadStream.end(compressedBuffer);
+        uploadStream.end(processed);
       });
-      
       return uploadResult.secure_url;
+    };
+
+    // b64 first: gpt-image-1 returns base64. A returned URL is only a temporary
+    // OpenAI link that expires within the hour, so it must never be stored as-is
+    // - it gets fetched and pushed to Cloudinary like everything else.
+    if (b64Json) {
+      return await uploadToCloudinary(Buffer.from(b64Json, 'base64'));
     }
-    
+
+    if (imageUrl) {
+      const res = await fetch(imageUrl);
+      if (!res.ok) {
+        console.error('Failed to download generated image:', res.status);
+        return null;
+      }
+      return await uploadToCloudinary(Buffer.from(await res.arrayBuffer()));
+    }
+
     return null;
   } catch (err) {
     console.error("Image generation failed:", err);

@@ -132,6 +132,35 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
   const animatedWinRate = useAnimatedCounter(winRate, 1200);
   const animatedStreak = useAnimatedCounter(streak, 600);
 
+  // How the user earned their BOGX, derived server-side from the GameResult ledger
+  const [earnings, setEarnings] = useState<{
+    breakdown: { key: string; label: string; icon: string; count: number; earned: number; lost: number; total: number }[];
+    totalEarned: number;
+    totalSpent: number;
+    wallet: number;
+    drift: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    fetch(`/api/user/earnings-breakdown?userId=${user.id}`)
+      .then(res => res.json())
+      .then(data => {
+        if (!cancelled && data.success) {
+          setEarnings({
+            breakdown: data.breakdown || [],
+            totalEarned: data.totalEarned || 0,
+            totalSpent: data.totalSpent || 0,
+            wallet: data.wallet || 0,
+            drift: data.drift || 0,
+          });
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
   if (!isLoggedIn || !user) {
     // This should never show - user gets redirected to home when logged out
     return null;
@@ -263,10 +292,10 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
   };
 
   const stats = [
-    { label: "Balance", value: `${formatCurrency(coins)} ${getCurrencySymbol()}`, icon: Coins, color: "text-[#E36B11]" },
-    { label: "Games Played", value: gamesPlayed, icon: Target, color: "text-cyan-400" },
-    { label: "Wins", value: wins, icon: Trophy, color: "text-green-400" },
-    { label: "Win Rate", value: gamesPlayed > 0 ? `${winRate}%` : "-", icon: Trophy, color: "text-[#E36B11]" },
+    { label: "Balance", value: `${formatCurrency(coins)} ${getCurrencySymbol()}`, icon: Coins, color: "text-gray-900" },
+    { label: "Games Played", value: gamesPlayed, icon: Target, color: "text-gray-900" },
+    { label: "Wins", value: wins, icon: Trophy, color: "text-gray-900" },
+    { label: "Win Rate", value: gamesPlayed > 0 ? `${winRate}%` : "-", icon: Trophy, color: "text-gray-900" },
   ];
 
   // Member since date (placeholder - would come from user data)
@@ -338,8 +367,8 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
               <span className="px-2 py-0.5 bg-cream text-gray-700 text-[10px] font-semibold rounded-md border border-warm">
                 {user.country || 'World'}
               </span>
-              <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-[10px] font-bold rounded-md border border-orange-300 flex items-center gap-1">
-                <Target className="w-3 h-3" /> {animatedStreak} day streak
+              <span className="px-2 py-0.5 bg-cream text-gray-700 text-[10px] font-bold rounded-md border border-warm flex items-center gap-1">
+                <Target className="w-3 h-3 text-gray-900" /> {animatedStreak} day streak
               </span>
             </div>
             <div className="text-[10px] text-gray-400 mt-2">
@@ -354,21 +383,21 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
             <div className="p-3 text-center">
               <div className="flex items-center justify-center gap-1">
                 <img src="/images/bogxcoin.png" alt="BOGX" className="w-5 h-5" />
-                <span className="font-display text-xl text-[#E36B11]">{formatCurrency(animatedCoins)}</span>
+                <span className="font-display text-xl text-gray-900">{formatCurrency(animatedCoins)}</span>
               </div>
               <span className="text-[8px] font-semibold tracking-widest uppercase text-gray-500 mt-0.5 block">BOGX</span>
             </div>
             {(user?.isAuthor || user?.isAdmin) && (
               <div className="p-3 text-center">
                 <div className="flex items-center justify-center gap-1">
-                  <FileText className="w-4 h-4 text-purple-500" />
-                  <span className="font-display text-xl text-purple-500">{formatCurrency(user.authorEarnings || 0)}</span>
+                  <FileText className="w-4 h-4 text-gray-900" />
+                  <span className="font-display text-xl text-gray-900">{formatCurrency(user.authorEarnings || 0)}</span>
                 </div>
                 <span className="text-[8px] font-semibold tracking-widest uppercase text-gray-500 mt-0.5 block">Author</span>
               </div>
             )}
             <div className="p-3 text-center">
-              <span className="font-display text-xl text-[#FFB800] block">{animatedWins}</span>
+              <span className="font-display text-xl text-gray-900 block">{animatedWins}</span>
               <span className="text-[8px] font-semibold tracking-widest uppercase text-gray-500 mt-0.5 block">Wins</span>
             </div>
             <div className="p-3 text-center">
@@ -382,17 +411,106 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
           </div>
         </div>
 
-        {/* Winner Badges Card */}
+        {/* Winner Badges Card - REMOVED per user request */}
+
+        {/* BOGX Breakdown Card - how the user earned their coins.
+            The card is ALWAYS rendered so the layout never jumps: while loading it
+            shows placeholder rows of the same height as the real ones. */}
         <div className="mx-4 mt-3 bg-cream rounded-2xl shadow-sm border border-warm p-4">
           <div className="text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-3 flex items-center gap-1.5">
-            <Trophy className="w-3 h-3" /> Winner Badges
+            <img src="/images/bogxcoin.png" alt="BOGX" className="w-4 h-4" /> How You Earned Your BOGX
           </div>
-          <div className="flex flex-wrap gap-2">
-            <div className="px-3 py-1.5 bg-cream border border-warm rounded-lg text-[10px] font-semibold tracking-widest uppercase text-gray-700">★ Daily ×3</div>
-            <div className="px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-[10px] font-semibold tracking-widest uppercase text-blue-600">★★ Weekly ×1</div>
-            <div className="px-3 py-1.5 bg-cream border border-warm rounded-lg text-[10px] font-semibold tracking-widest uppercase text-gray-400 opacity-60">★★★ Monthly</div>
-            <div className="px-3 py-1.5 bg-cream border border-warm rounded-lg text-[10px] font-semibold tracking-widest uppercase text-gray-400 opacity-60">★★★★ Annual</div>
+
+          {!earnings ? (
+            /* Loading: same row structure and height as the real list */
+            <div>
+              <div className="divide-y divide-warm/60">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 py-2.5 animate-pulse">
+                    <div className="w-5 h-5 rounded-full bg-skeleton flex-shrink-0" />
+                    <div className="flex-1 min-w-0 space-y-1.5">
+                      <div className="h-3 bg-skeleton rounded" style={{ width: `${45 + ((i * 13) % 30)}%` }} />
+                      <div className="h-2 w-7 bg-skeleton-light rounded" />
+                    </div>
+                    <div className="h-3.5 w-16 bg-skeleton rounded flex-shrink-0" />
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 pt-3 border-t border-warm space-y-2 animate-pulse">
+                <div className="h-3 bg-skeleton-light rounded w-full" />
+                <div className="h-3 bg-skeleton-light rounded w-full" />
+                <div className="h-4 bg-skeleton rounded w-full" />
+              </div>
+            </div>
+          ) : earnings.breakdown.length === 0 ? (
+            <div className="py-8 text-center animate-lv-fade-up">
+              <div className="text-2xl mb-2">🪙</div>
+              <div className="text-xs text-gray-400">
+                No BOGX earned yet. Read an article or play a game to get started.
+              </div>
+            </div>
+          ) : (
+          <div className="animate-lv-fade-up">
+            <div className="divide-y divide-warm/60">
+              {earnings.breakdown.map(item => (
+                <div key={item.key} className="flex items-center gap-3 py-2.5">
+                  <span className="text-base leading-none w-5 text-center">{item.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-gray-900 truncate">{item.label}</div>
+                    <div className="text-[10px] text-gray-400 tabular-nums">{item.count}x</div>
+                  </div>
+                  <div className="text-right">
+                    <div className={`text-sm font-bold tabular-nums ${item.total < 0 ? 'text-red-500' : 'text-green-600'}`}>
+                      {item.total > 0 ? '+' : ''}{formatCurrency(item.total)} {getCurrencySymbol()}
+                    </div>
+                    {/* Only worth showing when the net figure hides an actual loss */}
+                    {item.lost > 0 && (
+                      <div className="text-[10px] tabular-nums">
+                        <span className="text-green-600">+{formatCurrency(item.earned)}</span>
+                        <span className="text-gray-300 mx-1">/</span>
+                        <span className="text-red-500">-{formatCurrency(item.lost)}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-3 pt-3 border-t border-warm space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold tracking-widest uppercase text-gray-500">Total Earned</span>
+                <span className="text-sm font-bold text-green-600 tabular-nums">
+                  +{formatCurrency(earnings.totalEarned)} {getCurrencySymbol()}
+                </span>
+              </div>
+              {earnings.totalSpent > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold tracking-widest uppercase text-gray-500">Total Lost</span>
+                  <span className="text-sm font-bold text-red-500 tabular-nums">
+                    -{formatCurrency(earnings.totalSpent)} {getCurrencySymbol()}
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center justify-between pt-1.5 border-t border-warm/60">
+                <span className="text-[10px] font-bold tracking-widest uppercase text-gray-700">Balance</span>
+                <span className="text-base font-bold text-gray-900 tabular-nums">
+                  {formatCurrency(earnings.wallet)} {getCurrencySymbol()}
+                </span>
+              </div>
+              {/* The wallet must equal the ledger. A difference means some action changed
+                  the balance without a ledger entry, so it is missing from the rankings. */}
+              {Math.abs(earnings.drift) >= 0.01 && (
+                <div className="flex items-start gap-1.5 pt-1.5 text-[10px] text-gray-400">
+                  <span>ⓘ</span>
+                  <span>
+                    {formatCurrency(Math.abs(earnings.drift))} {getCurrencySymbol()}{' '}
+                    {earnings.drift > 0 ? 'not itemised above' : 'more listed than in your balance'}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
+          )}
         </div>
 
         {/* Category Strengths Card */}
@@ -438,8 +556,8 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
               className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-cream transition-colors"
             >
               <div className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-lg bg-[#E36B11]/10 flex items-center justify-center">
-                  <Bell className="w-4 h-4 text-[#E36B11]" />
+                <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center">
+                  <Bell className="w-4 h-4 text-gray-900" />
                 </div>
                 <span className="text-sm font-medium text-gray-900">Notifications</span>
               </div>
@@ -448,8 +566,8 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
             
             <button className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-cream transition-colors">
               <div className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
-                  <Globe className="w-4 h-4 text-blue-500" />
+                <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center">
+                  <Globe className="w-4 h-4 text-gray-900" />
                 </div>
                 <span className="text-sm font-medium text-gray-900">Language</span>
               </div>
@@ -464,8 +582,8 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
               className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-cream transition-colors"
             >
               <div className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-lg bg-green-50 flex items-center justify-center">
-                  <Shield className="w-4 h-4 text-green-600" />
+                <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center">
+                  <Shield className="w-4 h-4 text-gray-900" />
                 </div>
                 <span className="text-sm font-medium text-gray-900">Privacy & Security</span>
               </div>
@@ -481,8 +599,8 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
               href="/admin"
               className="w-full flex items-center justify-center gap-2 p-3 bg-cream border border-[#E36B11]/40 rounded-2xl shadow-sm hover:bg-[#E36B11]/5 transition-colors"
             >
-              <Shield className="w-4 h-4 text-[#E36B11]" />
-              <span className="text-[#E36B11] text-sm font-bold">Admin Panel</span>
+              <Shield className="w-4 h-4 text-gray-900" />
+              <span className="text-gray-900 text-sm font-bold">Admin Panel</span>
             </a>
           </div>
         )}
@@ -493,8 +611,8 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
             onClick={() => setShowInviteModal(true)}
             className="w-full flex items-center justify-center gap-2 p-3.5 bg-cream border border-warm rounded-2xl shadow-sm hover:bg-[#E36B11]/5 transition-colors"
           >
-            <Share2 className="w-4 h-4 text-[#E36B11]" />
-            <span className="text-[#E36B11] text-sm font-bold">Invite friends &middot; +5.00 BOGX each</span>
+            <Share2 className="w-4 h-4 text-gray-900" />
+            <span className="text-gray-900 text-sm font-bold">Invite friends &middot; +5.00 BOGX each</span>
           </button>
         </div>
 
@@ -561,12 +679,12 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
                   <div className="text-[9px] uppercase tracking-wider text-gray-400 font-bold">BOGX</div>
                 </div>
                 <div className="rounded-2xl border border-warm bg-cream/50 p-3 text-center">
-                  <Trophy className="w-4 h-4 text-[#E36B11] mx-auto mb-1" />
+                  <Trophy className="w-4 h-4 text-gray-900 mx-auto mb-1" />
                   <div className="text-[15px] font-black text-gray-900">{animatedWins}</div>
                   <div className="text-[9px] uppercase tracking-wider text-gray-400 font-bold">Wins</div>
                 </div>
                 <div className="rounded-2xl border border-warm bg-cream/50 p-3 text-center">
-                  <Target className="w-4 h-4 text-[#E36B11] mx-auto mb-1" />
+                  <Target className="w-4 h-4 text-gray-900 mx-auto mb-1" />
                   <div className="text-[15px] font-black text-gray-900">{animatedGames}</div>
                   <div className="text-[9px] uppercase tracking-wider text-gray-400 font-bold">Games</div>
                 </div>

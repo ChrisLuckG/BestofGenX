@@ -12,10 +12,16 @@ export async function GET(request: NextRequest) {
     const deathday = searchParams.get('deathday'); // DD.MM format
     const category = searchParams.get('category');
     const hasArticle = searchParams.get('hasArticle');
+    const search = searchParams.get('search'); // Name search
     const limit = parseInt(searchParams.get('limit') || '50');
     const skip = parseInt(searchParams.get('skip') || '0');
     
     const query: any = {};
+    
+    // Search by name (case-insensitive)
+    if (search) {
+      query.name = { $regex: search, $options: 'i' };
+    }
     
     // Filter by birthday (day.month)
     if (birthday) {

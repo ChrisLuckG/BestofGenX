@@ -35,6 +35,7 @@ export interface IArticle {
   createdAt?: Date;
   updatedAt?: Date;
   // Person/country info (for international articles)
+  personRef?: string; // Reference to Almanac Person ID
   personName?: string; // Name of the person the article is about
   personBirthday?: string; // Birthday in DD.MM.YYYY format
   personDeathday?: string; // Death day in DD.MM.YYYY format (for RIP articles)
@@ -186,6 +187,10 @@ const ArticleSchema = new mongoose.Schema({
     default: false,
   },
   // Person/country info
+  personRef: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Person', // Reference to Almanac Person
+  },
   personName: {
     type: String,
   },

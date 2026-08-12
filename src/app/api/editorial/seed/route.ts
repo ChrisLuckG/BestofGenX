@@ -159,12 +159,13 @@ export async function POST() {
         const existing = await User.findOne({ $or: [{ username }, { email }] });
         if (existing) {
           userId = existing._id.toString();
-          // Update all fields including country/nationality
+          // Update all fields including country/nationality and displayName
           await User.collection.updateOne(
             { _id: existing._id },
             { $set: { 
               isAIReporter: true, 
               isAuthor: true, 
+              displayName: reporter.name,
               country: reporter.country,
               countryFlag: reporter.countryFlag,
               bio: `AI Reporter at BOGX. ${reporter.nationality}. ${reporter.specialty}.` 

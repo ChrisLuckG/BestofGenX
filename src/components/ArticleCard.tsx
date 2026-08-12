@@ -149,8 +149,8 @@ export default function ArticleCard({ article, onClick, onShowLogin, variant = '
       <div className="flex items-center flex-shrink-0">
         <div className={`px-2 py-1 rounded-lg border-2 text-xs font-bold flex items-center gap-1 ${
           isRead 
-            ? 'border-green-500 text-green-600' 
-            : 'border-[#E36B11] text-[#E36B11]'
+            ? 'border-[#E36B11] text-[#E36B11] bg-[#E36B11]/10' 
+            : 'border-gray-900 text-gray-900'
         }`}>
           {isRead && <Check className="w-3 h-3" />}
           0.05

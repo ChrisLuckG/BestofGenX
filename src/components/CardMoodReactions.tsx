@@ -3,12 +3,14 @@
 import { useState, useEffect, useRef, memo } from "react";
 import { createPortal } from "react-dom";
 import { GENX_MOODS, DEFAULT_MOOD, getMoodById } from "@/config/moods";
+import { REACTION_REWARD } from "@/config/rewards";
 
 interface CardMoodReactionsProps {
   articleId: string;
   userId?: string;
   isLoggedIn: boolean;
   onShowLogin?: () => void;
+  onCoinAnimation?: (amount: number) => void;
   size?: 'xs' | 'sm' | 'md';
   // When true, NEVER fire the individual fetch — the parent (e.g. WelcomeReel)
   // is responsible for loading all reaction data in a single batched request
@@ -19,6 +21,10 @@ interface CardMoodReactionsProps {
   useExternalData?: boolean;
   initialReactions?: Record<string, number>;
   initialUserReaction?: string | null;
+  // Whether this user already collected the one-time reward for this article.
+  // Supplied by the parent's batched fetch so the coin animation can start on
+  // click rather than after the POST comes back.
+  initialRewarded?: boolean;
 }
 
 const SIZES = {
@@ -38,13 +44,18 @@ function CardMoodReactionsInner({
   userId,
   isLoggedIn,
   onShowLogin,
+  onCoinAnimation,
   size = 'sm',
   useExternalData = false,
   initialReactions,
   initialUserReaction,
+  initialRewarded,
 }: CardMoodReactionsProps) {
   const [reactions, setReactions] = useState<Record<string, number>>(initialReactions || {});
   const [userReaction, setUserReaction] = useState<string | null>(initialUserReaction ?? null);
+  // Kept in a ref, not state: it is only read inside the click handler and must
+  // not trigger a re-render of the card (these render by the dozen in the feed).
+  const rewardedRef = useRef<boolean>(initialRewarded ?? false);
   const [showPicker, setShowPicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const fetchedRef = useRef<string | null>(useExternalData ? articleId : null);
@@ -59,8 +70,11 @@ function CardMoodReactionsInner({
     if (useExternalData) {
       setReactions(initialReactions || {});
       setUserReaction(initialUserReaction ?? null);
+      // Never downgrade back to "not rewarded": a click may have already claimed
+      // it locally before the parent's refreshed batch arrives.
+      if (initialRewarded) rewardedRef.current = true;
     }
-  }, [articleId, useExternalData, initialReactions, initialUserReaction]);
+  }, [articleId, useExternalData, initialReactions, initialUserReaction, initialRewarded]);
 
   // Fetch reactions on mount - only once per articleId, and NEVER when the
   // parent has taken over data loading via useExternalData (e.g. WelcomeReel
@@ -79,6 +93,7 @@ function CardMoodReactionsInner({
         if (isMountedRef.current && data.success) {
           setReactions(data.reactions || {});
           setUserReaction(data.userReaction || null);
+          if (data.rewarded) rewardedRef.current = true;
           fetchedRef.current = articleId;
         }
       } catch {
@@ -92,10 +107,16 @@ function CardMoodReactionsInner({
 
   const totalReactions = Object.values(reactions).reduce((sum, count) => sum + count, 0);
 
-  // Get top reactions (those with votes > 0), sorted by count
+  // Get top reactions (those with votes > 0), sorted by count.
+  // The user's own reaction is pinned first so it is always visible - otherwise
+  // it can fall outside the 3 icons we render and it looks like the click was lost.
   const topReactions = Object.entries(reactions)
     .filter(([, count]) => count > 0)
-    .sort((a, b) => b[1] - a[1]);
+    .sort((a, b) => {
+      if (a[0] === userReaction) return -1;
+      if (b[0] === userReaction) return 1;
+      return b[1] - a[1];
+    });
 
   const handleReaction = async (emojiId: string) => {
     if (!isLoggedIn || !userId) {
@@ -109,8 +130,20 @@ function CardMoodReactionsInner({
     // Optimistic update
     const prevReaction = userReaction;
     const prevReactions = { ...reactions };
+    const isRemoving = userReaction === emojiId;
 
-    if (userReaction === emojiId) {
+    // Play the coin animation NOW instead of after the round trip. Whether coins
+    // are due is fully known client-side: the reward is paid once per article and
+    // only when a reaction is set (never on removal). The POST stays the source of
+    // truth for the wallet - it just no longer gates the animation, which used to
+    // make the reward feel delayed on a slow connection.
+    const willEarn = !isRemoving && !rewardedRef.current;
+    if (willEarn) {
+      rewardedRef.current = true; // claim locally so a second click can't re-animate
+      onCoinAnimation?.(REACTION_REWARD);
+    }
+
+    if (isRemoving) {
       // Remove reaction
       setUserReaction(null);
       setReactions(prev => ({
@@ -143,15 +176,24 @@ function CardMoodReactionsInner({
       if (data.success) {
         setReactions(data.reactions);
         setUserReaction(data.userReaction);
+        // Normally already animated above. This only fires in the rare case where
+        // the server paid out although the client thought it was settled (e.g. the
+        // rewarded flag was stale), so no earned coin ever goes unshown.
+        if (!willEarn && data.coinsEarned > 0) {
+          rewardedRef.current = true;
+          onCoinAnimation?.(data.coinsEarned);
+        }
       } else {
         // Revert on error
         setReactions(prevReactions);
         setUserReaction(prevReaction);
+        if (willEarn) rewardedRef.current = false; // nothing was claimed after all
       }
     } catch {
       // Revert on error
       setReactions(prevReactions);
       setUserReaction(prevReaction);
+      if (willEarn) rewardedRef.current = false;
     } finally {
       setLoading(false);
     }
@@ -233,23 +275,44 @@ function CardMoodReactionsInner({
             className="fixed z-[10000] px-3 py-2 bg-[#F5F0E8] border border-[#E5DDD0] shadow-xl rounded-xl flex items-center gap-3 -translate-x-1/2"
             style={{ top: pickerPosition.top, left: pickerPosition.left }}
           >
-            {GENX_MOODS.map((mood) => (
-              <button
-                key={mood.id}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleReaction(mood.id);
-                }}
-                className={`flex flex-col items-center transition-transform hover:scale-105 ${
-                  userReaction === mood.id ? 'scale-105' : ''
-                }`}
-              >
-                <div className="w-12 h-12 flex items-center justify-center">
-                  <img src={mood.image} alt={mood.label} className="w-12 h-12 object-contain" />
-                </div>
-                <span className="text-[8px] text-gray-900 mt-0.5 whitespace-nowrap">{mood.label}</span>
-              </button>
-            ))}
+            {GENX_MOODS.map((mood) => {
+              // Highlight the mood the user picked, matching the in-article
+              // picker: scaled up, ring + shadow, orange label, others dimmed.
+              const isSelected = userReaction === mood.id;
+              const count = reactions[mood.id] || 0;
+              return (
+                <button
+                  key={mood.id}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleReaction(mood.id);
+                  }}
+                  className={`flex flex-col items-center transition-all duration-200 ${
+                    isSelected ? 'scale-110' : 'opacity-60 hover:opacity-100 hover:scale-105'
+                  }`}
+                >
+                  <div className="relative w-12 h-12 flex items-center justify-center">
+                    <img
+                      src={mood.image}
+                      alt={mood.label}
+                      className={`w-12 h-12 object-contain rounded-full ${
+                        isSelected ? 'ring-2 ring-[#E36B11] ring-offset-1 ring-offset-[#F5F0E8] drop-shadow-lg' : ''
+                      }`}
+                    />
+                    {count > 0 && (
+                      <span className="absolute -right-1 -top-1 min-w-[16px] h-4 px-1 bg-[#E36B11] rounded-full flex items-center justify-center text-white text-[9px] font-bold">
+                        {count}
+                      </span>
+                    )}
+                  </div>
+                  <span className={`text-[8px] mt-0.5 whitespace-nowrap ${
+                    isSelected ? 'text-[#E36B11] font-bold' : 'text-gray-900'
+                  }`}>
+                    {mood.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </>,
         document.body

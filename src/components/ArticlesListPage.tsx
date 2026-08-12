@@ -55,20 +55,29 @@ const CATEGORY_LABELS: Record<string, string> = {
 interface ArticlesListPageProps {
   onOpenArticle: (articleId: string) => void;
   onShowLogin?: () => void;
+  initialCategory?: string;
 }
 
-export default function ArticlesListPage({ onOpenArticle, onShowLogin }: ArticlesListPageProps) {
+export default function ArticlesListPage({ onOpenArticle, onShowLogin, initialCategory }: ArticlesListPageProps) {
   const { user, isLoggedIn } = useAuth();
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(1);
-  const [filter, setFilter] = useState<'all' | 'unread' | 'commented' | 'liked' | 'read' | 'newest' | 'oldest'>('all');
+  const [filter, setFilter] = useState<'all' | 'unread' | 'commented' | 'liked' | 'read' | 'newest' | 'oldest'>('newest');
+  const [categoryFilter, setCategoryFilter] = useState<string>(initialCategory || 'all');
   const [searchQuery, setSearchQuery] = useState('');
   const [readArticles, setReadArticles] = useState<Set<string>>(new Set());
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  // Update category filter when initialCategory prop changes
+  useEffect(() => {
+    if (initialCategory) {
+      setCategoryFilter(initialCategory);
+    }
+  }, [initialCategory]);
 
   // Load initial articles
   useEffect(() => {
@@ -155,6 +164,10 @@ export default function ArticlesListPage({ onOpenArticle, onShowLogin }: Article
   const handleArticleClick = (articleId: string) => {
     // Optimistically update UI
     setReadArticles(prev => { const next = new Set(Array.from(prev)); next.add(articleId); return next; });
+    // Drop the category filter so coming back from the article shows all
+    // categories again. This list stays mounted while the article sits on top of
+    // it, so the filter would otherwise still be active on return.
+    setCategoryFilter('all');
     onOpenArticle(articleId);
   };
 
@@ -167,7 +180,11 @@ export default function ArticlesListPage({ onOpenArticle, onShowLogin }: Article
         return false;
       }
     }
-    // Category filter
+    // Category filter (dropdown)
+    if (categoryFilter !== 'all' && article.category !== categoryFilter) {
+      return false;
+    }
+    // Status filter
     if (filter === 'unread') return !readArticles.has(article._id);
     return true;
   });
@@ -208,15 +225,35 @@ export default function ArticlesListPage({ onOpenArticle, onShowLogin }: Article
 
       {/* Scrollable Content */}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
-        {/* Filter Tabs */}
-        <div className="px-4 pt-4 pb-3 flex gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+        {/* Filter Tabs + Category Dropdown */}
+        <div className="px-4 pt-4 pb-3 flex items-center gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+          {/* Category Dropdown */}
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="px-3 py-2 rounded-xl text-xs font-semibold border cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#E36B11] bg-[#E36B11] text-white border-[#E36B11]"
+          >
+            <option value="all" className="bg-white text-gray-900">All Categories</option>
+            <option value="sports" className="bg-white text-gray-900">Sports</option>
+            <option value="music" className="bg-white text-gray-900">Music</option>
+            <option value="movies-tv" className="bg-white text-gray-900">Movies & TV</option>
+            <option value="gaming" className="bg-white text-gray-900">Gaming</option>
+            <option value="history" className="bg-white text-gray-900">History</option>
+            <option value="culture" className="bg-white text-gray-900">Culture</option>
+            <option value="tech" className="bg-white text-gray-900">Tech</option>
+            <option value="lifestyle" className="bg-white text-gray-900">Lifestyle</option>
+            <option value="news" className="bg-white text-gray-900">News</option>
+            <option value="rewind" className="bg-white text-gray-900">Rewind</option>
+          </select>
+          
+          <div className="w-px h-6 bg-warm/60 mx-1" />
+          
           {[
-            { key: 'all' as const, label: 'All', icon: null },
+            { key: 'newest' as const, label: 'Newest', icon: null },
+            { key: 'oldest' as const, label: 'Oldest', icon: null },
             { key: 'unread' as const, label: 'Unread', icon: null },
             { key: 'commented' as const, label: 'Top Commented', icon: MessageCircle },
             { key: 'liked' as const, label: 'Most Liked', icon: Heart },
-            { key: 'newest' as const, label: 'Newest', icon: null },
-            { key: 'oldest' as const, label: 'Oldest', icon: null },
           ].map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -327,8 +364,8 @@ export default function ArticlesListPage({ onOpenArticle, onShowLogin }: Article
                 <div className="flex items-center flex-shrink-0">
                   <div className={`px-2 py-1 rounded-lg border-2 font-display text-sm flex items-center gap-1 ${
                     isRead 
-                      ? 'border-green-500 text-green-600' 
-                      : 'border-[#E36B11] text-[#E36B11]'
+                      ? 'border-[#E36B11] text-[#E36B11] bg-[#E36B11]/10' 
+                      : 'border-gray-900 text-gray-900'
                   }`}>
                     {isRead && <Check className="w-3 h-3" />}
                     0.05

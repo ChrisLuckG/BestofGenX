@@ -28,14 +28,16 @@ const WAGERS = [
   { amount: 1.00, rounds: 5 },
 ];
 
-// NOTE: culture, art, food removed - not enough DB questions for these themes yet
 const TOPICS = [
   { id: 'sport',   label: 'Sport',   emoji: '⚽' },
   { id: 'music',   label: 'Music',   emoji: '🎵' },
   { id: 'film',    label: 'Film',    emoji: '🎬' },
+  { id: 'culture', label: 'Culture', emoji: '🎭' },
   { id: 'fashion', label: 'Fashion', emoji: '👗' },
   { id: 'games',   label: 'Games',   emoji: '🎮' },
   { id: 'tv',      label: 'TV',      emoji: '📺' },
+  { id: 'art',     label: 'Art',     emoji: '🎨' },
+  { id: 'food',    label: 'Food',    emoji: '🍕' },
 ];
 
 const PLAYER_FILTERS: { id: PlayerFilter; label: string; icon: typeof Wifi }[] = [

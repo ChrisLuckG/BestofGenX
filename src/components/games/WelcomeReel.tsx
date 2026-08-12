@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, memo, useCallback } from "react";
-import { Clock, Play, Share2, MoreHorizontal, MessageCircle, Check, Bookmark, Flag, ChevronLeft, ChevronRight, BookOpen, Music, Gamepad2, Trophy, Sparkles, Cross, Newspaper, Clapperboard, PartyPopper } from "lucide-react";
+import { Clock, Play, Share2, MoreHorizontal, MessageCircle, Check, Bookmark, Flag, ChevronLeft, ChevronRight, BookOpen, Music, Gamepad2, Trophy, Sparkles, Cross, Newspaper, Clapperboard, PartyPopper, Brain } from "lucide-react";
 import PollCard from "@/components/PollCard";
 import QuizPollCard from "@/components/QuizPoll";
 import CardMoodReactions from "@/components/CardMoodReactions";
@@ -44,7 +44,10 @@ interface Article {
   titleFont?: 'default' | 'display' | 'serif' | 'mono';
   subtitleColor?: string;
   contentColor?: string;
-  // Country info
+  // Person info (for timeline view)
+  personName?: string;
+  personBirthday?: string;  // DD.MM.YYYY format
+  personDeathday?: string;  // DD.MM.YYYY format (for RIP)
   personCountry?: string;
   personCountryCode?: string;
 }
@@ -118,6 +121,242 @@ const getImagePosition = (article: Article, type: 'cover' | 'thumbnail' = 'cover
   return article.imagePosition || 'center';
 };
 
+// Theme card styles for highlighted containers.
+// Module scope on purpose - it is a pure function and the slider components below
+// live outside the page component and need it.
+const getCardThemeStyles = (themeName?: string) => {
+  if (!themeName || themeName === 'cream') return { border: 'border-warm', hoverBorder: 'hover:border-[#E36B11]/30' };
+  // All colored themes get white border for consistency
+  return { border: 'border-2 border-white/80', hoverBorder: 'hover:border-white' };
+};
+
+// ── SLIDER ────────────────────────────────────────────────────────────────────
+// SliderCard and SliderContainer MUST live at module scope.
+//
+// They used to be declared inside the WelcomeReel component body. That creates a
+// brand new function identity on every render, and React treats a different
+// function as a different component type: it unmounts the old subtree and mounts
+// a fresh one. For a horizontally scrolled container that means the scroll
+// offset resets to 0 - which is exactly the "slider jumps back while swiping"
+// bug. WelcomeReel re-renders often (polling, reactions, coin animations), so it
+// only worked when no re-render happened to land mid-gesture.
+//
+// Declared here, the component type is stable: re-renders update the children in
+// place and the scroll container keeps its DOM node and its scroll position.
+
+interface SliderCardProps {
+  article: Article;
+  theme?: string;
+  onArticleClick: (articleId: string) => void;
+  userId?: string;
+  // Not optional: CardMoodReactions requires a concrete boolean.
+  isLoggedIn: boolean;
+  onShowLogin?: () => void;
+  onCoinAnimation?: (amount: number) => void;
+  reactionData?: { reactions?: Record<string, number>; userReaction?: string | null; rewarded?: boolean };
+}
+
+const SliderCard = ({
+  article,
+  theme,
+  onArticleClick,
+  userId,
+  isLoggedIn,
+  onShowLogin,
+  onCoinAnimation,
+  reactionData,
+}: SliderCardProps) => {
+  const cardTheme = getCardThemeStyles(theme);
+  const hasColorTheme = theme && theme !== 'cream';
+  const bgClass = hasColorTheme ? 'bg-white/20 backdrop-blur-sm' : 'bg-cream';
+  return (
+    <div
+      onClick={() => onArticleClick(article._id)}
+      className={`flex-shrink-0 w-40 rounded-none overflow-hidden ${bgClass} border ${cardTheme.border} text-left shadow-md hover:shadow-lg ${cardTheme.hoverBorder} transition-all duration-200 relative group cursor-pointer touch-manipulation`}
+    >
+      {/* Image/Video - shorter aspect ratio */}
+      {article.coverImage && (
+        <div className="w-full aspect-[4/3] overflow-hidden relative">
+          {isVideo(article.coverImage) ? (
+            <video src={article.coverImage} className="w-full h-full object-cover" style={{ objectPosition: getImagePosition(article), transform: `scale(${(article.imageScale || 100) / 100})` }} muted autoPlay loop playsInline />
+          ) : (
+            <LazyImage src={article.coverImage} alt={article.title} className="w-full h-full object-cover" style={{ objectPosition: getImagePosition(article), transform: `scale(${(article.imageScale || 100) / 100})` }} />
+          )}
+          {article.category === 'rip' && (
+            <div className="absolute bottom-1 right-1.5 z-20 text-white text-xl leading-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]" style={{fontFamily:'Georgia,serif'}}>✝</div>
+          )}
+        </div>
+      )}
+      {/* Content - below image */}
+      <div className="p-1.5">
+        <h3 className={`font-display text-[20px] tracking-wide leading-tight line-clamp-2 transition-colors ${hasColorTheme ? 'text-white group-hover:text-gray-900' : 'text-gray-900 group-hover:text-[#E36B11]'}`}>{article.title}</h3>
+        {/* Likes & Comments */}
+        <div className={`flex items-center gap-2 mt-1 text-[8px] ${hasColorTheme ? 'text-gray-700' : 'text-gray-500'}`} onClick={(e) => e.stopPropagation()}>
+          <CardMoodReactions articleId={article._id} userId={userId} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="xs" useExternalData initialReactions={reactionData?.reactions} initialUserReaction={reactionData?.userReaction} initialRewarded={reactionData?.rewarded} />
+          <span className="flex items-center gap-0.5">
+            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            {article.commentsCount || 0}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+interface SliderContainerProps {
+  articles: Article[];
+  title?: string;
+  theme?: string;
+  onArticleClick: (articleId: string) => void;
+  userId?: string;
+  isLoggedIn: boolean;
+  onShowLogin?: () => void;
+  onCoinAnimation?: (amount: number) => void;
+  reactionsMap: Record<string, { reactions?: Record<string, number>; userReaction?: string | null; rewarded?: boolean }>;
+}
+
+const SliderContainer = ({
+  articles,
+  title,
+  theme,
+  onArticleClick,
+  userId,
+  isLoggedIn,
+  onShowLogin,
+  onCoinAnimation,
+  reactionsMap,
+}: SliderContainerProps) => {
+  const hasColorTheme = theme && theme !== 'cream';
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+  const [activePage, setActivePage] = useState(0);
+  const visibleCards = 2.5;
+  const totalPages = Math.ceil(articles.length / visibleCards);
+
+  // Arrow visibility and the dot indicator are derived from scroll position.
+  // Guarded with functional comparison so a plain swipe does not fire three
+  // setState calls per scroll event - that caused visible flicker.
+  const checkScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    const maxScroll = scrollWidth - clientWidth;
+
+    const nextLeft = scrollLeft > 0;
+    const nextRight = scrollLeft < maxScroll - 10;
+    setCanScrollLeft(prev => (prev === nextLeft ? prev : nextLeft));
+    setCanScrollRight(prev => (prev === nextRight ? prev : nextRight));
+
+    if (maxScroll > 0 && totalPages > 1) {
+      const page = Math.round((scrollLeft / maxScroll) * (totalPages - 1));
+      setActivePage(prev => (prev === page ? prev : page));
+    }
+  };
+
+  // Arrow visibility depends on measured widths, so it has to be evaluated once
+  // after mount as well - otherwise the right arrow shows even when everything
+  // already fits on screen.
+  useEffect(() => {
+    checkScroll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [articles.length]);
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollRef.current) {
+      const scrollAmount = 280;
+      scrollRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  if (articles.length === 0) return null;
+
+  return (
+    <div className={`w-full rounded-none py-2 ${hasColorTheme ? 'bg-transparent' : 'bg-cream border border-warm shadow-sm'}`}>
+      {/* Slider with Arrows */}
+      <div className="relative group/slider">
+        {/* Left Arrow - hidden on touch devices, swiping is the interaction there */}
+        {canScrollLeft && (
+          <button
+            onClick={() => scroll('left')}
+            className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-12 rounded-none bg-black/60 hover:bg-black/80 text-white shadow-lg items-center justify-center transition-all backdrop-blur-sm border border-white/10"
+            aria-label="Scroll left"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+        )}
+
+        {/* Right Arrow */}
+        {canScrollRight && (
+          <button
+            onClick={() => scroll('right')}
+            className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-12 rounded-none bg-black/60 hover:bg-black/80 text-white shadow-lg items-center justify-center transition-all backdrop-blur-sm border border-white/10"
+            aria-label="Scroll right"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        )}
+
+        {/* Scrollable Content - starts at left edge, scrolls to right.
+            touchAction MUST allow pan-y as well. With 'pan-x' alone the browser
+            permits only horizontal panning for touches that start in here, so a
+            vertical drag over the slider does not scroll the page behind it - it
+            is swallowed until the user flings hard enough for the gesture to be
+            re-interpreted. That is the "stiff vertical scrolling over the
+            sliders" bug. Listing both axes keeps horizontal panning on this
+            element (it is the only horizontally scrollable one) while vertical
+            drags chain up to the feed scroller.
+            overscrollBehaviorX 'contain' only affects the X axis and still stops
+            a horizontal swipe from bubbling out once an end is reached. */}
+        <div
+          ref={scrollRef}
+          onScroll={checkScroll}
+          className="flex gap-2 overflow-x-auto scrollbar-hide"
+          style={{
+            scrollbarWidth: 'none',
+            touchAction: 'pan-x pan-y',
+            overscrollBehaviorX: 'contain',
+          }}
+        >
+          {articles.map((article) => (
+            <SliderCard
+              key={article._id}
+              article={article}
+              theme={theme}
+              onArticleClick={onArticleClick}
+              userId={userId}
+              isLoggedIn={isLoggedIn}
+              onShowLogin={onShowLogin}
+              onCoinAnimation={onCoinAnimation}
+              reactionData={reactionsMap[article._id]}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Dots - below slider */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center mt-2">
+          <div className="flex gap-1">
+            {Array.from({ length: totalPages }).map((_, idx) => (
+              <div
+                key={idx}
+                className={`w-1.5 h-1.5 rounded-full transition-colors ${idx === activePage ? 'bg-white' : 'bg-white/40'}`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Helper to format relative time (e.g., "5m ago", "2h ago", "3d ago")
 const formatTimeAgo = (dateString: string): string => {
   const date = new Date(dateString);
@@ -141,11 +380,12 @@ interface LandingPageProps {
   onShowLogin?: () => void;
   onOpenStaticPage?: (slug: string) => void;
   onOpenCommunitySound?: () => void;
+  onCoinAnimation?: (amount: number) => void;
 }
 
 const EMPTY_SET = new Set<string>();
 
-function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop = false, onShowLogin, onOpenStaticPage, onOpenCommunitySound }: LandingPageProps) {
+function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop = false, onShowLogin, onOpenStaticPage, onOpenCommunitySound, onCoinAnimation }: LandingPageProps) {
   const { user, isLoggedIn } = useAuth();
   const [articles, setArticles] = useState<Article[]>([]);
   const [polls, setPolls] = useState<any[]>([]);
@@ -181,7 +421,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
   // Batched mood-reaction data, keyed by articleId. Fetched ONCE for all loaded
   // articles instead of each card firing its own request (was causing an N+1
   // request storm / ERR_INSUFFICIENT_RESOURCES with 100 articles on screen).
-  const [reactionsMap, setReactionsMap] = useState<Record<string, { reactions: Record<string, number>; userReaction: string | null }>>({});
+  const [reactionsMap, setReactionsMap] = useState<Record<string, { reactions: Record<string, number>; userReaction: string | null; rewarded?: boolean }>>({});
 
   const showToast = (message: string, icon: 'check' | 'bookmark' | 'flag' = 'check') => {
     setToast({ message, icon });
@@ -197,13 +437,24 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
     setTimeout(() => setLoadingArticleId(null), 3000);
   };
 
-  // Reusable fetch function for initial load and pull-to-refresh
+  // Reusable fetch function for initial load
   const fetchData = useCallback(async (isRefresh = false) => {
     if (!isRefresh) setIsLoading(true);
     try {
-      // Fetch articles, polls and template in parallel
+      // Fetch articles, polls and template in parallel.
+      //
+      // The limit must cover ALL published articles, not just the newest page.
+      // The template's category containers (RIP, Music, Sport, ...) pick their
+      // articles out of this one list, so anything outside the window is
+      // invisible in the feed no matter what the container is configured to show.
+      // With limit=100 out of 163 articles, 7 of 10 RIP articles never arrived
+      // and the RIP slider showed 3 items.
+      // The listing endpoint omits `content`/`coverImage` and sends a small
+      // thumbnail URL instead, so the whole set is ~220 KB.
+      // NOTE: this loads everything in one request. Once the archive grows into
+      // the thousands, category containers should fetch their own slice instead.
       const [articlesRes, pollsRes, templateRes] = await Promise.all([
-        fetch('/api/articles?status=published&limit=100'),
+        fetch('/api/articles?status=published&limit=500'),
         fetch('/api/polls?status=active'),
         fetch('/api/template')
       ]);
@@ -319,10 +570,12 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
             userId={user?.id} 
             isLoggedIn={isLoggedIn} 
             onShowLogin={onShowLogin}
+            onCoinAnimation={onCoinAnimation}
             size="sm" 
             useExternalData
             initialReactions={reactionsMap[article._id]?.reactions}
             initialUserReaction={reactionsMap[article._id]?.userReaction}
+            initialRewarded={reactionsMap[article._id]?.rewarded}
           />
         <button onClick={handleComment} className="flex items-center gap-1.5 hover:text-[#E36B11] transition-colors">
           <MessageCircle className={iconSize} />
@@ -448,13 +701,6 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
     );
   };
 
-  // Theme card styles for highlighted containers
-  const getCardThemeStyles = (themeName?: string) => {
-    if (!themeName || themeName === 'cream') return { border: 'border-warm', hoverBorder: 'hover:border-[#E36B11]/30' };
-    // All colored themes get white border for consistency
-    return { border: 'border-2 border-white/80', hoverBorder: 'hover:border-white' };
-  };
-
   // Loading overlay for cards
   const LoadingOverlay = ({ articleId }: { articleId: string }) => {
     if (loadingArticleId !== articleId) return null;
@@ -463,6 +709,17 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         <div className="w-8 h-8 border-3 border-white/30 border-t-white rounded-full animate-spin" />
       </div>
     );
+  };
+
+  // Shared props for the module-scope SliderContainer (see the note next to its
+  // definition on why it must not be declared inside this component).
+  const sliderProps = {
+    onArticleClick: handleArticleClick,
+    userId: user?.id,
+    isLoggedIn,
+    onShowLogin,
+    onCoinAnimation,
+    reactionsMap,
   };
 
   // Article Card Components
@@ -535,7 +792,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           </div>
           {/* Mood Reactions & Comments inline */}
           <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-            <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="sm" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} />
+            <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="sm" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} initialRewarded={reactionsMap[article._id]?.rewarded} />
             <span className="flex items-center gap-1">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -704,7 +961,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         <div className="flex items-center justify-end gap-1 text-[10px] text-white/70">
           {/* Moods & Comments inline */}
           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-            <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} />
+            <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="xs" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} initialRewarded={reactionsMap[article._id]?.rewarded} />
             <span className="flex items-center gap-0.5">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -771,7 +1028,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                       </div>
           {/* Likes & Comments inline */}
           <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-            <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} />
+            <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="xs" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} initialRewarded={reactionsMap[article._id]?.rewarded} />
             <span className="flex items-center gap-0.5">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -783,135 +1040,6 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       </div>
     </div>
   );
-
-  // Slider Card - Vertical card with square image (same size as other cards)
-  const SliderCard = ({ article, theme }: { article: Article; theme?: string }) => {
-    const cardTheme = getCardThemeStyles(theme);
-    const hasColorTheme = theme && theme !== 'cream';
-    const bgClass = hasColorTheme ? 'bg-white/20 backdrop-blur-sm' : 'bg-cream';
-    return (
-    <div
-      onClick={() => handleArticleClick(article._id)}
-      className={`flex-shrink-0 w-40 rounded-none overflow-hidden ${bgClass} border ${cardTheme.border} text-left shadow-md hover:shadow-lg ${cardTheme.hoverBorder} transition-all duration-200 relative group cursor-pointer touch-manipulation`}
-    >
-      {/* Image/Video - shorter aspect ratio */}
-      {article.coverImage && (
-        <div className="w-full aspect-[4/3] overflow-hidden relative">
-          {isVideo(article.coverImage) ? (
-            <video src={article.coverImage} className="w-full h-full object-cover" style={{ objectPosition: getImagePosition(article), transform: `scale(${(article.imageScale || 100) / 100})` }} muted autoPlay loop playsInline />
-          ) : (
-            <LazyImage src={article.coverImage} alt={article.title} className="w-full h-full object-cover" style={{ objectPosition: getImagePosition(article), transform: `scale(${(article.imageScale || 100) / 100})` }} />
-          )}
-          {article.category === 'rip' && (
-            <div className="absolute bottom-1 right-1.5 z-20 text-white text-xl leading-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]" style={{fontFamily:'Georgia,serif'}}>✝</div>
-          )}
-        </div>
-      )}
-      {/* Content - below image */}
-      <div className="p-1.5">
-        <h3 className={`font-display text-[20px] tracking-wide leading-tight line-clamp-2 transition-colors ${hasColorTheme ? 'text-white group-hover:text-gray-900' : 'text-gray-900 group-hover:text-[#E36B11]'}`}>{article.title}</h3>
-        {/* Likes & Comments */}
-        <div className={`flex items-center gap-2 mt-1 text-[8px] ${hasColorTheme ? 'text-gray-700' : 'text-gray-500'}`} onClick={(e) => e.stopPropagation()}>
-          <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} />
-          <span className="flex items-center gap-0.5">
-            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-            {article.commentsCount || 0}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-  };
-
-  // Horizontal Slider Container with navigation arrows
-  const SliderContainer = ({ articleIds, title, theme }: { articleIds: string[], title?: string, theme?: string }) => {
-    const sliderArticles = articleIds.map(id => getArticleById(id)).filter(Boolean) as Article[];
-    if (sliderArticles.length === 0) return null;
-    const hasColorTheme = theme && theme !== 'cream';
-    
-    const scrollRef = useRef<HTMLDivElement>(null);
-    const [canScrollLeft, setCanScrollLeft] = useState(false);
-    const [canScrollRight, setCanScrollRight] = useState(true);
-    const [activePage, setActivePage] = useState(0);
-    const visibleCards = 2.5;
-    const totalPages = Math.ceil(sliderArticles.length / visibleCards);
-    
-    const checkScroll = () => {
-      if (scrollRef.current) {
-        const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
-        setCanScrollLeft(scrollLeft > 0);
-        setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
-        const maxScroll = scrollWidth - clientWidth;
-        if (maxScroll > 0) {
-          const page = Math.round((scrollLeft / maxScroll) * (totalPages - 1));
-          setActivePage(page);
-        }
-      }
-    };
-    
-    const scroll = (direction: 'left' | 'right') => {
-      if (scrollRef.current) {
-        const scrollAmount = 280;
-        scrollRef.current.scrollBy({
-          left: direction === 'left' ? -scrollAmount : scrollAmount,
-          behavior: 'smooth'
-        });
-      }
-    };
-    
-    return (
-      <div className={`w-full rounded-none py-2 ${hasColorTheme ? 'bg-transparent' : 'bg-cream border border-warm shadow-sm'}`}>
-        {/* Slider with Arrows */}
-        <div className="relative group/slider">
-          {/* Left Arrow */}
-          {canScrollLeft && (
-            <button
-              onClick={() => scroll('left')}
-              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-12 rounded-none bg-black/60 hover:bg-black/80 text-white shadow-lg flex items-center justify-center transition-all backdrop-blur-sm border border-white/10"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-          )}
-          
-          {/* Right Arrow */}
-          {canScrollRight && (
-            <button
-              onClick={() => scroll('right')}
-              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-12 rounded-none bg-black/60 hover:bg-black/80 text-white shadow-lg flex items-center justify-center transition-all backdrop-blur-sm border border-white/10"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          )}
-          
-          {/* Scrollable Content - starts at left edge, scrolls to right */}
-          <div 
-            ref={scrollRef}
-            onScroll={checkScroll}
-            className="flex gap-2 overflow-x-auto scrollbar-hide" 
-            style={{ scrollbarWidth: 'none' }}
-          >
-            {sliderArticles.map((article, idx) => (
-              <SliderCard key={idx} article={article} theme={theme} />
-            ))}
-          </div>
-        </div>
-        
-        {/* Dots - below slider */}
-        <div className="flex items-center justify-center mt-2">
-          <div className="flex gap-1">
-            {Array.from({ length: totalPages }).map((_, idx) => (
-              <div 
-                key={idx}
-                className={`w-1.5 h-1.5 rounded-full transition-colors ${idx === activePage ? 'bg-white' : 'bg-white/40'}`}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   // Half Card - 50% width, like "FROM THE COMMUNITY" social post style
   const HalfCard = ({ article, theme }: { article: Article; theme?: string }) => {
@@ -1097,7 +1225,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         </div>
         <h3 className={`font-display tracking-wide text-gray-900 group-hover:text-[#E36B11] leading-tight line-clamp-1 transition-colors ${isDesktop ? 'text-[20px]' : 'text-[20px]'}`}>{article.title}</h3>
         <div className="flex items-center gap-3 text-[10px] text-gray-500 mt-0.5" onClick={(e) => e.stopPropagation()}>
-          <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} />
+          <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="xs" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} initialRewarded={reactionsMap[article._id]?.rewarded} />
           <span className="flex items-center gap-0.5">
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -1137,6 +1265,10 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
   // Categories: Feed = mix of all, others filter by mainCategory
   const categories = ['Feed', 'Articles', 'Arcade', 'Voting', 'Shop'];
   const [activeCategory, setActiveCategory] = useState('Feed');
+  
+  // Timeline/List view toggle
+  const [viewMode, setViewMode] = useState<'feed' | 'timeline'>('feed');
+  const [timelineFilter, setTimelineFilter] = useState<'all' | 'alive' | 'rip'>('all');
   
   // Map tab names to mainCategory values
   const categoryMap: Record<string, string | null> = {
@@ -1282,15 +1414,174 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         <div className="flex items-center gap-3">
           <Play className="w-5 h-5 text-[#E36B11]" />
           <div>
-            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Feed</span>
-            <span className="text-[10px] text-gray-500 -mt-0.5 block">Latest updates & content</span>
+            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">{viewMode === 'feed' ? 'Feed' : 'Timeline'}</span>
+            <span className="text-[10px] text-gray-500 -mt-0.5 block">{viewMode === 'feed' ? 'Latest updates & content' : 'Browse by birth year'}</span>
           </div>
         </div>
+        {/* View Mode Toggle */}
+        <button
+          onClick={() => setViewMode(viewMode === 'feed' ? 'timeline' : 'feed')}
+          className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-[#E36B11]/30 bg-white/80 text-[#E36B11] hover:bg-[#E36B11] hover:text-white hover:border-[#E36B11] shadow-sm hover:shadow transition-all text-xs font-semibold"
+        >
+          {viewMode === 'feed' ? (
+            <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+              </svg>
+              Timeline
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+              </svg>
+              Feed
+            </>
+          )}
+        </button>
       </div>
       
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
-        {/* DYNAMIC GRID TEMPLATE - 6 column grid for flexibility */}
+        {/* TIMELINE VIEW - grouped by birth year */}
+        {viewMode === 'timeline' && (() => {
+          // Extract birth year from personBirthday (DD.MM.YYYY format)
+          // Only return GenX years (1965-1980)
+          const getBirthYear = (birthday?: string): number | null => {
+            if (!birthday) return null;
+            const parts = birthday.split('.');
+            if (parts.length === 3) {
+              const year = parseInt(parts[2], 10);
+              // Only GenX: 1965-1980
+              if (!isNaN(year) && year >= 1965 && year <= 1980) return year;
+            }
+            return null;
+          };
+          
+          // Check if person is deceased
+          const isDeceased = (a: Article) => !!(a.personDeathday || a.category === 'rip');
+          
+          // Get articles with birth years, apply filter, sorted by year
+          const articlesWithYear = articles
+            .filter(a => {
+              if (a.status !== 'published' || !getBirthYear(a.personBirthday)) return false;
+              if (timelineFilter === 'alive') return !isDeceased(a);
+              if (timelineFilter === 'rip') return isDeceased(a);
+              return true;
+            })
+            .map(a => ({ ...a, birthYear: getBirthYear(a.personBirthday)!, deceased: isDeceased(a) }))
+            .sort((a, b) => a.birthYear - b.birthYear);
+          
+          // Group by year
+          const byYear: Record<number, typeof articlesWithYear> = {};
+          articlesWithYear.forEach(a => {
+            if (!byYear[a.birthYear]) byYear[a.birthYear] = [];
+            byYear[a.birthYear].push(a);
+          });
+          
+          const years = Object.keys(byYear).map(Number).sort((a, b) => a - b);
+          
+          // Count totals for filter badges
+          const allCount = articles.filter(a => a.status === 'published' && getBirthYear(a.personBirthday)).length;
+          const aliveCount = articles.filter(a => a.status === 'published' && getBirthYear(a.personBirthday) && !isDeceased(a)).length;
+          const ripCount = articles.filter(a => a.status === 'published' && getBirthYear(a.personBirthday) && isDeceased(a)).length;
+          
+          return (
+            <div className="px-3 pb-4 pt-2">
+              {/* Filter Buttons */}
+              <div className="flex gap-2 mb-3">
+                <button
+                  onClick={() => setTimelineFilter('all')}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                    timelineFilter === 'all' ? 'bg-[#E36B11] text-white' : 'bg-warm text-gray-600 hover:bg-[#E36B11]/20'
+                  }`}
+                >
+                  All ({allCount})
+                </button>
+                <button
+                  onClick={() => setTimelineFilter('alive')}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                    timelineFilter === 'alive' ? 'bg-green-600 text-white' : 'bg-warm text-gray-600 hover:bg-green-100'
+                  }`}
+                >
+                  Alive ({aliveCount})
+                </button>
+                <button
+                  onClick={() => setTimelineFilter('rip')}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                    timelineFilter === 'rip' ? 'bg-gray-700 text-white' : 'bg-warm text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  † RIP ({ripCount})
+                </button>
+              </div>
+              
+              {years.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <p className="text-sm">No articles found for this filter.</p>
+                </div>
+              ) : (
+                years.map(year => (
+                  <div key={year} className="mb-4">
+                    {/* Year Header */}
+                    <div className="sticky top-0 z-10 bg-cream py-2 border-b-2 border-[#E36B11] mb-2">
+                      <span className="font-display text-2xl font-bold text-[#E36B11]">{year}</span>
+                      <span className="ml-2 text-xs text-gray-500">({byYear[year].length} {byYear[year].length === 1 ? 'person' : 'people'})</span>
+                    </div>
+                    {/* People in this year */}
+                    <div className="space-y-1">
+                      {byYear[year].map(article => (
+                        <button
+                          key={article._id}
+                          onClick={() => handleArticleClick(article._id)}
+                          className="w-full flex items-center gap-3 p-2 border border-warm rounded hover:border-[#E36B11]/50 hover:bg-[#E36B11]/5 transition-all text-left group"
+                        >
+                          {/* Thumbnail */}
+                          <div className="w-12 h-12 rounded overflow-hidden flex-shrink-0 border border-warm">
+                            {article.coverImage ? (
+                              <img src={article.coverImage} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-400 text-xs">?</div>
+                            )}
+                          </div>
+                          {/* Name */}
+                          <div className="flex-1 min-w-0">
+                            <div className={`font-medium truncate group-hover:text-[#E36B11] transition-colors ${article.deceased ? 'text-gray-600' : 'text-gray-900'}`}>
+                              {article.personName || article.title}
+                              {article.deceased && <span className="ml-1 text-gray-400">†</span>}
+                            </div>
+                            <div className="text-xs text-gray-500 truncate">
+                              {article.personBirthday}
+                              {article.personDeathday && ` – † ${article.personDeathday}`}
+                              {article.personCountry && ` • ${article.personCountry}`}
+                            </div>
+                          </div>
+                          {/* Country Flag */}
+                          {articleFlagUrl(article) && (
+                            <img 
+                              src={articleFlagUrl(article, '24x18')}
+                              alt=""
+                              className="w-6 h-4 object-cover rounded-sm flex-shrink-0"
+                            />
+                          )}
+                          {/* Category Badge */}
+                          <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-[#E36B11]/10 text-[#E36B11] flex-shrink-0">
+                            {article.category}
+                          </span>
+                          {/* Arrow */}
+                          <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-[#E36B11] flex-shrink-0" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          );
+        })()}
+        
+        {/* FEED VIEW - normal grid template */}
+        {viewMode === 'feed' && (
         <div className="grid grid-cols-6 gap-1.5 px-2 pb-4 pt-3">
             {templateItems
               .filter(item => {
@@ -1315,19 +1606,19 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                   // Frontend theme styles - SAME as Admin (ContainerBlock.tsx)
                   const themeStyles: Record<string, { bg: string; border: string; titleColor: string }> = {
                     cream: { bg: 'bg-[#F5F0E8]', border: 'border-[#E5DDD0]', titleColor: 'text-[#E36B11]' },
-                    bogx: { bg: 'bg-[#E36B11]', border: 'border-[#E5A55A]', titleColor: 'text-white' },
-                    arcade: { bg: 'bg-purple-800', border: 'border-purple-500', titleColor: 'text-white' },
-                    sports: { bg: 'bg-green-800', border: 'border-green-500', titleColor: 'text-white' },
-                    music: { bg: 'bg-orange-800', border: 'border-orange-500', titleColor: 'text-white' },
-                    movies: { bg: 'bg-blue-800', border: 'border-blue-500', titleColor: 'text-white' },
-                    history: { bg: 'bg-amber-700', border: 'border-amber-500', titleColor: 'text-white' },
-                    culture: { bg: 'bg-pink-800', border: 'border-pink-500', titleColor: 'text-white' },
-                    gaming: { bg: 'bg-indigo-800', border: 'border-indigo-500', titleColor: 'text-white' },
-                    retro: { bg: 'bg-teal-800', border: 'border-teal-500', titleColor: 'text-white' },
+                    bogx: { bg: 'bg-[#E36B11]', border: 'border-[#E5A55A]', titleColor: 'text-[#F5F0E8]' },
+                    arcade: { bg: 'bg-purple-800', border: 'border-purple-500', titleColor: 'text-[#F5F0E8]' },
+                    sports: { bg: 'bg-green-800', border: 'border-green-500', titleColor: 'text-[#F5F0E8]' },
+                    music: { bg: 'bg-orange-800', border: 'border-orange-500', titleColor: 'text-[#F5F0E8]' },
+                    movies: { bg: 'bg-blue-800', border: 'border-blue-500', titleColor: 'text-[#F5F0E8]' },
+                    history: { bg: 'bg-amber-700', border: 'border-amber-500', titleColor: 'text-[#F5F0E8]' },
+                    culture: { bg: 'bg-pink-800', border: 'border-pink-500', titleColor: 'text-[#F5F0E8]' },
+                    gaming: { bg: 'bg-indigo-800', border: 'border-indigo-500', titleColor: 'text-[#F5F0E8]' },
+                    retro: { bg: 'bg-teal-800', border: 'border-teal-500', titleColor: 'text-[#F5F0E8]' },
                   };
                   const isCustomTheme = item.containerTheme === 'custom' && item.customColor;
                   const theme = isCustomTheme 
-                    ? { bg: '', border: '', titleColor: 'text-white' }
+                    ? { bg: '', border: '', titleColor: 'text-[#F5F0E8]' }
                     : (themeStyles[item.containerTheme || 'cream'] || themeStyles.cream);
                   const hasTheme = (item.containerTheme && item.containerTheme !== 'cream') || isCustomTheme;
                   
@@ -1339,7 +1630,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                         const Icon = n.includes('birthday') || n.includes('happy') ? PartyPopper
                           : n.includes('history') ? BookOpen
                           : n.includes('music') ? Music
-                          : n.includes('arcade') || n.includes('gaming') ? Gamepad2
+                          : n.includes('arcade') || n.includes('gaming') || n.includes('trivia') ? Brain
                           : n.includes('sport') ? Trophy
                           : n.includes('lifestyle') || n.includes('culture') ? Sparkles
                           : n.includes('rip') || n.includes('memorial') ? Cross
@@ -1348,7 +1639,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                         const accentColor = n.includes('birthday') || n.includes('happy') ? '#F4B400'
                           : n.includes('history') ? '#E36B11'
                           : n.includes('music') ? '#6db94c'
-                          : n.includes('arcade') || n.includes('gaming') ? '#7C3AED'
+                          : n.includes('arcade') || n.includes('gaming') || n.includes('trivia') ? '#7C3AED'
                           : n.includes('sport') ? '#E53935'
                           : n.includes('eastercorn') ? '#000000'
                           : n.includes('lifestyle') || n.includes('culture') ? '#EC4899'
@@ -1460,7 +1751,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                                   else onOpenStaticPage?.(bannerLink.replace(/^\//, ''));
                                 }
                               }}
-                              className="block w-full rounded-none overflow-hidden bg-[#F5F0E8] border border-[#E5DDD0] p-1 shadow-md hover:shadow-lg hover:border-[#E36B11]/30 transition-all cursor-pointer"
+                              className={`block w-full rounded-none overflow-hidden shadow-md hover:shadow-lg transition-all cursor-pointer ${autoCategory === 'music' ? 'border-4 border-[#6db94c]' : 'bg-[#F5F0E8] p-1 border border-[#E5DDD0] hover:border-[#E36B11]/30'}`}
                             >
                               <div className="relative w-full aspect-[2/1] md:aspect-[2.5/1] lg:aspect-[2.7/1] overflow-hidden bg-gray-800">
                                 {fixedImg ? (
@@ -1476,21 +1767,25 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                                   const dateStr = fixedArticle.createdAt
                                     ? new Date(fixedArticle.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                                     : new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                                  // Use cream color for arcade/gaming, orange for history
+                                  const isArcade = autoCategory === 'arcade' || autoCategory === 'gaming';
+                                  const accentColor = isArcade ? '#F5F0E8' : '#E36B11';
+                                  const bgTint = isArcade ? 'rgba(107, 33, 168, 0.3)' : `${accentColor}20`;
                                   return (
                                     <div className="absolute bottom-0 left-0 right-0 flex items-stretch bg-black/55 backdrop-blur-sm">
-                                      {/* Date block left - amber accent */}
-                                      <div className="flex flex-row items-center justify-center gap-1.5 px-4 py-3 border-r border-white/20 bg-[#E36B11]/20 whitespace-nowrap">
-                                        <span className="text-[#E36B11] text-sm font-bold uppercase tracking-widest leading-none">{dateStr.split(' ')[0]}</span>
-                                        <span className="text-white font-black text-2xl leading-none">{dateStr.split(' ')[1]}</span>
+                                      {/* Date block left - category accent color */}
+                                      <div className="flex flex-row items-center justify-center gap-1.5 px-4 py-3 border-r border-white/20 whitespace-nowrap" style={{ backgroundColor: bgTint }}>
+                                        <span className="text-sm font-bold uppercase tracking-widest leading-none" style={{ color: accentColor }}>{dateStr.split(' ')[0]}</span>
+                                        <span className="font-black text-2xl leading-none" style={{ color: accentColor }}>{dateStr.split(' ')[1]}</span>
                                       </div>
                                       {/* Title + subtitle right */}
                                       <div className="flex flex-col justify-center px-4 py-3 min-w-0 gap-0.5 text-left flex-1">
-                                        <div className="text-white font-bold text-base leading-tight line-clamp-1">{fixedArticle.title}</div>
-                                        {fixedArticle.subtitle && <div className="text-white/65 text-xs leading-tight line-clamp-1 pl-0">{fixedArticle.subtitle}</div>}
+                                        <div className="text-[#F5F0E8] font-bold text-base leading-tight line-clamp-1">{fixedArticle.title}</div>
+                                        {fixedArticle.subtitle && <div className="text-[#F5F0E8]/65 text-xs leading-tight line-clamp-1 pl-0">{fixedArticle.subtitle}</div>}
                                       </div>
                                       {/* Read More button - desktop only */}
                                       <div className="hidden md:flex items-center px-4 py-3 flex-shrink-0">
-                                        <span className="flex items-center gap-1.5 px-3 py-1.5 border border-[#E36B11]/60 text-[#E36B11] text-xs font-bold uppercase tracking-wider rounded hover:bg-[#E36B11]/20 transition-colors whitespace-nowrap">
+                                        <span className="flex items-center gap-1.5 px-3 py-1.5 border text-xs font-bold uppercase tracking-wider rounded transition-colors whitespace-nowrap" style={{ borderColor: `${accentColor}99`, color: accentColor }}>
                                           Read More →
                                         </span>
                                       </div>
@@ -1529,12 +1824,13 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                             console.log(`SLIDER auto-fill: category=${cat}, found ${autoArticles.length} articles (excluding ${usedArticleIds.size} used)`);
                             
                             if (autoArticles.length === 0) return null;
-                            return <div key={blockIdx}><SliderContainer articleIds={autoArticles.map(a => a._id)} theme={containerTheme} /></div>;
+                            return <div key={blockIdx}><SliderContainer articles={autoArticles} theme={containerTheme} {...sliderProps} /></div>;
                           }
                           // Manual: use specified article IDs (also filter out used ones)
                           const manualIds = (block.articles || []).filter(id => !usedArticleIds.has(id));
                           manualIds.forEach(id => usedArticleIds.add(id));
-                          return <div key={blockIdx}><SliderContainer articleIds={manualIds} theme={containerTheme} /></div>;
+                          const manualArticles = manualIds.map(id => getArticleById(id)).filter(Boolean) as Article[];
+                          return <div key={blockIdx}><SliderContainer articles={manualArticles} theme={containerTheme} {...sliderProps} /></div>;
                         }
                         if (block.type === 'VERTICAL') {
                           console.log('VERTICAL block found:', block);
@@ -1576,7 +1872,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                               {cat && (
                                 <div className="pt-2 pb-4 mb-2 border-b border-warm">
                                   <button 
-                                    onClick={() => window.dispatchEvent(new Event('openArticles'))}
+                                    onClick={() => window.dispatchEvent(new CustomEvent('openArticles', { detail: { category: cat } }))}
                                     className="flex items-center justify-center gap-1.5 w-full py-1.5 text-xs text-gray-400 uppercase tracking-wider hover:text-gray-600"
                                   >
                                     {cat === 'music' && <Music className="w-3.5 h-3.5" />}
@@ -1657,7 +1953,8 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                 
                 // Size 6 = Slider (horizontal scroll container)
                 if (item.size === 6) {
-                  return <div key={index} className="col-span-6"><SliderContainer articleIds={item.sliderArticles || []} title={item.sliderTitle} /></div>;
+                  const sliderItems = (item.sliderArticles || []).map(id => getArticleById(id)).filter(Boolean) as Article[];
+                  return <div key={index} className="col-span-6"><SliderContainer articles={sliderItems} title={item.sliderTitle} {...sliderProps} /></div>;
                 }
                 
                 // Size 3 = FeaturedCard (MainBox) - use smart getter that shows unread articles
@@ -1683,6 +1980,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                 return <div key={index} className="col-span-2"><SmallBox article={article} /></div>;
               })}
         </div>
+        )}
           
           {/* Mobile Footer - only show on mobile, desktop has its own footer */}
           <footer className="lg:hidden px-4 py-8 mt-6 border-t border-warm">

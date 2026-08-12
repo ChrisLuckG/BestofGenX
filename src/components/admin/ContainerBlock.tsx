@@ -18,7 +18,7 @@ export const CONTAINER_THEMES = {
   // BOGX Orange - our brand color!
   bogx: { bg: 'bg-[#E36B11]', border: 'border-[#E5A55A]', label: 'BOGX Orange', color: '#E36B11' },
   // Highlight themes
-  arcade: { bg: 'bg-purple-800', border: 'border-purple-500', label: 'Arcade', color: '#7c3aed' },
+  arcade: { bg: 'bg-purple-800', border: 'border-purple-500', label: 'Trivia', color: '#7c3aed' },
   sports: { bg: 'bg-green-800', border: 'border-green-500', label: 'Sports', color: '#16a34a' },
   music: { bg: 'bg-orange-800', border: 'border-orange-500', label: 'Music', color: '#ea580c' },
   movies: { bg: 'bg-blue-800', border: 'border-blue-500', label: 'Movies', color: '#2563eb' },

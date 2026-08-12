@@ -25,7 +25,7 @@ type TabType = 'articles' | 'arcade' | 'rewards' | 'rankroll' | 'users' | 'curre
 // Frontend-related tabs (left)
 const CONTENT_TABS: { id: TabType; label: string }[] = [
   { id: 'articles', label: 'Articles' },
-  { id: 'arcade', label: 'Arcade' },
+  { id: 'arcade', label: 'Trivia' },
   { id: 'rankroll', label: 'Rankroll' },
   { id: 'tv', label: 'TV' },
 ];

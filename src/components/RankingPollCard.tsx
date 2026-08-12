@@ -131,6 +131,8 @@ export default function RankingPollCard({ poll, onPointsAwarded, onShowLogin, on
     setUserVotes(prev => ({ ...prev, [itemId]: voteType }));
     if (isNewVote) {
       onCoinAnimation?.(0.01);
+      // Notify leaderboard/rankings to refresh instantly
+      window.dispatchEvent(new CustomEvent('bogx-updated'));
     }
 
     try {

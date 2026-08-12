@@ -156,7 +156,7 @@ export default function RadioPage({ isDesktop = false }: RadioPageProps) {
               <div className="flex items-center gap-1.5 text-[#E36B11]">
                 <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
                 <span className="text-sm font-semibold">Earn 0.10</span>
-                <span className="text-xs text-gray-500"> when we play your song!</span>
+                <span className="text-xs text-gray-500"> when we add your song!</span>
               </div>
             </div>
             

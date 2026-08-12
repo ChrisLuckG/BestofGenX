@@ -3,6 +3,11 @@ import OpenAI from "openai";
 import { v2 as cloudinary } from "cloudinary";
 import sharp from "sharp";
 
+// gpt-image-2 at quality "high" needs ~2 minutes, well past the platform's
+// default serverless timeout. Without this the route dies mid-generation in
+// production while appearing to work locally (`next dev` has no limit).
+export const maxDuration = 300;
+
 export async function POST(request: NextRequest) {
   try {
     const apiKey = process.env.OPENAI_API_KEY;
@@ -13,7 +18,7 @@ export async function POST(request: NextRequest) {
 
     const openai = new OpenAI({ apiKey });
 
-    const { topic, theme, prompt, style, allowText } = await request.json();
+    const { topic, theme, prompt, style, allowText, aspectRatio } = await request.json();
 
     console.log("Generating image for topic:", topic, "theme:", theme, "prompt:", prompt, "allowText:", allowText);
 
@@ -23,7 +28,7 @@ export async function POST(request: NextRequest) {
       'MOVIES': 'Retro cinema aesthetic. Film reels, movie theater seats, popcorn, clapperboard, Hollywood spotlights, red carpet. Cinematic dramatic lighting. NO people, NO faces.',
       'TV SHOWS': 'Retro TV aesthetic. Old CRT television sets, VHS tapes, TV antennas, living room 90s style, remote controls. Nostalgic warm lighting. NO people, NO faces.',
       'SPORTS': 'Retro sports aesthetic. Stadium lights, trophies, sports equipment, grass field, scoreboard, championship banners. Dynamic dramatic lighting. NO people, NO faces.',
-      'GAMING': 'Retro gaming aesthetic. Arcade machines, game controllers, pixel art screens, neon arcade lights, joysticks, cartridges. Cyberpunk neon style. NO people, NO faces.',
+      'GAMING': 'Elegant trivia knowledge aesthetic. A glowing 3D brain on a cream/beige pedestal, soft purple and lavender accents, floating question marks, lightbulb icons, trophy. Clean minimalist cream background with subtle purple gradients. Soft studio lighting, elegant and sophisticated. NO dark colors, NO neon, NO arcade machines.',
       'FASHION': 'Retro 80s 90s fashion aesthetic. Vintage clothing racks, designer accessories, runway lights, fashion magazines, sunglasses, jewelry. Glamorous studio lighting. NO people, NO faces.',
       'TECHNOLOGY': 'Retro tech aesthetic. Old computers, floppy disks, early internet, dial-up modems, chunky phones, circuit boards. Cyberpunk blue glow. NO people, NO faces.',
       'CELEBRITIES': 'Hollywood glamour aesthetic. Star walk of fame, paparazzi cameras, red carpet, spotlights, awards trophies, limousines. Golden hour lighting. NO people, NO faces.',
@@ -36,23 +41,32 @@ export async function POST(request: NextRequest) {
       // Banner mode: use prompt exactly as provided, no restrictions
       photoPrompt = prompt;
     } else if (prompt) {
-      // Article mode: add quality hints and NO TEXT restriction
-      photoPrompt = `${prompt}. Photorealistic photography style, shot on professional camera, natural lighting, high resolution. NO people, NO faces, NO illustrations, NO cartoon, NO AI-looking art, NO TEXT, NO WORDS, NO LETTERS, NO WRITING.`;
+      // Article mode: add quality hints, faces allowed
+      photoPrompt = `${prompt}. Ultra high quality, sharp details, crisp image, professional photography, 8K resolution, cinematic lighting. NO blurry, NO washed out, NO low quality.`;
     } else {
       const basePrompt = themePrompts[theme] || themePrompts['MUSIC'];
-      photoPrompt = `${basePrompt} Photorealistic photography style, shot on professional camera, natural lighting, high resolution. NO illustrations, NO cartoon, NO AI-looking art, NO TEXT, NO WORDS, NO LETTERS, NO WRITING.`;
+      photoPrompt = `${basePrompt} Ultra high quality, sharp details, crisp image, professional photography, 8K resolution, cinematic lighting. NO blurry, NO washed out, NO low quality.`;
     }
 
     console.log("Using prompt for theme:", theme);
 
-    // Use GPT Image 2 - state-of-the-art model (same as ChatGPT uses)
+    // Determine image size based on aspectRatio parameter
+    // gpt-image-2 supports: 1024x1024, 1536x1024 (landscape), 1024x1536 (portrait)
+    let imageSize: "1024x1024" | "1536x1024" | "1024x1536" = "1024x1024";
+    if (aspectRatio === 'landscape' || aspectRatio === '16:9' || aspectRatio === '21:9') {
+      imageSize = "1536x1024"; // Closest to wide/landscape format
+    } else if (aspectRatio === 'portrait') {
+      imageSize = "1024x1536";
+    }
+    
+    // gpt-image-2 is the newest image model available on this account.
     const imageResponse = await openai.images.generate({
       model: "gpt-image-2",
       prompt: photoPrompt,
       n: 1,
-      size: "1024x1024",
-      quality: "medium",
-    });
+      size: imageSize,
+      quality: "high",
+    } as Parameters<typeof openai.images.generate>[0]) as any;
 
     const b64 = imageResponse.data?.[0]?.b64_json;
     const url = imageResponse.data?.[0]?.url;
@@ -61,28 +75,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "No image generated" }, { status: 500 });
     }
 
-    let imageUrl: string;
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
 
-    if (url) {
-      // Already a URL - use directly
-      imageUrl = url;
-    } else if (b64) {
-      // Convert base64 to Buffer, resize and compress to WebP
-      const originalBuffer = Buffer.from(b64, 'base64');
-      
-      // Resize to 512x512 and convert to WebP (much smaller file size)
-      const compressedBuffer = await sharp(originalBuffer)
-        .resize(512, 512, { fit: 'cover' })
-        .webp({ quality: 80 })
+    const persistImage = async (sourceBuffer: Buffer): Promise<string> => {
+      // The generated resolution is kept as-is. It used to be halved
+      // (1536x1024 -> 768x512), which threw away half the detail that
+      // quality:"high" just paid for and looked soft as an article cover.
+      // Cloudinary can still downscale on delivery when a small variant is needed.
+      const processed = await sharp(sourceBuffer)
+        .webp({ quality: 90 })
         .toBuffer();
-      
-      // Upload to Cloudinary
-      cloudinary.config({
-        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-        api_key: process.env.CLOUDINARY_API_KEY,
-        api_secret: process.env.CLOUDINARY_API_SECRET,
-      });
-      
+
       const publicId = `images/ai-generated-${Date.now()}`;
       const uploadResult = await new Promise<any>((resolve, reject) => {
         const uploadStream = cloudinary.uploader.upload_stream(
@@ -96,13 +103,26 @@ export async function POST(request: NextRequest) {
             else resolve(result);
           }
         );
-        uploadStream.end(compressedBuffer);
+        uploadStream.end(processed);
       });
-      imageUrl = uploadResult.secure_url;
-      
-      console.log(`Image compressed: ${originalBuffer.length} -> ${compressedBuffer.length} bytes (${Math.round(compressedBuffer.length / originalBuffer.length * 100)}%)`);
+
+      console.log(`Image ${imageSize}: ${sourceBuffer.length} -> ${processed.length} bytes (webp q90)`);
+      return uploadResult.secure_url;
+    };
+
+    // base64 first - that is what gpt-image-* returns. A URL from OpenAI is only a
+    // short-lived link that expires within the hour; it used to be stored directly,
+    // which would leave the article with a dead image. It is downloaded and pushed
+    // to Cloudinary instead.
+    let imageUrl: string;
+    if (b64) {
+      imageUrl = await persistImage(Buffer.from(b64, 'base64'));
     } else {
-      return NextResponse.json({ success: false, error: "No image data" }, { status: 500 });
+      const dl = await fetch(url as string);
+      if (!dl.ok) {
+        return NextResponse.json({ success: false, error: "Failed to download generated image" }, { status: 500 });
+      }
+      imageUrl = await persistImage(Buffer.from(await dl.arrayBuffer()));
     }
 
     return NextResponse.json({

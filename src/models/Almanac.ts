@@ -45,6 +45,14 @@ export interface IPerson {
     category: string;
     savedAt: string;
   }[];
+  // Article tracking
+  hasArticle?: boolean;
+  articleId?: string;
+  articleCreatedAt?: Date;
+  // Discovery tracking
+  discoveredBy?: string;
+  discoveredByName?: string;
+  discoveredFor?: 'birthday' | 'rip';
 }
 
 const PersonSchema = new mongoose.Schema({
@@ -71,6 +79,14 @@ const PersonSchema = new mongoose.Schema({
     category: String,
     savedAt: String,
   }],
+  // Article tracking
+  hasArticle: { type: Boolean, default: false },
+  articleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article' },
+  articleCreatedAt: Date,
+  // Discovery tracking (from Editorial Conference)
+  discoveredBy: String,
+  discoveredByName: String,
+  discoveredFor: { type: String, enum: ['birthday', 'rip'] },
 }, { timestamps: true });
 
 // Generic item for other categories

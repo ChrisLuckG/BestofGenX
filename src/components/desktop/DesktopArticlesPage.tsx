@@ -61,21 +61,31 @@ const CATEGORY_LABELS: Record<string, string> = {
 interface DesktopArticlesPageProps {
   onOpenArticle: (articleId: string) => void;
   onShowLogin?: () => void;
+  onCoinAnimation?: (amount: number) => void;
+  initialCategory?: string;
 }
 
 type FilterType = 'all' | 'unread' | 'top-commented' | 'most-liked' | 'newest' | 'oldest';
 
-export default function DesktopArticlesPage({ onOpenArticle, onShowLogin }: DesktopArticlesPageProps) {
+export default function DesktopArticlesPage({ onOpenArticle, onShowLogin, onCoinAnimation, initialCategory }: DesktopArticlesPageProps) {
   const { user, isLoggedIn } = useAuth();
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(1);
-  const [filter, setFilter] = useState<FilterType>('all');
+  const [filter, setFilter] = useState<FilterType>('newest');
+  const [categoryFilter, setCategoryFilter] = useState<string>(initialCategory || 'all');
   const [searchQuery, setSearchQuery] = useState('');
   const [readArticles, setReadArticles] = useState<Set<string>>(new Set());
   const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  // Update category filter when initialCategory prop changes
+  useEffect(() => {
+    if (initialCategory) {
+      setCategoryFilter(initialCategory);
+    }
+  }, [initialCategory]);
 
   // Load initial articles
   useEffect(() => {
@@ -161,11 +171,17 @@ export default function DesktopArticlesPage({ onOpenArticle, onShowLogin }: Desk
   const handleArticleClick = (articleId: string) => {
     // Optimistically update UI
     setReadArticles(prev => { const next = new Set(Array.from(prev)); next.add(articleId); return next; });
+    // Drop the category filter so returning from the article shows all categories
+    // again, matching the mobile list.
+    setCategoryFilter('all');
     onOpenArticle(articleId);
   };
 
   const filteredArticles = articles.filter((article) => {
     if (searchQuery && !article.title.toLowerCase().includes(searchQuery.toLowerCase())) {
+      return false;
+    }
+    if (categoryFilter !== 'all' && article.category !== categoryFilter) {
       return false;
     }
     if (filter === 'unread' && readArticles.has(article._id)) {
@@ -187,12 +203,11 @@ export default function DesktopArticlesPage({ onOpenArticle, onShowLogin }: Desk
   const listArticles = sortedArticles.slice(1);
 
   const filters: { key: FilterType; label: string; icon?: typeof Heart }[] = [
-    { key: 'all', label: 'All' },
+    { key: 'newest', label: 'Newest' },
+    { key: 'oldest', label: 'Oldest' },
     { key: 'unread', label: 'Unread' },
     { key: 'top-commented', label: 'Top Commented', icon: MessageCircle },
     { key: 'most-liked', label: 'Most Liked', icon: Heart },
-    { key: 'newest', label: 'Newest' },
-    { key: 'oldest', label: 'Oldest' },
   ];
 
   return (
@@ -232,6 +247,27 @@ export default function DesktopArticlesPage({ onOpenArticle, onShowLogin }: Desk
           <>
             {/* Filter Chips - always visible */}
             <div className="flex items-center gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+              {/* Category Dropdown */}
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="px-3 py-2 rounded-xl text-xs font-semibold border cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#E36B11] bg-[#E36B11] text-white border-[#E36B11]"
+              >
+                <option value="all" className="bg-white text-gray-900">All Categories</option>
+                <option value="sports" className="bg-white text-gray-900">Sports</option>
+                <option value="music" className="bg-white text-gray-900">Music</option>
+                <option value="movies-tv" className="bg-white text-gray-900">Movies & TV</option>
+                <option value="gaming" className="bg-white text-gray-900">Gaming</option>
+                <option value="history" className="bg-white text-gray-900">History</option>
+                <option value="culture" className="bg-white text-gray-900">Culture</option>
+                <option value="tech" className="bg-white text-gray-900">Tech</option>
+                <option value="lifestyle" className="bg-white text-gray-900">Lifestyle</option>
+                <option value="news" className="bg-white text-gray-900">News</option>
+                <option value="rewind" className="bg-white text-gray-900">Rewind</option>
+              </select>
+              
+              <div className="w-px h-6 bg-warm/60 mx-1" />
+              
               {filters.map((f) => {
                 const Icon = f.icon;
                 return (
@@ -264,7 +300,7 @@ export default function DesktopArticlesPage({ onOpenArticle, onShowLogin }: Desk
 
             {/* Article List */}
             <div className="space-y-3">
-              {(filter === 'all' ? articles : sortedArticles).map((article) => {
+              {sortedArticles.map((article) => {
                 const isRead = readArticles.has(article._id);
                 return (
                   <div
@@ -308,13 +344,13 @@ export default function DesktopArticlesPage({ onOpenArticle, onShowLogin }: Desk
                         </div>
                         {/* Reactions on separate line */}
                         <div className="mt-1" onClick={(e) => e.stopPropagation()}>
-                          <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" />
+                          <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="xs" />
                         </div>
                       </div>
                       {/* Coin Badge only */}
                       <div className="flex items-center flex-shrink-0">
                         <div className={`px-2 py-1 rounded-lg border-2 font-display text-sm flex items-center gap-1 ${
-                          isRead ? 'border-green-500 text-green-600' : 'border-[#E36B11] text-[#E36B11]'
+                          isRead ? 'border-[#E36B11] text-[#E36B11] bg-[#E36B11]/10' : 'border-gray-900 text-gray-900'
                         }`}>
                           {isRead && <Check className="w-3 h-3" />}
                           0.05

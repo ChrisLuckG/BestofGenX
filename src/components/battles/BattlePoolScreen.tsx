@@ -302,18 +302,36 @@ export default function BattlePoolScreen({
             ))}
           </div>
         ) : isOnBreak ? (
-          <div className="flex flex-col items-center justify-center h-full px-4">
-            <div className="flex items-center gap-3 mb-6">
-              <Clock className="w-10 h-10 text-[#A855F7]" />
-              <div>
-                <p className="font-display text-xl tracking-wider text-[#A855F7]">DAILY BREAK</p>
-                <p className="text-gray-500 text-xs">9:00 - 10:00 AM</p>
+          <div className="relative overflow-hidden flex-1" style={{ minHeight: '350px' }}>
+            {/* Background image */}
+            <div 
+              className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+              style={{ backgroundImage: 'url(/images/Hintergund/break.png)' }}
+            />
+            
+            {/* Content */}
+            <div className="relative flex flex-col items-center justify-center text-center px-6 h-full" style={{ paddingTop: '180px', paddingBottom: '60px' }}>
+              <div className="flex items-center gap-2 mb-3">
+                <img src="/images/coffee-break.svg" alt="" className="w-6 h-6" />
+                <div className="text-left">
+                  <h3 className="font-display text-sm font-bold text-[#A855F7] uppercase tracking-wide">Daily Break</h3>
+                  <p className="text-[10px] text-gray-500">9:00 – 10:00 AM</p>
+                </div>
               </div>
-            </div>
-            <p className="text-gray-600 text-sm mb-4">Relax! We're preparing the next round.</p>
-            <div className="flex items-center gap-2 text-[#A855F7] text-sm animate-pulse">
-              <span>⚡</span>
-              <span>Back at 10:00 AM</span>
+              
+              <p className="text-base text-gray-800 font-semibold mb-1">Relax! We're preparing the next round.</p>
+              <p className="text-xs text-gray-500 mb-5 max-w-[260px]">Take a short break and come back at 10:00 for new questions and exciting challenges.</p>
+              
+              {/* Back at 10:00 card */}
+              <div className="flex items-center gap-3 px-4 py-2.5 bg-white/90 rounded-xl border border-[#A855F7]/20 shadow-sm">
+                <div className="w-8 h-8 rounded-full bg-[#A855F7]/15 flex items-center justify-center">
+                  <span className="text-[#A855F7]">⚡</span>
+                </div>
+                <div className="text-left">
+                  <p className="text-xs font-bold text-[#A855F7]">Back at 10:00 AM</p>
+                  <p className="text-[9px] text-gray-500">New round, new chances to win!</p>
+                </div>
+              </div>
             </div>
           </div>
         ) : filteredBattles.length === 0 ? (

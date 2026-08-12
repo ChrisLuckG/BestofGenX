@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { searchYouTubeVideo, PREFER_LONG } from "@/lib/youtubeSearch";
 
-// Search for a different YouTube video for a history event
+// Search for a different YouTube video for a history event.
+// Uses the shared helper so this "give me another video" action honours the same
+// long-then-medium duration preference as the initial search - it used to run an
+// unfiltered query and return the first hit, which is how short clips got in.
 
 export async function POST(request: NextRequest) {
   try {
-    const apiKey = process.env.YOUTUBE_API_KEY;
-    if (!apiKey) {
+    if (!process.env.YOUTUBE_API_KEY) {
       return NextResponse.json({ success: false, error: "YouTube API key not configured" });
     }
 
@@ -20,45 +23,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "No query provided" });
     }
 
-    // Try multiple search queries to find a different video
-    const searchQueries = [
-      `${query} ${year || ''} documentary`,
-      `${query} ${year || ''} history`,
-      `${query} ${year || ''} archive footage`,
-      `${query} original`,
+    const hit = await searchYouTubeVideo({
       query,
-    ];
+      year,
+      excludeVideoId,
+      tiers: PREFER_LONG,
+      extraQueries: [
+        `${query} ${year || ''} history`.trim(),
+        `${query} original`,
+      ],
+    });
 
-    for (const q of searchQueries) {
-      const searchQuery = encodeURIComponent(q.trim());
-      const response = await fetch(
-        `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${searchQuery}&type=video&maxResults=5&key=${apiKey}`
-      );
-
-      if (!response.ok) {
-        console.error("YouTube API error:", response.status);
-        continue;
-      }
-
-      const data = await response.json();
-      
-      // Find a video that's not the excluded one
-      for (const item of data.items || []) {
-        const videoId = item.id?.videoId;
-        if (videoId && videoId !== excludeVideoId) {
-          console.log(`Found different YouTube video for "${q}": ${videoId}`);
-          return NextResponse.json({
-            success: true,
-            videoId,
-            title: item.snippet?.title || '',
-          });
-        }
-      }
+    if (!hit) {
+      return NextResponse.json({
+        success: false,
+        error: "No other long-form video found for this event",
+      });
     }
 
-    return NextResponse.json({ 
-      success: false, 
-      error: "No different video found" 
+    return NextResponse.json({
+      success: true,
+      videoId: hit.videoId,
+      title: hit.title,
     });
 
   } catch (error: unknown) {

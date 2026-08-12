@@ -8,6 +8,11 @@ import { combinePrompts } from "@/lib/loadPrompt";
 // Cron job to generate daily "On This Day" article
 // Runs at 9:00 AM, creates article scheduled for 10:00 AM
 
+// This job waits on /api/generate-image, which needs ~2 minutes at quality
+// "high", plus the article-writing completion. Without this it hits the
+// platform's default serverless timeout and no article gets created.
+export const maxDuration = 300;
+
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
@@ -35,12 +40,14 @@ async function generateArticleImage(title: string, subtitle: string, baseUrl: st
       ? `Subtle visual references to: ${eventKeywords.slice(0, 3).join(', ')}.` 
       : '';
     
-    const prompt = `A dramatic cinematic collage for "${monthName} ${dayNumber}" in history. The large number "${dayNumber}" prominently displayed in elegant vintage typography, slightly weathered. ${eventsDescription} Historical newspaper clippings, old photographs, and vintage memorabilia artfully arranged. Sepia and warm golden tones, nostalgic 80s/90s aesthetic, museum exhibition quality, dramatic lighting, film grain texture. The composition should feel like opening a time capsule. 8K photorealistic, editorial magazine cover style.`;
+    // No "magazine cover" wording here: covers are portrait and fight the
+    // landscape aspect ratio requested below.
+    const prompt = `A wide cinematic landscape banner (horizontal 3:2 composition) for "${monthName} ${dayNumber}" in history. The large number "${dayNumber}" prominently displayed in elegant vintage typography, slightly weathered, positioned to one side. ${eventsDescription} Historical newspaper clippings, old photographs, and vintage memorabilia artfully arranged and spread horizontally across the full width of the frame. Sepia and warm golden tones, nostalgic 80s/90s aesthetic, museum exhibition quality, dramatic lighting, film grain texture. The composition should feel like opening a time capsule. Photorealistic, high detail, fills the entire wide frame edge to edge, no borders, no vertical poster framing.`;
     
     const response = await fetch(`${baseUrl}/api/generate-image`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, style: 'article' }),
+      body: JSON.stringify({ prompt, style: 'article', aspectRatio: 'landscape' }),
     });
 
     if (!response.ok) {

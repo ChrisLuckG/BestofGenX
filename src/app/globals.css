@@ -21,6 +21,16 @@ html {
   touch-action: pinch-zoom pan-x pan-y;
 }
 
+/* Horizontally scrolling sliders.
+   Both axes must be listed: with `pan-x` alone the browser only permits
+   horizontal panning for touches starting inside the slider, so a vertical drag
+   over it never scrolls the page behind it and feels stuck. `overscroll-behavior-x`
+   still keeps a horizontal swipe from bubbling out at the ends. */
+.horizontal-slider {
+  touch-action: pan-x pan-y;
+  overscroll-behavior-x: contain;
+}
+
 /* Quill Editor Styles */
 @import 'react-quill-new/dist/quill.snow.css';
 
@@ -315,6 +325,7 @@ body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: none;
+  overscroll-behavior-y: contain;
   background: #F5F0E8;
   color: #1A1A1A;
   font-family: var(--font-body), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -806,4 +817,20 @@ body {
 }
 .bogx-thrust {
   animation: bogx-thrust 0.12s ease-in-out infinite;
+}
+
+/* Point change animation for leaderboard */
+@keyframes fadeSlideUp {
+  0% { opacity: 1; transform: translateY(0); }
+  70% { opacity: 1; transform: translateY(-8px); }
+  100% { opacity: 0; transform: translateY(-12px); }
+}
+
+/* Coin earned animation */
+@keyframes coinEarnedSlide {
+  0% { opacity: 0; transform: translate(-50%, -20px) scale(0.8); }
+  15% { opacity: 1; transform: translate(-50%, 0) scale(1.1); }
+  25% { transform: translate(-50%, 0) scale(1); }
+  80% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, -10px); }
 }

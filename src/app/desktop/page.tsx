@@ -37,7 +37,6 @@ import DesktopRewardsPage from "@/components/desktop/DesktopRewardsPage";
 import DesktopContentWrapper from "@/components/desktop/DesktopContentWrapper";
 import DesktopBattlesPage from "@/components/desktop/DesktopBattlesPage";
 import DesktopRankWidget from "@/components/desktop/DesktopRankWidget";
-import RadioPage from "@/components/RadioPage";
 import CommunitySoundPage from "@/components/CommunitySoundPage";
 import WelcomeBackModal, { WelcomeBackRankChange } from "@/components/WelcomeBackModal";
 import CheckoutSuccessModal from "@/components/CheckoutSuccessModal";
@@ -64,6 +63,7 @@ export default function DesktopPage() {
   const [activeTab, setActiveTab] = useState<NavTab>("feed");
   const [previousTab, setPreviousTab] = useState<NavTab>("feed");
   const [tabRestored, setTabRestored] = useState(false);
+  const [articlesCategoryFilter, setArticlesCategoryFilter] = useState<string>('all');
   
   // Preload arcade banner images early so they're ready when user visits Trivia
   useEffect(() => {
@@ -120,6 +120,11 @@ export default function DesktopPage() {
       }
     }, stepDuration);
   };
+  // Stable reference so memoized children (e.g. WelcomeReel) don't re-render on every page render
+  const triggerCoinGain = useCallback((amount: number) => {
+    setCoinAnimKey(k => k + 1);
+    setCoinAnimation({ show: true, amount, variant: 'gain' });
+  }, []);
   const [userRank, setUserRank] = useState<number | null>(null);
   const [isBattleActive, setIsBattleActive] = useState(false);
   // Pending wager indicator - global source of truth (same on mobile & desktop)
@@ -184,7 +189,13 @@ export default function DesktopPage() {
   const [rankings, setRankings] = useState<any[]>([]);
   const [rankingsLoading, setRankingsLoading] = useState(true);
   const [leaderboardDayOffset, setLeaderboardDayOffset] = useState(0); // 0 = today, -1 = yesterday, etc.
-  const [shopProducts, setShopProducts] = useState<any[]>([]);
+  const [scrubProgress, setScrubProgress] = useState<number | null>(null); // null = live, 0-100 = scrubbing
+  const [isDraggingTimeline, setIsDraggingTimeline] = useState(false);
+  const timelineRef = useRef<HTMLDivElement>(null);
+  const scrubDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const [pointChanges, setPointChanges] = useState<Record<string, number>>({}); // Track point changes for animations
+  const prevRankingsRef = useRef<any[]>([]);
+    const [shopProducts, setShopProducts] = useState<any[]>([]);
   const [tvVideos, setTvVideos] = useState<any[]>([]);
   const [tvLoading, setTvLoading] = useState(true);
   
@@ -377,9 +388,10 @@ export default function DesktopPage() {
     fetchWelcomeMessage();
   }, [mounted, isLoggedIn, user?.id, searchParams]);
 
-  // Load leaderboard data - supports day navigation
+  // Load leaderboard data - supports day navigation and timeline scrubbing
   // silent=true means no loading spinner (for live score updates during gameplay)
-  const loadLeaderboard = async (dayOffset: number = 0, silent: boolean = false) => {
+  // untilTime: 0-100 progress percentage for timeline scrubbing (null = live)
+  const loadLeaderboard = async (dayOffset: number = 0, silent: boolean = false, untilTime: number | null = null) => {
     if (!silent) setRankingsLoading(true);
     try {
       const now = new Date();
@@ -402,10 +414,37 @@ export default function DesktopPage() {
         url = `/api/rankings/snapshot?period=day&date=${dateStr}`;
       }
       
+      // Add untilTime parameter for timeline scrubbing
+      if (untilTime !== null && dayOffset === 0 && !inBreak) {
+        url += `&untilTime=${untilTime}`;
+      }
+      
       const res = await fetch(url);
       const data = await res.json();
       if (data.rankings) {
-        setRankings(data.rankings.slice(0, 10));
+        const newRankings = data.rankings.slice(0, 10);
+        
+        // Calculate point changes for animations (only for live updates, not scrubbing)
+        if (silent && prevRankingsRef.current.length > 0 && scrubProgress === null) {
+          const changes: Record<string, number> = {};
+          newRankings.forEach((r: any) => {
+            const prev = prevRankingsRef.current.find((p: any) => p._id === r._id);
+            if (prev) {
+              const diff = (r.bogxCoins || r.points || 0) - (prev.bogxCoins || prev.points || 0);
+              if (diff !== 0) {
+                changes[r._id] = diff;
+              }
+            }
+          });
+          if (Object.keys(changes).length > 0) {
+            setPointChanges(changes);
+            // Clear changes after animation
+            setTimeout(() => setPointChanges({}), 2000);
+          }
+        }
+        
+        prevRankingsRef.current = newRankings;
+        setRankings(newRankings);
       }
     } catch (error) {
       console.error('Error loading leaderboard:', error);
@@ -414,11 +453,24 @@ export default function DesktopPage() {
     }
   };
   
-  // Reload leaderboard when day offset changes
+  // Reload leaderboard when day offset changes or break time status changes
   useEffect(() => {
+    // Clear rankings immediately when break ends to avoid showing stale data
+    if (!isBreakTime && leaderboardDayOffset === 0) {
+      setRankings([]);
+    }
     loadLeaderboard(leaderboardDayOffset);
-  }, [leaderboardDayOffset]);
-
+  }, [leaderboardDayOffset, isBreakTime]);
+  
+  // Poll leaderboard every 10 seconds to show OTHER players' point changes live
+  useEffect(() => {
+    if (isBreakTime || leaderboardDayOffset !== 0) return; // Only poll for today's live leaderboard
+    const interval = setInterval(() => {
+      loadLeaderboard(0, true); // silent=true for smooth updates
+    }, 10000); // Every 10 seconds
+    return () => clearInterval(interval);
+  }, [isBreakTime, leaderboardDayOffset]);
+  
   // Countdown logic - handles both game time and break time
   useEffect(() => {
     const updateCountdown = () => {
@@ -433,11 +485,12 @@ export default function DesktopPage() {
       setIsBreakTime(inBreak);
       
       if (inBreak) {
-        // Countdown to 10:00 (game start)
+        // Countdown to 10:00 (game start) - always use HH:MM:SS format
         const totalSeconds = (59 - berlinMinute) * 60 + (60 - berlinSecond);
-        const minutes = Math.floor(totalSeconds / 60);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
         const seconds = totalSeconds % 60;
-        setBreakCountdown(`${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+        setBreakCountdown(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
       } else if (rankings.length > 0) {
         // Countdown to 9:00 (game end)
         let totalSeconds;
@@ -505,6 +558,40 @@ export default function DesktopPage() {
       .catch(() => {});
   };
 
+  // Scrolls the view back to the top.
+  //
+  // The content wrapper uses `min-h-[calc(100vh-108px)]`, i.e. a MINIMUM height,
+  // so with `overflow-y-auto` it never becomes its own scroll container - it just
+  // grows and the WINDOW scrolls instead. Calling scrollTo on the wrapper alone
+  // (which is what happened before) therefore did nothing, and switching tabs
+  // kept the scroll position of the previous page.
+  // Both are reset so this keeps working if the layout ever becomes a real
+  // inner-scroll container.
+  const scrollViewToTop = useCallback(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    contentRef.current?.scrollTo(0, 0);
+  }, []);
+
+  // Runs whenever the visible view changes - not just tab clicks, but also
+  // opening/closing an article, a player profile, a static page, a rankroll or an
+  // arcade game. This covers every code path, including the ones that set state
+  // directly instead of going through handleTabChange (logout redirect, profile
+  // login). Runs after render so a shorter new page can't leave a stale offset.
+  useEffect(() => {
+    scrollViewToTop();
+  }, [
+    activeTab,
+    openArticleId,
+    selectedPlayerId,
+    staticPageSlug,
+    arcadeGame,
+    showCommunitySound,
+    openRankrollData?._id,
+    scrollViewToTop,
+  ]);
+
   const handleTabChange = (tab: NavTab) => {
     if (isBattleActive) return;
     setPreviousTab(activeTab);
@@ -515,8 +602,7 @@ export default function DesktopPage() {
     setShowCommunitySound(false);
     setStaticPageSlug(null); // Close static page when changing tabs
     setSelectedPlayerId(null); // Close player profile when changing tabs
-    // Scroll to top when changing tabs
-    contentRef.current?.scrollTo(0, 0);
+    scrollViewToTop();
   };
 
   // Logout redirect: if on profile tab and logged out → go to feed
@@ -534,7 +620,15 @@ export default function DesktopPage() {
     const handleOpenArcade = () => { setOpenArticleId(null); handleTabChange('arcade'); };
     const handleOpenRadio = () => { setOpenArticleId(null); handleTabChange('radio'); };
     const handleOpenTV = () => { setOpenArticleId(null); handleTabChange('tv'); };
-    const handleOpenArticles = () => { setOpenArticleId(null); handleTabChange('articles'); };
+    const handleOpenArticles = (e: Event) => { 
+      const customEvent = e as CustomEvent;
+      const category = customEvent.detail?.category;
+      setOpenArticleId(null); 
+      if (category) {
+        setArticlesCategoryFilter(category);
+      }
+      handleTabChange('articles'); 
+    };
     const handleOpenRankroll = async (e: Event) => {
       const customEvent = e as CustomEvent;
       const pollId = customEvent.detail?.pollId;
@@ -596,9 +690,15 @@ export default function DesktopPage() {
   const handleOpenCommunitySound = useCallback(() => {
     setShowCommunitySound(true);
     // Scroll after React re-renders with new content
+    contentRef.current?.scrollTo(0, 0);
+    window.scrollTo(0, 0);
     setTimeout(() => {
       contentRef.current?.scrollTo(0, 0);
-    }, 0);
+      window.scrollTo(0, 0);
+    }, 50);
+    requestAnimationFrame(() => {
+      contentRef.current?.scrollTo(0, 0);
+    });
   }, []);
 
   if (!mounted) {
@@ -729,21 +829,29 @@ export default function DesktopPage() {
                     disabled={leaderboardDayOffset <= -7}
                     className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-[#E36B11]/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                   >
-                    <ChevronLeft className="w-5 h-5 text-[#E36B11]" />
+                    <ChevronLeft className="w-5 h-5 text-gray-600" />
                   </button>
                   
                   {/* Day label */}
                   <div className="flex items-center gap-2">
-                    <span className="font-display text-2xl font-bold leading-none tracking-tight uppercase text-[#1A2238]">
-                      {(() => {
-                        const effectiveOffset = (leaderboardDayOffset === 0 && isBreakTime) ? -1 : leaderboardDayOffset;
-                        if (effectiveOffset === 0) return 'Today';
-                        if (effectiveOffset === -1) return 'Yesterday';
-                        const date = new Date();
-                        date.setDate(date.getDate() + effectiveOffset);
-                        return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-                      })()}
-                    </span>
+                    <div className="flex flex-col items-center">
+                      <span className="font-display text-2xl font-bold leading-none tracking-tight uppercase text-[#1A2238]">
+                        {(() => {
+                          if (leaderboardDayOffset === 0) return 'Today';
+                          if (leaderboardDayOffset === -1) return 'Yesterday';
+                          const date = new Date();
+                          date.setDate(date.getDate() + leaderboardDayOffset);
+                          return date.toLocaleDateString('en-US', { weekday: 'long' });
+                        })()}
+                      </span>
+                      <span className="text-[10px] text-gray-500 mt-0.5">
+                        {(() => {
+                          const date = new Date();
+                          date.setDate(date.getDate() + leaderboardDayOffset);
+                          return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                        })()}
+                      </span>
+                    </div>
                     {rankingsLoading && (
                       <div className="w-3 h-3 border-2 border-[#E36B11]/30 border-t-[#E36B11] rounded-full animate-spin" />
                     )}
@@ -755,7 +863,7 @@ export default function DesktopPage() {
                     disabled={leaderboardDayOffset >= 0}
                     className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-[#E36B11]/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                   >
-                    <ChevronRight className="w-5 h-5 text-[#E36B11]" />
+                    <ChevronRight className="w-5 h-5 text-gray-600" />
                   </button>
                 </div>
               </div>
@@ -766,45 +874,148 @@ export default function DesktopPage() {
                 if (!cd || (!isBreakTime && rankings.length === 0)) return null;
                 const [h, m, s] = cd.split(':').map((v) => parseInt(v, 10) || 0);
                 const remaining = h * 3600 + m * 60 + s;
-                const total = 24 * 3600;
+                // Break time: 1 hour total (9:00-10:00), otherwise 24 hours
+                const total = isBreakTime ? 3600 : 24 * 3600;
                 const progress = Math.min(100, Math.max(0, (1 - remaining / total) * 100));
+                
+                // Calculate display time based on scrub position
+                const displayProgress = scrubProgress !== null ? scrubProgress : progress;
+                const elapsedSeconds = Math.floor((displayProgress / 100) * total);
+                const elapsedHours = Math.floor(elapsedSeconds / 3600);
+                const elapsedMinutes = Math.floor((elapsedSeconds % 3600) / 60);
+                const elapsedSecs = elapsedSeconds % 60;
+                const displayTime = scrubProgress !== null 
+                  ? `${elapsedHours.toString().padStart(2, '0')}:${elapsedMinutes.toString().padStart(2, '0')}:${elapsedSecs.toString().padStart(2, '0')}`
+                  : cd;
+                const isScrubbing = scrubProgress !== null;
+                // Color scheme: orange for normal, amber for break, purple for scrubbing
+                const accentColor = isScrubbing ? 'text-purple-500' : isBreakTime ? 'text-amber-500' : 'text-[#E36B11]';
+                const accentBg = isScrubbing ? 'bg-purple-500' : isBreakTime ? 'bg-amber-500' : 'bg-[#E36B11]';
+                const accentGlow = isScrubbing ? 'shadow-[0_0_6px_rgba(168,85,247,0.7)]' : isBreakTime ? 'shadow-[0_0_6px_rgba(245,158,11,0.7)]' : 'shadow-[0_0_6px_rgba(227,107,17,0.7)]';
+                const accentPing = isScrubbing ? 'bg-purple-500/40' : isBreakTime ? 'bg-amber-500/40' : 'bg-[#E36B11]/40';
+                const accentPulse = isScrubbing ? 'bg-purple-500/25' : isBreakTime ? 'bg-amber-500/25' : 'bg-[#E36B11]/25';
+                
                 return (
                   <div className="relative px-3 pb-2.5 bg-[#F5F0E8]">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <Clock className="w-5 h-5 text-[#E36B11] flex-shrink-0" />
+                      <Clock className={`w-5 h-5 flex-shrink-0 ${accentColor}`} />
                       <span className="font-display text-xs leading-[1.1] text-gray-500 uppercase tracking-wide flex-shrink-0">
-                        {isBreakTime ? <>Next<br/>game in</> : <>Matchday<br/>ends in</>}
+                        {isScrubbing ? <>Time<br/>elapsed</> : isBreakTime ? <>Next<br/>game in</> : <>Matchday<br/>ends in</>}
                       </span>
                       {/* Timer */}
                       <div className="ml-auto flex items-center flex-shrink-0">
-                        {cd.split(':').map((part, idx) => (
+                        {displayTime.split(':').map((part, idx) => (
                           <div key={idx} className="flex items-center">
                             <div className="flex flex-col items-center">
-                              <span className="font-display text-2xl font-bold leading-none text-[#E36B11] tabular-nums">{part}</span>
+                              <span className={`font-display text-2xl font-bold leading-none tabular-nums ${accentColor}`}>{part}</span>
                               <span className="font-display text-[6px] leading-none text-gray-500 uppercase tracking-wide mt-0.5">{['HRS', 'MIN', 'SEC'][idx]}</span>
                             </div>
-                            {idx < 2 && <span className="font-display text-2xl font-bold leading-none text-[#E36B11] mx-0.5 self-start">:</span>}
+                            {idx < 2 && <span className={`font-display text-2xl font-bold leading-none mx-0.5 self-start ${accentColor}`}>:</span>}
                           </div>
                         ))}
                       </div>
                     </div>
-                    {/* Progress timeline - full width */}
-                    <div className="mt-3 -mx-3 relative h-1.5">
-                      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[1.5px] bg-gray-300 rounded-full" />
-                      <div className="absolute left-0 top-1/2 -translate-y-1/2 h-[1.5px] bg-[#E36B11] rounded-full" style={{ width: `${progress}%` }} />
-                      {/* Sonar/pulse marker */}
-                      <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2" style={{ left: `${progress}%` }}>
-                        <span className="absolute inset-0 -m-1 rounded-full bg-[#E36B11]/40 animate-ping" />
-                        <span className="absolute inset-0 -m-0.5 rounded-full bg-[#E36B11]/25 animate-pulse" />
-                        <span className="relative block w-2 h-2 bg-[#E36B11] rounded-full shadow-[0_0_6px_rgba(227,107,17,0.7)]" />
+                    {/* Progress timeline - full width, draggable */}
+                    <div 
+                      ref={timelineRef}
+                      className="mt-3 -mx-3 relative h-4 px-1 cursor-pointer group"
+                      onMouseDown={(e) => {
+                        setIsDraggingTimeline(true);
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                        const newProgress = x * 100;
+                        setScrubProgress(newProgress);
+                        // Debounce API call
+                        if (scrubDebounceRef.current) clearTimeout(scrubDebounceRef.current);
+                        scrubDebounceRef.current = setTimeout(() => loadLeaderboard(0, true, newProgress), 150);
+                      }}
+                      onMouseMove={(e) => {
+                        if (!isDraggingTimeline) return;
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                        const newProgress = x * 100;
+                        setScrubProgress(newProgress);
+                        // Debounce API call
+                        if (scrubDebounceRef.current) clearTimeout(scrubDebounceRef.current);
+                        scrubDebounceRef.current = setTimeout(() => loadLeaderboard(0, true, newProgress), 150);
+                      }}
+                      onMouseUp={() => {
+                        setIsDraggingTimeline(false);
+                        // Return to live after drag ends
+                        setTimeout(() => {
+                          setScrubProgress(null);
+                          loadLeaderboard(0, true);
+                        }, 1500); // Show scrubbed result for 1.5s before returning to live
+                      }}
+                      onMouseLeave={() => {
+                        if (isDraggingTimeline) {
+                          setIsDraggingTimeline(false);
+                          // Return to live after drag ends
+                          setTimeout(() => {
+                            setScrubProgress(null);
+                            loadLeaderboard(0, true);
+                          }, 1500);
+                        }
+                      }}
+                    >
+                      <div className="absolute inset-x-1 top-1/2 -translate-y-1/2 h-[1.5px] bg-gray-300 rounded-full" />
+                      <div className={`absolute left-1 top-1/2 -translate-y-1/2 h-[1.5px] ${accentBg} rounded-full transition-all`} style={{ width: `calc(${scrubProgress !== null ? scrubProgress : progress}% - 8px)` }} />
+                      {/* Sonar/pulse marker - draggable */}
+                      <div 
+                        className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 transition-all ${isDraggingTimeline ? 'scale-150' : 'group-hover:scale-125'}`} 
+                        style={{ left: `calc(${Math.max(2, Math.min(98, scrubProgress !== null ? scrubProgress : progress))}%)` }}
+                      >
+                        {scrubProgress === null && (
+                          <>
+                            <span className={`absolute inset-0 -m-1 rounded-full ${accentPing} animate-ping`} />
+                            <span className={`absolute inset-0 -m-0.5 rounded-full ${accentPulse} animate-pulse`} />
+                          </>
+                        )}
+                        <span className={`relative block w-2 h-2 ${accentBg} rounded-full ${accentGlow} ${scrubProgress !== null ? 'ring-2 ring-current/30' : ''}`} />
                       </div>
+                      {/* Scrubbing indicator */}
+                      {scrubProgress !== null && (
+                        <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-[8px] font-bold text-[#E36B11] bg-white px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap">
+                          {Math.round(scrubProgress)}% of day
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
               })()}
-              {/* Rankings list */}
+              {/* Break info - show instead of empty rankings when viewing Today during break */}
+              {isBreakTime && leaderboardDayOffset === 0 ? (
+                <div className="relative">
+                  {/* Same height as 10 ranking slots */}
+                  <div className="flex flex-col items-center text-center px-4 py-4" style={{ height: '400px' }}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-base grayscale opacity-70">☕</span>
+                      <h3 className="font-display text-sm font-bold text-gray-900 uppercase tracking-wide">Daily Reset</h3>
+                    </div>
+                    <p className="text-[10px] text-gray-500 mb-3">9:00 – 10:00 Berlin Time</p>
+                    
+                    {/* Info cards */}
+                    <div className="w-full space-y-2 text-center">
+                      <div className="rounded-lg p-2.5 border border-warm/60">
+                        <p className="text-[10px] font-bold text-gray-700 uppercase mb-0.5">Rankings Reset</p>
+                        <p className="text-[9px] text-gray-500">Yesterday's winners are locked in. Today's leaderboard starts fresh at 10:00.</p>
+                      </div>
+                      <div className="rounded-lg p-2.5 border border-warm/60">
+                        <p className="text-[10px] font-bold text-gray-700 uppercase mb-0.5">Games Paused</p>
+                        <p className="text-[9px] text-gray-500">Trivia and battles are unavailable during break. Back at 10:00!</p>
+                      </div>
+                      <div className="rounded-lg p-2.5 border border-warm/60">
+                        <p className="text-[10px] font-bold text-gray-700 uppercase mb-0.5">Earn Points</p>
+                        <p className="text-[9px] text-gray-500">You can still earn coins by voting, reading articles, and other activities.</p>
+                      </div>
+                    </div>
+                    
+                  </div>
+                </div>
+              ) : (
+              /* Rankings list */
               <div className="relative divide-y divide-warm/50">
-                {
+                                {
                   // Always show all 10 slots immediately (layout never collapses to a spinner).
                   // While loading, every slot shows a pulsing skeleton instead of real data.
                   Array.from({ length: 10 }).map((_, i) => {
@@ -824,13 +1035,13 @@ export default function DesktopPage() {
                         <button key={r._id} onClick={() => setSelectedPlayerId(r._id)} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/70 transition-colors">
                           {/* Rank number */}
                           <span className={`text-sm font-bold tabular-nums w-4 text-center ${
-                            i === 0 ? 'text-[#E36B11]' :
-                            i < 3 ? 'text-[#E36B11]/60' :
+                            i === 0 ? 'text-gray-900' :
+                            i < 3 ? 'text-gray-700' :
                             'text-gray-400'
                           }`}>{i + 1}</span>
                           {/* Avatar with country flag */}
                           <div className="relative flex-shrink-0">
-                            <div className={`w-8 h-8 rounded-full overflow-hidden border ${i === 0 ? 'border-[#E36B11]' : 'border-warm'}`}>
+                            <div className={`w-8 h-8 rounded-full overflow-hidden border ${i === 0 ? 'border-gray-900' : 'border-warm'}`}>
                               {r.avatar ? (
                                 <img src={r.avatar} alt="" className="w-full h-full object-cover" />
                               ) : (
@@ -844,9 +1055,20 @@ export default function DesktopPage() {
                           {/* Username */}
                           <span className="flex-1 text-left font-display text-[13px] tracking-wide font-normal text-gray-800 truncate">{r.username}</span>
                           {/* BOGX Coins - with transition for smooth score updates */}
-                          <div className="flex items-center gap-1 transition-all duration-300">
+                          <div className="flex items-center gap-1 transition-all duration-300 relative">
                             <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
-                            <span className="font-display text-[13px] tracking-wide font-semibold tabular-nums text-[#E36B11] transition-all duration-300">{formatCurrency(r.bogxCoins || r.points)}</span>
+                            <span className="font-display text-[13px] tracking-wide font-normal tabular-nums text-gray-900 transition-all duration-300">{formatCurrency(r.bogxCoins || r.points)}</span>
+                            {/* Point change animation */}
+                            {pointChanges[r._id] && (
+                              <span 
+                                className={`absolute -right-1 -top-3 text-[10px] font-bold animate-bounce ${
+                                  pointChanges[r._id] > 0 ? 'text-green-500' : 'text-red-500'
+                                }`}
+                                style={{ animation: 'fadeSlideUp 2s ease-out forwards' }}
+                              >
+                                {pointChanges[r._id] > 0 ? '+' : ''}{formatCurrency(pointChanges[r._id])}
+                              </span>
+                            )}
                           </div>
                         </button>
                       );
@@ -854,24 +1076,25 @@ export default function DesktopPage() {
                     // Placeholder for empty slot
                     return (
                       <div key={`empty-${i}`} className="w-full flex items-center gap-3 px-4 py-2.5">
-                        <span className="text-sm font-bold tabular-nums w-4 text-center text-[#E36B11]/60">{i + 1}</span>
+                        <span className="text-sm font-bold tabular-nums w-4 text-center text-gray-500">{i + 1}</span>
                         <div className="w-8 h-8 rounded-full bg-warm border border-warm flex items-center justify-center">
-                          <span className="text-sm font-semibold text-[#E36B11]">?</span>
+                          <span className="text-sm font-semibold text-gray-500">?</span>
                         </div>
                         <span className="flex-1 text-left font-display text-[13px] tracking-wide text-gray-800">—</span>
                         <div className="flex items-center gap-1">
                           <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
-                          <span className="font-display text-[13px] tracking-wide font-semibold text-[#E36B11]">—</span>
+                          <span className="font-display text-[13px] tracking-wide font-normal text-gray-500">—</span>
                         </div>
                       </div>
                     );
                   })
                 }
               </div>
+              )}
               {/* View All button at bottom */}
               <button 
                 onClick={() => { setSelectedPlayerId(null); handleTabChange('rankings'); }} 
-                className="relative z-10 w-full py-2 text-center text-[10px] font-semibold text-[#E36B11] hover:bg-[#E36B11]/10 transition-colors uppercase tracking-wider flex items-center justify-center gap-1 border-t border-warm cursor-pointer"
+                className="relative z-10 w-full py-2 text-center text-[10px] font-semibold text-gray-700 hover:bg-gray-100 transition-colors uppercase tracking-wider flex items-center justify-center gap-1 border-t border-warm cursor-pointer"
               >
                 View All
                 <ChevronRight className="w-3 h-3" />
@@ -955,7 +1178,7 @@ export default function DesktopPage() {
               {/* Static Page View */}
               {staticPageSlug && <StaticPageInline slug={staticPageSlug} defaultTitle={staticPageSlug} onClose={() => { setStaticPageSlug(null); contentRef.current?.scrollTo(0, 0); }} />}
               {/* Content Tabs */}
-              {!staticPageSlug && !selectedPlayerId && activeTab === "feed" && !openArticleId && !showCommunitySound && <WelcomeReel onOpenArticle={handleOpenArticle} readArticles={readArticles} isDesktop={true} onShowLogin={handleShowLogin} onOpenCommunitySound={handleOpenCommunitySound} />}
+              {!staticPageSlug && !selectedPlayerId && activeTab === "feed" && !openArticleId && !showCommunitySound && <WelcomeReel onOpenArticle={handleOpenArticle} readArticles={readArticles} isDesktop={true} onShowLogin={handleShowLogin} onOpenCommunitySound={handleOpenCommunitySound} onCoinAnimation={triggerCoinGain} />}
               {!staticPageSlug && !selectedPlayerId && showCommunitySound && <CommunitySoundPage isDesktop={true} onBack={() => setShowCommunitySound(false)} onOpenRadio={() => { setShowCommunitySound(false); handleTabChange('radio'); }} />}
               {!staticPageSlug && !selectedPlayerId && openArticleId && <ArticlePage articleId={openArticleId} onBack={() => {
                 setOpenArticleId(null);
@@ -998,12 +1221,15 @@ export default function DesktopPage() {
                   <DesktopContentWrapper><DesktopArcadePage onSelectGame={(game) => setArcadeGame(game)} onShowRankings={() => handleTabChange('rankings')} userId={user?.id} onCoinsChange={(amount) => animateCoins(amount)} onShowLogin={() => setShowLoginPage(true)} onPlaySpecificBattle={(battleId) => { setPendingBattleId(battleId); setArcadeGame('quizzbattle'); }} /></DesktopContentWrapper>
                 )
               )}
-              {!staticPageSlug && !selectedPlayerId && activeTab === "articles" && !openArticleId && <DesktopArticlesPage onOpenArticle={(id: string) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onShowLogin={() => setShowLoginPage(true)} />}
+              {/* Opening an article unmounts this list, so the category filter is
+                  cleared here too - otherwise initialCategory would restore the
+                  old category on the way back instead of "All Categories". */}
+              {!staticPageSlug && !selectedPlayerId && activeTab === "articles" && !openArticleId && <DesktopArticlesPage onOpenArticle={(id: string) => { setOpenArticleId(id); setArticlesCategoryFilter('all'); contentRef.current?.scrollTo(0, 0); }} onShowLogin={() => setShowLoginPage(true)} onCoinAnimation={(amount) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount, variant: 'gain' }); }} initialCategory={articlesCategoryFilter} />}
               {!staticPageSlug && !selectedPlayerId && activeTab === "voting" && !openArticleId && !openRankrollData && <DesktopRankrollPage onOpenArticle={(id: string) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onOpenRankroll={(poll: any) => { setOpenRankrollData(poll); contentRef.current?.scrollTo(0, 0); }} onShowLogin={() => setShowLoginPage(true)} onCoinAnimation={(amount) => { animateCoins(amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} />}
               {!staticPageSlug && !selectedPlayerId && activeTab === "voting" && openRankrollData && <DesktopRankingDetailPage poll={openRankrollData} onBack={() => setOpenRankrollData(null)} onOpenArticle={(id: string) => { setOpenArticleId(id); }} onShowLogin={() => setShowLoginPage(true)} onCoinAnimation={(amount) => { animateCoins(amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} />}
               {!staticPageSlug && !selectedPlayerId && activeTab === "shop" && <DesktopContentWrapper><ShopPage coins={coins} onCoinsUsed={(amount) => { setCoins(prev => prev - amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount: -amount }); }} /></DesktopContentWrapper>}
               {!staticPageSlug && !selectedPlayerId && activeTab === "tv" && <DesktopContentWrapper><TVPage /></DesktopContentWrapper>}
-              {!staticPageSlug && !selectedPlayerId && activeTab === "radio" && <DesktopContentWrapper transparent><RadioPage isDesktop={true} /></DesktopContentWrapper>}
+              {!staticPageSlug && !selectedPlayerId && activeTab === "radio" && <DesktopContentWrapper transparent><CommunitySoundPage isDesktop={true} onBack={() => handleTabChange('feed')} /></DesktopContentWrapper>}
               {!staticPageSlug && !selectedPlayerId && activeTab === "notifications" && <DesktopContentWrapper transparent><NotificationPage onGoToProfile={() => handleTabChange('profile')} onGoToBattle={(id) => { handleTabChange('arcade'); setArcadeGame('quizzbattle'); setPendingBattleId(id); }} onPointsAwarded={(amount) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} /></DesktopContentWrapper>}
               {!staticPageSlug && !selectedPlayerId && activeTab === "profile" && (isLoggedIn ? <DesktopContentWrapper><ProfilePage coins={coins} /></DesktopContentWrapper> : <DesktopLoginPage onClose={() => handleTabChange("feed")} onSuccess={() => {}} showBack={true} />)}
               {!staticPageSlug && activeTab === "rankings" && !selectedPlayerId && <DesktopRankingsPage currentUserScore={coins} onBack={() => handleTabChange('home')} onShowSignup={() => setShowLoginPage(true)} onShowRewards={() => handleTabChange('rewards')} selectedPlayerId={null} onPlayerClose={() => {}} />}
@@ -1055,7 +1281,7 @@ export default function DesktopPage() {
                   `}</style>
                 </div>
                 <div className="py-1">
-                  {radioStations.slice(0, 4).map((station) => (
+                  {radioStations.map((station) => (
                     <button
                       key={station._id}
                       onClick={() => window.open(`https://open.spotify.com/playlist/${station.playlistId}`, '_blank')}
@@ -1065,8 +1291,7 @@ export default function DesktopPage() {
                         <Play className="w-3 h-3 text-white fill-white ml-0.5" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-medium text-gray-800 truncate leading-tight">{station.name}</p>
-                        {station.description && <p className="text-[11px] text-gray-600 truncate">{station.description}</p>}
+                        <p className="font-display text-[15px] tracking-wider text-gray-800 truncate leading-tight">{station.name}</p>
                       </div>
                     </button>
                   ))}

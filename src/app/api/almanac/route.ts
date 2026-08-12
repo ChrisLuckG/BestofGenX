@@ -116,6 +116,21 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ success: false, error: `GenX only! Birthday must be 1960-1981 (got ${year})` }, { status: 400 });
         }
       }
+      
+      // Check for duplicates by firstname + lastname
+      const existing = await Person.findOne({ 
+        firstname: data.firstname, 
+        lastname: data.lastname 
+      });
+      if (existing) {
+        return NextResponse.json({ 
+          success: true, 
+          data: existing, 
+          alreadyExists: true,
+          message: 'Person already in database' 
+        });
+      }
+      
       const person = await Person.create(data);
       return NextResponse.json({ success: true, data: person });
     }

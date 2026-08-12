@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Bell, Vote, X, Trophy, Swords, TrendingUp, ChevronLeft } from "lucide-react";
 import { sounds } from "@/utils/sounds";
 import BettingGame, { BetData } from "@/components/games/BettingGame";
@@ -161,6 +161,7 @@ export default function MobilePage() {
   const { hasPendingWager } = usePendingWager(user?.id);
   const [activeTab, setActiveTab] = useState<NavTab>("home");
   const [previousTab, setPreviousTab] = useState<NavTab>("home"); // Track previous tab for toggle back
+  const [articlesCategoryFilter, setArticlesCategoryFilter] = useState<string>('all');
   const [tabRestored, setTabRestored] = useState(false);
   
   // Restore activeTab from sessionStorage after mount (SSR-safe)
@@ -224,12 +225,10 @@ export default function MobilePage() {
   const [notificationAutoEnable, setNotificationAutoEnable] = useState<'email' | 'sms' | null>(null);
   const [hasShownJustForFun, setHasShownJustForFun] = useState(false);
   const [challengeActive, setChallengeActive] = useState(false);
-  // Pull-to-refresh (mobile): swipe down at the very top of the feed to reload.
-  // Must live HERE (not inside WelcomeReel) because `scrollContainerRef` below is
-  // the element that actually scrolls on mobile — WelcomeReel renders inside it.
-  const [pullDistance, setPullDistance] = useState(0);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const PULL_THRESHOLD = 70; // px of pull needed to trigger the reload
+  // Pull-to-refresh was removed: its touchmove handler called preventDefault() on
+  // the shared scroll container, which also killed horizontal swipes inside the
+  // article sliders, and its per-move setState re-rendered the whole feed mid
+  // gesture. Reloading is the browser's job.
   const [swipeBlocked, setSwipeBlocked] = useState(false);
   const [showSwipeWarning, setShowSwipeWarning] = useState(false);
   const [pendingSwipeIndex, setPendingSwipeIndex] = useState<number | null>(null);
@@ -990,8 +989,13 @@ export default function MobilePage() {
       setOpenArticleId(null);
       setActiveTab('tv');
     };
-    const handleOpenArticles = () => {
+    const handleOpenArticles = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const category = customEvent.detail?.category;
       setOpenArticleId(null);
+      if (category) {
+        setArticlesCategoryFilter(category);
+      }
       setActiveTab('articles');
     };
     const handleOpenRankroll = async (e: Event) => {
@@ -1352,9 +1356,19 @@ export default function MobilePage() {
     setCoinAnimation({ show: false, amount: 0 });
   };
 
+  // Stable reference so memoized children (e.g. LandingPage) don't re-render on every page render
+  const triggerCoinGain = useCallback((amount: number) => {
+    setCoinAnimKey(k => k + 1);
+    setCoinAnimation({ show: true, amount, variant: 'gain' });
+  }, []);
+
   // Handle opening an article - points are now awarded via API in ArticlePage
   const handleOpenArticle = (articleId: string) => {
     setOpenArticleId(articleId);
+    // Clear the category that was passed in via the openArticles event, so the
+    // articles list is back to "All Categories" when the user returns instead of
+    // being re-filtered by a category chosen much earlier.
+    setArticlesCategoryFilter('all');
     // Don't change URL - causes issues with hot reload and navigation
   };
 
@@ -1453,6 +1467,7 @@ export default function MobilePage() {
         onShowLogin={() => { closeAllOverlays(); setShowLoginRequired(true); }}
         onOpenStaticPage={(slug) => setStaticPageSlug(slug)}
         onOpenCommunitySound={() => setShowCommunitySound(true)}
+        onCoinAnimation={triggerCoinGain}
       /> 
     )},
   ];
@@ -1467,68 +1482,6 @@ export default function MobilePage() {
   }] : []),
   // Quiz cards, BonusAdCard, SummaryCard - see git history for full implementation
   */
-
-  // ── PULL-TO-REFRESH (mobile) ──
-  // Attached natively with { passive: false } because React's onTouchMove is always
-  // passive, which makes preventDefault() a no-op — the browser's own overscroll
-  // gesture would win and our handler would never see the full gesture.
-  useEffect(() => {
-    const el = scrollContainerRef.current;
-    if (!el) return;
-    // Only on the home feed, and never while a quiz has swiping locked.
-    if (activeTab !== 'home' || swipeBlocked) return;
-
-    let startY = 0;
-    let dragging = false;
-    let pull = 0; // local mirror — avoids firing setState on every touchmove
-    let refreshing = false;
-
-    const applyPull = (next: number) => {
-      if (next === pull) return;
-      pull = next;
-      setPullDistance(next);
-    };
-
-    const onTouchStart = (e: TouchEvent) => {
-      dragging = el.scrollTop <= 0;
-      startY = e.touches[0].clientY;
-    };
-
-    const onTouchMove = (e: TouchEvent) => {
-      if (refreshing || !dragging) return;
-      const diff = e.touches[0].clientY - startY;
-      if (diff <= 0 || el.scrollTop > 0) {
-        applyPull(0);
-        return;
-      }
-      e.preventDefault(); // block native overscroll, we own this gesture now
-      applyPull(Math.min(diff * 0.5, PULL_THRESHOLD * 1.5));
-    };
-
-    const onTouchEnd = () => {
-      if (!dragging) return;
-      dragging = false;
-      if (pull >= PULL_THRESHOLD && !refreshing) {
-        refreshing = true;
-        setIsRefreshing(true);
-        applyPull(PULL_THRESHOLD);
-        window.location.reload(); // real reload = it actually feels like a refresh
-        return;
-      }
-      applyPull(0);
-    };
-
-    el.addEventListener('touchstart', onTouchStart, { passive: true });
-    el.addEventListener('touchmove', onTouchMove, { passive: false });
-    el.addEventListener('touchend', onTouchEnd, { passive: true });
-    el.addEventListener('touchcancel', onTouchEnd, { passive: true });
-    return () => {
-      el.removeEventListener('touchstart', onTouchStart);
-      el.removeEventListener('touchmove', onTouchMove);
-      el.removeEventListener('touchend', onTouchEnd);
-      el.removeEventListener('touchcancel', onTouchEnd);
-    };
-  }, [activeTab, swipeBlocked]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const container = e.currentTarget;
@@ -2100,30 +2053,6 @@ export default function MobilePage() {
 
         {/* Home - Always rendered, hidden when not active */}
         <div className={`h-full absolute inset-0 ${activeTab === "home" ? "z-10" : "z-0 pointer-events-none opacity-0"}`}>
-          {/* Pull-to-refresh spinner. Always mounted (opacity-driven) so its
-              transition can always play — conditionally unmounting it would make
-              it snap/freeze mid-animation. */}
-          <div
-            className="absolute left-0 right-0 flex items-center justify-center z-40 pointer-events-none"
-            style={{
-              top: 8,
-              opacity: isRefreshing ? 1 : Math.min(pullDistance / PULL_THRESHOLD, 1),
-              transform: `translateY(${Math.min(pullDistance, PULL_THRESHOLD) - PULL_THRESHOLD}px) scale(${isRefreshing ? 1 : 0.6 + 0.4 * Math.min(pullDistance / PULL_THRESHOLD, 1)})`,
-              transition: isRefreshing ? 'none' : 'opacity 0.15s ease-out, transform 0.15s ease-out',
-            }}
-          >
-            <div className="w-9 h-9 rounded-full bg-[#E36B11] text-white shadow-lg flex items-center justify-center">
-              <svg
-                className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`}
-                style={{ transform: isRefreshing ? 'none' : `rotate(${Math.min(pullDistance / PULL_THRESHOLD * 180, 180)}deg)` }}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            </div>
-          </div>
           <div
             ref={scrollContainerRef}
             data-scroll-container
@@ -2131,12 +2060,11 @@ export default function MobilePage() {
             style={swipeBlocked ? { overflow: 'hidden', touchAction: 'none', overscrollBehavior: 'none' } : { overscrollBehaviorY: 'contain' }}
             onScroll={handleScroll}
           >
+            {/* No transform on the first item any more - the pull-to-refresh
+                translateY created a new containing block and interfered with the
+                nested horizontal sliders. */}
             {content.map((item, index) => (
-              <div
-                key={index}
-                className="w-full h-full"
-                style={index === 0 ? { transform: `translateY(${Math.min(pullDistance, PULL_THRESHOLD)}px)`, transition: isRefreshing ? 'none' : 'transform 0.15s ease-out' } : undefined}
-              >
+              <div key={index} className="w-full h-full">
                 {item.component}
               </div>
             ))}
@@ -2148,7 +2076,7 @@ export default function MobilePage() {
         {/* Articles Tab - shows list of all articles */}
         <div className={`absolute inset-0 transition-opacity duration-150 ${activeTab === "articles" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"}`}>
           {activeTab === "articles" && (
-            <ArticlesListPage onOpenArticle={handleOpenArticle} onShowLogin={() => { closeAllOverlays(); setShowLoginRequired(true); }} />
+            <ArticlesListPage onOpenArticle={handleOpenArticle} onShowLogin={() => { closeAllOverlays(); setShowLoginRequired(true); }} initialCategory={articlesCategoryFilter} />
           )}
         </div>
         
