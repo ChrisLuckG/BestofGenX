@@ -119,6 +119,28 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
     initEditorialTeam();
   }, []);
 
+  // Auto-run bot activity every 30 seconds if any bots are active
+  useEffect(() => {
+    const activeBots = users.filter(u => u.isBot && u.botActive !== false);
+    if (activeBots.length === 0) return;
+
+    const runBotActivity = async () => {
+      try {
+        await fetch('/api/cron/bot-daily-activity?intensity=normal');
+        // Refresh users to see updated stats
+        fetchUsers();
+      } catch (err) {
+        console.error('Bot activity error:', err);
+      }
+    };
+
+    // Run immediately once, then every 30 seconds
+    runBotActivity();
+    const interval = setInterval(runBotActivity, 30000);
+    
+    return () => clearInterval(interval);
+  }, [users.filter(u => u.isBot && u.botActive !== false).length]);
+
   // Toggle bot active status (play/pause)
   const toggleBotActive = async (userId: string, currentActive: boolean) => {
     setTogglingBotActive(prev => new Set(prev).add(userId));
