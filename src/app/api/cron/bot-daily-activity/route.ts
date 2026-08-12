@@ -14,7 +14,12 @@ import Reaction from '@/models/Reaction';
  * - Watch videos (earn BOGX)
  * - React to articles with emojis (earn BOGX)
  * - Play trivia games (earn/lose BOGX)
+ * - Create battles (if enough coins)
+ * - Accept/challenge other bots
  */
+
+const BATTLE_TOPICS = ['music', 'sports', 'movies', 'gaming', 'culture', '80s', '90s'];
+const MIN_COINS_FOR_BATTLE = 1; // Minimum coins needed to create a battle
 
 const EMOJI_OPTIONS = ['❤️', '😂', '😮', '😢', '😡', '👏'];
 
@@ -55,6 +60,8 @@ export async function GET(request: Request) {
       videosWatched: 0,
       reactionsAdded: 0,
       gamesPlayed: 0,
+      battlesCreated: 0,
+      battlesChallenged: 0,
       totalBogxEarned: 0,
     };
     
@@ -225,6 +232,76 @@ export async function GET(request: Request) {
           }
         });
       }
+      
+      // Refresh bot coins after trivia
+      const updatedBot = await User.findById(bot._id).select('bogxCoins');
+      botBogx = updatedBot?.bogxCoins || botBogx;
+      
+      // 5. BATTLES - Only if bot has enough coins
+      if (botBogx >= MIN_COINS_FOR_BATTLE) {
+        // 30% chance to create a battle
+        if (Math.random() < 0.3 * multiplier) {
+          const topic = BATTLE_TOPICS[Math.floor(Math.random() * BATTLE_TOPICS.length)];
+          const wager = Math.min(Math.floor(botBogx * 0.1), 5); // Max 10% of coins or 5 BOGX
+          
+          if (wager >= 0.5) {
+            try {
+              // Find another bot to challenge (not self)
+              const otherBots = bots.filter(b => 
+                b._id.toString() !== bot._id.toString() && 
+                (b.bogxCoins || 0) >= wager
+              );
+              
+              if (otherBots.length > 0) {
+                const opponent = otherBots[Math.floor(Math.random() * otherBots.length)];
+                
+                // Create battle via API
+                const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+                const res = await fetch(`${baseUrl}/api/battles`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    creatorId: bot._id.toString(),
+                    topic,
+                    wager,
+                    rounds: 5,
+                    isPrivate: true,
+                    challengedUserId: opponent._id.toString(),
+                    source: 'bot-activity',
+                  }),
+                });
+                
+                if (res.ok) {
+                  stats.battlesChallenged++;
+                  botBogx -= wager;
+                }
+              } else {
+                // No opponent available, create public battle
+                const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+                const res = await fetch(`${baseUrl}/api/battles`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    creatorId: bot._id.toString(),
+                    topic,
+                    wager,
+                    rounds: 5,
+                    isPrivate: false,
+                    source: 'bot-activity',
+                  }),
+                });
+                
+                if (res.ok) {
+                  stats.battlesCreated++;
+                  botBogx -= wager;
+                }
+              }
+            } catch (e) {
+              // Ignore battle creation errors
+            }
+          }
+        }
+      }
     }
     
     return NextResponse.json({ 
@@ -233,7 +310,7 @@ export async function GET(request: Request) {
       intensity,
       totalBots: bots.length,
       ...stats,
-      message: `${stats.botsActive} bots active: ${stats.articlesRead} articles, ${stats.videosWatched} videos, ${stats.reactionsAdded} reactions, ${stats.gamesPlayed} games`
+      message: `${stats.botsActive} bots active: ${stats.articlesRead} articles, ${stats.videosWatched} videos, ${stats.reactionsAdded} reactions, ${stats.gamesPlayed} trivia, ${stats.battlesCreated} battles created, ${stats.battlesChallenged} challenges sent`
     });
   } catch (error: any) {
     console.error('Bot daily activity error:', error);
