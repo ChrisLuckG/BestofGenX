@@ -66,7 +66,7 @@ export function useLiveRankings({
   period,
   selectedDate,
   userId,
-  pollIntervalMs = 30000,
+  pollIntervalMs = 5000,
   limit,
 }: UseLiveRankingsOptions) {
   const [rankings, setRankings] = useState<RankingPlayer[]>([]);

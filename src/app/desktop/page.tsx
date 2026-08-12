@@ -482,12 +482,12 @@ export default function DesktopPage() {
     loadLeaderboard(leaderboardDayOffset);
   }, [leaderboardDayOffset, isBreakTime]);
   
-  // Poll leaderboard every 30 seconds (synced with useLiveRankings hook)
+  // Poll leaderboard every 5 seconds for live updates
   useEffect(() => {
     if (isBreakTime || leaderboardDayOffset !== 0) return; // Only poll for today's live leaderboard
     const interval = setInterval(() => {
       loadLeaderboard(0, true); // silent=true for smooth updates
-    }, 30000); // Every 30 seconds - same as useLiveRankings
+    }, 5000); // Every 5 seconds for smooth live updates
     return () => clearInterval(interval);
   }, [isBreakTime, leaderboardDayOffset]);
   

@@ -134,9 +134,9 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
       }
     };
 
-    // Run immediately once, then every 30 seconds
+    // Run immediately once, then every 10 seconds for live action
     runBotActivity();
-    const interval = setInterval(runBotActivity, 30000);
+    const interval = setInterval(runBotActivity, 10000);
     
     return () => clearInterval(interval);
   }, [users.filter(u => u.isBot && u.botActive !== false).length]);
