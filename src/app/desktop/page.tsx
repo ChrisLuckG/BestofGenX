@@ -1059,15 +1059,15 @@ export default function DesktopPage() {
                               i < 3 ? 'text-gray-700' :
                               'text-gray-400'
                             }`}>{i + 1}</span>
-                            {/* Rank change arrow - always visible */}
+                            {/* Rank change arrow - always visible, same style as Rankings page */}
                             {rankChanges[r._id] > 0 && rankChanges[r._id] !== 99 && (
-                              <span className="text-green-500 text-[10px]">▲</span>
+                              <span className="text-[9px] font-semibold text-green-600">↑</span>
                             )}
                             {rankChanges[r._id] < 0 && (
-                              <span className="text-red-500 text-[10px]">▼</span>
+                              <span className="text-[9px] font-semibold text-red-500">↓</span>
                             )}
-                            {rankChanges[r._id] === 99 && (
-                              <span className="text-blue-500 text-[8px] font-bold">NEW</span>
+                            {!rankChanges[r._id] && (
+                              <span className="text-[9px] text-gray-300">—</span>
                             )}
                           </div>
                           {/* Avatar with country flag */}

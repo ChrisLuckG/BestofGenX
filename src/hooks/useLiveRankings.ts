@@ -72,7 +72,7 @@ export function useLiveRankings({
   const [rankings, setRankings] = useState<RankingPlayer[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLive, setIsLive] = useState(true);
-  const prevRankingsRef = useRef<Map<string, { rank: number; points: number }>>(new Map());
+  const prevRankingsRef = useRef<Map<string, { rank: number; points: number; change: "up" | "down" | null }>>(new Map());
 
   const fetchRankings = useCallback(
     async (silent = false) => {
@@ -99,10 +99,12 @@ export function useLiveRankings({
           const currentRank = r.rank || index + 1;
           const prev = prevRankingsRef.current.get(id);
 
-          let change: "up" | "down" | null = null;
+          // Keep previous change if rank hasn't changed, otherwise calculate new change
+          let change: "up" | "down" | null = prev?.change || null;
           if (prev) {
             if (currentRank < prev.rank) change = "up";
             else if (currentRank > prev.rank) change = "down";
+            // If rank is same, keep previous change value
           }
 
           return {
@@ -127,8 +129,8 @@ export function useLiveRankings({
           };
         });
 
-        const newPrev = new Map<string, { rank: number; points: number }>();
-        players.forEach((p) => newPrev.set(p.id, { rank: p.rank, points: p.points }));
+        const newPrev = new Map<string, { rank: number; points: number; change: "up" | "down" | null }>();
+        players.forEach((p) => newPrev.set(p.id, { rank: p.rank, points: p.points, change: p.change || null }));
         prevRankingsRef.current = newPrev;
 
         setRankings(limit ? players.slice(0, limit) : players);
