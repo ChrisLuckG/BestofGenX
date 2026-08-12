@@ -73,6 +73,19 @@ export function useLiveRankings({
   const [loading, setLoading] = useState(true);
   const [isLive, setIsLive] = useState(true);
   const prevRankingsRef = useRef<Map<string, { rank: number; points: number; change: "up" | "down" | null }>>(new Map());
+  
+  // Load previous rankings from localStorage on first render
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('rankings-prev-state');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          prevRankingsRef.current = new Map(Object.entries(parsed));
+        } catch { /* ignore */ }
+      }
+    }
+  }, []);
 
   const fetchRankings = useCallback(
     async (silent = false) => {
@@ -132,6 +145,12 @@ export function useLiveRankings({
         const newPrev = new Map<string, { rank: number; points: number; change: "up" | "down" | null }>();
         players.forEach((p) => newPrev.set(p.id, { rank: p.rank, points: p.points, change: p.change || null }));
         prevRankingsRef.current = newPrev;
+        
+        // Save to localStorage for persistence across refreshes
+        try {
+          const toSave = Object.fromEntries(newPrev.entries());
+          localStorage.setItem('rankings-prev-state', JSON.stringify(toSave));
+        } catch { /* ignore */ }
 
         setRankings(limit ? players.slice(0, limit) : players);
       } catch (error) {

@@ -194,7 +194,14 @@ export default function DesktopPage() {
   const timelineRef = useRef<HTMLDivElement>(null);
   const scrubDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const [pointChanges, setPointChanges] = useState<Record<string, number>>({}); // Track point changes for animations
-  const [rankChanges, setRankChanges] = useState<Record<string, number>>({}); // Track rank changes (positive = moved up, negative = moved down)
+  // Load rank changes from localStorage on mount
+  const [rankChanges, setRankChanges] = useState<Record<string, number>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('leaderboard-rank-changes');
+      return saved ? JSON.parse(saved) : {};
+    }
+    return {};
+  });
   const prevRankingsRef = useRef<any[]>([]);
     const [shopProducts, setShopProducts] = useState<any[]>([]);
   const [tvVideos, setTvVideos] = useState<any[]>([]);
@@ -457,8 +464,12 @@ export default function DesktopPage() {
           }
           
           if (Object.keys(rankDiffs).length > 0) {
-            // Merge with existing rank changes (keep showing until rank changes again)
-            setRankChanges(prev => ({ ...prev, ...rankDiffs }));
+            // Merge with existing rank changes and save to localStorage
+            setRankChanges(prev => {
+              const updated = { ...prev, ...rankDiffs };
+              localStorage.setItem('leaderboard-rank-changes', JSON.stringify(updated));
+              return updated;
+            });
           }
         }
         
