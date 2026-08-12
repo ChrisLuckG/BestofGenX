@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import User from '@/models/User';
+import GameResult from '@/models/GameResult';
+import Reaction from '@/models/Reaction';
 
 const MAIN_BOT_USERNAME = 'ShadowHunter';
 
@@ -18,6 +20,7 @@ export async function POST(request: NextRequest) {
       : { isBot: true, username: { $ne: MAIN_BOT_USERNAME } };
     
     const bots = await User.find(query);
+    const botIds = bots.map(b => b._id.toString());
     
     // Reset bots to 0 everything (fresh start like new users)
     await User.updateMany(query, { 
@@ -32,9 +35,17 @@ export async function POST(request: NextRequest) {
       } 
     });
     
+    // Also delete their GameResults so ranking is correct
+    const deletedResults = await GameResult.deleteMany({ userId: { $in: botIds } });
+    
+    // Delete their reactions
+    const deletedReactions = await Reaction.deleteMany({ userId: { $in: botIds } });
+    
     return NextResponse.json({ 
       success: true, 
       message: `Reset ${bots.length} bots to 0`,
+      deletedGameResults: deletedResults.deletedCount,
+      deletedReactions: deletedReactions.deletedCount,
       preserved: includeMainBot ? null : MAIN_BOT_USERNAME
     });
   } catch (error: any) {
