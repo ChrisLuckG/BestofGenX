@@ -457,9 +457,8 @@ export default function DesktopPage() {
           }
           
           if (Object.keys(rankDiffs).length > 0) {
-            setRankChanges(rankDiffs);
-            // Keep rank changes visible longer (5 seconds)
-            setTimeout(() => setRankChanges({}), 5000);
+            // Merge with existing rank changes (keep showing until rank changes again)
+            setRankChanges(prev => ({ ...prev, ...rankDiffs }));
           }
         }
         
@@ -1052,9 +1051,7 @@ export default function DesktopPage() {
                     const r = rankings[i];
                     if (r) {
                       return (
-                        <button key={r._id} onClick={() => setSelectedPlayerId(r._id)} className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/70 transition-all duration-300 ${
-                            rankChanges[r._id] > 0 ? 'bg-green-50' : rankChanges[r._id] < 0 ? 'bg-red-50' : ''
-                          }`}>
+                        <button key={r._id} onClick={() => setSelectedPlayerId(r._id)} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/70 transition-all duration-300">
                           {/* Rank number with change indicator */}
                           <div className="flex items-center gap-0.5 w-6">
                             <span className={`text-sm font-bold tabular-nums text-center ${
@@ -1062,15 +1059,15 @@ export default function DesktopPage() {
                               i < 3 ? 'text-gray-700' :
                               'text-gray-400'
                             }`}>{i + 1}</span>
-                            {/* Rank change arrow */}
+                            {/* Rank change arrow - always visible */}
                             {rankChanges[r._id] > 0 && rankChanges[r._id] !== 99 && (
-                              <span className="text-green-500 text-[10px] animate-pulse">▲</span>
+                              <span className="text-green-500 text-[10px]">▲</span>
                             )}
                             {rankChanges[r._id] < 0 && (
-                              <span className="text-red-500 text-[10px] animate-pulse">▼</span>
+                              <span className="text-red-500 text-[10px]">▼</span>
                             )}
                             {rankChanges[r._id] === 99 && (
-                              <span className="text-blue-500 text-[8px] font-bold animate-pulse">NEW</span>
+                              <span className="text-blue-500 text-[8px] font-bold">NEW</span>
                             )}
                           </div>
                           {/* Avatar with country flag */}
