@@ -24,8 +24,11 @@ export async function GET(request: NextRequest) {
     // Get reaction counts per user, grouped by emoji
     const reactionCounts = await Reaction.aggregate([
       { 
+        $match: { emojiId: { $ne: null } } // Only count active reactions
+      },
+      { 
         $group: { 
-          _id: { userId: '$odooUserId', emoji: '$emoji' }, 
+          _id: { userId: { $toString: '$userId' }, emoji: '$emojiId' }, 
           count: { $sum: 1 } 
         } 
       }
@@ -34,12 +37,13 @@ export async function GET(request: NextRequest) {
     // Build map: userId -> { emoji: count, ... }
     const reactionMap = new Map<string, Record<string, number>>();
     for (const r of reactionCounts) {
-      const userId = r._id.userId;
+      const odooUserId = r._id.userId;
       const emoji = r._id.emoji;
-      if (!reactionMap.has(userId)) {
-        reactionMap.set(userId, {});
+      if (!odooUserId || !emoji) continue;
+      if (!reactionMap.has(odooUserId)) {
+        reactionMap.set(odooUserId, {});
       }
-      reactionMap.get(userId)![emoji] = r.count;
+      reactionMap.get(odooUserId)![emoji] = r.count;
     }
     
     // Ensure isBot is always defined (default false for old users)

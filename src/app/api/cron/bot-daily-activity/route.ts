@@ -158,8 +158,8 @@ export async function GET(request: Request) {
         
         // Check if bot already reacted to this article
         const existingReaction = await Reaction.findOne({
-          articleId: article._id.toString(),
-          odooUserId: bot._id.toString(),
+          articleId: article._id,
+          userId: bot._id,
         });
         
         if (existingReaction) continue;
@@ -170,9 +170,9 @@ export async function GET(request: Request) {
         stats.totalBogxEarned += bogxEarned;
         
         await Reaction.create({
-          articleId: article._id.toString(),
-          odooUserId: bot._id.toString(),
-          emoji,
+          articleId: article._id,
+          userId: bot._id,
+          emojiId: emoji,
           rewarded: true,
         });
         
@@ -237,12 +237,13 @@ export async function GET(request: Request) {
       const updatedBot = await User.findById(bot._id).select('bogxCoins');
       botBogx = updatedBot?.bogxCoins || botBogx;
       
-      // 5. BATTLES - Only if bot has enough coins
-      if (botBogx >= MIN_COINS_FOR_BATTLE) {
-        // 30% chance to create a battle
-        if (Math.random() < 0.3 * multiplier) {
+      // 5. BATTLES - Only if bot has enough coins (min 5 BOGX to play safe)
+      if (botBogx >= 5) {
+        // 40% chance to create a battle with high intensity
+        if (Math.random() < 0.4 * multiplier) {
           const topic = BATTLE_TOPICS[Math.floor(Math.random() * BATTLE_TOPICS.length)];
-          const wager = Math.min(Math.floor(botBogx * 0.1), 5); // Max 10% of coins or 5 BOGX
+          // Wager between 0.5 and 2 BOGX (reasonable for bots)
+          const wager = Math.min(Math.max(0.5, Math.round(botBogx * 0.1 * 100) / 100), 2);
           
           if (wager >= 0.5) {
             try {
