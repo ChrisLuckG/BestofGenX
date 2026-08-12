@@ -388,6 +388,7 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
   const totalCoins = displayUsers.reduce((sum, u) => sum + (u.bogxCoins || u.coins || 0), 0);
   const totalWins = displayUsers.reduce((sum, u) => sum + (u.wins || 0), 0);
   const totalGames = displayUsers.reduce((sum, u) => sum + (u.gamesPlayed || 0), 0);
+  const totalLost = totalGames - totalWins;
   const totalArticles = displayUsers.reduce((sum, u) => sum + (u.readArticles?.length || 0), 0);
   const totalVideos = displayUsers.reduce((sum, u) => sum + (u.watchedVideos?.length || 0), 0);
   const totalLikes = displayUsers.reduce((sum, u) => sum + (u.reactionsCount || 0), 0);
@@ -409,7 +410,7 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
           <div>
             <h2 className="text-sm font-bold">Users ({displayUsers.length})</h2>
             <p className="text-[11px] text-gray-400">
-              {realUserCount} real · {botCount} bots · <span className="text-yellow-400">{totalCoins.toFixed(2)} coins</span> · <span className="text-green-400">{totalWins} wins</span> · {totalGames} games · <span className="text-blue-400">{totalArticles} articles</span> · <span className="text-purple-400">{totalVideos} videos</span> · <span className="text-pink-400">{totalLikes} likes</span>
+              {realUserCount} real · {botCount} bots · <span className="text-yellow-400">{totalCoins.toFixed(2)} coins</span> · <span className="text-green-400">{totalWins} won</span> · <span className="text-red-400">{totalLost} lost</span> · <span className="text-blue-400">{totalArticles} articles</span> · <span className="text-purple-400">{totalVideos} videos</span> · <span className="text-pink-400">{totalLikes} likes</span>
             </p>
           </div>
           <div className="flex gap-1.5">
@@ -484,8 +485,8 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                   <th className="pb-2 font-medium">Username</th>
                   <th className="pb-2 font-medium">Email</th>
                   <th className="pb-2 text-right font-medium">Coins</th>
-                  <th className="pb-2 text-right font-medium">Wins</th>
-                  <th className="pb-2 text-right font-medium">Games</th>
+                  <th className="pb-2 text-right font-medium">Won</th>
+                  <th className="pb-2 text-right font-medium">Lost</th>
                   <th className="pb-2 text-right font-medium">Articles</th>
                   <th className="pb-2 text-right font-medium">Videos</th>
                   <th className="pb-2 text-right font-medium">Likes</th>
@@ -531,7 +532,7 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                     <td className="py-2 text-gray-400">{user.email || '-'}</td>
                     <td className="py-2 text-right text-yellow-400">{(user.bogxCoins || user.coins || 0).toFixed(2)}</td>
                     <td className="py-2 text-right text-green-400">{user.wins || 0}</td>
-                    <td className="py-2 text-right">{user.gamesPlayed || 0}</td>
+                    <td className="py-2 text-right text-red-400">{(user.gamesPlayed || 0) - (user.wins || 0)}</td>
                     <td className="py-2 text-right text-blue-400">{user.readArticles?.length || 0}</td>
                     <td className="py-2 text-right text-purple-400">{user.watchedVideos?.length || 0}</td>
                     <td className="py-2 text-right text-pink-400">{user.reactionsCount || 0}</td>
