@@ -21,7 +21,20 @@ import Reaction from '@/models/Reaction';
 const BATTLE_TOPICS = ['music', 'sports', 'movies', 'gaming', 'culture', '80s', '90s'];
 const MIN_COINS_FOR_BATTLE = 1; // Minimum coins needed to create a battle
 
-const EMOJI_OPTIONS = ['❤️', '😂', '😮', '😢', '😡', '👏'];
+// Use the same mood IDs as the frontend (from config/moods.ts)
+// Weighted distribution: more positive reactions (cool, fire) than negative (whatever, meh)
+const MOOD_IDS = ['whatever', 'meh', 'ok', 'cool', 'fire'];
+const MOOD_WEIGHTS = [0.05, 0.10, 0.25, 0.35, 0.25]; // whatever=5%, meh=10%, ok=25%, cool=35%, fire=25%
+
+function getWeightedMood(): string {
+  const random = Math.random();
+  let cumulative = 0;
+  for (let i = 0; i < MOOD_IDS.length; i++) {
+    cumulative += MOOD_WEIGHTS[i];
+    if (random < cumulative) return MOOD_IDS[i];
+  }
+  return MOOD_IDS[3]; // fallback to 'cool'
+}
 
 export async function GET(request: Request) {
   try {
@@ -154,7 +167,7 @@ export async function GET(request: Request) {
       
       for (let i = 0; i < Math.min(reactionsToAdd, shuffledArticles.length); i++) {
         const article = shuffledArticles[i];
-        const emoji = EMOJI_OPTIONS[Math.floor(Math.random() * EMOJI_OPTIONS.length)];
+        const emoji = getWeightedMood();
         
         // Check if bot already reacted to this article
         const existingReaction = await Reaction.findOne({

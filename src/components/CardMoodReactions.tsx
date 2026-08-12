@@ -25,6 +25,15 @@ interface CardMoodReactionsProps {
   // Supplied by the parent's batched fetch so the coin animation can start on
   // click rather than after the POST comes back.
   initialRewarded?: boolean;
+  // Called after a reaction changed so the parent can update its batched
+  // reactionsMap. Without this the parent keeps serving stale initial data and
+  // any remount of this card (the feed re-creates its card components on every
+  // render) throws away the new count AND the local rewarded flag - which made
+  // the coin animation replay on every further click.
+  onReactionChange?: (
+    articleId: string,
+    data: { reactions: Record<string, number>; userReaction: string | null; rewarded: boolean }
+  ) => void;
 }
 
 const SIZES = {
@@ -50,6 +59,7 @@ function CardMoodReactionsInner({
   initialReactions,
   initialUserReaction,
   initialRewarded,
+  onReactionChange,
 }: CardMoodReactionsProps) {
   const [reactions, setReactions] = useState<Record<string, number>>(initialReactions || {});
   const [userReaction, setUserReaction] = useState<string | null>(initialUserReaction ?? null);
@@ -143,27 +153,26 @@ function CardMoodReactionsInner({
       onCoinAnimation?.(REACTION_REWARD);
     }
 
+    // Build the optimistic counts once so the same value can be pushed to the
+    // parent - it must not keep serving the pre-click data to a remounted card.
+    const optimisticReactions = { ...prevReactions };
+    const optimisticUserReaction = isRemoving ? null : emojiId;
     if (isRemoving) {
-      // Remove reaction
-      setUserReaction(null);
-      setReactions(prev => ({
-        ...prev,
-        [emojiId]: Math.max(0, (prev[emojiId] || 0) - 1),
-      }));
+      optimisticReactions[emojiId] = Math.max(0, (optimisticReactions[emojiId] || 0) - 1);
     } else {
-      // Add/change reaction
       if (prevReaction) {
-        setReactions(prev => ({
-          ...prev,
-          [prevReaction]: Math.max(0, (prev[prevReaction] || 0) - 1),
-        }));
+        optimisticReactions[prevReaction] = Math.max(0, (optimisticReactions[prevReaction] || 0) - 1);
       }
-      setUserReaction(emojiId);
-      setReactions(prev => ({
-        ...prev,
-        [emojiId]: (prev[emojiId] || 0) + 1,
-      }));
+      optimisticReactions[emojiId] = (optimisticReactions[emojiId] || 0) + 1;
     }
+
+    setUserReaction(optimisticUserReaction);
+    setReactions(optimisticReactions);
+    onReactionChange?.(articleId, {
+      reactions: optimisticReactions,
+      userReaction: optimisticUserReaction,
+      rewarded: rewardedRef.current,
+    });
 
     try {
       const res = await fetch('/api/articles/react', {
@@ -183,17 +192,35 @@ function CardMoodReactionsInner({
           rewardedRef.current = true;
           onCoinAnimation?.(data.coinsEarned);
         }
+        // Push the authoritative result up. `rewarded` is true as soon as a
+        // reaction is set: the server pays out at most once per article, so any
+        // later click must never animate coins again - not even after a remount.
+        onReactionChange?.(articleId, {
+          reactions: data.reactions,
+          userReaction: data.userReaction,
+          rewarded: rewardedRef.current || data.userReaction !== null,
+        });
       } else {
         // Revert on error
         setReactions(prevReactions);
         setUserReaction(prevReaction);
         if (willEarn) rewardedRef.current = false; // nothing was claimed after all
+        onReactionChange?.(articleId, {
+          reactions: prevReactions,
+          userReaction: prevReaction,
+          rewarded: rewardedRef.current,
+        });
       }
     } catch {
       // Revert on error
       setReactions(prevReactions);
       setUserReaction(prevReaction);
       if (willEarn) rewardedRef.current = false;
+      onReactionChange?.(articleId, {
+        reactions: prevReactions,
+        userReaction: prevReaction,
+        rewarded: rewardedRef.current,
+      });
     } finally {
       setLoading(false);
     }
@@ -323,13 +350,16 @@ function CardMoodReactionsInner({
 
 // Memoize to prevent re-renders when parent re-renders
 const CardMoodReactions = memo(CardMoodReactionsInner, (prevProps, nextProps) => {
-  // Only re-render if articleId, userId, isLoggedIn, or the pre-fetched data changes
+  // Only re-render if articleId, userId, isLoggedIn, or the pre-fetched data changes.
+  // initialRewarded is part of the comparison: it decides whether a click pays
+  // coins, so a stale value here would let the animation replay.
   return prevProps.articleId === nextProps.articleId && 
          prevProps.userId === nextProps.userId &&
          prevProps.isLoggedIn === nextProps.isLoggedIn &&
          prevProps.useExternalData === nextProps.useExternalData &&
          prevProps.initialReactions === nextProps.initialReactions &&
-         prevProps.initialUserReaction === nextProps.initialUserReaction;
+         prevProps.initialUserReaction === nextProps.initialUserReaction &&
+         prevProps.initialRewarded === nextProps.initialRewarded;
 });
 
 export default CardMoodReactions;

@@ -154,6 +154,7 @@ interface SliderCardProps {
   onShowLogin?: () => void;
   onCoinAnimation?: (amount: number) => void;
   reactionData?: { reactions?: Record<string, number>; userReaction?: string | null; rewarded?: boolean };
+  onReactionChange?: (articleId: string, data: { reactions: Record<string, number>; userReaction: string | null; rewarded: boolean }) => void;
 }
 
 const SliderCard = ({
@@ -165,6 +166,7 @@ const SliderCard = ({
   onShowLogin,
   onCoinAnimation,
   reactionData,
+  onReactionChange,
 }: SliderCardProps) => {
   const cardTheme = getCardThemeStyles(theme);
   const hasColorTheme = theme && theme !== 'cream';
@@ -192,7 +194,7 @@ const SliderCard = ({
         <h3 className={`font-display text-[20px] tracking-wide leading-tight line-clamp-2 transition-colors ${hasColorTheme ? 'text-white group-hover:text-gray-900' : 'text-gray-900 group-hover:text-[#E36B11]'}`}>{article.title}</h3>
         {/* Likes & Comments */}
         <div className={`flex items-center gap-2 mt-1 text-[8px] ${hasColorTheme ? 'text-gray-700' : 'text-gray-500'}`} onClick={(e) => e.stopPropagation()}>
-          <CardMoodReactions articleId={article._id} userId={userId} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="xs" useExternalData initialReactions={reactionData?.reactions} initialUserReaction={reactionData?.userReaction} initialRewarded={reactionData?.rewarded} />
+          <CardMoodReactions articleId={article._id} userId={userId} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="xs" useExternalData initialReactions={reactionData?.reactions} initialUserReaction={reactionData?.userReaction} initialRewarded={reactionData?.rewarded} onReactionChange={onReactionChange} />
           <span className="flex items-center gap-0.5">
             <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -215,6 +217,7 @@ interface SliderContainerProps {
   onShowLogin?: () => void;
   onCoinAnimation?: (amount: number) => void;
   reactionsMap: Record<string, { reactions?: Record<string, number>; userReaction?: string | null; rewarded?: boolean }>;
+  onReactionChange?: (articleId: string, data: { reactions: Record<string, number>; userReaction: string | null; rewarded: boolean }) => void;
 }
 
 const SliderContainer = ({
@@ -227,6 +230,7 @@ const SliderContainer = ({
   onShowLogin,
   onCoinAnimation,
   reactionsMap,
+  onReactionChange,
 }: SliderContainerProps) => {
   const hasColorTheme = theme && theme !== 'cream';
 
@@ -335,6 +339,7 @@ const SliderContainer = ({
               onShowLogin={onShowLogin}
               onCoinAnimation={onCoinAnimation}
               reactionData={reactionsMap[article._id]}
+              onReactionChange={onReactionChange}
             />
           ))}
         </div>
@@ -422,6 +427,19 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
   // articles instead of each card firing its own request (was causing an N+1
   // request storm / ERR_INSUFFICIENT_RESOURCES with 100 articles on screen).
   const [reactionsMap, setReactionsMap] = useState<Record<string, { reactions: Record<string, number>; userReaction: string | null; rewarded?: boolean }>>({});
+
+  // Callback for CardMoodReactions to update the batched map after a click.
+  // Without this, the parent keeps serving stale initial data and any remount
+  // of the card throws away the new count AND the local rewarded flag.
+  const handleReactionChange = useCallback((
+    articleId: string,
+    data: { reactions: Record<string, number>; userReaction: string | null; rewarded: boolean }
+  ) => {
+    setReactionsMap(prev => ({
+      ...prev,
+      [articleId]: data,
+    }));
+  }, []);
 
   const showToast = (message: string, icon: 'check' | 'bookmark' | 'flag' = 'check') => {
     setToast({ message, icon });
@@ -576,6 +594,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
             initialReactions={reactionsMap[article._id]?.reactions}
             initialUserReaction={reactionsMap[article._id]?.userReaction}
             initialRewarded={reactionsMap[article._id]?.rewarded}
+            onReactionChange={handleReactionChange}
           />
         <button onClick={handleComment} className="flex items-center gap-1.5 hover:text-[#E36B11] transition-colors">
           <MessageCircle className={iconSize} />
@@ -720,6 +739,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
     onShowLogin,
     onCoinAnimation,
     reactionsMap,
+    onReactionChange: handleReactionChange,
   };
 
   // Article Card Components
@@ -792,7 +812,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           </div>
           {/* Mood Reactions & Comments inline */}
           <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-            <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="sm" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} initialRewarded={reactionsMap[article._id]?.rewarded} />
+            <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="sm" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} initialRewarded={reactionsMap[article._id]?.rewarded} onReactionChange={handleReactionChange} />
             <span className="flex items-center gap-1">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -961,7 +981,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         <div className="flex items-center justify-end gap-1 text-[10px] text-white/70">
           {/* Moods & Comments inline */}
           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-            <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="xs" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} initialRewarded={reactionsMap[article._id]?.rewarded} />
+            <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="xs" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} initialRewarded={reactionsMap[article._id]?.rewarded} onReactionChange={handleReactionChange} />
             <span className="flex items-center gap-0.5">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -1028,7 +1048,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                       </div>
           {/* Likes & Comments inline */}
           <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-            <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="xs" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} initialRewarded={reactionsMap[article._id]?.rewarded} />
+            <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="xs" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} initialRewarded={reactionsMap[article._id]?.rewarded} onReactionChange={handleReactionChange} />
             <span className="flex items-center gap-0.5">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -1041,7 +1061,6 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
     </div>
   );
 
-  // Half Card - 50% width, like "FROM THE COMMUNITY" social post style
   const HalfCard = ({ article, theme }: { article: Article; theme?: string }) => {
     const cardTheme = getCardThemeStyles(theme);
     const hasColorTheme = theme && theme !== 'cream';
@@ -1225,7 +1244,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         </div>
         <h3 className={`font-display tracking-wide text-gray-900 group-hover:text-[#E36B11] leading-tight line-clamp-1 transition-colors ${isDesktop ? 'text-[20px]' : 'text-[20px]'}`}>{article.title}</h3>
         <div className="flex items-center gap-3 text-[10px] text-gray-500 mt-0.5" onClick={(e) => e.stopPropagation()}>
-          <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="xs" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} initialRewarded={reactionsMap[article._id]?.rewarded} />
+          <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="xs" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} initialRewarded={reactionsMap[article._id]?.rewarded} onReactionChange={handleReactionChange} />
           <span className="flex items-center gap-0.5">
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
