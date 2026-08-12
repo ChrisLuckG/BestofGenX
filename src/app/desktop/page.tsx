@@ -1059,8 +1059,8 @@ export default function DesktopPage() {
                               i < 3 ? 'text-gray-700' :
                               'text-gray-400'
                             }`}>{i + 1}</span>
-                            {/* Rank change arrow - always visible, same style as Rankings page */}
-                            {rankChanges[r._id] > 0 && rankChanges[r._id] !== 99 && (
+                            {/* Rank change arrow - always visible */}
+                            {rankChanges[r._id] > 0 && (
                               <span className="text-[9px] font-semibold text-green-600">↑</span>
                             )}
                             {rankChanges[r._id] < 0 && (
