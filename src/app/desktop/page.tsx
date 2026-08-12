@@ -482,12 +482,12 @@ export default function DesktopPage() {
     loadLeaderboard(leaderboardDayOffset);
   }, [leaderboardDayOffset, isBreakTime]);
   
-  // Poll leaderboard every 10 seconds to show OTHER players' point changes live
+  // Poll leaderboard every 30 seconds (synced with useLiveRankings hook)
   useEffect(() => {
     if (isBreakTime || leaderboardDayOffset !== 0) return; // Only poll for today's live leaderboard
     const interval = setInterval(() => {
       loadLeaderboard(0, true); // silent=true for smooth updates
-    }, 10000); // Every 10 seconds
+    }, 30000); // Every 30 seconds - same as useLiveRankings
     return () => clearInterval(interval);
   }, [isBreakTime, leaderboardDayOffset]);
   
