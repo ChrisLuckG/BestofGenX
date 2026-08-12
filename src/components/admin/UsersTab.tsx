@@ -74,6 +74,7 @@ interface UserData {
   readArticles?: string[];
   watchedVideos?: string[];
   reactionsCount?: number;
+  reactionsByEmoji?: Record<string, number>;
 }
 
 interface GameResultItem {
@@ -391,7 +392,15 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
   const totalLost = totalGames - totalWins;
   const totalArticles = displayUsers.reduce((sum, u) => sum + (u.readArticles?.length || 0), 0);
   const totalVideos = displayUsers.reduce((sum, u) => sum + (u.watchedVideos?.length || 0), 0);
-  const totalLikes = displayUsers.reduce((sum, u) => sum + (u.reactionsCount || 0), 0);
+  // Sum reactions by emoji type
+  const totalReactions = {
+    '❤️': displayUsers.reduce((sum, u) => sum + (u.reactionsByEmoji?.['❤️'] || 0), 0),
+    '😂': displayUsers.reduce((sum, u) => sum + (u.reactionsByEmoji?.['😂'] || 0), 0),
+    '😮': displayUsers.reduce((sum, u) => sum + (u.reactionsByEmoji?.['😮'] || 0), 0),
+    '😢': displayUsers.reduce((sum, u) => sum + (u.reactionsByEmoji?.['😢'] || 0), 0),
+    '😡': displayUsers.reduce((sum, u) => sum + (u.reactionsByEmoji?.['😡'] || 0), 0),
+    '👏': displayUsers.reduce((sum, u) => sum + (u.reactionsByEmoji?.['👏'] || 0), 0),
+  };
   const botCount = displayUsers.filter(u => u.isBot).length;
   const realUserCount = displayUsers.length - botCount;
 
@@ -410,7 +419,7 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
           <div>
             <h2 className="text-sm font-bold">Users ({displayUsers.length})</h2>
             <p className="text-[11px] text-gray-400">
-              {realUserCount} real · {botCount} bots · <span className="text-yellow-400">{totalCoins.toFixed(2)} coins</span> · <span className="text-green-400">{totalWins} won</span> · <span className="text-red-400">{totalLost} lost</span> · <span className="text-blue-400">{totalArticles} articles</span> · <span className="text-purple-400">{totalVideos} videos</span> · <span className="text-pink-400">{totalLikes} likes</span>
+              {realUserCount} real · {botCount} bots · <span className="text-yellow-400">{totalCoins.toFixed(2)} coins</span> · <span className="text-green-400">{totalWins} won</span> · <span className="text-red-400">{totalLost} lost</span> · <span className="text-blue-400">{totalArticles} articles</span> · <span className="text-purple-400">{totalVideos} videos</span> · {totalReactions['❤️'] > 0 && <span>❤️{totalReactions['❤️']} </span>}{totalReactions['😂'] > 0 && <span>😂{totalReactions['😂']} </span>}{totalReactions['😮'] > 0 && <span>😮{totalReactions['😮']} </span>}{totalReactions['😢'] > 0 && <span>😢{totalReactions['😢']} </span>}{totalReactions['😡'] > 0 && <span>😡{totalReactions['😡']} </span>}{totalReactions['👏'] > 0 && <span>👏{totalReactions['👏']}</span>}
             </p>
           </div>
           <div className="flex gap-1.5">
@@ -489,7 +498,7 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                   <th className="pb-2 text-right font-medium">Lost</th>
                   <th className="pb-2 text-right font-medium">Articles</th>
                   <th className="pb-2 text-right font-medium">Videos</th>
-                  <th className="pb-2 text-right font-medium">Likes</th>
+                  <th className="pb-2 font-medium">Reactions</th>
                   <th className="pb-2 font-medium">Type</th>
                   <th className="pb-2 font-medium">Joined</th>
                   <th className="pb-2 font-medium">Actions</th>
@@ -535,7 +544,20 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                     <td className="py-2 text-right text-red-400">{(user.gamesPlayed || 0) - (user.wins || 0)}</td>
                     <td className="py-2 text-right text-blue-400">{user.readArticles?.length || 0}</td>
                     <td className="py-2 text-right text-purple-400">{user.watchedVideos?.length || 0}</td>
-                    <td className="py-2 text-right text-pink-400">{user.reactionsCount || 0}</td>
+                    <td className="py-2">
+                      {user.reactionsByEmoji && Object.keys(user.reactionsByEmoji).length > 0 ? (
+                        <div className="flex items-center gap-1 text-[10px]">
+                          {user.reactionsByEmoji['❤️'] && <span title="Love">❤️{user.reactionsByEmoji['❤️']}</span>}
+                          {user.reactionsByEmoji['😂'] && <span title="Laugh">😂{user.reactionsByEmoji['😂']}</span>}
+                          {user.reactionsByEmoji['😮'] && <span title="Wow">😮{user.reactionsByEmoji['😮']}</span>}
+                          {user.reactionsByEmoji['😢'] && <span title="Sad">😢{user.reactionsByEmoji['😢']}</span>}
+                          {user.reactionsByEmoji['😡'] && <span title="Angry">😡{user.reactionsByEmoji['😡']}</span>}
+                          {user.reactionsByEmoji['👏'] && <span title="Clap">👏{user.reactionsByEmoji['👏']}</span>}
+                        </div>
+                      ) : (
+                        <span className="text-gray-600">-</span>
+                      )}
+                    </td>
                     <td className="py-2">
                       <div className="flex items-center gap-1 flex-wrap">
                         {user.isBot ? (
