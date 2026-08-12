@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Loader2, Trash2, History, CheckCircle, XCircle, Clock, RefreshCw, Edit2, X, Upload, Shield, PenTool, Instagram, Facebook, Linkedin, Globe, MessageSquare, UserPlus, ChevronDown, Check } from "lucide-react";
+import { Loader2, Trash2, History, CheckCircle, XCircle, Clock, RefreshCw, Edit2, X, Upload, Shield, PenTool, Instagram, Facebook, Linkedin, Globe, MessageSquare, UserPlus, ChevronDown, Check, Play, Pause } from "lucide-react";
 import EditorialChatModal from "@/components/admin/EditorialChatModal";
 
 const COUNTRIES = [
@@ -52,6 +52,7 @@ interface UserData {
   wins: number;
   gamesPlayed: number;
   isBot?: boolean;
+  botActive?: boolean;
   isAdmin?: boolean;
   isAuthor?: boolean;
   isAIReporter?: boolean;
@@ -104,12 +105,43 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
   const [newEmployee, setNewEmployee] = useState({ name: '', role: '', nationality: '', responsibilities: [] as string[], writingStyle: '', personality: '' });
   const [creatingEmployee, setCreatingEmployee] = useState(false);
   const [showRespDropdown, setShowRespDropdown] = useState(false);
+  const [togglingBotActive, setTogglingBotActive] = useState<Set<string>>(new Set());
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchUsers();
     initEditorialTeam();
   }, []);
+
+  // Toggle bot active status (play/pause)
+  const toggleBotActive = async (userId: string, currentActive: boolean) => {
+    setTogglingBotActive(prev => new Set(prev).add(userId));
+    try {
+      const res = await fetch('/api/admin/bots', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ botId: userId, active: !currentActive }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setUsers(prev => prev.map(u => u._id === userId ? { ...u, botActive: !currentActive } : u));
+      }
+    } catch (err) {
+      console.error('Failed to toggle bot:', err);
+    } finally {
+      setTogglingBotActive(prev => { const n = new Set(prev); n.delete(userId); return n; });
+    }
+  };
+
+  // Toggle all selected bots
+  const toggleSelectedBotsActive = async (active: boolean) => {
+    const selectedBots = users.filter(u => selectedUsers.has(u._id) && u.isBot);
+    if (selectedBots.length === 0) return;
+    
+    for (const bot of selectedBots) {
+      await toggleBotActive(bot._id, !active);
+    }
+  };
 
   const fetchReporterProfiles = async () => {
     try {
@@ -389,14 +421,37 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
               Create 20 Bots
             </button>
             {selectedUsers.size > 0 && (
-              <button
-                onClick={deleteSelectedUsers}
-                disabled={isDeletingUsers}
-                className="flex items-center gap-1.5 bg-red-600 hover:bg-red-500 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
-              >
-                {isDeletingUsers ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                Delete ({selectedUsers.size})
-              </button>
+              <>
+                {/* Play/Pause selected bots */}
+                {users.some(u => selectedUsers.has(u._id) && u.isBot) && (
+                  <>
+                    <button
+                      onClick={() => toggleSelectedBotsActive(true)}
+                      className="flex items-center gap-1.5 bg-green-600 hover:bg-green-500 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
+                      title="Start all selected bots"
+                    >
+                      <Play className="w-3.5 h-3.5" />
+                      Play Bots
+                    </button>
+                    <button
+                      onClick={() => toggleSelectedBotsActive(false)}
+                      className="flex items-center gap-1.5 bg-yellow-600 hover:bg-yellow-500 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
+                      title="Pause all selected bots"
+                    >
+                      <Pause className="w-3.5 h-3.5" />
+                      Pause Bots
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={deleteSelectedUsers}
+                  disabled={isDeletingUsers}
+                  className="flex items-center gap-1.5 bg-red-600 hover:bg-red-500 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+                >
+                  {isDeletingUsers ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                  Delete ({selectedUsers.size})
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -489,6 +544,27 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                     </td>
                     <td className="py-2">
                       <div className="flex items-center gap-0.5">
+                        {/* Play/Pause for bots */}
+                        {user.isBot && (
+                          <button
+                            onClick={() => toggleBotActive(user._id, user.botActive !== false)}
+                            disabled={togglingBotActive.has(user._id)}
+                            className={`p-1 rounded transition-colors ${
+                              user.botActive !== false
+                                ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                                : 'bg-gray-600/50 text-gray-500 hover:bg-gray-600'
+                            }`}
+                            title={user.botActive !== false ? 'Bot is playing - click to pause' : 'Bot is paused - click to play'}
+                          >
+                            {togglingBotActive.has(user._id) ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : user.botActive !== false ? (
+                              <Pause className="w-3.5 h-3.5" />
+                            ) : (
+                              <Play className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        )}
                         <button
                           onClick={() => setEditingUser(user)}
                           className="p-1 hover:bg-gray-600 rounded text-gray-400 hover:text-[#E36B11]"
