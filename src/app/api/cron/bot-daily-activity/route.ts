@@ -84,8 +84,8 @@ export async function GET(request: Request) {
         const alreadyRead = bot.readArticles?.includes(article._id.toString());
         if (alreadyRead) continue;
         
-        // Award BOGX for reading
-        const bogxEarned = 0.10;
+        // Award BOGX for reading (same as real users: 0.05)
+        const bogxEarned = 0.05;
         botBogx += bogxEarned;
         stats.articlesRead++;
         stats.totalBogxEarned += bogxEarned;
@@ -124,7 +124,7 @@ export async function GET(request: Request) {
         const alreadyWatched = bot.watchedVideos?.includes(video._id.toString());
         if (alreadyWatched) continue;
         
-        const bogxEarned = 0.15;
+        const bogxEarned = 0.05; // Same as articles
         botBogx += bogxEarned;
         stats.videosWatched++;
         stats.totalBogxEarned += bogxEarned;
@@ -164,7 +164,7 @@ export async function GET(request: Request) {
         
         if (existingReaction) continue;
         
-        const bogxEarned = 0.02;
+        const bogxEarned = 0.01; // Reactions give less
         botBogx += bogxEarned;
         stats.reactionsAdded++;
         stats.totalBogxEarned += bogxEarned;
@@ -195,8 +195,9 @@ export async function GET(request: Request) {
         const isCorrect = Math.random() < botSkill;
         
         const difficulty = [1, 2, 3][Math.floor(Math.random() * 3)];
-        const maxReward = 0.10 * difficulty;
-        const penalty = difficulty === 1 ? 0.01 : difficulty === 2 ? 0.05 : 0.10;
+        // Realistic rewards: 0.02-0.06 per correct answer
+        const maxReward = 0.02 * difficulty; // 0.02, 0.04, 0.06
+        const penalty = difficulty === 1 ? 0.01 : difficulty === 2 ? 0.02 : 0.03;
         
         const rawChange = isCorrect
           ? Math.round((maxReward * (0.5 + Math.random() * 0.5)) * 100) / 100
