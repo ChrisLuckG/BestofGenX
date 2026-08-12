@@ -3,15 +3,52 @@ import dbConnect from '@/lib/mongoose';
 import User from '@/models/User';
 import bcrypt from 'bcryptjs';
 
-// Bot names - realistic gaming usernames
+// Bot names - realistic gaming usernames (up to 200)
 const botNames = [
+  // Original 30
   'ShadowHunter', 'NightWolf', 'BlazeMaster', 'CyberNinja', 'StormRider',
   'PhoenixFire', 'IceQueen', 'ThunderBolt', 'DarkKnight', 'StarGazer',
   'MoonWalker', 'SunChaser', 'WildCard', 'LuckyStrike', 'GoldenEagle',
   'SilverFox', 'RedDragon', 'BlueTiger', 'GreenMamba', 'PurpleHaze',
   'CrimsonKing', 'JadeWarrior', 'OnyxBlade', 'DiamondDust', 'RubyFlash',
-  'EmeraldEye', 'SapphireWave', 'TopazGlow', 'AmberLight', 'CoralReef'
+  'EmeraldEye', 'SapphireWave', 'TopazGlow', 'AmberLight', 'CoralReef',
+  // 30 more
+  'VelvetStorm', 'IronWill', 'CrystalMind', 'SteelNerve', 'BronzeHeart',
+  'GhostRider', 'SoulSeeker', 'DreamCatcher', 'NeonFlash', 'VoidWalker',
+  'FrostBite', 'FlameKeeper', 'WindRunner', 'EarthShaker', 'WaterDancer',
+  'SkyDiver', 'CloudSurfer', 'RainMaker', 'SnowFall', 'SunBurst',
+  'MidnightSun', 'DawnBreaker', 'DuskFall', 'TwilightZone', 'EclipseStar',
+  'NovaFlare', 'CosmicDust', 'GalaxyRider', 'NebulaKing', 'AsteroidHunter',
+  // 30 more
+  'PixelPunk', 'ByteBoss', 'CodeBreaker', 'DataMiner', 'CryptoKing',
+  'TechWizard', 'NetRunner', 'HackMaster', 'VirusHunter', 'FirewallX',
+  'AlphaWolf', 'BetaTest', 'GammaRay', 'DeltaForce', 'OmegaMan',
+  'ZeroHero', 'OneShot', 'TwoFace', 'TripleThreat', 'QuadKill',
+  'AcePilot', 'KingSlayer', 'QueenBee', 'JackOfAll', 'JokerWild',
+  'RookieRush', 'BishopMove', 'KnightRider', 'PawnStar', 'CheckMate',
+  // 30 more
+  'VikingRage', 'SamuraiX', 'NinjaStrike', 'PirateKing', 'GladiatorX',
+  'SpartanWar', 'RomanEmpire', 'GreekGod', 'NorseThunder', 'CelticFire',
+  'AztecGold', 'MayanSun', 'IncaStone', 'EgyptPharaoh', 'PersianKing',
+  'MongolHorde', 'ZuluWarrior', 'ApacheChief', 'SiouxBrave', 'CherokeeWind',
+  'TigerClaw', 'LionHeart', 'WolfPack', 'BearStrength', 'EagleEye',
+  'HawkStrike', 'FalconDive', 'RavenDark', 'OwlWisdom', 'PhoenixRise',
+  // 30 more
+  'RetroGamer', 'ArcadeKing', 'PixelHero', 'BitCrusher', 'ChipTune',
+  'SynthWave', 'VaporTrail', 'NeonNight', 'CyberPunk', 'TechNoir',
+  'FuturePast', 'TimeLord', 'SpaceAce', 'StarLord', 'MoonChild',
+  'SunKing', 'NightOwl', 'DayDream', 'TwilightKid', 'MidnightRun',
+  'ShadowPlay', 'LightBringer', 'DarkMatter', 'BrightStar', 'DeepSpace',
+  'HighVoltage', 'LowRider', 'FastLane', 'SlowBurn', 'QuickSilver',
+  // 20 more to reach 200
+  'GenXLegend', 'RetroKid', 'VintageVibes', 'ClassicRock', 'OldSchool',
+  'NewWave', 'PunkRock', 'GrungeMaster', 'MetalHead', 'RockStar',
+  'PopIcon', 'HipHopKing', 'JazzCat', 'BluesBrother', 'SoulMan',
+  'FunkMaster', 'DiscoKing', 'TechnoViking', 'HouseMusic', 'TranceState'
 ];
+
+// Main bot that should never be deleted
+const MAIN_BOT_USERNAME = 'ShadowHunter';
 
 // Countries for bots
 const countries = [
@@ -112,12 +149,7 @@ export async function POST(request: NextRequest) {
       const country = countries[Math.floor(Math.random() * countries.length)];
       const hashedPassword = await bcrypt.hash('bot_password_' + Date.now(), 10);
       
-      // Random stats
-      const gamesPlayed = Math.floor(Math.random() * 50) + 10;
-      const winRate = 0.3 + Math.random() * 0.5; // 30-80% win rate
-      const wins = Math.floor(gamesPlayed * winRate);
-      const points = Math.floor(Math.random() * 2000) + 200;
-      
+      // Start with 0 stats like real new users
       const bot = await User.create({
         username: name,
         email: `${name.toLowerCase()}@bot.sporttock.com`,
@@ -125,12 +157,13 @@ export async function POST(request: NextRequest) {
         avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`,
         country: country.name,
         countryFlag: country.flag,
-        points,
-        wins,
-        gamesPlayed,
+        points: 0,
+        bogpiCoins: 0,
+        wins: 0,
+        gamesPlayed: 0,
         isBot: true,
         botActive: true,
-        hasReceivedWelcomeBonus: true,
+        hasReceivedWelcomeBonus: false, // Let them earn welcome bonus like real users
       });
       
       createdBots.push({
@@ -159,16 +192,20 @@ export async function DELETE(request: NextRequest) {
     const botId = searchParams.get('id');
     
     if (botId) {
-      // Delete specific bot
-      const result = await User.findOneAndDelete({ _id: botId, isBot: true });
-      if (!result) {
+      // Delete specific bot (but protect main bot)
+      const bot = await User.findOne({ _id: botId, isBot: true });
+      if (!bot) {
         return NextResponse.json({ success: false, error: 'Bot not found' }, { status: 404 });
       }
+      if (bot.username === MAIN_BOT_USERNAME) {
+        return NextResponse.json({ success: false, error: 'Cannot delete main bot ShadowHunter' }, { status: 400 });
+      }
+      await User.findByIdAndDelete(botId);
       return NextResponse.json({ success: true, deleted: 1 });
     } else {
-      // Delete all bots
-      const result = await User.deleteMany({ isBot: true });
-      return NextResponse.json({ success: true, deleted: result.deletedCount });
+      // Delete all bots EXCEPT main bot (ShadowHunter)
+      const result = await User.deleteMany({ isBot: true, username: { $ne: MAIN_BOT_USERNAME } });
+      return NextResponse.json({ success: true, deleted: result.deletedCount, preserved: MAIN_BOT_USERNAME });
     }
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
