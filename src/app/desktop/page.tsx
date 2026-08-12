@@ -194,6 +194,7 @@ export default function DesktopPage() {
   const timelineRef = useRef<HTMLDivElement>(null);
   const scrubDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const [pointChanges, setPointChanges] = useState<Record<string, number>>({}); // Track point changes for animations
+  const [rankChanges, setRankChanges] = useState<Record<string, number>>({}); // Track rank changes (positive = moved up, negative = moved down)
   const prevRankingsRef = useRef<any[]>([]);
     const [shopProducts, setShopProducts] = useState<any[]>([]);
   const [tvVideos, setTvVideos] = useState<any[]>([]);
@@ -424,22 +425,41 @@ export default function DesktopPage() {
       if (data.rankings) {
         const newRankings = data.rankings.slice(0, 10);
         
-        // Calculate point changes for animations (only for live updates, not scrubbing)
+        // Calculate point and rank changes for animations (only for live updates, not scrubbing)
         if (silent && prevRankingsRef.current.length > 0 && scrubProgress === null) {
-          const changes: Record<string, number> = {};
-          newRankings.forEach((r: any) => {
-            const prev = prevRankingsRef.current.find((p: any) => p._id === r._id);
+          const pointDiffs: Record<string, number> = {};
+          const rankDiffs: Record<string, number> = {};
+          
+          newRankings.forEach((r: any, newIndex: number) => {
+            const prevIndex = prevRankingsRef.current.findIndex((p: any) => p._id === r._id);
+            const prev = prevIndex !== -1 ? prevRankingsRef.current[prevIndex] : null;
+            
             if (prev) {
-              const diff = (r.bogxCoins || r.points || 0) - (prev.bogxCoins || prev.points || 0);
-              if (diff !== 0) {
-                changes[r._id] = diff;
+              // Point change
+              const pointDiff = (r.bogxCoins || r.points || 0) - (prev.bogxCoins || prev.points || 0);
+              if (pointDiff !== 0) {
+                pointDiffs[r._id] = pointDiff;
               }
+              
+              // Rank change (positive = moved up, negative = moved down)
+              if (prevIndex !== newIndex) {
+                rankDiffs[r._id] = prevIndex - newIndex; // e.g., was #3, now #1 = 3-1 = +2 (moved up 2)
+              }
+            } else {
+              // New entry in top 10
+              rankDiffs[r._id] = 99; // Special value for "new"
             }
           });
-          if (Object.keys(changes).length > 0) {
-            setPointChanges(changes);
-            // Clear changes after animation
+          
+          if (Object.keys(pointDiffs).length > 0) {
+            setPointChanges(pointDiffs);
             setTimeout(() => setPointChanges({}), 2000);
+          }
+          
+          if (Object.keys(rankDiffs).length > 0) {
+            setRankChanges(rankDiffs);
+            // Keep rank changes visible longer (5 seconds)
+            setTimeout(() => setRankChanges({}), 5000);
           }
         }
         
@@ -1032,13 +1052,27 @@ export default function DesktopPage() {
                     const r = rankings[i];
                     if (r) {
                       return (
-                        <button key={r._id} onClick={() => setSelectedPlayerId(r._id)} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/70 transition-colors">
-                          {/* Rank number */}
-                          <span className={`text-sm font-bold tabular-nums w-4 text-center ${
-                            i === 0 ? 'text-gray-900' :
-                            i < 3 ? 'text-gray-700' :
-                            'text-gray-400'
-                          }`}>{i + 1}</span>
+                        <button key={r._id} onClick={() => setSelectedPlayerId(r._id)} className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/70 transition-all duration-300 ${
+                            rankChanges[r._id] > 0 ? 'bg-green-50' : rankChanges[r._id] < 0 ? 'bg-red-50' : ''
+                          }`}>
+                          {/* Rank number with change indicator */}
+                          <div className="flex items-center gap-0.5 w-6">
+                            <span className={`text-sm font-bold tabular-nums text-center ${
+                              i === 0 ? 'text-gray-900' :
+                              i < 3 ? 'text-gray-700' :
+                              'text-gray-400'
+                            }`}>{i + 1}</span>
+                            {/* Rank change arrow */}
+                            {rankChanges[r._id] > 0 && rankChanges[r._id] !== 99 && (
+                              <span className="text-green-500 text-[10px] animate-pulse">▲</span>
+                            )}
+                            {rankChanges[r._id] < 0 && (
+                              <span className="text-red-500 text-[10px] animate-pulse">▼</span>
+                            )}
+                            {rankChanges[r._id] === 99 && (
+                              <span className="text-blue-500 text-[8px] font-bold animate-pulse">NEW</span>
+                            )}
+                          </div>
                           {/* Avatar with country flag */}
                           <div className="relative flex-shrink-0">
                             <div className={`w-8 h-8 rounded-full overflow-hidden border ${i === 0 ? 'border-gray-900' : 'border-warm'}`}>
