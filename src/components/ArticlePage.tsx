@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { ArrowLeft, Clock, Eye, Share2, TrendingUp, Facebook, Linkedin, MessageCircle, Mail, Link2, Check, FileText, Music, Gamepad2, Trophy, Tv, ShoppingBag, Vote } from "lucide-react";
 import EmojiReactions from "./EmojiReactions";
+import CardMoodReactions from "./CardMoodReactions";
 import CategoryBadge from "./CategoryBadge";
 import { useBackButton } from "@/hooks/useBackButton";
 import ArticleSkeleton from "./ArticleSkeleton";
@@ -33,6 +34,7 @@ interface Article {
   readTime?: number;
   views: number;
   likes: number;
+  commentsCount?: number;
   trending?: boolean;
   publishedAt?: string;
   createdAt?: string;
@@ -1084,7 +1086,7 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
                 >
                   {/* Thumbnail */}
                   {relatedArticle.coverImage && (
-                    <div className="w-20 h-20 rounded-md overflow-hidden flex-shrink-0 border border-warm">
+                    <div className="w-16 h-16 rounded-md overflow-hidden flex-shrink-0 border border-warm">
                       <img 
                         src={relatedArticle.coverImage} 
                         alt={relatedArticle.title} 
@@ -1096,9 +1098,34 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
                   {/* Content */}
                   <div className="flex-1 min-w-0">
                     <CategoryBadge category={relatedArticle.category} size="sm" className="mb-1" />
-                    <h4 className="font-display text-lg text-gray-900 group-hover:text-[#E36B11] leading-tight line-clamp-2 transition-colors">
+                    <h4 className="font-display text-base text-gray-900 group-hover:text-[#E36B11] leading-tight line-clamp-2 transition-colors">
                       {relatedArticle.title}
                     </h4>
+                    {/* Meta: Date, Reactions, Comments */}
+                    <div className="flex items-center gap-3 mt-1.5 text-[10px] text-gray-500" onClick={(e) => e.stopPropagation()}>
+                      {/* Date */}
+                      <span>
+                        {relatedArticle.publishedAt 
+                          ? new Date(relatedArticle.publishedAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' })
+                          : relatedArticle.createdAt 
+                            ? new Date(relatedArticle.createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' })
+                            : ''
+                        }
+                      </span>
+                      {/* Reactions */}
+                      <CardMoodReactions 
+                        articleId={relatedArticle._id} 
+                        userId={user?.id} 
+                        isLoggedIn={isLoggedIn} 
+                        onShowLogin={onShowLogin}
+                        size="xs" 
+                      />
+                      {/* Comments */}
+                      <span className="flex items-center gap-0.5">
+                        <MessageCircle className="w-3 h-3" />
+                        {relatedArticle.commentsCount || 0}
+                      </span>
+                    </div>
                   </div>
                 </button>
               ))}

@@ -426,7 +426,25 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
   // Batched mood-reaction data, keyed by articleId. Fetched ONCE for all loaded
   // articles instead of each card firing its own request (was causing an N+1
   // request storm / ERR_INSUFFICIENT_RESOURCES with 100 articles on screen).
-  const [reactionsMap, setReactionsMap] = useState<Record<string, { reactions: Record<string, number>; userReaction: string | null; rewarded?: boolean }>>({});
+  // Initialize from localStorage cache for instant display
+  const [reactionsMap, setReactionsMap] = useState<Record<string, { reactions: Record<string, number>; userReaction: string | null; rewarded?: boolean }>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('reactions-cache');
+        if (cached) return JSON.parse(cached);
+      } catch { /* ignore */ }
+    }
+    return {};
+  });
+
+  // Save reactionsMap to localStorage whenever it changes
+  useEffect(() => {
+    if (Object.keys(reactionsMap).length > 0) {
+      try {
+        localStorage.setItem('reactions-cache', JSON.stringify(reactionsMap));
+      } catch { /* ignore */ }
+    }
+  }, [reactionsMap]);
 
   // Callback for CardMoodReactions to update the batched map after a click.
   // Without this, the parent keeps serving stale initial data and any remount

@@ -336,7 +336,6 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
               <div className="w-[80px] h-[80px] rounded-full overflow-hidden border-4 border-white shadow-md">
                 <img src={user.avatar || "https://i.pravatar.cc/150?img=33"} alt="" className="w-full h-full object-cover" />
               </div>
-              <div className="absolute bottom-1 right-1 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white" />
             </button>
             
             {/* Name */}

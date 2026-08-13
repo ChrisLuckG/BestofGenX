@@ -245,6 +245,10 @@ For EVERYONE:
 ================================================================================
 CONTENT STRUCTURE (HTML BLOCKS)
 ================================================================================
+⚠️ THE FIRST BLOCK IS ALWAYS TEXT ONLY — NO VIDEO, NO IMAGE!
+The opening 2-3 paragraphs are the INTRO. They set the hook and draw the reader in.
+Videos and images come AFTER the intro, embedded within later sections.
+
 - Start with 2-3 intro paragraphs (<p> tags, NO heading before) — HOOK FIRST, not birth date
 - Then 5-8 sections, EACH with <h2>SPECIFIC Title</h2> followed by 2-4 <p> paragraphs
 - <strong> for important names/titles, dates, numbers

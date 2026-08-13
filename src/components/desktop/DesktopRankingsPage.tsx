@@ -27,6 +27,8 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(initialPlayerId || null);
   const [countdown, setCountdown] = useState('');
   const [statsExpanded, setStatsExpanded] = useState(false); // Stats row - collapsed by default
+  const [pointChanges, setPointChanges] = useState<Record<string, number>>({}); // Track point changes for animations
+  const prevRankingsRef = useRef<Player[]>([]);
   
   // Central live rankings hook - same logic on Desktop AND Mobile
   const { rankings, loading, isLive } = useLiveRankings({
@@ -34,6 +36,29 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
     selectedDate,
     userId: user?.id,
   });
+  
+  // Track point changes for wind animation
+  useEffect(() => {
+    if (rankings.length > 0 && prevRankingsRef.current.length > 0) {
+      const pointDiffs: Record<string, number> = {};
+      
+      rankings.forEach((player) => {
+        const prev = prevRankingsRef.current.find(p => p.id === player.id);
+        if (prev) {
+          const diff = player.points - prev.points;
+          if (diff !== 0) {
+            pointDiffs[player.id] = diff;
+          }
+        }
+      });
+      
+      if (Object.keys(pointDiffs).length > 0) {
+        setPointChanges(pointDiffs);
+        setTimeout(() => setPointChanges({}), 2000);
+      }
+    }
+    prevRankingsRef.current = rankings;
+  }, [rankings]);
 
   // Real lifetime stats (quizzbattle W/L, accuracy, avg time) from GameResult + Battle
   const [userStats, setUserStats] = useState<{
@@ -539,7 +564,6 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
                     <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-[#A0A8B8]">
                       <img src={top3[1].avatar} alt="" className="w-full h-full object-cover" />
                     </div>
-                    <div className={`absolute top-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-cream ${top3[1].isOnline ? 'bg-green-500' : 'bg-gray-400'}`} title={top3[1].isOnline ? 'Online' : 'Offline'} />
                     <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-[#A0A8B8] flex items-center justify-center">
                       <span className="text-[10px] font-black text-black">2</span>
                     </div>
@@ -566,7 +590,6 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
                     <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#FFB800]">
                       <img src={top3[0].avatar} alt="" className="w-full h-full object-cover" />
                     </div>
-                    <div className={`absolute top-0 right-0 w-4 h-4 rounded-full border-2 border-cream ${top3[0].isOnline ? 'bg-green-500' : 'bg-gray-400'}`} title={top3[0].isOnline ? 'Online' : 'Offline'} />
                     <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-[#FFB800] flex items-center justify-center">
                       <span className="text-xs font-black text-black">1</span>
                     </div>
@@ -593,7 +616,6 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
                     <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-[#CD7F32]">
                       <img src={top3[2].avatar} alt="" className="w-full h-full object-cover" />
                     </div>
-                    <div className={`absolute top-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-cream ${top3[2].isOnline ? 'bg-green-500' : 'bg-gray-400'}`} title={top3[2].isOnline ? 'Online' : 'Offline'} />
                     <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-[#CD7F32] flex items-center justify-center">
                       <span className="text-[10px] font-black text-black">3</span>
                     </div>
@@ -630,7 +652,6 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
                       <div className="w-9 h-9 rounded-full overflow-hidden bg-cream border border-warm">
                         <img src={player.avatar} alt="" className="w-full h-full object-cover" />
                       </div>
-                      <div className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-cream ${player.isOnline ? 'bg-green-500' : 'bg-gray-400'}`} title={player.isOnline ? 'Online' : 'Offline'} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
@@ -643,11 +664,22 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
                     {wentUp && <span className="text-[9px] font-semibold text-green-600">↑</span>}
                     {wentDown && <span className="text-[9px] font-semibold text-red-500">↓</span>}
                     {!wentUp && !wentDown && <span className="text-[9px] text-gray-300">—</span>}
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 relative">
                       <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
-                      <span className={`font-display text-lg ${isMe ? 'text-gray-900 font-bold' : 'text-gray-900'}`}>
+                      <span className={`font-display text-lg transition-all duration-300 ${isMe ? 'text-gray-900 font-bold' : 'text-gray-900'}`}>
                         {formatCurrency(player.points)}
                       </span>
+                      {/* Point change animation */}
+                      {pointChanges[player.id] && (
+                        <span 
+                          className={`absolute -right-1 -top-4 text-[11px] font-bold ${
+                            pointChanges[player.id] > 0 ? 'text-green-500' : 'text-red-500'
+                          }`}
+                          style={{ animation: 'fadeSlideUp 2s ease-out forwards' }}
+                        >
+                          {pointChanges[player.id] > 0 ? '+' : ''}{formatCurrency(pointChanges[player.id])}
+                        </span>
+                      )}
                     </div>
                   </div>
                 );

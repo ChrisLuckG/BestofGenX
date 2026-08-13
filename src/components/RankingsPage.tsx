@@ -381,25 +381,27 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
           </div>
         )}
 
-        {/* Tabs - Today/Month/Year */}
-        <div className="flex border-b border-warm sticky top-0 bg-cream/95 backdrop-blur-sm z-10">
-          {(["day", "month", "year"] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-3 text-xs font-semibold uppercase tracking-widest transition-all ${
-                activeTab === tab
-                  ? "text-gray-900 border-b-2 border-gray-900"
-                  : "text-gray-600"
-              }`}
-            >
-              {tab === "day" ? "Today" : tab === "month" ? "Month" : "Year"}
-            </button>
-          ))}
-        </div>
+        {/* Sticky Container for Tabs + Date Navigation */}
+        <div className="sticky top-0 bg-cream z-10">
+          {/* Tabs - Today/Month/Year */}
+          <div className="flex border-b border-warm">
+            {(["day", "month", "year"] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 py-3 text-xs font-semibold uppercase tracking-widest transition-all ${
+                  activeTab === tab
+                    ? "text-gray-900 border-b-2 border-gray-900"
+                    : "text-gray-600"
+                }`}
+              >
+                {tab === "day" ? "Today" : tab === "month" ? "Month" : "Year"}
+              </button>
+            ))}
+          </div>
 
-        {/* Date Navigation */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-warm">
+          {/* Date Navigation */}
+          <div className="flex items-center justify-between px-5 py-3 border-b border-warm">
           <button onClick={goToPrevious} className="w-7 h-7 bg-cream border border-warm rounded-lg flex items-center justify-center">
             <ChevronLeft className="w-4 h-4 text-gray-500" />
           </button>
@@ -428,6 +430,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
           >
             <ChevronRight className="w-4 h-4 text-gray-500" />
           </button>
+          </div>
         </div>
 
         {/* Loading State - Skeleton */}

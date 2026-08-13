@@ -4,6 +4,11 @@ import User from '@/models/User';
 import Article from '@/models/Article';
 import GameResult from '@/models/GameResult';
 import Reaction from '@/models/Reaction';
+import Comment from '@/models/Comment';
+import CommentLike from '@/models/CommentLike';
+import OpenAI from 'openai';
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 /**
  * Bot Daily Activity - Simulates realistic user behavior
@@ -20,6 +25,46 @@ import Reaction from '@/models/Reaction';
 
 const BATTLE_TOPICS = ['music', 'sports', 'movies', 'gaming', 'culture', '80s', '90s'];
 const MIN_COINS_FOR_BATTLE = 1; // Minimum coins needed to create a battle
+
+// Generate a contextual comment for an article using GPT
+async function generateBotComment(articleTitle: string, articleCategory?: string): Promise<string> {
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: `You are a Gen X user (born 1965-1980) commenting on articles about pop culture, music, movies, sports, and nostalgia.
+Write ONE short comment (max 100 characters) that sounds like a real person reacting to this article.
+Be authentic - sometimes nostalgic, sometimes witty, sometimes sarcastic.
+Reference specific things from the article title when possible.
+Use occasional emojis (🎸🔥😎👏) but not always.
+Never be generic. Make it feel personal and specific to THIS article.
+Just output the comment text, nothing else.`
+        },
+        {
+          role: 'user',
+          content: `Article: "${articleTitle}"${articleCategory ? ` (Category: ${articleCategory})` : ''}`
+        }
+      ],
+      max_tokens: 50,
+      temperature: 0.9,
+    });
+    
+    return response.choices[0]?.message?.content?.trim() || "This takes me back!";
+  } catch (error) {
+    console.error('Error generating bot comment:', error);
+    // Fallback to generic comments if API fails
+    const fallbacks = [
+      "This takes me back!",
+      "Classic!",
+      "The good old days...",
+      "Legend status 🔥",
+      "Peak culture right here",
+    ];
+    return fallbacks[Math.floor(Math.random() * fallbacks.length)];
+  }
+}
 
 // Use the same mood IDs as the frontend (from config/moods.ts)
 // Weighted distribution: more positive reactions (cool, fire) than negative (whatever, meh)
@@ -56,7 +101,7 @@ export async function GET(request: Request) {
     
     // Get published articles for bots to interact with
     const articles = await Article.find({ status: 'published' })
-      .select('_id title contentType')
+      .select('_id title contentType category mainCategory')
       .limit(100)
       .lean();
     
@@ -72,6 +117,7 @@ export async function GET(request: Request) {
       articlesRead: 0,
       videosWatched: 0,
       reactionsAdded: 0,
+      commentsAdded: 0,
       gamesPlayed: 0,
       battlesCreated: 0,
       battlesChallenged: 0,
@@ -79,15 +125,15 @@ export async function GET(request: Request) {
     };
     
     for (const bot of bots) {
-      // 70-90% chance a bot is active today (realistic)
-      const activityChance = 0.7 + Math.random() * 0.2;
+      // Only 20-40% of bots do something each minute (realistic pacing)
+      const activityChance = 0.2 + Math.random() * 0.2;
       if (Math.random() > activityChance) continue;
       
       stats.botsActive++;
       let botBogx = bot.bogxCoins || 0;
       
-      // 1. READ ARTICLES (1-5 per day, earn 0.10 BOGX each)
-      const articlesToRead = Math.floor((Math.random() * 5 + 1) * multiplier);
+      // 1. READ ARTICLES (0-1 per minute, earn 0.05 BOGX each)
+      const articlesToRead = Math.random() < 0.3 ? 1 : 0;
       const shuffledArticles = [...articles].sort(() => Math.random() - 0.5);
       
       for (let i = 0; i < Math.min(articlesToRead, shuffledArticles.length); i++) {
@@ -162,8 +208,8 @@ export async function GET(request: Request) {
         });
       }
       
-      // 3. REACT TO ARTICLES (1-3 per day, earn 0.02 BOGX each)
-      const reactionsToAdd = Math.floor((Math.random() * 3 + 1) * multiplier);
+      // 3. REACT TO ARTICLES (0-1 per minute, earn 0.01 BOGX each)
+      const reactionsToAdd = Math.random() < 0.2 ? 1 : 0;
       
       for (let i = 0; i < Math.min(reactionsToAdd, shuffledArticles.length); i++) {
         const article = shuffledArticles[i];
@@ -199,8 +245,78 @@ export async function GET(request: Request) {
         });
       }
       
-      // 4. PLAY TRIVIA (2-8 games per day)
-      const gamesToPlay = Math.floor((Math.random() * 7 + 2) * multiplier);
+      // 3b. WRITE COMMENTS (40% chance per active bot - bots are chatty!)
+      if (Math.random() < 0.4) {
+        const articleToComment = shuffledArticles[Math.floor(Math.random() * Math.min(10, shuffledArticles.length))];
+        
+        // Check if bot already commented on this article
+        const existingComment = await Comment.findOne({
+          articleId: articleToComment._id,
+          userId: bot._id,
+        });
+        
+        if (!existingComment) {
+          // Generate a contextual comment using GPT
+          const comment = await generateBotComment(
+            articleToComment.title,
+            articleToComment.category || articleToComment.mainCategory
+          );
+          
+          await Comment.create({
+            articleId: articleToComment._id,
+            userId: bot._id,
+            userName: bot.username,
+            userAvatar: bot.avatar || '',
+            content: comment,
+            likes: 0,
+          });
+          
+          // Update article comment count
+          await Article.findByIdAndUpdate(articleToComment._id, {
+            $inc: { commentsCount: 1 }
+          });
+          
+          stats.commentsAdded++;
+        }
+      }
+      
+      // 3c. LIKE OTHER COMMENTS (50% chance - bots interact with each other)
+      if (Math.random() < 0.5) {
+        // Find random comments from other users (not this bot)
+        const otherComments = await Comment.find({
+          userId: { $ne: bot._id },
+        }).limit(50).lean();
+        
+        if (otherComments.length > 0) {
+          // Like 1-3 random comments
+          const commentsToLike = Math.floor(Math.random() * 3) + 1;
+          const shuffledComments = [...otherComments].sort(() => Math.random() - 0.5);
+          
+          for (let i = 0; i < Math.min(commentsToLike, shuffledComments.length); i++) {
+            const commentToLike = shuffledComments[i];
+            
+            // Check if bot already liked this comment
+            const existingLike = await CommentLike.findOne({
+              commentId: commentToLike._id,
+              userId: bot._id,
+            });
+            
+            if (!existingLike) {
+              // Create like record and increment count
+              await CommentLike.create({
+                commentId: commentToLike._id,
+                userId: bot._id,
+              });
+              await Comment.findByIdAndUpdate(commentToLike._id, {
+                $inc: { likes: 1 }
+              });
+            }
+          }
+        }
+      }
+      
+      // 4. PLAY TRIVIA (0-1 per minute)
+      const gamesToPlay = Math.random() < 0.4 ? 1 : 0;
       
       for (let i = 0; i < gamesToPlay; i++) {
         // 55-70% win rate
@@ -325,7 +441,7 @@ export async function GET(request: Request) {
       intensity,
       totalBots: bots.length,
       ...stats,
-      message: `${stats.botsActive} bots active: ${stats.articlesRead} articles, ${stats.videosWatched} videos, ${stats.reactionsAdded} reactions, ${stats.gamesPlayed} trivia, ${stats.battlesCreated} battles created, ${stats.battlesChallenged} challenges sent`
+      message: `${stats.botsActive} bots active: ${stats.articlesRead} articles, ${stats.videosWatched} videos, ${stats.reactionsAdded} reactions, ${stats.commentsAdded} comments, ${stats.gamesPlayed} trivia, ${stats.battlesCreated} battles created, ${stats.battlesChallenged} challenges sent`
     });
   } catch (error: any) {
     console.error('Bot daily activity error:', error);

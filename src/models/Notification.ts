@@ -2,7 +2,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface INotification extends Document {
   userId: mongoose.Types.ObjectId;
-  type: 'test' | 'battle_challenge' | 'battle_result' | 'battle_accepted' | 'system' | 'welcome' | 'song_approved' | 'song_rejected' | 'song_in_progress';
+  type: 'test' | 'battle_challenge' | 'battle_result' | 'battle_accepted' | 'system' | 'welcome' | 'song_approved' | 'song_rejected' | 'song_in_progress' | 'comment_like';
   title: string;
   message: string;
   avatar?: string;
@@ -24,7 +24,7 @@ const NotificationSchema = new Schema<INotification>({
   type: { 
     type: String, 
     required: true,
-    enum: ['test', 'battle_challenge', 'battle_result', 'battle_accepted', 'system', 'welcome', 'song_approved', 'song_rejected', 'song_in_progress']
+    enum: ['test', 'battle_challenge', 'battle_result', 'battle_accepted', 'system', 'welcome', 'song_approved', 'song_rejected', 'song_in_progress', 'comment_like']
   },
   title: { 
     type: String, 

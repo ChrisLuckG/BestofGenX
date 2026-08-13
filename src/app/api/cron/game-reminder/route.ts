@@ -44,35 +44,12 @@ export async function GET(request: Request) {
       }
     }
     
-    // Send email notifications
-    const usersWithEmail = await User.find({
-      notifyEmail: true,
-      email: { $exists: true, $ne: '' },
-      isBot: { $ne: true }
-    }).select('email username').lean();
-    
-    let emailSent = 0;
-    let emailFailed = 0;
-    
-    for (const user of usersWithEmail) {
-      try {
-        await sendEmail(
-          user.email,
-          '⏰ Noch 1 Stunde bis zum nächsten Spiel! - Best of GenX',
-          createReminderEmail(user.username, 1)
-        );
-        emailSent++;
-      } catch (error) {
-        console.error(`Failed to send email to ${user.username}:`, error);
-        emailFailed++;
-      }
-    }
+    // Email notifications disabled - only push notifications for game reminders
     
     return NextResponse.json({ 
       success: true, 
       message: 'Game reminder notifications sent',
-      push: { sent: pushSent, failed: pushFailed, total: usersWithPush.length },
-      email: { sent: emailSent, failed: emailFailed, total: usersWithEmail.length }
+      push: { sent: pushSent, failed: pushFailed, total: usersWithPush.length }
     });
   } catch (error) {
     console.error('Game reminder cron error:', error);

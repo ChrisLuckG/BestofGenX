@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Bell, BellOff, Check, Zap, Clock, Trophy, Settings, Swords, Trash2, TrendingUp, Target, Music, X } from "lucide-react";
+import { Bell, BellOff, Check, Trophy, Settings, Swords, Trash2, Target, Music, X, ThumbsUp } from "lucide-react";
 import { sounds } from "@/utils/sounds";
 import { useAuth } from "@/context/AuthContext";
 import LogoLoader from "./LogoLoader";
@@ -10,6 +10,7 @@ import BackButton from "./BackButton";
 import BattleResultCard from "./BattleResultCard";
 import PredictionResultModal, { PredictionResultData } from "./PredictionResultModal";
 import { NewsSkeleton } from "@/components/desktop/DesktopSkeletons";
+import CoinAnimation from "./CoinAnimation";
 
 interface PredictionOption {
   id: string;
@@ -18,7 +19,7 @@ interface PredictionOption {
 
 interface Notification {
   id: string;
-  type: 'battle_result' | 'battle_accepted' | 'battle_challenge' | 'ranking' | 'test' | 'system' | 'prediction_result' | 'song_approved' | 'song_rejected' | 'song_in_progress';
+  type: 'battle_result' | 'battle_accepted' | 'battle_challenge' | 'ranking' | 'test' | 'system' | 'prediction_result' | 'song_approved' | 'song_rejected' | 'song_in_progress' | 'comment_like';
   title: string;
   message: string;
   avatar?: string;
@@ -139,6 +140,8 @@ function NotificationItem({
                 <Music className="w-5 h-5 text-red-500" />
               ) : notif.type === 'song_in_progress' ? (
                 <Music className="w-5 h-5 text-blue-500" />
+              ) : notif.type === 'comment_like' ? (
+                <ThumbsUp className="w-5 h-5 text-[#E36B11]" />
               ) : (
                 <Swords className="w-5 h-5 text-[#E36B11]" />
               )}
@@ -232,22 +235,13 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
   
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
-  const [reminderNewMatch, setReminderNewMatch] = useState(false); // Default: off until push enabled
-  const [reminder1h, setReminder1h] = useState(false); // Default: off until push enabled
-  const [reminderEnd, setReminderEnd] = useState(false); // Reminder when game ends
+  const [pushRewardClaimed, setPushRewardClaimed] = useState(false);
+  const [showRewardAnimation, setShowRewardAnimation] = useState(false);
   
-  // Email notification states
-  const [emailEnabled, setEmailEnabled] = useState(false);
-  const [emailNewMatch, setEmailNewMatch] = useState(false);
-  const [email1h, setEmail1h] = useState(false);
-  const [emailResults, setEmailResults] = useState(false);
-  
-  // SMS notification states
-  const [smsEnabled, setSmsEnabled] = useState(false);
-  const [smsNewMatch, setSmsNewMatch] = useState(false);
-  const [sms1h, setSms1h] = useState(false);
-  const [smsResults, setSmsResults] = useState(false);
-  const [showPhoneModal, setShowPhoneModal] = useState(false);
+  // Individual notification toggles (all default to true when push is enabled)
+  const [notifyBattleRequest, setNotifyBattleRequest] = useState(true);
+  const [notifyBattleResult, setNotifyBattleResult] = useState(true);
+  const [notifyCommentLike, setNotifyCommentLike] = useState(true);
   
   // Push notification explanation modal (only shown when user clicks enable)
   const [showPushModal, setShowPushModal] = useState(false);
@@ -431,189 +425,41 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
     };
     
     checkPushStatus().then(isPushGranted => {
-      // Only load reminder preferences if push is actually enabled
+      // Load notification preferences if push is enabled
       if (isPushGranted) {
-        const savedNewMatch = localStorage.getItem('reminder_new_match');
-        setReminderNewMatch(savedNewMatch === null ? true : savedNewMatch === 'true');
+        const savedBattleRequest = localStorage.getItem('notify_battle_request');
+        setNotifyBattleRequest(savedBattleRequest === null ? true : savedBattleRequest === 'true');
         
-        const saved1h = localStorage.getItem('reminder_1h');
-        setReminder1h(saved1h === null ? true : saved1h === 'true');
+        const savedBattleResult = localStorage.getItem('notify_battle_result');
+        setNotifyBattleResult(savedBattleResult === null ? true : savedBattleResult === 'true');
         
-        const savedEnd = localStorage.getItem('reminder_end');
-        setReminderEnd(savedEnd === 'true');
+        const savedCommentLike = localStorage.getItem('notify_comment_like');
+        setNotifyCommentLike(savedCommentLike === null ? true : savedCommentLike === 'true');
       }
     });
     
-    // Load email preferences
-    const savedEmailEnabled = localStorage.getItem('email_enabled');
-    setEmailEnabled(savedEmailEnabled === 'true');
-    if (savedEmailEnabled === 'true') {
-      setEmailNewMatch(localStorage.getItem('email_new_match') === 'true');
-      setEmail1h(localStorage.getItem('email_1h') === 'true');
-      setEmailResults(localStorage.getItem('email_results') === 'true');
-    }
-    
-    // Load SMS preferences
-    const savedSmsEnabled = localStorage.getItem('sms_enabled');
-    setSmsEnabled(savedSmsEnabled === 'true');
-    if (savedSmsEnabled === 'true') {
-      setSmsNewMatch(localStorage.getItem('sms_new_match') === 'true');
-      setSms1h(localStorage.getItem('sms_1h') === 'true');
-      setSmsResults(localStorage.getItem('sms_results') === 'true');
-    }
+    // Check if push reward was already claimed
+    const rewardClaimed = localStorage.getItem('push_reward_claimed');
+    setPushRewardClaimed(rewardClaimed === 'true');
   }, [isLoggedIn]);
 
-  // Auto-enable email or SMS when opened from SummaryCard
-  useEffect(() => {
-    if (!isOpen || !autoEnable || !isLoggedIn || !user?.id) return;
-    
-    const enableNotification = async () => {
-      if (autoEnable === 'email' && !emailEnabled) {
-        setEmailEnabled(true);
-        setEmailNewMatch(true);
-        setEmail1h(true);
-        setEmailResults(true);
-        localStorage.setItem('email_enabled', 'true');
-        localStorage.setItem('email_new_match', 'true');
-        localStorage.setItem('email_1h', 'true');
-        localStorage.setItem('email_results', 'true');
-        // Save to backend
-        try {
-          await fetch('/api/user/update-notifications', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: user.id, notifyEmail: true }),
-          });
-        } catch (error) {
-          console.error('Failed to save email preference:', error);
-        }
-      } else if (autoEnable === 'sms' && !smsEnabled) {
-        setSmsEnabled(true);
-        setSmsNewMatch(true);
-        setSms1h(true);
-        setSmsResults(true);
-        localStorage.setItem('sms_enabled', 'true');
-        localStorage.setItem('sms_new_match', 'true');
-        localStorage.setItem('sms_1h', 'true');
-        localStorage.setItem('sms_results', 'true');
-        // Save to backend
-        try {
-          await fetch('/api/user/update-notifications', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: user.id, notifySms: true }),
-          });
-        } catch (error) {
-          console.error('Failed to save SMS preference:', error);
-        }
-      }
-    };
-    
-    enableNotification();
-  }, [isOpen, autoEnable, isLoggedIn, user?.id]);
-
-  // Save reminder preferences
-  const toggleReminderNewMatch = () => {
-    const newValue = !reminderNewMatch;
-    setReminderNewMatch(newValue);
-    localStorage.setItem('reminder_new_match', String(newValue));
+  // Toggle individual notification types
+  const toggleBattleRequest = () => {
+    const newValue = !notifyBattleRequest;
+    setNotifyBattleRequest(newValue);
+    localStorage.setItem('notify_battle_request', String(newValue));
   };
 
-  const toggleReminder1h = () => {
-    const newValue = !reminder1h;
-    setReminder1h(newValue);
-    localStorage.setItem('reminder_1h', String(newValue));
+  const toggleBattleResult = () => {
+    const newValue = !notifyBattleResult;
+    setNotifyBattleResult(newValue);
+    localStorage.setItem('notify_battle_result', String(newValue));
   };
 
-  const toggleReminderEnd = () => {
-    const newValue = !reminderEnd;
-    setReminderEnd(newValue);
-    localStorage.setItem('reminder_end', String(newValue));
-  };
-
-  // Email toggle functions
-  const toggleEmailEnabled = async () => {
-    if (!isLoggedIn || !user?.id) return;
-    const newValue = !emailEnabled;
-    setEmailEnabled(newValue);
-    localStorage.setItem('email_enabled', String(newValue));
-    if (newValue) {
-      setEmailNewMatch(true);
-      localStorage.setItem('email_new_match', 'true');
-    }
-    // Save to backend
-    try {
-      await fetch('/api/user/update-notifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, notifyEmail: newValue }),
-      });
-    } catch (error) {
-      console.error('Failed to save email preference:', error);
-    }
-  };
-
-  const toggleEmailNewMatch = () => {
-    const newValue = !emailNewMatch;
-    setEmailNewMatch(newValue);
-    localStorage.setItem('email_new_match', String(newValue));
-  };
-
-  const toggleEmail1h = () => {
-    const newValue = !email1h;
-    setEmail1h(newValue);
-    localStorage.setItem('email_1h', String(newValue));
-  };
-
-  const toggleEmailResults = () => {
-    const newValue = !emailResults;
-    setEmailResults(newValue);
-    localStorage.setItem('email_results', String(newValue));
-  };
-
-  // SMS toggle functions
-  const toggleSmsEnabled = async () => {
-    if (!isLoggedIn || !user?.id) return;
-    // Check if user has phone number
-    if (!user?.phone && !smsEnabled) {
-      setShowPhoneModal(true);
-      return;
-    }
-    const newValue = !smsEnabled;
-    setSmsEnabled(newValue);
-    localStorage.setItem('sms_enabled', String(newValue));
-    if (newValue) {
-      setSmsNewMatch(true);
-      localStorage.setItem('sms_new_match', 'true');
-    }
-    // Save to backend
-    try {
-      await fetch('/api/user/update-notifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, notifySms: newValue }),
-      });
-    } catch (error) {
-      console.error('Failed to save SMS preference:', error);
-    }
-  };
-
-  const toggleSmsNewMatch = () => {
-    const newValue = !smsNewMatch;
-    setSmsNewMatch(newValue);
-    localStorage.setItem('sms_new_match', String(newValue));
-  };
-
-  const toggleSms1h = () => {
-    const newValue = !sms1h;
-    setSms1h(newValue);
-    localStorage.setItem('sms_1h', String(newValue));
-  };
-
-  const toggleSmsResults = () => {
-    const newValue = !smsResults;
-    setSmsResults(newValue);
-    localStorage.setItem('sms_results', String(newValue));
+  const toggleCommentLike = () => {
+    const newValue = !notifyCommentLike;
+    setNotifyCommentLike(newValue);
+    localStorage.setItem('notify_comment_like', String(newValue));
   };
 
   // Toggle push notifications
@@ -686,6 +532,39 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
         }
 
         setPushEnabled(true);
+        
+        // Give reward if first time enabling (0.50 BOGX)
+        if (!pushRewardClaimed) {
+          try {
+            const rewardRes = await fetch('/api/user/update-bogx', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                userId: user.id, 
+                amount: 0.50,
+                source: 'push_notification_reward',
+                description: 'Push notifications enabled bonus'
+              }),
+            });
+            if (rewardRes.ok) {
+              setPushRewardClaimed(true);
+              localStorage.setItem('push_reward_claimed', 'true');
+              setShowRewardAnimation(true);
+              // Play sound
+              sounds.coins();
+              // Hide animation after 3 seconds
+              setTimeout(() => setShowRewardAnimation(false), 3000);
+              // Trigger points update in parent
+              if (onPointsAwarded) {
+                onPointsAwarded(0.50);
+              }
+              // Notify all coin displays to refresh (Header, Rankings, etc.)
+              window.dispatchEvent(new CustomEvent('bogx-updated'));
+            }
+          } catch (e) {
+            console.error('Failed to award push reward:', e);
+          }
+        }
       } else {
         // Unsubscribe
         const registration = await navigator.serviceWorker.ready;
@@ -717,37 +596,45 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
       className={`flex flex-col h-full overflow-hidden ${isOpen ? '' : 'hidden'}`}
       style={{ backgroundColor: '#F5F0E8' }}
     >
+      {/* Reward Animation */}
+      {showRewardAnimation && (
+        <div className="fixed inset-0 z-[100] pointer-events-none flex items-center justify-center">
+          <CoinAnimation amount={0.50} variant="gain" onComplete={() => setShowRewardAnimation(false)} />
+        </div>
+      )}
       {/* Header - fixed */}
       <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm flex-shrink-0">
-        {showSettings ? (
-          <BackButton onClick={() => { 
-            sounds.click(); 
-            setShowSettings(false);
-            if (onSettingsClosed) onSettingsClosed();
-          }} />
-        ) : (
-          <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3">
+          {showSettings ? (
+            <BackButton onClick={() => { 
+              sounds.click(); 
+              setShowSettings(false);
+              if (onSettingsClosed) onSettingsClosed();
+            }} />
+          ) : (
             <Bell className="w-5 h-5 text-[#E36B11]" />
+          )}
+          {showSettings ? (
+            <>
+              <Settings className="w-5 h-5 text-[#E36B11]" />
+              <div>
+                <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">SETTINGS</span>
+                <span className="text-[10px] text-gray-500 -mt-0.5 block">Customize your experience</span>
+              </div>
+            </>
+          ) : (
             <div>
-              <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">GenX News</span>
+              <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">NEWS</span>
               <span className="text-[10px] text-gray-500 -mt-0.5 block">Updates & notifications</span>
             </div>
-          </div>
-        )}
-        {showSettings ? (
-          <div className="flex items-center gap-3">
-            <Settings className="w-5 h-5 text-[#E36B11]" />
-            <div>
-              <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Settings</span>
-              <span className="text-[10px] text-gray-500 -mt-0.5 block">Customize your experience</span>
-            </div>
-          </div>
-        ) : (
+          )}
+        </div>
+        {!showSettings && (
           <button 
             onClick={() => { sounds.click(); setShowSettings(true); }}
-            className="p-2 hover:bg-white/50 rounded-lg transition-colors"
+            className="p-2.5 bg-[#E36B11]/10 hover:bg-[#E36B11]/20 rounded-xl transition-colors"
           >
-            <Settings className="w-5 h-5 text-gray-500" />
+            <Settings className="w-5 h-5 text-[#E36B11]" />
           </button>
         )}
       </div>
@@ -766,7 +653,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
                 <h3 className="font-display text-2xl text-gray-900 tracking-wide">NEVER MISS A REWARD</h3>
               </div>
               <p className="text-gray-500 text-sm text-center max-w-[300px] mb-4">
-                Enable notifications and claim <span className="font-bold text-[#E36B11]">+0.10 BOGX</span>
+                Enable notifications and claim <span className="font-bold text-[#E36B11]">+0.50 BOGX</span>
               </p>
               <div className="w-full max-w-[300px] space-y-2 mb-4">
                 <div className="flex items-center gap-3 p-3 bg-cream rounded-xl border border-warm">
@@ -802,7 +689,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
                 className="w-full max-w-[300px] py-3 bg-[#E36B11] text-white font-bold rounded-lg flex items-center justify-center gap-2"
               >
                 <Bell className="w-5 h-5" />
-                ENABLE & EARN 0.10 BOGX
+                ENABLE & EARN 0.50 BOGX
               </button>
               <p className="text-[10px] text-gray-400 mt-3 flex items-center gap-1">
                 <Settings className="w-3 h-3" />
@@ -823,35 +710,41 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
                 <Bell className="w-6 h-6 text-[#E36B11]" />
                 <h3 className="font-display text-2xl text-gray-900 tracking-wide">NEVER MISS A REWARD</h3>
               </div>
-              <p className="text-gray-500 text-sm text-center max-w-[300px] mb-4">
-                Enable notifications and claim <span className="font-bold text-[#E36B11]">+0.10 BOGX</span>
-              </p>
+              {!pushRewardClaimed ? (
+                <p className="text-gray-500 text-sm text-center max-w-[300px] mb-4">
+                  Enable notifications and claim <span className="font-bold text-[#E36B11]">+0.50 BOGX</span>
+                </p>
+              ) : (
+                <p className="text-gray-500 text-sm text-center max-w-[300px] mb-4">
+                  Stay updated on battles, results and more
+                </p>
+              )}
               <div className="w-full max-w-[300px] space-y-2 mb-5">
                 <div className="flex items-center gap-3 p-3 bg-cream rounded-xl border border-warm">
                   <div className="w-10 h-10 bg-[#E36B11]/10 rounded-xl flex items-center justify-center">
                     <Swords className="w-5 h-5 text-[#E36B11]" />
                   </div>
                   <div>
-                    <span className="text-sm font-semibold text-gray-900">Battle results</span>
-                    <p className="text-xs text-gray-500">Get notified when battles end</p>
+                    <span className="text-sm font-semibold text-gray-900">Battle Request</span>
+                    <p className="text-xs text-gray-500">When someone invites you</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 p-3 bg-cream rounded-xl border border-warm">
                   <div className="w-10 h-10 bg-[#E36B11]/10 rounded-xl flex items-center justify-center">
-                    <Target className="w-5 h-5 text-[#E36B11]" />
+                    <Trophy className="w-5 h-5 text-[#E36B11]" />
                   </div>
                   <div>
-                    <span className="text-sm font-semibold text-gray-900">Prediction outcomes</span>
-                    <p className="text-xs text-gray-500">See if your predictions were correct</p>
+                    <span className="text-sm font-semibold text-gray-900">Battle Result</span>
+                    <p className="text-xs text-gray-500">When a battle is finished</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 p-3 bg-cream rounded-xl border border-warm">
                   <div className="w-10 h-10 bg-[#E36B11]/10 rounded-xl flex items-center justify-center">
-                    <Music className="w-5 h-5 text-[#E36B11]" />
+                    <ThumbsUp className="w-5 h-5 text-[#E36B11]" />
                   </div>
                   <div>
-                    <span className="text-sm font-semibold text-gray-900">Song request updates</span>
-                    <p className="text-xs text-gray-500">Know when your song is played</p>
+                    <span className="text-sm font-semibold text-gray-900">Comment Like</span>
+                    <p className="text-xs text-gray-500">When someone likes your comment</p>
                   </div>
                 </div>
               </div>
@@ -861,7 +754,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
                 className="w-full max-w-[300px] py-3 bg-[#E36B11] text-white font-bold rounded-lg flex items-center justify-center gap-2"
               >
                 <Bell className="w-5 h-5" />
-                ENABLE & EARN 0.10 BOGX
+                {pushRewardClaimed ? 'ENABLE NOTIFICATIONS' : 'ENABLE & EARN 0.50 BOGX'}
               </button>
               <p className="text-[10px] text-gray-400 mt-3 flex items-center gap-1">
                 <Settings className="w-3 h-3" />
@@ -874,38 +767,38 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
           {!loadingNotifications && notifications.filter(n => !dismissedNotifications.has(n.id)).length === 0 && isLoggedIn && pushEnabled && (
             <div className="flex flex-col items-center justify-center py-4 px-4">
               <div className="flex items-center gap-2 mb-1">
-                <Check className="w-6 h-6 text-[#E36B11]" />
-                <h3 className="font-display text-2xl text-gray-900 tracking-wide">NOTHING NEW... YET</h3>
+                <Check className="w-6 h-6 text-green-500" />
+                <h3 className="font-display text-2xl text-gray-900 tracking-wide">ALL CAUGHT UP!</h3>
               </div>
               <p className="text-gray-500 text-sm text-center max-w-[300px] mb-4">
-                We'll keep you posted on battles, predictions and rewards.
+                We'll notify you when something happens.
               </p>
               <div className="w-full max-w-[300px] space-y-2">
-                <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-warm">
+                <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-green-200">
                   <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
                     <Swords className="w-5 h-5 text-green-600" />
                   </div>
                   <div>
-                    <span className="text-sm font-semibold text-gray-900">Battle results</span>
-                    <p className="text-xs text-gray-500">Get notified when battles end</p>
+                    <span className="text-sm font-semibold text-gray-900">Battle Request</span>
+                    <p className="text-xs text-gray-500">When someone invites you</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-warm">
+                <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-green-200">
                   <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-                    <Target className="w-5 h-5 text-green-600" />
+                    <Trophy className="w-5 h-5 text-green-600" />
                   </div>
                   <div>
-                    <span className="text-sm font-semibold text-gray-900">Prediction outcomes</span>
-                    <p className="text-xs text-gray-500">See if your predictions were correct</p>
+                    <span className="text-sm font-semibold text-gray-900">Battle Result</span>
+                    <p className="text-xs text-gray-500">When a battle is finished</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-warm">
+                <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-green-200">
                   <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-                    <Music className="w-5 h-5 text-green-600" />
+                    <ThumbsUp className="w-5 h-5 text-green-600" />
                   </div>
                   <div>
-                    <span className="text-sm font-semibold text-gray-900">Song request updates</span>
-                    <p className="text-xs text-gray-500">Know when your song is played</p>
+                    <span className="text-sm font-semibold text-gray-900">Comment Like</span>
+                    <p className="text-xs text-gray-500">When someone likes your comment</p>
                   </div>
                 </div>
               </div>
@@ -1019,134 +912,74 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
               <span className="text-xs text-gray-600">Master switch for all notifications</span>
             </div>
           </div>
-          <div className={`w-11 h-6 rounded-full transition-colors ${pushEnabled && isLoggedIn ? 'bg-green-500' : 'bg-skeleton-light'} relative`}>
-            <div className={`absolute top-1 w-4 h-4 rounded-full bg-cream transition-all ${pushEnabled && isLoggedIn ? 'right-1' : 'left-1'}`} />
+          <div className={`w-11 h-6 rounded-full transition-colors ${pushEnabled && isLoggedIn ? 'bg-green-500' : 'bg-gray-300'} relative`}>
+            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${pushEnabled && isLoggedIn ? 'right-1' : 'left-1'}`} />
           </div>
         </button>
 
-        {/* New Match Started */}
+        </div>
+
+      {/* Individual notification toggles */}
+      <div className="px-4 py-3 space-y-3">
+        <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Choose what to receive:</p>
+        
+        {/* Battle Request Toggle */}
         <button 
-          onClick={toggleReminderNewMatch}
+          onClick={toggleBattleRequest}
           disabled={!pushEnabled || !isLoggedIn}
           className={`w-full flex items-center justify-between py-3 px-4 bg-cream rounded-xl transition-colors ${!pushEnabled || !isLoggedIn ? 'opacity-40' : 'hover:bg-cream'}`}
         >
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-[#E36B11]/20 flex items-center justify-center">
-              <Zap className="w-4 h-4 text-[#E36B11]" />
+              <Swords className="w-4 h-4 text-[#E36B11]" />
             </div>
             <div className="text-left">
-              <span className="text-sm font-medium text-gray-900 block">New Match Started</span>
-              <span className="text-xs text-gray-600">Get notified when a new game begins</span>
+              <span className="text-sm font-medium text-gray-900 block">Battle Request</span>
+              <span className="text-xs text-gray-500">When someone invites you</span>
             </div>
           </div>
-          <div className={`w-11 h-6 rounded-full transition-colors ${reminderNewMatch && pushEnabled ? 'bg-green-500' : 'bg-skeleton-light'} relative`}>
-            <div className={`absolute top-1 w-4 h-4 rounded-full bg-cream transition-all ${reminderNewMatch && pushEnabled ? 'right-1' : 'left-1'}`} />
+          <div className={`w-11 h-6 rounded-full transition-colors ${notifyBattleRequest && pushEnabled ? 'bg-green-500' : 'bg-gray-300'} relative`}>
+            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${notifyBattleRequest && pushEnabled ? 'right-1' : 'left-1'}`} />
           </div>
         </button>
 
-        {/* 1 Hour Before - separate option */}
+        {/* Battle Result Toggle */}
         <button 
-          onClick={toggleReminder1h}
+          onClick={toggleBattleResult}
           disabled={!pushEnabled || !isLoggedIn}
           className={`w-full flex items-center justify-between py-3 px-4 bg-cream rounded-xl transition-colors ${!pushEnabled || !isLoggedIn ? 'opacity-40' : 'hover:bg-cream'}`}
         >
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
-              <Clock className="w-4 h-4 text-blue-500" />
+            <div className="w-8 h-8 rounded-lg bg-[#E36B11]/20 flex items-center justify-center">
+              <Trophy className="w-4 h-4 text-[#E36B11]" />
             </div>
             <div className="text-left">
-              <span className="text-sm font-medium text-gray-900 block">1 Hour Reminder</span>
-              <span className="text-xs text-gray-600">Get notified before game starts</span>
+              <span className="text-sm font-medium text-gray-900 block">Battle Result</span>
+              <span className="text-xs text-gray-500">When a battle is finished</span>
             </div>
           </div>
-          <div className={`w-11 h-6 rounded-full transition-colors ${reminder1h && pushEnabled ? 'bg-green-500' : 'bg-skeleton-light'} relative`}>
-            <div className={`absolute top-1 w-4 h-4 rounded-full bg-cream transition-all ${reminder1h && pushEnabled ? 'right-1' : 'left-1'}`} />
+          <div className={`w-11 h-6 rounded-full transition-colors ${notifyBattleResult && pushEnabled ? 'bg-green-500' : 'bg-gray-300'} relative`}>
+            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${notifyBattleResult && pushEnabled ? 'right-1' : 'left-1'}`} />
           </div>
         </button>
 
-        {/* Game Ending Reminder */}
+        {/* Comment Like Toggle */}
         <button 
-          onClick={toggleReminderEnd}
+          onClick={toggleCommentLike}
           disabled={!pushEnabled || !isLoggedIn}
           className={`w-full flex items-center justify-between py-3 px-4 bg-cream rounded-xl transition-colors ${!pushEnabled || !isLoggedIn ? 'opacity-40' : 'hover:bg-cream'}`}
         >
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-yellow-100 flex items-center justify-center">
-              <Trophy className="w-4 h-4 text-yellow-500" />
+            <div className="w-8 h-8 rounded-lg bg-[#E36B11]/20 flex items-center justify-center">
+              <ThumbsUp className="w-4 h-4 text-[#E36B11]" />
             </div>
             <div className="text-left">
-              <span className="text-sm font-medium text-gray-900 block">Results Ready</span>
-              <span className="text-xs text-gray-600">Get notified when game ended & results are in</span>
+              <span className="text-sm font-medium text-gray-900 block">Comment Like</span>
+              <span className="text-xs text-gray-500">When someone likes your comment</span>
             </div>
           </div>
-          <div className={`w-11 h-6 rounded-full transition-colors ${reminderEnd && pushEnabled ? 'bg-green-500' : 'bg-skeleton-light'} relative`}>
-            <div className={`absolute top-1 w-4 h-4 rounded-full bg-cream transition-all ${reminderEnd && pushEnabled ? 'right-1' : 'left-1'}`} />
-          </div>
-        </button>
-
-      </div>
-
-      {/* Battle Notifications Section */}
-      <div className="px-4 py-3 border-b border-warm/50 space-y-3">
-        <p className="text-[#E36B11] text-[10px] uppercase tracking-wider px-1 font-semibold">Battle Notifications</p>
-        
-        {/* Battle Results */}
-        <button 
-          onClick={() => {/* TODO: implement */}}
-          disabled={!pushEnabled || !isLoggedIn}
-          className={`w-full flex items-center justify-between py-3 px-4 bg-cream transition-colors ${!pushEnabled || !isLoggedIn ? 'opacity-40' : 'hover:bg-cream'}`}
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
-              <Trophy className="w-4 h-4 text-green-400" />
-            </div>
-            <div className="text-left">
-              <span className="text-sm font-medium text-gray-900 block">Battle Results</span>
-              <span className="text-xs text-gray-500">Win/lose notifications</span>
-            </div>
-          </div>
-          <div className={`w-11 h-6 rounded-full transition-colors ${pushEnabled ? 'bg-green-600' : 'bg-skeleton-light'} relative`}>
-            <div className={`absolute top-1 w-4 h-4 rounded-full bg-cream transition-all ${pushEnabled ? 'right-1' : 'left-1'}`} />
-          </div>
-        </button>
-
-        {/* Challenge Accepted */}
-        <button 
-          onClick={() => {/* TODO: implement */}}
-          disabled={!pushEnabled || !isLoggedIn}
-          className={`w-full flex items-center justify-between py-3 px-4 bg-cream transition-colors ${!pushEnabled || !isLoggedIn ? 'opacity-40' : 'hover:bg-cream'}`}
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center">
-              <Swords className="w-4 h-4 text-red-400" />
-            </div>
-            <div className="text-left">
-              <span className="text-sm font-medium text-gray-900 block">Challenge Accepted</span>
-              <span className="text-xs text-gray-500">When someone accepts your battle</span>
-            </div>
-          </div>
-          <div className={`w-11 h-6 rounded-full transition-colors ${pushEnabled ? 'bg-green-600' : 'bg-skeleton-light'} relative`}>
-            <div className={`absolute top-1 w-4 h-4 rounded-full bg-cream transition-all ${pushEnabled ? 'right-1' : 'left-1'}`} />
-          </div>
-        </button>
-
-        {/* Ranking Changes */}
-        <button 
-          onClick={() => {/* TODO: implement */}}
-          disabled={!pushEnabled || !isLoggedIn}
-          className={`w-full flex items-center justify-between py-3 px-4 bg-cream transition-colors ${!pushEnabled || !isLoggedIn ? 'opacity-40' : 'hover:bg-cream'}`}
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
-              <TrendingUp className="w-4 h-4 text-purple-400" />
-            </div>
-            <div className="text-left">
-              <span className="text-sm font-medium text-gray-900 block">Ranking Changes</span>
-              <span className="text-xs text-gray-500">When your rank changes</span>
-            </div>
-          </div>
-          <div className={`w-11 h-6 rounded-full transition-colors ${pushEnabled ? 'bg-green-600' : 'bg-skeleton-light'} relative`}>
-            <div className={`absolute top-1 w-4 h-4 rounded-full bg-cream transition-all ${pushEnabled ? 'right-1' : 'left-1'}`} />
+          <div className={`w-11 h-6 rounded-full transition-colors ${notifyCommentLike && pushEnabled ? 'bg-green-500' : 'bg-gray-300'} relative`}>
+            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${notifyCommentLike && pushEnabled ? 'right-1' : 'left-1'}`} />
           </div>
         </button>
       </div>
@@ -1322,7 +1155,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
             }}
           >
             {/* Handle */}
-            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1 bg-skeleton-light rounded-full" />
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1 bg-gray-300 rounded-full" />
             
             {/* Icon */}
             <div className="flex justify-center mb-6 mt-4">
@@ -1355,7 +1188,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
               
               <div className="flex items-center gap-3 bg-cream rounded-lg p-3">
                 <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
-                  <Zap className="w-5 h-5 text-blue-400" />
+                  <Swords className="w-5 h-5 text-blue-400" />
                 </div>
                 <div>
                   <p className="text-white font-medium text-sm">Challenge Accepted</p>

@@ -51,7 +51,8 @@ export async function GET(request: Request) {
       if (user.pushSubscription) {
         try {
           const userRank = rankMap.get(user._id.toString());
-          const rankText = userRank ? `Du bist #${userRank.rank} mit ${userRank.points} Punkten!` : 'Schau dir das Ranking an!';
+          const formattedPoints = userRank ? Number(userRank.points).toFixed(2) : '0';
+          const rankText = userRank ? `Du bist #${userRank.rank} mit ${formattedPoints} Punkten!` : 'Schau dir das Ranking an!';
           
           await sendPushNotification(user.pushSubscription, {
             title: '🏆 Ergebnisse sind da!',
@@ -68,36 +69,12 @@ export async function GET(request: Request) {
       }
     }
     
-    // Send email notifications
-    const usersWithEmail = await User.find({
-      notifyEmail: true,
-      email: { $exists: true, $ne: '' },
-      isBot: { $ne: true }
-    }).select('_id email username').lean();
-    
-    let emailSent = 0;
-    let emailFailed = 0;
-    
-    for (const user of usersWithEmail) {
-      try {
-        const userRank = rankMap.get(user._id.toString());
-        await sendEmail(
-          user.email,
-          '🏆 Die Ergebnisse sind da! - Best of GenX',
-          createResultsEmail(user.username, userRank?.rank || 0, userRank?.points || 0)
-        );
-        emailSent++;
-      } catch (error) {
-        console.error(`Failed to send email to ${user.username}:`, error);
-        emailFailed++;
-      }
-    }
+    // Email notifications disabled - only push notifications for game results
     
     return NextResponse.json({ 
       success: true, 
       message: 'Game ending notifications sent',
-      push: { sent: pushSent, failed: pushFailed, total: usersWithPush.length },
-      email: { sent: emailSent, failed: emailFailed, total: usersWithEmail.length }
+      push: { sent: pushSent, failed: pushFailed, total: usersWithPush.length }
     });
   } catch (error) {
     console.error('Game ending cron error:', error);

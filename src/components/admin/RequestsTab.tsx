@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Loader2, Music, RefreshCw, Copy, Check, ExternalLink, FileText, Plus, Trash2, Radio, GripVertical, Edit2 } from "lucide-react";
+import { Loader2, Music, RefreshCw, Copy, Check, ExternalLink, FileText, Plus, Trash2, Radio, GripVertical, Edit2, Image as ImageIcon } from "lucide-react";
 import GenXLoader from "@/components/GenXLoader";
+import ImagePickerModal from "./ImagePickerModal";
 
 interface RadioStation {
   _id: string;
@@ -132,6 +133,7 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
   const [newStation, setNewStation] = useState({ name: '', description: '', playlistId: '', imageUrl: '' });
   const [addingStation, setAddingStation] = useState(false);
   const [editingStation, setEditingStation] = useState<RadioStation | null>(null);
+  const [showImagePicker, setShowImagePicker] = useState(false);
 
   // Load radio stations
   const loadStations = useCallback(async () => {
@@ -433,13 +435,34 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
                   onChange={(e) => setEditingStation({ ...editingStation, playlistId: e.target.value })}
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#E36B11]"
                 />
-                <input
-                  type="text"
-                  placeholder="Cover Image URL (optional)"
-                  value={editingStation.imageUrl || ''}
-                  onChange={(e) => setEditingStation({ ...editingStation, imageUrl: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#E36B11]"
-                />
+                {/* Cover Image with ImagePicker */}
+                <div className="space-y-2">
+                  <label className="text-xs text-gray-400">Cover Image</label>
+                  <div className="flex items-center gap-3">
+                    {editingStation.imageUrl ? (
+                      <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-600">
+                        <img src={editingStation.imageUrl} alt="Cover" className="w-full h-full object-cover" />
+                        <button
+                          onClick={() => setEditingStation({ ...editingStation, imageUrl: '' })}
+                          className="absolute top-0 right-0 p-0.5 bg-red-500 rounded-bl text-white"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="w-16 h-16 rounded-lg border border-dashed border-gray-600 flex items-center justify-center">
+                        <ImageIcon className="w-6 h-6 text-gray-500" />
+                      </div>
+                    )}
+                    <button
+                      onClick={() => setShowImagePicker(true)}
+                      className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white hover:bg-gray-600 flex items-center gap-2"
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                      {editingStation.imageUrl ? 'Change' : 'Select Image'}
+                    </button>
+                  </div>
+                </div>
               </div>
               <div className="flex gap-2 mt-4">
                 <button
@@ -458,6 +481,20 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
             </div>
           </div>
         )}
+
+        {/* Image Picker Modal for Station Cover */}
+        <ImagePickerModal
+          isOpen={showImagePicker}
+          onClose={() => setShowImagePicker(false)}
+          onSelect={(url) => {
+            if (editingStation) {
+              setEditingStation({ ...editingStation, imageUrl: url });
+            }
+            setShowImagePicker(false);
+          }}
+          currentImage={editingStation?.imageUrl}
+          searchTerm={editingStation?.name || 'radio station'}
+        />
       </div>
 
       {/* Song Requests Section */}

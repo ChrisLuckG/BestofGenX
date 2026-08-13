@@ -151,6 +151,8 @@ function CardMoodReactionsInner({
     if (willEarn) {
       rewardedRef.current = true; // claim locally so a second click can't re-animate
       onCoinAnimation?.(REACTION_REWARD);
+      // Notify all coin displays to refresh (Header, Rankings, etc.)
+      window.dispatchEvent(new CustomEvent('bogx-updated'));
     }
 
     // Build the optimistic counts once so the same value can be pushed to the

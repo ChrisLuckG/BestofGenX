@@ -209,9 +209,6 @@ export default function MusicSongList({ playlist, onOpenRadio }: MusicSongListPr
                   className="flex-shrink-0 w-32 rounded-xl overflow-hidden relative group cursor-pointer hover:scale-105 transition-transform" 
                   style={{ backgroundColor: c.bg }}
                 >
-                  <div className="absolute top-2 left-2 z-10 w-6 h-6 rounded-full bg-[#22C55E] flex items-center justify-center">
-                    <span className="text-[10px] font-bold text-white">{i + 1}</span>
-                  </div>
                   {song.link && (
                     <a href={song.link} target="_blank" rel="noopener noreferrer"
                       className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -234,10 +231,7 @@ export default function MusicSongList({ playlist, onOpenRadio }: MusicSongListPr
                   <div className="p-2 bg-black/40">
                     <p className="text-[11px] font-bold text-white truncate">{song.song}</p>
                     <p className="text-[9px] text-white/60 truncate">{song.band}</p>
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="text-[8px] text-white/40">@{song.username}</span>
-                      {(song.votes || 0) > 0 && <span className="text-[8px] bg-green-500/30 text-green-400 px-1 rounded font-bold">{song.votes}v</span>}
-                    </div>
+                    <span className="text-[8px] text-white/40 mt-1">@{song.username}</span>
                   </div>
                 </div>
               );
@@ -247,6 +241,9 @@ export default function MusicSongList({ playlist, onOpenRadio }: MusicSongListPr
           <p className="text-sm text-gray-400 text-center py-4">No community picks yet</p>
         )}
       </div>
+
+      {/* Separator */}
+      <div className="border-t border-warm my-6" />
 
       {/* NEW SUGGESTIONS */}
       <div>

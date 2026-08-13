@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Send, Trash2, MessageCircle, MoreHorizontal, Flag, Copy, Check } from "lucide-react";
+import { Send, Trash2, MessageCircle, MoreHorizontal, Flag, Copy, Check, ThumbsUp } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 interface Comment {
@@ -41,6 +41,8 @@ export default function CommentSection({ articleId, onShowLogin }: CommentSectio
   const [submitting, setSubmitting] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [likedComments, setLikedComments] = useState<Set<string>>(new Set());
+  const [likingComment, setLikingComment] = useState<string | null>(null);
 
   useEffect(() => {
     fetchComments();
@@ -114,6 +116,44 @@ export default function CommentSection({ articleId, onShowLogin }: CommentSectio
   const handleReport = (commentId: string) => {
     setOpenMenuId(null);
     alert('Comment reported. Thank you for helping keep our community safe!');
+  };
+
+  const handleLike = async (commentId: string) => {
+    if (!isLoggedIn) {
+      onShowLogin?.();
+      return;
+    }
+    if (likingComment) return; // Prevent double-clicks
+    
+    setLikingComment(commentId);
+    try {
+      const res = await fetch(`/api/comments/${commentId}/like`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user?.id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Update local state
+        setComments(comments.map(c => 
+          c._id === commentId ? { ...c, likes: data.likes } : c
+        ));
+        // Track liked state
+        setLikedComments(prev => {
+          const next = new Set(prev);
+          if (data.liked) {
+            next.add(commentId);
+          } else {
+            next.delete(commentId);
+          }
+          return next;
+        });
+      }
+    } catch (e) {
+      console.error('Failed to like comment:', e);
+    } finally {
+      setLikingComment(null);
+    }
   };
 
   return (
@@ -240,6 +280,21 @@ export default function CommentSection({ articleId, onShowLogin }: CommentSectio
                     </div>
                   </div>
                   <p className="text-sm text-gray-700 break-words">{comment.content}</p>
+                </div>
+                {/* Like button */}
+                <div className="flex items-center gap-3 mt-1 ml-1">
+                  <button
+                    onClick={() => handleLike(comment._id)}
+                    disabled={likingComment === comment._id}
+                    className={`flex items-center gap-1 text-xs transition-colors ${
+                      likedComments.has(comment._id) 
+                        ? 'text-[#E36B11]' 
+                        : 'text-gray-400 hover:text-[#E36B11]'
+                    }`}
+                  >
+                    <ThumbsUp className={`w-3.5 h-3.5 ${likedComments.has(comment._id) ? 'fill-current' : ''}`} />
+                    {comment.likes > 0 && <span>{comment.likes}</span>}
+                  </button>
                 </div>
               </div>
             </div>
