@@ -4,6 +4,7 @@ import User from '@/models/User';
 import DailyRanking from '@/models/DailyRanking';
 import GameResult from '@/models/GameResult';
 import { berlinDateAt, berlinOffsetMinutes } from '@/lib/berlinTime';
+import { cache, CACHE_TTL } from '@/lib/cache';
 
 // Helper to get the "ranking day" date string
 // The ranking day starts at 10:00 Berlin time
@@ -108,7 +109,12 @@ async function buildPeriodRankings(startInstant: Date, endInstant?: Date) {
   ]);
 
   const userIds = results.map(r => r._id);
-  const users = await User.find({ _id: { $in: userIds }, isDeleted: { $ne: true } })
+  const users = await User.find({ 
+    _id: { $in: userIds }, 
+    isDeleted: { $ne: true },
+    isReporter: { $ne: true },
+    isAIReporter: { $ne: true }
+  })
     .select('username avatar country countryFlag bogxCoins isBot botActive')
     .lean();
   const userMap = new Map(users.map(u => [u._id.toString(), u]));
@@ -131,7 +137,8 @@ async function buildPeriodRankings(startInstant: Date, endInstant?: Date) {
         countryFlag: user.countryFlag || '🌍',
         points: Math.round(result.periodPoints * 100) / 100,
         wins: result.wins || 0,
-        totalPoints: user.bogxCoins || 0,
+        totalPoints: user.bogxCoins ?? 0,
+        bogxCoins: user.bogxCoins ?? 0, // For frontend compatibility
         gamesPlayed: result.gamesPlayed || 0,
         isActive: false,
         isOnline,
@@ -162,11 +169,12 @@ let recentlyActiveBots: { oderId: string; pointsGained: number; timestamp: numbe
 const BOT_PLAY_INTERVAL_MS = 5 * 60 * 1000; // minimum 5 minutes between bot sims
 
 async function maybeSimulateBotActivity() {
-  // Only during active hours (10:00 - 09:00 Berlin, skip the 9-10 break)
-  const berlinHour = parseInt(new Date().toLocaleString('en-US', { 
-    timeZone: 'Europe/Berlin', hour: '2-digit', hour12: false 
-  }));
-  if (berlinHour === 9) return; // matchday break
+  // Only during active hours, skip the 5-minute break (9:55-10:00)
+  const berlinTime = new Date().toLocaleString('en-US', { 
+    timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit', hour12: false 
+  });
+  const [hour, minute] = berlinTime.split(':').map(Number);
+  if (hour === 9 && minute >= 55) return; // 5-minute break
   
   // DB-backed throttle: find the latest bot-sim GameResult and skip if too recent.
   const lastBotResult = await GameResult.findOne({ cardId: { $regex: /^bot-card-/ } })
@@ -302,7 +310,12 @@ export async function POST(request: Request) {
     }
     
     // Get current rankings (lifetime wallet balance = bogxCoins)
-    const users = await User.find({})
+    // Exclude reporters from rankings
+    const users = await User.find({
+      isReporter: { $ne: true },
+      isAIReporter: { $ne: true },
+      isDeleted: { $ne: true }
+    })
       .select('username avatar country countryFlag bogxCoins wins')
       .sort({ bogxCoins: -1 })
       .limit(100)
@@ -315,7 +328,7 @@ export async function POST(request: Request) {
       avatar: user.avatar || '',
       country: user.country || 'World',
       countryFlag: user.countryFlag || '🌍',
-      points: user.bogxCoins || 0,
+      points: user.bogxCoins ?? 0,
       wins: user.wins,
       rank: index + 1,
     }));
@@ -421,6 +434,7 @@ export async function GET(request: Request) {
         endInstant = new Date(dayStart.getTime() + elapsedMs);
       }
       
+      // No cache for live rankings - they need to update immediately
       const rankedResults = await buildPeriodRankings(dayStart, endInstant);
       
       return NextResponse.json(

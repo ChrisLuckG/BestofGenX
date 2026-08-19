@@ -33,7 +33,8 @@ export function useBogxCoins(userId?: string) {
     const myRequestId = ++requestIdRef.current;
     if (!id) {
       // Guest: load from localStorage
-      const guestCoins = parseFloat(localStorage.getItem('bogx_guest_coins') || '0');
+      const stored = localStorage.getItem('bogx_guest_coins');
+      const guestCoins = stored !== null ? parseFloat(stored) : 0;
       if (myRequestId === requestIdRef.current) setCoins(guestCoins);
       return;
     }
@@ -43,10 +44,11 @@ export function useBogxCoins(userId?: string) {
       // Discard this response if a newer sync has been kicked off meanwhile.
       if (myRequestId !== requestIdRef.current) return;
       if (data.user) {
-        const bogx = data.user.bogxCoins || 0;
-        const legacyBogx = (data.user.coins || 0) / 100;
+        const bogx = data.user.bogxCoins ?? 0;
+        const legacyBogx = (data.user.coins ?? 0) / 100;
         // Round to 2 decimals to avoid floating point residue (e.g. -5.5e-17)
-        setCoins(Math.round(Math.max(bogx, legacyBogx) * 100) / 100);
+        // Allow negative balances - don't use Math.max
+        setCoins(Math.round(bogx * 100) / 100);
       }
     } catch {
       // Keep current value on network error

@@ -24,7 +24,7 @@ const tabs = [
 
 export default function BottomNav({ activeTab, onTabChange, userAvatar, profileHighlighted, lockedToTab, battleAlertCount = 0 }: BottomNavProps) {
   return (
-    <div className="flex-shrink-0 flex items-center bg-cream border-t border-warm" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 8px)' }}>
+    <div className="flex-shrink-0 flex items-center bg-cream border-t border-warm relative z-[10]" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 8px)' }}>
       {tabs.map((tab, index) => {
         const Icon = tab.icon;
         const isActive = activeTab === tab.id;

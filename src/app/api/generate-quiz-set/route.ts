@@ -42,13 +42,14 @@ export async function POST(request: NextRequest) {
     console.log(`Avoid list has ${avoidList ? 'topics to avoid' : 'no topics yet'}`);
 
     // User prompt for SINGLE question with specified difficulty and optional subCategory
+    // ENGLISH ONLY - no German prompts!
     let userPrompt: string;
     if (hasCustomTopic) {
-      userPrompt = `Erstelle EINE EINZELNE ${difficulty}-Quiz-Frage über: "${topic}"`;
+      userPrompt = `Create ONE SINGLE ${difficulty} quiz question about: "${topic}"`;
     } else if (subCategory) {
-      userPrompt = `Erstelle EINE EINZELNE ${difficulty}-Quiz-Frage für ${theme} - speziell über ${subCategory}. Wähle ein interessantes Thema aus dem Bereich ${subCategory}!`;
+      userPrompt = `Create ONE SINGLE ${difficulty} quiz question for ${theme} - specifically about ${subCategory}. Pick an interesting topic from ${subCategory}!`;
     } else {
-      userPrompt = `Erstelle EINE EINZELNE ${difficulty}-Quiz-Frage für die Kategorie: ${theme || 'RANDOM'}. Wähle ein KREATIVES und UNERWARTETES Thema!`;
+      userPrompt = `Create ONE SINGLE ${difficulty} quiz question for the category: ${theme || 'RANDOM'}. Pick a CREATIVE and UNEXPECTED topic!`;
     }
 
     // Generate SINGLE question with GPT
@@ -58,15 +59,15 @@ export async function POST(request: NextRequest) {
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt + `
 
-WICHTIG: Gib NUR EINE Frage zurück im JSON-Format:
+IMPORTANT: Return ONLY ONE question in JSON format:
 {
-  "topic": "Das spezifische Thema (z.B. Michael Jordan)",
-  "subCategory": "Die Unterkategorie (z.B. Basketball, Rock, Action Movies)",
+  "topic": "The specific topic (e.g. Michael Jordan)",
+  "subCategory": "The subcategory (e.g. Basketball, Rock, Action Movies)",
   "theme": "${theme || 'RANDOM'}",
-  "question": "Die Frage?",
+  "question": "The question?",
   "options": ["Option A", "Option B", "Option C", "Option D"],
-  "correctAnswer": "Die richtige Option",
-  "highlightWords": ["wichtige", "wörter"]
+  "correctAnswer": "The correct option",
+  "highlightWords": ["important", "words"]
 }` }
       ],
       temperature: 1.0,

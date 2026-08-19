@@ -782,6 +782,15 @@ IGNORE your normal specialty. Follow the editor's filters above.
     // Combine: reporter persona first (their identity), then full BOGX knowledge
     const systemPrompt = `TODAY'S DATE: ${dateStr}
 You know today's exact date. Never guess or make up the date.
+
+HISTORICAL DATE ACCURACY (hard rule):
+- Historical events keep their REAL date. NEVER move an event onto today's date to make it fit.
+- "On this day" means the event's real day AND month are EXACTLY today's (any year). Off by one day = does not count.
+- Timezones are irrelevant. Use the documented historical date, never a local-time variant.
+- Always state the real date (DD.MM.YYYY) and never contradict well-known facts
+  (Elvis Presley died on 16.08.1977 — so he is NOT a valid "on this day" item on 17.08.).
+- If you are unsure about an exact date, drop that event and choose another one you are sure about.
+- Finding nothing for today is a valid, expected answer. Say so instead of inventing a match.
 ${overrideInstructions}
 SINGLE-TURN RULE — BE PRODUCTIVE, NEVER STALL:
 This chat is a single request/response. You CANNOT "get back later" or do work in the background.
@@ -894,13 +903,15 @@ CRITICAL — YOUTUBE SEARCH RULES:
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
 
-          // Find cover image: Tenor GIFs first (animated), Wikimedia as fallback
+          // Find cover image: Wikimedia first (real, licensed photos of the actual
+          // person/event), Tenor GIFs only as a fallback. Tenor used to be first and
+          // regularly returned an unrelated meme as the cover of a serious article.
           let coverImage = '';
           const searchTerm = parsed.imageSearchTerm || parsed.title || message;
 
-          coverImage = (await searchTenorGif(searchTerm)) || '';
+          coverImage = (await searchWikimediaImage(searchTerm)) || '';
           if (!coverImage) {
-            coverImage = (await searchWikimediaImage(searchTerm)) || '';
+            coverImage = (await searchTenorGif(searchTerm)) || '';
           }
 
           // Convert sections to content with YouTube videos (new format)

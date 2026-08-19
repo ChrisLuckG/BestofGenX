@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { sounds } from "@/utils/sounds";
 import { formatCurrency, getCurrencySymbol } from "@/utils/currency";
-import { HelpCircle, Clock, Star, Play, ChevronUp, Heart, Share2, MessageCircle, Dribbble, Music, Film, Tv, Gamepad2, RotateCcw, Check, X } from "lucide-react";
+import { HelpCircle, Clock, Star, Play, ChevronUp, Heart, Share2, MessageCircle, Dribbble, Music, Film, Tv, Gamepad2, RotateCcw, Check, X, Landmark } from "lucide-react";
 
 interface CardData {
   _id?: string;
@@ -126,18 +126,6 @@ export default function QuizGame({ cardData, nextCardTheme, onComplete, onStart,
           gradient: "from-[#E36B11] to-[#a8c000]",
           glow: "0 0 20px rgba(212, 240, 0, 0.4)"
         };
-      case "TV SHOWS":
-        return { 
-          icon: Tv, 
-          label: "TV SHOWS", 
-          color: "text-purple-400",
-          bgColor: "bg-purple-500",
-          bgColorTransparent: "bg-purple-500/40",
-          bgHover: "hover:bg-purple-600",
-          borderColor: "border-purple-500",
-          gradient: "from-purple-500 to-purple-700",
-          glow: "0 0 20px rgba(192, 132, 252, 0.4)"
-        };
       case "GAMING":
         return { 
           icon: Gamepad2, 
@@ -150,41 +138,17 @@ export default function QuizGame({ cardData, nextCardTheme, onComplete, onStart,
           gradient: "from-green-500 to-green-700",
           glow: "0 0 20px rgba(74, 222, 128, 0.4)"
         };
-      case "FASHION":
+      case "POLITIK":
         return { 
-          icon: Star, 
-          label: "FASHION", 
-          color: "text-fuchsia-400",
-          bgColor: "bg-fuchsia-500",
-          bgColorTransparent: "bg-fuchsia-500/40",
-          bgHover: "hover:bg-fuchsia-600",
-          borderColor: "border-fuchsia-500",
-          gradient: "from-fuchsia-500 to-fuchsia-700",
-          glow: "0 0 20px rgba(232, 121, 249, 0.4)"
-        };
-      case "TECHNOLOGY":
-        return { 
-          icon: Gamepad2, 
-          label: "TECHNOLOGY", 
-          color: "text-blue-400",
-          bgColor: "bg-blue-500",
-          bgColorTransparent: "bg-blue-500/40",
-          bgHover: "hover:bg-blue-600",
-          borderColor: "border-blue-500",
-          gradient: "from-blue-500 to-blue-700",
-          glow: "0 0 20px rgba(59, 130, 246, 0.4)"
-        };
-      case "CELEBRITIES":
-        return { 
-          icon: Star, 
-          label: "CELEBRITIES", 
-          color: "text-[#E36B11]",
-          bgColor: "bg-[#E36B11]",
-          bgColorTransparent: "bg-[#E36B11]/40",
-          bgHover: "hover:bg-[#a8c000]",
-          borderColor: "border-[#E36B11]",
-          gradient: "from-[#E36B11] to-[#a8c000]",
-          glow: "0 0 20px rgba(212, 240, 0, 0.4)"
+          icon: Landmark, 
+          label: "POLITIK", 
+          color: "text-purple-400",
+          bgColor: "bg-purple-500",
+          bgColorTransparent: "bg-purple-500/40",
+          bgHover: "hover:bg-purple-600",
+          borderColor: "border-purple-500",
+          gradient: "from-purple-500 to-purple-700",
+          glow: "0 0 20px rgba(192, 132, 252, 0.4)"
         };
       case "SPORTS":
       case "SPORT":

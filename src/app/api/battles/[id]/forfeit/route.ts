@@ -110,7 +110,7 @@ export async function POST(
     if (winner?.pushSubscription) {
       try {
         await sendPushNotification(winner.pushSubscription, {
-          title: '🏆 Battle Won!',
+          title: 'Battle Won!',
           body: `${loser?.username || 'Opponent'} forfeited! You won ${totalPot.toFixed(2)} BOGX!`,
           tag: `battle-forfeit-${battle._id}`,
           url: '/mobile?tab=arcade',

@@ -105,21 +105,32 @@ export default function DesktopArcadePage({ onSelectGame, userId, battleAlertCou
       .catch(() => setOnlineLoading(false));
   }, []);
 
-  // Fetch live battle count when arcade is shown
+  // Fetch live battle count when arcade is shown + poll every 10s
   useEffect(() => {
     if (!userId) return;
-    // Get count of pending + active battles needing attention
-    fetch(`/api/battles?countOnly=true&userId=${userId}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          // pendingChallenges = incoming challenges to accept/deny
-          // activeBattles = battles where you need to play
-          const total = (data.pendingChallenges || 0) + (data.activeBattles || 0);
-          setLiveBattleCount(total);
-        }
-      })
-      .catch(() => {});
+    
+    const fetchBattleCount = () => {
+      // Get count of pending + active battles needing attention
+      fetch(`/api/battles?countOnly=true&userId=${userId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            // pendingChallenges = incoming challenges to accept/deny
+            // activeBattles = battles where you need to play
+            // myOpenBattles = battles you created waiting for opponent
+            const total = (data.pendingChallenges || 0) + (data.activeBattles || 0) + (data.myOpenBattles || 0);
+            setLiveBattleCount(total);
+          }
+        })
+        .catch(() => {});
+    };
+    
+    // Fetch immediately
+    fetchBattleCount();
+    
+    // Poll every 10 seconds
+    const interval = setInterval(fetchBattleCount, 10000);
+    return () => clearInterval(interval);
   }, [userId]);
 
   return (
@@ -157,6 +168,7 @@ export default function DesktopArcadePage({ onSelectGame, userId, battleAlertCou
         onCoinsChange={onCoinsChange}
         onShowLogin={onShowLogin}
         accentColor="purple"
+        onCountChange={setLiveBattleCount}
       />
 
       {/* Vertical Stack Layout */}
@@ -222,7 +234,7 @@ export default function DesktopArcadePage({ onSelectGame, userId, battleAlertCou
               {/* Wagers */}
               <div className="flex items-center gap-2 mt-4">
                 <span className="text-white/70 text-[11px] uppercase font-bold">Wagers:</span>
-                {[0.10, 0.25, 0.50, 0.75, 1.00].map((w) => (
+                {[0.25, 0.50, 0.75, 1.00, 2.50, 5.00].map((w) => (
                   <span key={w} className="px-2.5 py-1 rounded text-[12px] font-bold bg-transparent text-white border border-white/40">
                     {w.toFixed(2)}
                   </span>

@@ -26,6 +26,31 @@ export async function GET(
     const higherRanked = await User.countDocuments({ bogxCoins: { $gt: user.bogxCoins || 0 } });
     const rank = higherRanked + 1;
 
+    // Calculate daily/monthly/annually rankings from GameResult ledger
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+
+    // Helper to get rank for a period
+    const getRankForPeriod = async (since: Date) => {
+      const pipeline = [
+        { $match: { playedAt: { $gte: since }, pointsChange: { $gt: 0 } } },
+        { $group: { _id: '$userId', total: { $sum: '$pointsChange' } } },
+        { $sort: { total: -1 as const } },
+      ];
+      const results = await GameResult.aggregate(pipeline);
+      const userIndex = results.findIndex(r => r._id === userId);
+      const userTotal = userIndex >= 0 ? results[userIndex].total : 0;
+      return { rank: userIndex >= 0 ? userIndex + 1 : null, points: userTotal };
+    };
+
+    const [dailyRank, monthlyRank, annuallyRank] = await Promise.all([
+      getRankForPeriod(startOfDay),
+      getRankForPeriod(startOfMonth),
+      getRankForPeriod(startOfYear),
+    ]);
+
     // ===========================================================
     // REAL STATS, computed from authoritative records.
     //  - Solo trivia: each GameResult (cardId != 'quizzbattle') is one
@@ -108,6 +133,13 @@ export async function GET(
       accuracy,      // 0-100
       currentStreak: null, // TODO: Implement streak tracking
       bestStreak: null,    // TODO: Implement streak tracking
+      // Period rankings
+      dailyRank: dailyRank.rank,
+      dailyPoints: dailyRank.points,
+      monthlyRank: monthlyRank.rank,
+      monthlyPoints: monthlyRank.points,
+      annuallyRank: annuallyRank.rank,
+      annuallyPoints: annuallyRank.points,
     });
 
   } catch (error: any) {

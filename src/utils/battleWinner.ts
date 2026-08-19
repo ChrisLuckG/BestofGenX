@@ -5,7 +5,9 @@
 //   1. The player with MORE correct answers wins.
 //   2. If both have the same number of correct answers, the FASTER player
 //      (lower total answer time) wins.
-//   3. If correct answers AND total time are identical, it's a true tie.
+//   3. If NEITHER player answered anything correctly it's always a tie -
+//      being fast at guessing wrong is not a win.
+//   4. If correct answers AND total time are identical, it's a true tie.
 
 export interface BattleRound {
   correct: boolean;
@@ -20,6 +22,9 @@ export function compareBattleResults(a: BattleRound[], b: BattleRound[]): 1 | -1
   const aCorrect = a.filter(r => r.correct).length;
   const bCorrect = b.filter(r => r.correct).length;
   if (aCorrect !== bCorrect) return aCorrect > bCorrect ? 1 : -1;
+
+  // Both answered everything wrong → tie, speed is irrelevant.
+  if (aCorrect === 0) return 0;
 
   // Tie on correct answers → the faster player (less total time) wins.
   const aTime = a.reduce((sum, r) => sum + (r.timeMs || 0), 0);

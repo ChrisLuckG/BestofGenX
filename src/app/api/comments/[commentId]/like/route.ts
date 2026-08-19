@@ -64,6 +64,7 @@ export async function POST(
           title: '👍 Someone liked your comment!',
           message: `${liker?.username || 'Someone'} liked your comment: "${comment.content.substring(0, 50)}${comment.content.length > 50 ? '...' : ''}"`,
           avatar: liker?.avatar,
+          data: { articleId: comment.articleId?.toString() },
         });
         
         // Send push notification

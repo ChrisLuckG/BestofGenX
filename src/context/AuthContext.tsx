@@ -80,10 +80,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (data.success) {
               setUser(prev => prev ? {
                 ...prev,
-                coins: data.points || 0,
-                bogxCoins: data.bogxCoins || 0,
-                wins: data.wins || 0,
-                gamesPlayed: data.gamesPlayed || 0,
+                coins: data.points ?? 0,
+                bogxCoins: data.bogxCoins ?? 0,
+                wins: data.wins ?? 0,
+                gamesPlayed: data.gamesPlayed ?? 0,
               } : null);
             }
           })
@@ -200,9 +200,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthor: data.user.isAuthor || false,
         gamesPlayed: data.user.gamesPlayed,
         wins: data.user.wins,
-        coins: data.user.points || 0,
-        bogxCoins: data.user.bogxCoins || 0,
-        authorEarnings: data.user.authorEarnings || 0,
+        coins: data.user.points ?? 0,
+        bogxCoins: data.user.bogxCoins ?? 0,
+        authorEarnings: data.user.authorEarnings ?? 0,
       };
       setUser(newUser);
       setGuestGamesPlayed(0);

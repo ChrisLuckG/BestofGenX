@@ -52,13 +52,47 @@ interface RankrollPageProps {
   onCoinAnimation?: (amount: number) => void;
 }
 
+// Local storage key for voted polls cache
+const VOTED_POLLS_KEY = 'bogx-voted-polls';
+
+// Get voted polls from localStorage
+const getVotedPollsFromStorage = (): Set<string> => {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const stored = localStorage.getItem(VOTED_POLLS_KEY);
+    if (stored) {
+      return new Set(JSON.parse(stored));
+    }
+  } catch (e) {
+    // ignore
+  }
+  return new Set();
+};
+
+// Save voted polls to localStorage
+const saveVotedPollsToStorage = (voted: Set<string>) => {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(VOTED_POLLS_KEY, JSON.stringify(Array.from(voted)));
+  } catch (e) {
+    // ignore
+  }
+};
+
+// Add a single poll to voted cache
+export const markPollAsVoted = (pollId: string) => {
+  const voted = getVotedPollsFromStorage();
+  voted.add(pollId);
+  saveVotedPollsToStorage(voted);
+};
+
 export default function RankrollPage({ onOpenArticle, onOpenRankroll, onCoinAnimation }: RankrollPageProps) {
   const { user } = useAuth();
   const [polls, setPolls] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [visitorId, setVisitorId] = useState<string | undefined>(undefined);
   const [filterNotVoted, setFilterNotVoted] = useState(false);
-  const [votedPolls, setVotedPolls] = useState<Set<string>>(new Set());
+  const [votedPolls, setVotedPolls] = useState<Set<string>>(() => getVotedPollsFromStorage());
 
   useEffect(() => {
     // Stable anonymous id for vote de-duplication
@@ -87,34 +121,12 @@ export default function RankrollPage({ onOpenArticle, onOpenRankroll, onCoinAnim
     };
     load();
   }, []);
-
-  // Check which polls user has voted on
-  useEffect(() => {
-    const checkVotes = async () => {
-      if (polls.length === 0) return;
-      const vid = localStorage.getItem('bogx-visitor-id');
-      if (!user?.id && !vid) return;
-
-      const voted = new Set<string>();
-      for (const poll of polls) {
-        try {
-          const params = new URLSearchParams();
-          if (user?.id) params.set('userId', user.id);
-          else if (vid) params.set('visitorId', vid);
-
-          const res = await fetch(`/api/polls/${poll._id}/vote?${params}`);
-          const data = await res.json();
-          if (data.success && data.votes && Object.keys(data.votes).length > 0) {
-            voted.add(poll._id);
-          }
-        } catch (e) {
-          // ignore
-        }
-      }
-      setVotedPolls(voted);
-    };
-    checkVotes();
-  }, [polls, user?.id]);
+  
+  // Update local state when a vote is cast
+  const handleVoteCast = (pollId: string) => {
+    markPollAsVoted(pollId);
+    setVotedPolls(prev => new Set(Array.from(prev).concat(pollId)));
+  };
 
   return (
     <div className="h-full flex flex-col bg-cream overflow-hidden">

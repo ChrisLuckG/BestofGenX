@@ -168,7 +168,7 @@ export default function PushNotifications({ showSettings = false, onClose }: { s
   // Settings Panel
   if (showSettings) {
     return (
-      <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[9999] bg-black/50 flex items-center justify-center p-4">
         <div className="bg-cream border border-warm rounded-2xl w-full max-w-md shadow-xl">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-warm">

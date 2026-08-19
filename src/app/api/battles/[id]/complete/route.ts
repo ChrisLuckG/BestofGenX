@@ -103,6 +103,12 @@ export async function POST(
     
     await battle.save();
     
+    // The challenge invite is stale now - the result notification replaces it
+    await Notification.deleteMany({
+      type: 'battle_challenge',
+      'data.battleId': battle._id.toString()
+    });
+    
     // Update user points
     const wager = battle.wager;
     
@@ -182,7 +188,7 @@ export async function POST(
       await Notification.create({
         userId: battle.opponent,
         type: 'battle_result',
-        title: '🏆 You Won!',
+        title: 'You Won!',
         message: `You beat ${creator?.username || 'opponent'}! +${(wager * 2).toFixed(2)} BOGX`,
         avatar: creator?.avatar,
         data: { battleId: battle._id.toString(), url: '/battles' }
@@ -199,7 +205,7 @@ export async function POST(
       // Send push notifications (only if enabled)
       if (opponent?.pushSubscription && opponent?.notifyBattleResult !== false) {
         sendPushNotification(opponent.pushSubscription, {
-          title: '🏆 You Won!',
+          title: 'You Won!',
           body: `You beat ${creator?.username || 'opponent'}! +${(wager * 2).toFixed(2)} BOGX`,
           tag: `battle-result-${battle._id}`,
           url: '/battles',
@@ -232,7 +238,7 @@ export async function POST(
       await Notification.create({
         userId: battle.creator,
         type: 'battle_result',
-        title: '🏆 You Won!',
+        title: 'You Won!',
         message: `You beat ${opponent?.username || 'opponent'}! +${(wager * 2).toFixed(2)} BOGX`,
         avatar: opponent?.avatar,
         data: { battleId: battle._id.toString(), url: '/battles' }
@@ -249,7 +255,7 @@ export async function POST(
       // Send push notifications (only if enabled)
       if (creator?.pushSubscription && creator?.notifyBattleResult !== false) {
         sendPushNotification(creator.pushSubscription, {
-          title: '🏆 You Won!',
+          title: 'You Won!',
           body: `You beat ${opponent?.username || 'opponent'}! +${(wager * 2).toFixed(2)} BOGX`,
           tag: `battle-result-${battle._id}`,
           url: '/battles',

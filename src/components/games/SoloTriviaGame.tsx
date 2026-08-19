@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Check, X, HelpCircle, Clock, Trophy, Dumbbell, Music, Film, Landmark, Gamepad2, Tv, Timer, Play, ChevronLeft } from "lucide-react";
+import { Check, X, HelpCircle, Clock, Trophy, Dumbbell, Music, Film, Landmark, Gamepad2, Tv, Timer, Play, ChevronLeft, ArrowRight } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import GenXLoader from "@/components/GenXLoader";
@@ -44,16 +44,29 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
   'TV': Tv,
 };
 
-// Default categories (shown if DB is empty)
-const DEFAULT_CATEGORIES = ['all', 'music', 'film', 'sport'];
+// Category images (Unsplash)
+// 5 official categories only
+const CATEGORY_IMAGES: Record<string, string> = {
+  'all': 'https://images.unsplash.com/photo-1606326608606-aa0b62935f2b?w=100&h=100&fit=crop',
+  'music': 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=100&h=100&fit=crop',
+  'sports': 'https://images.unsplash.com/photo-1461896836934-480b97cb9b5a?w=100&h=100&fit=crop',
+  'movies': 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=100&h=100&fit=crop',
+  'gaming': 'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=100&h=100&fit=crop',
+  'politik': 'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=100&h=100&fit=crop',
+};
 
-const MAX_POINTS = 0.30; // Start at 0.30 BOGX, decreases over time
-const WRONG_PENALTY = 0.03; // -0.03 BOGX for wrong answer (10% of max)
+// Default categories (5 official only)
+const DEFAULT_CATEGORIES = ['all', 'music', 'sports', 'movies', 'gaming', 'politik'];
+
+const QUESTION_COUNT = 5; // Fixed 5 questions
+const POINT_OPTIONS = [0.10, 0.20, 0.30, 0.40, 0.50] as const;
+const PENALTY_RATE = 0.20; // 20% of max points
 
 export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation, embedded = false }: SoloTriviaGameProps) {
   const { user, isLoggedIn } = useAuth();
   const [phase, setPhase] = useState<GamePhase>('setup');
-  const [questionCount, setQuestionCount] = useState<5 | 10 | 15 | 20>(10);
+  const [maxPoints, setMaxPoints] = useState<number>(0.30);
+  const [wrongPenalty, setWrongPenalty] = useState<number>(0.06); // 20% of 0.30
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
@@ -69,8 +82,22 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
   const [error, setError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(3);
   const [timeLeft, setTimeLeft] = useState(10000); // 10 seconds in ms
-  const [currentPoints, setCurrentPoints] = useState(MAX_POINTS);
+  const [currentPoints, setCurrentPoints] = useState(maxPoints);
   const [totalEarnings, setTotalEarnings] = useState(0);
+  const [totalGains, setTotalGains] = useState(0);
+  const [totalLosses, setTotalLosses] = useState(0);
+  const [reviewQuestion, setReviewQuestion] = useState<number | null>(null);
+  const [selectedAnswers, setSelectedAnswers] = useState<(number | null)[]>([]);
+  
+  // Animated display values for info box
+  const [displayCorrect, setDisplayCorrect] = useState(0.30);
+  const [displayWrong, setDisplayWrong] = useState(0.06);
+  const [displayMaxWin, setDisplayMaxWin] = useState(1.50);
+  const [displayMaxLoss, setDisplayMaxLoss] = useState(0.30);
+  
+  // Animated score display with color
+  const [displayScore, setDisplayScore] = useState(0);
+  const [scoreColor, setScoreColor] = useState<'green' | 'red' | 'black'>('black');
   
   // Online players count
   const [onlinePlayers, setOnlinePlayers] = useState(0);
@@ -102,6 +129,89 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
     return () => clearInterval(interval);
   }, []);
 
+  // Animate values when maxPoints changes
+  useEffect(() => {
+    const targetCorrect = maxPoints;
+    const targetWrong = wrongPenalty;
+    const targetMaxWin = QUESTION_COUNT * maxPoints;
+    const targetMaxLoss = QUESTION_COUNT * wrongPenalty;
+    
+    const duration = 300; // ms
+    const steps = 20;
+    const stepTime = duration / steps;
+    
+    const startCorrect = displayCorrect;
+    const startWrong = displayWrong;
+    const startMaxWin = displayMaxWin;
+    const startMaxLoss = displayMaxLoss;
+    
+    let step = 0;
+    const interval = setInterval(() => {
+      step++;
+      const progress = step / steps;
+      // Ease out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      
+      setDisplayCorrect(startCorrect + (targetCorrect - startCorrect) * eased);
+      setDisplayWrong(startWrong + (targetWrong - startWrong) * eased);
+      setDisplayMaxWin(startMaxWin + (targetMaxWin - startMaxWin) * eased);
+      setDisplayMaxLoss(startMaxLoss + (targetMaxLoss - startMaxLoss) * eased);
+      
+      if (step >= steps) {
+        clearInterval(interval);
+        // Ensure exact final values
+        setDisplayCorrect(targetCorrect);
+        setDisplayWrong(targetWrong);
+        setDisplayMaxWin(targetMaxWin);
+        setDisplayMaxLoss(targetMaxLoss);
+      }
+    }, stepTime);
+    
+    return () => clearInterval(interval);
+  }, [maxPoints, wrongPenalty]);
+
+  // Animate score counting up/down with color
+  const prevEarningsRef = useRef(totalEarnings);
+  useEffect(() => {
+    if (totalEarnings !== prevEarningsRef.current) {
+      const startValue = prevEarningsRef.current;
+      const endValue = totalEarnings;
+      const isGain = endValue > startValue;
+      const diff = Math.abs(endValue - startValue);
+      
+      // Set color based on gain/loss
+      setScoreColor(isGain ? 'green' : 'red');
+      
+      // Animate the number
+      const duration = 400; // ms
+      const steps = 15;
+      const stepTime = duration / steps;
+      let step = 0;
+      
+      const interval = setInterval(() => {
+        step++;
+        const progress = step / steps;
+        // Ease out
+        const eased = 1 - Math.pow(1 - progress, 2);
+        const currentValue = startValue + (endValue - startValue) * eased;
+        setDisplayScore(currentValue);
+        
+        if (step >= steps) {
+          clearInterval(interval);
+          setDisplayScore(endValue);
+          prevEarningsRef.current = endValue;
+          
+          // Reset to black after a short delay
+          setTimeout(() => {
+            setScoreColor('black');
+          }, 300);
+        }
+      }, stepTime);
+      
+      return () => clearInterval(interval);
+    }
+  }, [totalEarnings]);
+
   // Run countdown before showing answers
   const runCountdown = () => {
     setCountdown(3);
@@ -118,10 +228,11 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
             clearInterval(countdownRef.current);
             countdownRef.current = null;
           }
+          // Show "GO" for 1 second before starting
           setTimeout(() => {
             setPhase('playing');
             startRound();
-          }, 300);
+          }, 1000);
           return 0;
         }
         return prev - 1;
@@ -144,7 +255,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
     }
     
     setTimeLeft(10000);
-    setCurrentPoints(MAX_POINTS);
+    setCurrentPoints(maxPoints);
     setSelectedAnswer(null);
     setShowResult(false);
     startTimeRef.current = Date.now();
@@ -155,7 +266,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
       setTimeLeft(remaining);
       
       const pct = remaining / 10000;
-      setCurrentPoints(Math.round(MAX_POINTS * pct * 100) / 100);
+      setCurrentPoints(Math.round(maxPoints * pct * 100) / 100);
       
       if (remaining <= 0) {
         if (timerRef.current) {
@@ -180,26 +291,28 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
     
     setSelectedAnswer(-1);
     setShowResult(true);
+    setSelectedAnswers(prev => [...prev, -1]); // Save timeout as -1
     setWrongCount(prev => prev + 1);
-    setTotalEarnings(prev => prev - WRONG_PENALTY);
+    setTotalEarnings(prev => prev - wrongPenalty);
+    setTotalLosses(prev => prev + wrongPenalty);
     setAnswerHistory(prev => [...prev, 'wrong']);
     
     // Trigger coin animation and update header for timeout penalty
-    onCoinAnimation?.(-WRONG_PENALTY);
-    onCoinsChange?.(-WRONG_PENALTY);
+    onCoinAnimation?.(-wrongPenalty);
+    onCoinsChange?.(-wrongPenalty);
     
     // Deduct penalty from DB and track played question
     const currentQ = questions[currentIndex];
     if (!isLoggedIn) {
       // Guest: save coins to localStorage
       const guestCoins = parseFloat(localStorage.getItem('bogx_guest_coins') || '0');
-      localStorage.setItem('bogx_guest_coins', String(Math.round((guestCoins - WRONG_PENALTY) * 100) / 100));
+      localStorage.setItem('bogx_guest_coins', String(Math.round((guestCoins - wrongPenalty) * 100) / 100));
     } else if (isLoggedIn && user?.id) {
       try {
         await fetch('/api/user/update-bogx', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id, amount: -WRONG_PENALTY, skipGameResult: true }),
+          body: JSON.stringify({ userId: user.id, amount: -wrongPenalty, skipGameResult: true }),
         });
         
         // Save GameResult for ranking system (timeout)
@@ -213,7 +326,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
             userAnswer: null,
             correctAnswer: currentQ?.options?.[currentQ?.correctIndex] || '',
             isCorrect: false,
-            pointsChange: -WRONG_PENALTY,
+            pointsChange: -wrongPenalty,
             timeUsed: 10,
             difficulty: 1,
             skipped: false,
@@ -243,23 +356,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
       }
     }
     
-    setTimeout(() => {
-      // Use ref to avoid closure issues - questionsRef always has current value
-      const qs = questionsRef.current;
-      if (!qs || qs.length === 0) {
-        setPhase('result');
-        return;
-      }
-      
-      setCurrentIndex(prev => {
-        if (prev + 1 >= qs.length) {
-          setPhase('result');
-          return prev;
-        }
-        runCountdown();
-        return prev + 1;
-      });
-    }, 1500);
+    // Don't auto-advance - wait for user to click NEXT button
   };
 
   // Load categories from DB
@@ -271,9 +368,14 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
         const data = await res.json();
         if (data.success && data.themes) {
           // Normalize themes to lowercase and add 'all'
-          const dbCategories = data.themes.map((t: string) => t.toLowerCase());
-          const uniqueCategories = ['all', ...Array.from(new Set(dbCategories))] as string[];
-          setCategories(uniqueCategories);
+          const dbCategories: string[] = data.themes.map((t: string) => t.toLowerCase());
+          const uniqueSet = new Set<string>(dbCategories);
+          // Fixed order - always show in this sequence
+          const fixedOrder = ['all', 'sports', 'music', 'politik', 'gaming', 'movies'];
+          const sortedCategories = fixedOrder.filter(cat => cat === 'all' || uniqueSet.has(cat));
+          // Add any remaining categories not in fixed order
+          const remaining = Array.from(uniqueSet).filter((cat: string) => !fixedOrder.includes(cat)).sort();
+          setCategories([...sortedCategories, ...remaining]);
           setCategoryCounts(data.counts || {});
         }
       } catch (e) {
@@ -305,7 +407,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
       // Use smart questions API that avoids recently played questions
       const params = new URLSearchParams({
         userId: user?.id || 'guest',
-        count: String(questionCount),
+        count: String(QUESTION_COUNT),
         context: 'game',
       });
       if (selectedCategory !== 'all') {
@@ -373,15 +475,20 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
 
     const currentQ = questions[currentIndex];
     const isCorrect = answerIndex === currentQ.correctIndex;
-    const points = isCorrect ? currentPoints : -WRONG_PENALTY;
+    const points = isCorrect ? currentPoints : -wrongPenalty;
+    
+    // Save selected answer for review
+    setSelectedAnswers(prev => [...prev, answerIndex]);
     
     if (isCorrect) {
       setCorrectCount(prev => prev + 1);
       setTotalEarnings(prev => prev + points);
+      setTotalGains(prev => prev + currentPoints);
       setAnswerHistory(prev => [...prev, 'correct']);
     } else {
       setWrongCount(prev => prev + 1);
-      setTotalEarnings(prev => prev - WRONG_PENALTY);
+      setTotalEarnings(prev => prev - wrongPenalty);
+      setTotalLosses(prev => prev + wrongPenalty);
       setAnswerHistory(prev => [...prev, 'wrong']);
     }
 
@@ -443,29 +550,29 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
       }
     }
 
-    // Move to next question after delay - use ref to avoid closure issues
-    setTimeout(async () => {
-      const qs = questionsRef.current;
-      setCurrentIndex(prev => {
-        if (prev + 1 >= qs.length) {
-          setPhase('result');
-          // Update game stats when game ends
-          if (isLoggedIn && user?.id) {
-            // Calculate if won (more than 50% correct)
-            const totalCorrect = correctCount + (isCorrect ? 1 : 0);
-            const won = totalCorrect > qs.length / 2;
-            fetch('/api/user/game-stats', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ userId: user.id, won }),
-            }).catch(e => console.error('Failed to update game stats:', e));
-          }
-          return prev;
-        }
-        runCountdown();
-        return prev + 1;
-      });
-    }, 1500);
+    // Don't auto-advance - wait for user to click NEXT button
+  };
+
+  // Function to go to next question (called by NEXT button)
+  const goToNextQuestion = () => {
+    const qs = questionsRef.current;
+    if (currentIndex + 1 >= qs.length) {
+      setPhase('result');
+      // Update game stats when game ends
+      if (isLoggedIn && user?.id) {
+        const won = correctCount > qs.length / 2;
+        fetch('/api/user/game-stats', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id, won }),
+        }).catch(e => console.error('Failed to update game stats:', e));
+      }
+    } else {
+      setCurrentIndex(prev => prev + 1);
+      setSelectedAnswer(null);
+      setShowResult(false);
+      runCountdown();
+    }
   };
 
   const currentQuestion = questions[currentIndex];
@@ -487,166 +594,272 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
     </div>
   );
 
-  // Result Phase - check FIRST before playing phase
+  // Result Phase - Same container size as quiz
   if (phase === 'result') {
     const accuracy = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
     
     return (
-      <div className="flex flex-col h-full min-h-full" style={{ backgroundColor: '#F5F0E8' }}>
-        <GameHeader />
-        
-        {/* Card Container */}
-        <div className="flex-1 p-4 flex flex-col">
-          <div className="flex-1 border border-warm bg-cream rounded-xl flex flex-col p-6 shadow-sm">
+      <div className="flex flex-col h-full min-h-full bg-cream p-4">
+        {/* Main Card - Same size as quiz */}
+        <div className="flex-1 border border-warm bg-cream rounded-2xl flex flex-col p-6 shadow-lg min-h-0">
           
-            {/* Center Content */}
-            <div className="flex-1 flex flex-col items-center justify-center text-center">
-              {/* Result Badge */}
-              <div className="mb-4">
-                <span className="px-4 py-1.5 bg-[#E36B11]/10 border border-[#E36B11]/30 rounded text-xs text-[#E36B11] uppercase tracking-widest font-bold">
-                  Result
-                </span>
-              </div>
-              
-              {/* Title */}
-              <h2 className="font-display text-4xl tracking-wider text-gray-900 mb-3">
-                {accuracy >= 80 ? 'EXCELLENT!' : accuracy >= 50 ? 'GOOD JOB!' : 'KEEP TRYING!'}
-              </h2>
-              <p className="text-gray-500 text-sm mb-8 uppercase tracking-wider">
-                {correctCount} / {questions.length || questionCount} correct · {accuracy}% accuracy
-              </p>
-              
-              {/* Earnings Display - Big Coin */}
-              <div className={`py-5 px-10 rounded-xl mb-8 flex items-center gap-4 ${
-                totalEarnings >= 0 ? 'bg-[#E36B11]/10 border border-[#E36B11]/20' : 'bg-red-50 border border-red-200'
-              }`}>
-                <img src="/images/bogxcoin.png" alt="" className="w-14 h-14" />
-                <div className="text-left">
-                  <span className={`font-display text-4xl block ${
-                    totalEarnings >= 0 ? 'text-[#E36B11]' : 'text-red-500'
-                  }`}>
-                    {totalEarnings > 0 ? '+' : ''}{formatCurrency(totalEarnings)}
-                  </span>
-                  <p className="text-gray-500 text-xs uppercase tracking-wider">Coins earned</p>
-                </div>
-              </div>
-              
-              {/* Stats Row - Simple */}
-              <div className="flex gap-8 mb-4">
-                <div className="text-center">
-                  <span className="font-display text-3xl text-green-600 block">{correctCount}</span>
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">Correct</p>
-                </div>
-                <div className="text-center">
-                  <span className="font-display text-3xl text-red-500 block">{wrongCount}</span>
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">Wrong</p>
-                </div>
-              </div>
-            </div>
+          {/* Result Header */}
+          <div className="text-center mb-6">
+            <span className="inline-block px-4 py-1.5 bg-[#E36B11]/10 border border-[#E36B11]/30 rounded-lg text-xs text-[#E36B11] uppercase tracking-widest font-bold mb-4">
+              Game Complete
+            </span>
+            <h2 className="font-display text-4xl tracking-wider text-gray-900 mb-2">
+              {accuracy >= 80 ? 'EXCELLENT!' : accuracy >= 50 ? 'GOOD JOB!' : 'KEEP TRYING!'}
+            </h2>
+            <p className="text-gray-500 text-sm uppercase tracking-wider">
+              {correctCount} / {questions.length || QUESTION_COUNT} correct · {accuracy}% accuracy
+            </p>
+          </div>
 
-            {/* Buttons at bottom */}
-            <div className="flex gap-3">
-              <button
-                onClick={onBack}
-                className="flex-1 py-3 border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-semibold rounded-lg transition-all uppercase tracking-wider text-sm"
-              >
-                Back
-              </button>
-              <button
-                onClick={() => {
-                  setPhase('setup');
-                  setQuestions([]);
-                  setCorrectCount(0);
-                  setWrongCount(0);
-                  setTotalEarnings(0);
-                  setAnswerHistory([]);
-                }}
-                className="flex-1 py-3 bg-[#E36B11] hover:bg-[#C4772A] text-white font-semibold rounded-lg transition-colors uppercase tracking-wider text-sm"
-              >
-                Play Again
-              </button>
+          {/* Stats Grid - fills space */}
+          <div className="flex-1 flex flex-col items-center justify-center gap-6">
+            {/* Earnings Card */}
+            <div className={`w-full max-w-sm py-6 px-8 rounded-xl flex items-center justify-center gap-4 ${
+              totalEarnings >= 0 ? 'bg-[#10b981]/10 border-2 border-[#10b981]/30' : 'bg-red-50 border-2 border-red-200'
+            }`}>
+              <img src="/images/bogxcoin.png" alt="" className="w-16 h-16" />
+              <div className="text-left">
+                <span className={`font-display text-5xl block ${
+                  totalEarnings >= 0 ? 'text-[#10b981]' : 'text-red-500'
+                }`}>
+                  {totalEarnings >= 0 ? '+' : ''}{formatCurrency(totalEarnings)}
+                </span>
+                <p className="text-gray-500 text-xs uppercase tracking-wider mt-1">
+                  <span className="text-green-600">+{formatCurrency(totalGains)}</span>
+                  {' / '}
+                  <span className="text-red-500">-{formatCurrency(totalLosses)}</span>
+                </p>
+              </div>
             </div>
+            
+            {/* Correct/Wrong Stats */}
+            <div className="flex gap-12">
+              <div className="text-center">
+                <div className="w-20 h-20 rounded-xl bg-green-100 border-2 border-green-300 flex items-center justify-center mb-2">
+                  <span className="font-display text-4xl text-green-600">{correctCount}</span>
+                </div>
+                <p className="text-xs text-gray-500 uppercase tracking-wider font-bold">Correct</p>
+              </div>
+              <div className="text-center">
+                <div className="w-20 h-20 rounded-xl bg-red-100 border-2 border-red-300 flex items-center justify-center mb-2">
+                  <span className="font-display text-4xl text-red-500">{wrongCount}</span>
+                </div>
+                <p className="text-xs text-gray-500 uppercase tracking-wider font-bold">Wrong</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Buttons at bottom - same style as quiz */}
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={onBack}
+              className="flex-1 py-4 border-2 border-warm bg-cream hover:bg-gray-50 text-gray-700 font-display text-base tracking-widest rounded-xl transition-all"
+            >
+              Back
+            </button>
+            <button
+              onClick={() => {
+                setPhase('setup');
+                setQuestions([]);
+                setCorrectCount(0);
+                setWrongCount(0);
+                setTotalEarnings(0);
+                setTotalGains(0);
+                setTotalLosses(0);
+                setAnswerHistory([]);
+              }}
+              className="flex-1 py-4 bg-gray-500 hover:bg-gray-600 text-white font-display text-base tracking-widest rounded-xl transition-colors flex items-center justify-center gap-2"
+            >
+              Play Again
+              <Play className="w-5 h-5" />
+            </button>
           </div>
         </div>
       </div>
     );
   }
 
-  // Countdown Phase - show question, hide answers
+  // Countdown Phase - Solo layout (no opponent) - SAME AS PLAYING PHASE
   if (phase === 'countdown' && currentQuestion) {
+    const isGo = countdown === 0;
+    const CategoryIcon = CATEGORY_ICONS[currentQuestion.category] || CATEGORY_ICONS[currentQuestion.category?.toUpperCase()] || HelpCircle;
     
     return (
-      <div className="flex flex-col h-full min-h-full" style={{ backgroundColor: '#F5F0E8' }}>
-        <GameHeader showBack={false} />
-        
-        {/* Card Container */}
-        <div className="flex-1 p-4 flex flex-col">
-          <div className="flex-1 border border-warm bg-cream rounded-xl flex flex-col p-5 shadow-sm">
+      <div className="flex flex-col h-full min-h-full bg-cream">
+        {/* Main Card - fills available height */}
+        <div className="flex-1 m-2 sm:m-4 border border-warm bg-cream rounded-2xl flex flex-col p-4 sm:p-6 shadow-lg min-h-0">
           
-            {/* Progress Bar */}
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-semibold text-gray-900">Question {currentIndex + 1}/{questions.length}</span>
-              <div className="flex items-center gap-0.5">
+          {/* Status Bar - Same structure as BattleQuizScreen */}
+          <div className="flex items-stretch border border-warm rounded-xl bg-cream overflow-hidden mb-4 sm:mb-5">
+            {/* You */}
+            <div className="flex-1 min-w-0 flex flex-col items-center gap-1 p-2 sm:p-4 border-r border-warm">
+              <div className="w-8 h-8 sm:w-14 sm:h-14 rounded-full overflow-hidden border-2 sm:border-3 flex-shrink-0 border-warm">
+                <img src={user?.avatar || 'https://i.pravatar.cc/80?img=47'} alt="" className="w-full h-full object-cover" />
+              </div>
+              <div className="font-display text-sm sm:text-xl text-gray-900 truncate tracking-wide">You</div>
+              <div className="font-display text-xl sm:text-4xl tracking-wide text-gray-800">{correctCount}</div>
+            </div>
+
+            {/* Center - Topic + Question indicators */}
+            <div className="flex flex-col items-center justify-center gap-1 sm:gap-2 px-1.5 sm:px-4 py-2 sm:py-4">
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 bg-gray-100 rounded-lg text-[10px] text-gray-600 uppercase tracking-wider font-bold whitespace-nowrap">
+                <CategoryIcon className="w-3 h-3" /> {currentQuestion.category || 'Trivia'}
+              </span>
+              <span className="font-display text-xs sm:text-lg text-gray-400 tracking-wider">Q{currentIndex + 1}/{questions.length}</span>
+              {/* Question dots */}
+              <div className="flex gap-1 sm:gap-2">
                 {Array.from({ length: questions.length }).map((_, i) => {
-                  let color = 'bg-gray-300';
-                  if (i < answerHistory.length) {
-                    color = answerHistory[i] === 'correct' ? 'bg-green-500' : 'bg-red-500';
-                  } else if (i === currentIndex) {
-                    color = 'bg-[#E36B11]/50';
-                  }
-                  return <div key={i} className={`w-3 h-1 rounded ${color}`} />;
+                  const result = answerHistory[i];
+                  const color = result ? (result === 'correct' ? '#10b981' : '#ef4444') : (i === currentIndex ? '#9ca3af' : '#e5e7eb');
+                  const opacity = i === currentIndex && !result ? '0.5' : '1';
+                  return (
+                    <span 
+                      key={i} 
+                      className="min-w-[24px] h-6 sm:min-w-[36px] sm:h-8 px-1.5 sm:px-2 rounded-md flex items-center justify-center font-display text-[10px] sm:text-xs tracking-wider text-white"
+                      style={{ background: color, opacity }}
+                    >
+                      Q{i + 1}
+                    </span>
+                  );
                 })}
               </div>
-              <div className="flex items-center gap-1">
-                <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
-                <span className="font-display text-sm text-[#E36B11]">{formatCurrency(totalEarnings)}</span>
-              </div>
             </div>
 
-            {/* Category Badge */}
-            <div className="mb-3">
-              <span className="px-2 py-0.5 bg-cream border border-warm rounded text-[10px] text-gray-600 uppercase tracking-wider">
-                {currentQuestion.category || 'General'}
+            {/* Earnings */}
+            <div className="flex-1 min-w-0 flex flex-col items-center gap-1 p-2 sm:p-4 border-l border-warm">
+              <img src="/images/bogxcoin.png" alt="" className="w-8 h-8 sm:w-14 sm:h-14 flex-shrink-0" />
+              <div className={`font-display text-sm sm:text-xl tracking-wide ${totalEarnings >= 0 ? 'text-gray-900' : 'text-red-500'}`}>
+                {totalEarnings >= 0 ? '+' : ''}{formatCurrency(totalEarnings)}
+              </div>
+              <div className="text-[9px] sm:text-xs text-gray-500">
+                <span className="text-green-600">+{formatCurrency(totalGains)}</span>
+                {' / '}
+                <span className="text-red-500">-{formatCurrency(totalLosses)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Timer Row - GET READY / GO style */}
+          <div className="flex items-center gap-2.5 sm:gap-4 mb-4 sm:mb-5">
+            <div 
+              key={countdown}
+              className={`w-12 h-12 sm:w-16 sm:h-16 rounded-lg sm:rounded-xl flex flex-col items-center justify-center flex-shrink-0 transition-all duration-200 ${
+                isGo ? 'scale-110' : 'animate-pulse'
+              }`}
+              style={{ 
+                background: isGo 
+                  ? 'linear-gradient(135deg, #10b981dd 0%, #10b981 100%)' 
+                  : 'linear-gradient(135deg, #6B7280dd 0%, #6B7280 100%)',
+                boxShadow: isGo 
+                  ? '0 0 25px rgba(16,185,129,0.6), inset 0 0 0 2px rgba(16,185,129,0.4)' 
+                  : '0 0 20px rgba(107,114,128,0.4), inset 0 0 0 2px rgba(107,114,128,0.4)',
+                animation: 'popIn 0.4s ease-out'
+              }}
+            >
+              <span 
+                className="font-display text-lg sm:text-2xl text-white tabular-nums"
+                style={{ 
+                  animation: 'popNumber 0.4s ease-out',
+                  textShadow: '0 0 10px rgba(255,255,255,0.5)'
+                }}
+              >
+                {isGo ? 'GO' : countdown}
+              </span>
+              <span className="font-display text-[7px] sm:text-[9px] text-white/80 tracking-widest">
+                {isGo ? '' : 'GET READY'}
               </span>
             </div>
-
-            {/* Countdown Timer */}
-            <div className="flex items-center justify-between gap-2 mb-4">
-              <div className="flex items-center gap-1">
-                <div className="w-11 h-11 border-2 border-[#E36B11] bg-[#E36B11]/10 rounded-lg flex items-center justify-center">
-                  <span className="font-display text-2xl text-gray-900">
-                    {countdown === 0 ? 'GO' : countdown}
+            <div className="flex-1 flex gap-1 sm:gap-1.5">
+              {[...Array(8)].map((_, i) => {
+                const ledsOn = isGo ? 8 : Math.round((countdown / 3) * 8);
+                const isActive = isGo ? true : i < ledsOn;
+                return (
+                  <span 
+                    key={i} 
+                    className="h-2.5 sm:h-4 flex-1 rounded transition-all duration-300"
+                    style={{ 
+                      backgroundColor: isActive ? (isGo ? '#10b981' : '#6B7280') : '#E5E0D8',
+                      boxShadow: isActive ? `0 0 8px ${isGo ? '#10b981' : '#6B7280'}` : 'none'
+                    }}
+                  />
+                );
+              })}
+            </div>
+            {/* Right side: Countdown number OR GO */}
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+              {isGo ? (
+                <span 
+                  className="font-display text-xl sm:text-3xl text-green-500 animate-pulse"
+                  style={{ 
+                    textShadow: '0 0 15px rgba(16,185,129,0.6)',
+                    animation: 'popNumber 0.4s ease-out'
+                  }}
+                >
+                  GO!
+                </span>
+              ) : (
+                <>
+                  <span 
+                    key={countdown}
+                    className="font-display text-xl sm:text-3xl text-gray-500 tabular-nums"
+                    style={{ 
+                      animation: 'popNumber 0.4s ease-out',
+                      textShadow: '0 0 8px rgba(107,114,128,0.4)'
+                    }}
+                  >
+                    {countdown}
                   </span>
-                </div>
-                <span className="text-gray-600 text-[10px]">SEC</span>
-              </div>
-              <div className="flex-1 px-1">
-                <div className="flex gap-0.5">
-                  {[...Array(10)].map((_, i) => (
-                    <div key={i} className="h-4 flex-1 rounded bg-gray-200" />
-                  ))}
-                </div>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="font-display text-2xl text-gray-900">{formatCurrency(MAX_POINTS)}</span>
-                <img src="/images/bogxcoin.png" alt="BOGX" className="w-5 h-5" />
-              </div>
+                  <span className="font-display text-xs sm:text-sm text-gray-400">sec</span>
+                </>
+              )}
             </div>
+          </div>
+          
+          {/* Countdown animations */}
+          <style jsx>{`
+            @keyframes popIn {
+              0% { transform: scale(0.8); opacity: 0.5; }
+              50% { transform: scale(1.15); }
+              100% { transform: scale(1); opacity: 1; }
+            }
+            @keyframes popNumber {
+              0% { transform: scale(1.5); opacity: 0; }
+              100% { transform: scale(1); opacity: 1; }
+            }
+          `}</style>
 
-            {/* Question */}
-            <div className="border border-warm bg-cream rounded-xl px-4 py-4 mb-4 flex items-center justify-center min-h-[100px]">
-              <h2 className="text-gray-900 text-base font-bold text-center leading-snug">
-                {currentQuestion.question}
-              </h2>
+          {/* Question Card */}
+          <div className="border border-warm bg-cream rounded-xl p-4 sm:p-6 mb-4 sm:mb-5 flex items-center justify-center min-h-[80px] sm:min-h-[120px]">
+            <h2 className="font-display text-lg sm:text-2xl text-gray-900 text-center leading-snug tracking-wide">
+              {currentQuestion.question}
+            </h2>
+          </div>
+
+          {/* Hidden Answers - 2x2 grid with "..." */}
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 flex-1">
+            {[0, 1, 2, 3].map((i) => (
+              <div 
+                key={i} 
+                className="rounded-xl p-3 sm:p-4 min-h-[60px] sm:min-h-[72px] bg-cream border-2 border-warm flex items-center justify-center"
+              >
+                <span className="text-gray-300 text-base sm:text-lg">···</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Feedback + Next Button Row - Always visible (grayed out during countdown) */}
+          <div className="flex items-center justify-between gap-2 sm:gap-4 min-h-[48px] sm:min-h-[56px] mt-3 sm:mt-4">
+            <div className="px-3 sm:px-5 py-2 sm:py-3 rounded-xl font-bold text-sm sm:text-base flex items-center gap-2 bg-gray-200 text-gray-400">
+              Pick an answer
             </div>
-
-            {/* Hidden Answers */}
-            <div className="grid grid-cols-2 gap-2">
-              {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="px-2 py-3 min-h-[64px] bg-cream border border-warm rounded-lg flex items-center justify-center">
-                  <span className="text-gray-300 text-sm">···</span>
-                </div>
-              ))}
+            <div className="px-4 sm:px-8 py-2 sm:py-3 font-display text-sm sm:text-base tracking-widest rounded-xl flex items-center gap-2 bg-gray-200 text-gray-400">
+              Next
+              <ArrowRight className="w-4 h-4" />
             </div>
           </div>
         </div>
@@ -663,19 +876,33 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
         {/* Loading Modal */}
         {loading && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <div className="bg-cream rounded-2xl p-8 mx-4 shadow-2xl border border-warm max-w-sm w-full">
+            <div className="bg-cream rounded-3xl p-10 mx-4 shadow-2xl border border-warm max-w-md w-full">
               <div className="flex flex-col items-center">
-                <div className="w-16 h-16 rounded-full bg-[#E36B11]/10 flex items-center justify-center mb-4">
-                  <div className="w-10 h-10 border-3 border-[#E36B11]/30 border-t-[#E36B11] rounded-full animate-spin" />
+                {/* Animated BOGX Logo */}
+                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#E36B11]/20 to-[#E36B11]/5 flex items-center justify-center mb-6 relative">
+                  <div className="absolute inset-0 rounded-full border-4 border-[#E36B11]/20 border-t-[#E36B11] animate-spin" />
+                  <img src="/images/genxlogo1.png" alt="BOGX" className="w-14 h-14 object-contain" />
                 </div>
-                <h3 className="font-display text-xl tracking-wider text-gray-900 mb-2">Preparing Questions</h3>
-                <p className="text-gray-500 text-sm text-center">
-                  Loading {questionCount} trivia questions{selectedCategory !== 'all' ? ` about ${selectedCategory}` : ''}...
+                
+                <h3 className="font-display text-2xl tracking-wider text-gray-900 mb-3">Preparing Questions</h3>
+                <p className="text-gray-500 text-base text-center mb-2">
+                  Loading {QUESTION_COUNT} trivia questions
                 </p>
-                <div className="mt-4 flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-[#E36B11] animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <div className="w-2 h-2 rounded-full bg-[#E36B11] animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <div className="w-2 h-2 rounded-full bg-[#E36B11] animate-bounce" style={{ animationDelay: '300ms' }} />
+                {selectedCategory !== 'all' && (
+                  <span className="inline-flex items-center gap-2 px-4 py-2 bg-[#E36B11]/10 rounded-full text-[#E36B11] font-semibold text-sm">
+                    {(() => {
+                      const Icon = CATEGORY_ICONS[selectedCategory] || CATEGORY_ICONS[selectedCategory.toUpperCase()] || HelpCircle;
+                      return <Icon className="w-4 h-4" />;
+                    })()}
+                    {selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1)}
+                  </span>
+                )}
+                
+                {/* Animated dots */}
+                <div className="mt-6 flex items-center gap-3">
+                  <div className="w-3 h-3 rounded-full bg-[#E36B11] animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-3 h-3 rounded-full bg-[#E36B11] animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-3 h-3 rounded-full bg-[#E36B11] animate-bounce" style={{ animationDelay: '300ms' }} />
                 </div>
               </div>
             </div>
@@ -683,121 +910,184 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
         )}
 
         <div className="flex-1 overflow-y-auto px-4 py-4" style={{ scrollbarWidth: 'none' }}>
-          {/* Step 1: Choose Questions - 4 options in boxes */}
+          {/* Step 1: Choose Category - 4x4 Grid */}
           <div>
             <div className="flex items-center gap-2 mb-3">
               <span className="w-5 h-5 bg-[#E36B11] rounded-full text-white text-[10px] font-bold flex items-center justify-center">1</span>
-              <span className="font-display text-base text-gray-900 uppercase">Choose Number of Questions</span>
+              <span className="font-display text-base text-gray-900 uppercase">Choose Category</span>
             </div>
-            <div className="grid grid-cols-4 gap-3">
-              {([5, 10, 15, 20] as const).map((count) => (
-                <button
-                  key={count}
-                  onClick={() => setQuestionCount(count)}
-                  className={`bg-[#E36B11]/5 rounded-2xl border p-4 flex flex-col items-center text-center transition-all ${
-                    questionCount === count
-                      ? 'border-[#E36B11] border-2'
-                      : 'border-[#E36B11]/20 hover:border-[#E36B11]/40'
-                  }`}
-                >
-                  <div className="flex items-center gap-1 mb-1">
-                    <img src="/images/bogxcoin.png" alt="" className="w-5 h-5" />
-                    <span className="font-display text-2xl text-gray-900">{count}</span>
-                  </div>
-                  <span className="text-[10px] text-gray-500 uppercase tracking-wider">Questions</span>
-                </button>
-              ))}
+            {/* Mobile: horizontal slider, Desktop: 4-column grid */}
+            <div className="flex gap-2 overflow-x-auto pb-2 sm:grid sm:grid-cols-4 sm:overflow-visible sm:pb-0" style={{ scrollbarWidth: 'none' }}>
+              {(categories.length > 0 ? categories : DEFAULT_CATEGORIES).map((cat: string) => {
+                const Icon = CATEGORY_ICONS[cat] || CATEGORY_ICONS[cat.toUpperCase()] || HelpCircle;
+                const displayName = cat === 'all' ? 'All' : cat.charAt(0).toUpperCase() + cat.slice(1);
+                const imageUrl = CATEGORY_IMAGES[cat.toLowerCase()] || CATEGORY_IMAGES['all'];
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`group relative flex-shrink-0 px-4 py-2.5 sm:px-0 sm:py-0 sm:h-24 rounded-xl transition-all border-2 overflow-hidden flex items-center justify-center gap-2 ${
+                      selectedCategory === cat
+                        ? 'border-[#E36B11] bg-[#E36B11]/10 ring-2 ring-[#E36B11]/30'
+                        : 'border-transparent sm:border-[#E36B11]/20 bg-[#E36B11]/5 hover:border-[#E36B11]/40'
+                    }`}
+                  >
+                    {/* Desktop only: background image */}
+                    <div 
+                      className="absolute inset-0 hidden sm:block bg-cover bg-center transition-transform duration-300 group-hover:scale-110"
+                      style={{ backgroundImage: `url(${imageUrl})` }}
+                    />
+                    {/* Gradient overlay - darker on hover */}
+                    <div className={`absolute inset-0 hidden sm:block transition-all duration-300 ${
+                      selectedCategory === cat 
+                        ? 'bg-gradient-to-t from-[#E36B11]/90 via-[#E36B11]/40 to-[#E36B11]/20'
+                        : 'bg-gradient-to-t from-black/70 via-black/20 to-transparent group-hover:from-black/80 group-hover:via-black/40 group-hover:to-black/20'
+                    }`} />
+                    {/* Mobile: icon + text, Desktop: bottom-left text only */}
+                    <Icon className="relative z-10 w-5 h-5 sm:hidden text-[#E36B11]" />
+                    <span className={`relative z-10 font-display text-base uppercase tracking-wider text-[#E36B11] sm:absolute sm:bottom-2 sm:left-2 sm:text-white sm:drop-shadow-lg transition-transform duration-300 sm:group-hover:translate-x-1 ${
+                      selectedCategory === cat ? 'sm:text-white' : ''
+                    }`}>{displayName}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Step 2: Choose Category */}
+          {/* Step 2: Choose Points Value */}
           <div className="mt-4">
             <div className="flex items-center gap-2 mb-3">
               <span className="w-5 h-5 bg-[#E36B11] rounded-full text-white text-[10px] font-bold flex items-center justify-center">2</span>
-              <span className="font-display text-base text-gray-900 uppercase">Choose Category</span>
+              <span className="font-display text-base text-gray-900 uppercase">Choose Correct Answer Value</span>
             </div>
-            <div className="relative">
-              {/* Left scroll button - desktop only */}
-              <button 
-                onClick={() => {
-                  const container = document.getElementById('category-scroll');
-                  if (container) container.scrollBy({ left: -150, behavior: 'smooth' });
-                }}
-                className="hidden sm:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/90 border border-[#E36B11]/20 rounded-full shadow-md items-center justify-center hover:bg-[#E36B11]/10 transition-colors"
-              >
-                <span className="text-[#E36B11] text-sm">‹</span>
-              </button>
-              
-              <div id="category-scroll" className="flex gap-2 overflow-x-auto pb-1 sm:px-10 scroll-smooth" style={{ scrollbarWidth: 'none' }}>
-                {categoriesLoading ? (
-                  // Skeleton loader for categories
-                  <>
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <div key={i} className="flex-shrink-0 py-1.5 px-6 rounded-lg bg-[#E36B11]/10 animate-pulse h-7 w-20" />
-                    ))}
-                  </>
-                ) : (
-                  categories.map((cat: string) => {
-                    const Icon = CATEGORY_ICONS[cat] || CATEGORY_ICONS[cat.toUpperCase()] || HelpCircle;
-                    const displayName = cat === 'all' ? 'All' : cat.charAt(0).toUpperCase() + cat.slice(1);
-                    return (
-                      <button
-                        key={cat}
-                        onClick={() => setSelectedCategory(cat)}
-                        className={`flex-shrink-0 py-1.5 sm:py-2.5 px-3 sm:px-4 text-[10px] sm:text-xs uppercase tracking-wider font-medium rounded-lg transition-all flex items-center gap-1 sm:gap-1.5 whitespace-nowrap border ${
-                          selectedCategory === cat
-                            ? 'bg-[#E36B11] text-white border-[#E36B11]'
-                            : 'bg-[#E36B11]/5 text-gray-700 border-[#E36B11]/20 hover:border-[#E36B11]/40'
-                        }`}
-                      >
-                        <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> {displayName}
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-              
-              {/* Right scroll button - desktop only */}
-              <button 
-                onClick={() => {
-                  const container = document.getElementById('category-scroll');
-                  if (container) container.scrollBy({ left: 150, behavior: 'smooth' });
-                }}
-                className="hidden sm:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/90 border border-[#E36B11]/20 rounded-full shadow-md items-center justify-center hover:bg-[#E36B11]/10 transition-colors"
-              >
-                <span className="text-[#E36B11] text-sm">›</span>
-              </button>
+            <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+              {POINT_OPTIONS.map((points) => {
+                const penalty = Math.round(points * PENALTY_RATE * 100) / 100;
+                return (
+                  <button
+                    key={points}
+                    onClick={() => {
+                      setMaxPoints(points);
+                      setWrongPenalty(penalty);
+                      setCurrentPoints(points);
+                    }}
+                    className={`flex-1 min-w-[60px] rounded-xl border-2 p-2 sm:p-3 flex flex-col items-center text-center transition-all ${
+                      maxPoints === points
+                        ? 'border-[#E36B11] bg-[#E36B11]/10'
+                        : 'border-transparent sm:border-[#E36B11]/20 bg-[#E36B11]/5 hover:border-[#E36B11]/40'
+                    }`}
+                  >
+                    <div className="flex items-center gap-0.5">
+                      <img src="/images/bogxcoin.png" alt="" className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      <span className="font-display text-base sm:text-xl text-gray-900">{formatCurrency(points)}</span>
+                    </div>
+                    <span className="text-[8px] sm:text-[9px] text-red-500 mt-0.5">-{formatCurrency(penalty)}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Max Win / Wrong Penalty / How it Works - in one box with dividers */}
-          <div className="bg-[#E36B11]/5 rounded-2xl border border-[#E36B11]/20 mt-4 grid grid-cols-3 divide-x divide-[#E36B11]/20">
-            <div className="py-4 px-3 text-center">
-              <span className="font-display text-sm text-gray-700 uppercase">Correct Answer</span>
-              <div className="flex items-center justify-center gap-1.5 mt-1">
-                <span className="text-green-500 font-bold">+</span>
-                <img src="/images/bogxcoin.png" alt="BOGX" className="w-6 h-6" />
-                <span className="font-display text-2xl text-green-600">{formatCurrency(MAX_POINTS)}</span>
-                <span className="text-xs text-gray-500">max</span>
+          {/* Info Box - How it Works */}
+          <div className="bg-[#E36B11]/5 rounded-2xl border border-[#E36B11]/20 mt-4 p-3 sm:p-5">
+            {/* Mobile: 2 rows with Correct/Wrong side by side, then Max Win/Loss */}
+            {/* Desktop: 4 columns */}
+            <div className="hidden sm:flex sm:items-center sm:justify-center gap-4 text-center">
+              {/* Desktop layout - 4 items with separator between Wrong and Max Win */}
+              <div className="flex-1">
+                <span className="font-display text-xs text-gray-500 uppercase">Correct</span>
+                <div className="flex items-center justify-center gap-1 mt-1.5">
+                  <img src="/images/bogxcoin.png" alt="" className="w-6 h-6" />
+                  <span className="text-green-500 font-bold text-xl">+</span>
+                  <span className="font-display text-3xl text-green-600 tabular-nums">{formatCurrency(displayCorrect)}</span>
+                </div>
+                <span className="text-[9px] text-gray-400">max per answer</span>
               </div>
-              <p className="text-[9px] text-gray-700 mt-1">Faster = more points</p>
-            </div>
-            <div className="py-4 px-3 text-center">
-              <span className="font-display text-sm text-gray-700 uppercase">Wrong / Time Up</span>
-              <div className="flex items-center justify-center gap-1.5 mt-1">
-                <span className="text-red-500 font-bold">-</span>
-                <img src="/images/bogxcoin.png" alt="BOGX" className="w-6 h-6" />
-                <span className="font-display text-2xl text-red-500">{formatCurrency(WRONG_PENALTY)}</span>
+              <div className="flex-1">
+                <span className="font-display text-xs text-gray-500 uppercase">Wrong</span>
+                <div className="flex items-center justify-center gap-1 mt-1.5">
+                  <img src="/images/bogxcoin.png" alt="" className="w-6 h-6" />
+                  <span className="text-red-500 font-bold text-xl">-</span>
+                  <span className="font-display text-3xl text-red-500 tabular-nums">{formatCurrency(displayWrong)}</span>
+                </div>
+                <span className="text-[9px] text-gray-400">per wrong/timeout</span>
               </div>
-              <p className="text-[9px] text-gray-700 mt-1">Per wrong or timeout</p>
-            </div>
-            <div className="py-4 px-3 text-center">
-              <span className="font-display text-sm text-gray-700 uppercase">How it Works</span>
-              <div className="mt-2 text-[10px] text-gray-700 space-y-1">
-                <p className="flex items-center justify-center gap-1"><Timer className="w-3 h-3 text-[#E36B11]" /> 10 sec per question</p>
-                <p className="flex items-center justify-center gap-1"><Trophy className="w-3 h-3 text-[#E36B11]" /> Max: {formatCurrency(questionCount * MAX_POINTS)} BOGX</p>
+              
+              {/* Separator */}
+              <div className="w-px h-16 bg-[#E36B11]/20 mx-2" />
+              
+              <div className="flex-1">
+                <span className="font-display text-xs text-gray-500 uppercase">Max Win</span>
+                <div className="flex items-center justify-center gap-1 mt-1.5">
+                  <img src="/images/bogxcoin.png" alt="" className="w-6 h-6" />
+                  <span className="text-green-500 font-bold text-xl">+</span>
+                  <span className="font-display text-3xl text-green-600 tabular-nums">{formatCurrency(displayMaxWin)}</span>
+                </div>
+                <span className="text-[9px] text-gray-400">5 correct</span>
+              </div>
+              <div className="flex-1">
+                <span className="font-display text-xs text-gray-500 uppercase">Max Loss</span>
+                <div className="flex items-center justify-center gap-1 mt-1.5">
+                  <img src="/images/bogxcoin.png" alt="" className="w-6 h-6" />
+                  <span className="text-red-500 font-bold text-xl">-</span>
+                  <span className="font-display text-3xl text-red-500 tabular-nums">{formatCurrency(displayMaxLoss)}</span>
+                </div>
+                <span className="text-[9px] text-gray-400">5 wrong</span>
               </div>
             </div>
+            
+            {/* Mobile layout - cleaner horizontal rows */}
+            <div className="sm:hidden space-y-3">
+              {/* Per Answer Row */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center">
+                    <Check className="w-4 h-4 text-green-500" />
+                  </div>
+                  <span className="font-display text-sm text-gray-700">Correct</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-green-500 font-bold">+</span>
+                  <span className="font-display text-xl text-green-600 tabular-nums">{formatCurrency(displayCorrect)}</span>
+                  <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center">
+                    <X className="w-4 h-4 text-red-500" />
+                  </div>
+                  <span className="font-display text-sm text-gray-700">Wrong</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-red-500 font-bold">-</span>
+                  <span className="font-display text-xl text-red-500 tabular-nums">{formatCurrency(displayWrong)}</span>
+                  <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
+                </div>
+              </div>
+              
+              {/* Divider */}
+              <div className="border-t border-[#E36B11]/20 pt-3 flex justify-between text-center">
+                <div>
+                  <span className="text-[10px] text-gray-500 uppercase block">Max Win</span>
+                  <div className="flex items-center gap-1 mt-1">
+                    <span className="text-green-500 font-bold">+</span>
+                    <span className="font-display text-lg text-green-600 tabular-nums">{formatCurrency(displayMaxWin)}</span>
+                    <img src="/images/bogxcoin.png" alt="" className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+                <div>
+                  <span className="text-[10px] text-gray-500 uppercase block">Max Loss</span>
+                  <div className="flex items-center gap-1 mt-1">
+                    <span className="text-red-500 font-bold">-</span>
+                    <span className="font-display text-lg text-red-500 tabular-nums">{formatCurrency(displayMaxLoss)}</span>
+                    <img src="/images/bogxcoin.png" alt="" className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <p className="text-[10px] sm:text-xs text-gray-500 text-center mt-3 pt-2 sm:mt-4 sm:pt-3 border-t border-[#E36B11]/20">5 Questions · 10 sec each · Faster = more points</p>
           </div>
 
           {/* Start Button - centered, narrower */}
@@ -829,99 +1119,241 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
     );
   }
 
-  // Playing Phase - QuizzBattle style
+  // Playing Phase - Solo layout (no opponent)
   if (phase === 'playing' && currentQuestion) {
     const timeSeconds = Math.ceil(timeLeft / 1000);
     const timePct = timeLeft / 10000;
-    const filledSegments = Math.round(timePct * 10);
-    const timerColor = timePct > 0.5 ? '#E36B11' : timePct > 0.25 ? '#E05A00' : '#DC2626';
+    const filledSegments = Math.round(timePct * 8);
+    // Timer color: >5s gray, 5-3s yellow, <3s red (same as QuizBattle)
+    const timeSecondsRaw = timeLeft / 1000;
+    const timerColor = timeSecondsRaw > 5 
+      ? '#6B7280' 
+      : timeSecondsRaw > 3 
+        ? '#EAB308' 
+        : '#DC2626';
+    const CategoryIcon = CATEGORY_ICONS[currentQuestion.category] || CATEGORY_ICONS[currentQuestion.category?.toUpperCase()] || HelpCircle;
     
     return (
-      <div className="flex flex-col h-full min-h-full" style={{ backgroundColor: '#F5F0E8' }}>
-        <GameHeader showBack={false} />
-        
-        {/* Card Container */}
-        <div className="flex-1 p-4 flex flex-col">
-          <div className="flex-1 border border-warm bg-cream rounded-xl flex flex-col p-5 shadow-sm">
+      <div className="flex flex-col h-full min-h-full bg-cream">
+        {/* Main Card - fills available height */}
+        <div className="flex-1 m-2 sm:m-4 border border-warm bg-cream rounded-2xl flex flex-col p-4 sm:p-6 shadow-lg min-h-0">
           
-            {/* Progress Bar */}
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-semibold text-gray-900">Question {currentIndex + 1}/{questions.length}</span>
-              <div className="flex items-center gap-0.5">
+          {/* Status Bar - Same structure as BattleQuizScreen */}
+          <div className="flex items-stretch border border-warm rounded-xl bg-cream overflow-hidden mb-4 sm:mb-5">
+            {/* You */}
+            <div className="flex-1 min-w-0 flex flex-col items-center gap-1 p-2 sm:p-4 border-r border-warm">
+              <div className="w-8 h-8 sm:w-14 sm:h-14 rounded-full overflow-hidden border-2 sm:border-3 flex-shrink-0 border-warm">
+                <img src={user?.avatar || 'https://i.pravatar.cc/80?img=47'} alt="" className="w-full h-full object-cover" />
+              </div>
+              <div className="font-display text-sm sm:text-xl text-gray-900 truncate tracking-wide">You</div>
+              <div className="font-display text-xl sm:text-4xl tracking-wide text-gray-800">{correctCount}</div>
+            </div>
+
+            {/* Center - Topic + Question indicators */}
+            <div className="flex flex-col items-center justify-center gap-1 sm:gap-2 px-1.5 sm:px-4 py-2 sm:py-4">
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 bg-gray-100 rounded-lg text-[10px] text-gray-600 uppercase tracking-wider font-bold whitespace-nowrap">
+                <CategoryIcon className="w-3 h-3" /> {currentQuestion.category || 'Trivia'}
+              </span>
+              <span className="font-display text-xs sm:text-lg text-gray-400 tracking-wider">Q{currentIndex + 1}/{questions.length}</span>
+              {/* Question dots */}
+              <div className="flex gap-1 sm:gap-2">
                 {Array.from({ length: questions.length }).map((_, i) => {
-                  let color = 'bg-gray-300';
-                  if (i < answerHistory.length) {
-                    // Already answered - show green for correct, red for wrong
-                    color = answerHistory[i] === 'correct' ? 'bg-green-500' : 'bg-red-500';
-                  } else if (i === currentIndex) {
-                    color = 'bg-[#E36B11]/50';
-                  }
-                  return <div key={i} className={`w-3 h-1 rounded ${color}`} />;
+                  const result = answerHistory[i];
+                  const isCurrentQuestion = i === currentIndex && !result;
+                  const color = result ? (result === 'correct' ? '#10b981' : '#ef4444') : (i === currentIndex ? '#6B7280' : '#e5e7eb');
+                  const isClickable = i < answerHistory.length;
+                  return (
+                    <span 
+                      key={i} 
+                      onClick={() => isClickable && setReviewQuestion(reviewQuestion === i ? null : i)}
+                      className={`min-w-[24px] h-6 sm:min-w-[36px] sm:h-8 px-1.5 sm:px-2 rounded-md flex items-center justify-center font-display text-[10px] sm:text-xs tracking-wider text-white transition-all ${
+                        isClickable ? 'cursor-pointer hover:scale-110' : ''
+                      } ${
+                        reviewQuestion === i ? 'ring-2 ring-offset-1 ring-gray-900' : ''
+                      } ${
+                        isCurrentQuestion ? 'animate-pulse ring-2 ring-[#6B7280]/50 shadow-lg' : ''
+                      }`}
+                      style={{ 
+                        background: color,
+                        boxShadow: isCurrentQuestion ? '0 0 12px rgba(107, 114, 128, 0.5)' : undefined
+                      }}
+                    >
+                      Q{i + 1}
+                    </span>
+                  );
                 })}
               </div>
-              <div className="flex items-center gap-1">
-                <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
-                <span className="font-display text-sm text-[#E36B11]">{formatCurrency(totalEarnings)}</span>
-              </div>
             </div>
 
-          {/* Category Badge */}
-          <div className="mb-3">
-            <span className="px-2 py-0.5 bg-cream border border-warm rounded text-[10px] text-gray-600 uppercase tracking-wider">
-              {currentQuestion.category}
-            </span>
-          </div>
-
-          {/* Timer Row with LED segments */}
-          <div className="flex items-center justify-between gap-2 mb-4">
-            <div className="flex items-center gap-1">
+            {/* Earnings */}
+            <div className="flex-1 min-w-0 flex flex-col items-center gap-1 p-2 sm:p-4 border-l border-warm">
+              <img 
+                src="/images/bogxcoin.png" 
+                alt="" 
+                className="w-10 h-10 sm:w-16 sm:h-16 flex-shrink-0"
+                key={`coin-${totalEarnings}`}
+                style={{ animation: 'coinPop 0.4s ease-out' }}
+              />
               <div 
-                className="w-11 h-11 border-2 rounded-lg flex items-center justify-center transition-colors duration-300"
-                style={{ borderColor: timerColor, backgroundColor: `${timerColor}15` }}
+                className={`font-display text-lg sm:text-3xl font-bold tracking-wide tabular-nums transition-colors duration-300 ${
+                  scoreColor === 'green' 
+                    ? 'text-green-500' 
+                    : scoreColor === 'red' 
+                      ? 'text-red-500' 
+                      : displayScore >= 0 
+                        ? 'text-gray-900' 
+                        : 'text-red-500'
+                }`}
+                style={{ 
+                  textShadow: scoreColor === 'green' 
+                    ? '0 0 12px rgba(34,197,94,0.5)' 
+                    : scoreColor === 'red' 
+                      ? '0 0 12px rgba(239,68,68,0.5)' 
+                      : 'none'
+                }}
               >
-                <span className="font-display text-2xl text-gray-900">{String(timeSeconds).padStart(2, '0')}</span>
+                {displayScore >= 0 ? '+' : ''}{formatCurrency(displayScore)}
               </div>
-              <span className="text-gray-600 text-[10px]">SEC</span>
-            </div>
-            <div className="flex-1 px-1">
-              <div className="flex gap-0.5">
-                {[...Array(10)].map((_, i) => (
-                  <div 
-                    key={i} 
-                    className="h-4 flex-1 rounded transition-colors duration-300"
-                    style={{ backgroundColor: i < filledSegments ? timerColor : '#E5E0D8' }}
-                  />
-                ))}
+              <div className="text-[10px] sm:text-sm text-gray-500 flex items-center gap-1 font-semibold">
+                <span 
+                  key={`gains-${totalGains}`}
+                  className="text-green-600 tabular-nums"
+                  style={{ animation: 'scorePop 0.3s ease-out' }}
+                >
+                  +{formatCurrency(totalGains)}
+                </span>
+                {' / '}
+                <span 
+                  key={`losses-${totalLosses}`}
+                  className="text-red-500 tabular-nums"
+                  style={{ animation: 'scorePop 0.3s ease-out' }}
+                >
+                  -{formatCurrency(totalLosses)}
+                </span>
               </div>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="font-display text-2xl text-gray-900">{formatCurrency(currentPoints)}</span>
-              <img src="/images/bogxcoin.png" alt="BOGX" className="w-5 h-5" />
             </div>
           </div>
+          
+          {/* Scoreboard animations */}
+          <style jsx>{`
+            @keyframes scorePop {
+              0% { transform: scale(1.4); opacity: 0; }
+              50% { transform: scale(1.1); }
+              100% { transform: scale(1); opacity: 1; }
+            }
+            @keyframes coinPop {
+              0% { transform: scale(1) rotate(0deg); }
+              25% { transform: scale(1.2) rotate(-10deg); }
+              50% { transform: scale(1.3) rotate(10deg); }
+              75% { transform: scale(1.1) rotate(-5deg); }
+              100% { transform: scale(1) rotate(0deg); }
+            }
+          `}</style>
 
-          {/* Question Container */}
-          <div className="border border-warm bg-cream rounded-xl px-4 py-4 mb-4 flex items-center justify-center min-h-[100px]">
-            <h2 className="text-gray-900 text-base font-bold text-center leading-snug">
+          {/* Timer Row - LED style like Battle */}
+          <div className="flex items-center gap-2.5 sm:gap-4 mb-4 sm:mb-5">
+            <div 
+              key={timeSeconds}
+              className={`w-12 h-12 sm:w-16 sm:h-16 rounded-lg sm:rounded-xl flex flex-col items-center justify-center flex-shrink-0 transition-all duration-200 ${
+                timeSeconds <= 3 ? 'animate-pulse scale-110' : ''
+              }`}
+              style={{ 
+                background: `linear-gradient(135deg, ${timerColor}dd 0%, ${timerColor} 100%)`,
+                boxShadow: timeSeconds <= 3 
+                  ? `0 0 20px ${timerColor}60, inset 0 0 0 2px ${timerColor}40`
+                  : `inset 0 0 0 2px ${timerColor}40`,
+                animation: 'popIn 0.3s ease-out'
+              }}
+            >
+              <span 
+                className="font-display text-lg sm:text-2xl text-white tabular-nums"
+                style={{ 
+                  animation: 'popNumber 0.3s ease-out',
+                  textShadow: timeSeconds <= 3 ? '0 0 10px rgba(255,255,255,0.5)' : 'none'
+                }}
+              >
+                {String(timeSeconds).padStart(2, '0')}
+              </span>
+              <span className="font-display text-[7px] sm:text-[9px] text-white/80 tracking-widest">SEC</span>
+            </div>
+            <div className="flex-1 flex gap-1 sm:gap-1.5">
+              {[...Array(8)].map((_, i) => (
+                <span 
+                  key={i} 
+                  className="h-2.5 sm:h-4 flex-1 rounded transition-all duration-300"
+                  style={{ 
+                    backgroundColor: i < filledSegments ? timerColor : '#E5E0D8',
+                    boxShadow: i < filledSegments && timeSeconds <= 3 ? `0 0 8px ${timerColor}` : 'none'
+                  }}
+                />
+              ))}
+            </div>
+            {/* Right side: Points - pulses when low time */}
+            <div className={`flex items-center gap-1.5 sm:gap-2 flex-shrink-0 min-w-[70px] sm:min-w-[90px] justify-end ${
+              timeSeconds <= 3 ? 'animate-pulse' : ''
+            }`}>
+              <span 
+                className="font-display text-xl sm:text-3xl tabular-nums transition-all duration-200" 
+                style={{ 
+                  color: timerColor,
+                  textShadow: timeSeconds <= 3 ? `0 0 10px ${timerColor}60` : 'none'
+                }}
+              >
+                {formatCurrency(currentPoints)}
+              </span>
+              <img 
+                src="/images/bogxcoin.png" 
+                alt="BOGX" 
+                className={`w-5 h-5 sm:w-6 sm:h-6 transition-transform duration-200 ${
+                  timeSeconds <= 3 ? 'animate-spin' : ''
+                }`}
+                style={{ animationDuration: '2s' }}
+              />
+            </div>
+          </div>
+          
+          {/* CSS for pop animations */}
+          <style jsx>{`
+            @keyframes popIn {
+              0% { transform: scale(0.8); opacity: 0.5; }
+              50% { transform: scale(1.1); }
+              100% { transform: scale(1); opacity: 1; }
+            }
+            @keyframes popNumber {
+              0% { transform: scale(1.3); opacity: 0; }
+              100% { transform: scale(1); opacity: 1; }
+            }
+          `}</style>
+
+          {/* Question Card */}
+          <div className="border border-warm bg-cream rounded-xl p-4 sm:p-6 mb-4 sm:mb-5 flex items-center justify-center min-h-[80px] sm:min-h-[120px]">
+            <h2 className="font-display text-lg sm:text-2xl text-gray-900 text-center leading-snug tracking-wide">
               {currentQuestion.question}
             </h2>
           </div>
 
-          {/* Answers - 2x2 grid like QuizzBattle */}
-          <div className="grid grid-cols-2 gap-2 mb-3">
+          {/* Answers - 2x2 grid with Battle animations */}
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 flex-1">
             {currentQuestion.options.map((option, i) => {
-              let className = 'px-2 py-3 min-h-[64px] text-sm font-bold flex items-center justify-center text-center transition-all rounded-lg';
+              const delay = `${i * 0.08}s`;
+              let className = 'rounded-xl p-3 sm:p-4 min-h-[60px] sm:min-h-[72px] text-base sm:text-lg font-display tracking-wide flex items-center justify-center text-center transition-all cursor-pointer';
+              let showIcon = false;
+              let iconType: 'check' | 'x' | null = null;
               
               if (showResult) {
                 if (i === currentQuestion.correctIndex) {
-                  className += ' bg-[#E36B11] text-white border-2 border-[#E36B11]';
-                } else if (i === selectedAnswer) {
+                  className += ' bg-[#10b981] text-white border-2 border-[#10b981]';
+                  showIcon = true;
+                  iconType = 'check';
+                } else if (i === selectedAnswer && selectedAnswer !== currentQuestion.correctIndex) {
                   className += ' bg-red-500 text-white border-2 border-red-500';
+                  showIcon = true;
+                  iconType = 'x';
                 } else {
-                  className += ' bg-cream border border-warm text-gray-600';
+                  className += ' bg-cream border-2 border-warm text-gray-400 opacity-60';
                 }
               } else {
-                className += ' bg-cream text-gray-900 border border-warm hover:border-gray-300 cursor-pointer';
+                className += ' bg-cream text-gray-900 border-2 border-warm hover:border-gray-400 hover:-translate-y-0.5 hover:shadow-md active:scale-[0.99]';
               }
               
               return (
@@ -929,7 +1361,8 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
                   key={i}
                   onClick={() => handleAnswer(i)}
                   disabled={showResult}
-                  className={className}
+                  className={`${className} animate-[fadeInUp_0.4s_ease-out_backwards]`}
+                  style={{ animationDelay: delay }}
                 >
                   <span className="line-clamp-2">{option}</span>
                 </button>
@@ -937,37 +1370,89 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
             })}
           </div>
 
-          {/* Result Banner - AFTER answers so layout stays stable */}
-          <div className="min-h-[44px] flex items-stretch mt-auto">
-            {showResult && (
-              <div className={`w-full py-2 px-4 rounded-lg flex items-center justify-center gap-2 ${
-                selectedAnswer === -1 
-                  ? 'bg-red-500' 
-                  : selectedAnswer === currentQuestion.correctIndex 
-                    ? 'bg-[#E36B11]' 
-                    : 'bg-red-500'
-              }`}>
-                {selectedAnswer === -1 ? (
-                  <>
-                    <Clock className="w-5 h-5 text-white" />
-                    <span className="font-display text-lg tracking-wider text-white">TIME'S UP!</span>
-                  </>
-                ) : selectedAnswer === currentQuestion.correctIndex ? (
-                  <>
-                    <Check className="w-5 h-5 text-white" />
-                    <span className="font-display text-lg tracking-wider text-white">CORRECT! +{formatCurrency(currentPoints)}</span>
-                    <img src="/images/bogxcoin.png" alt="BOGX" className="w-5 h-5" />
-                  </>
-                ) : (
-                  <>
-                    <X className="w-5 h-5 text-white" />
-                    <span className="font-display text-lg tracking-wider text-white">WRONG!</span>
-                  </>
-                )}
+          {/* Feedback + Next Button Row - Always visible */}
+          <div className="flex items-center justify-between gap-2 sm:gap-4 min-h-[48px] sm:min-h-[56px] mt-3 sm:mt-4">
+            {/* Feedback Tag - gray when waiting, colored after answer */}
+            <div 
+              className="px-3 sm:px-5 py-2 sm:py-3 rounded-xl font-bold text-sm sm:text-base flex items-center gap-2 transition-all"
+              style={{
+                background: !showResult ? '#e5e7eb' : 
+                  selectedAnswer === -1 ? '#ef4444' : 
+                  selectedAnswer === currentQuestion.correctIndex ? '#10b981' : '#ef4444',
+                color: !showResult ? '#9ca3af' : 'white'
+              }}
+            >
+              {!showResult ? (
+                'Pick an answer'
+              ) : selectedAnswer === -1 ? (
+                <>
+                  <Clock className="w-5 h-5" />
+                  Time's up
+                  <img src="/images/bogxcoin.png" alt="" className="w-4 h-4 mx-1 brightness-0 invert" />
+                  -{formatCurrency(wrongPenalty)}
+                </>
+              ) : selectedAnswer === currentQuestion.correctIndex ? (
+                <>
+                  <Check className="w-5 h-5 animate-[popIcon_0.35s_ease-out]" />
+                  Correct
+                  <img src="/images/bogxcoin.png" alt="" className="w-4 h-4 mx-1 brightness-0 invert" />
+                  +{formatCurrency(currentPoints)}
+                </>
+              ) : (
+                <>
+                  <X className="w-5 h-5 animate-[popIcon_0.35s_ease-out]" />
+                  Wrong
+                  <img src="/images/bogxcoin.png" alt="" className="w-4 h-4 mx-1 brightness-0 invert" />
+                  -{formatCurrency(wrongPenalty)}
+                </>
+              )}
+            </div>
+
+            {/* Next Button - gray when waiting, dark gray after answer */}
+            <button
+              onClick={goToNextQuestion}
+              disabled={!showResult}
+              className={`px-8 py-3 font-display text-base tracking-widest rounded-xl flex items-center gap-2 transition-all ${
+                showResult 
+                  ? 'bg-gray-500 text-white hover:bg-gray-600 cursor-pointer' 
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              {currentIndex + 1 >= questions.length ? 'Results' : 'Next'}
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Review past question when clicking Q indicator */}
+          {reviewQuestion !== null && questions[reviewQuestion] && (
+            <div className="mt-4 border-t border-warm pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs text-gray-500 uppercase tracking-wider">Review Q{reviewQuestion + 1}</span>
+                <button onClick={() => setReviewQuestion(null)} className="text-gray-400 hover:text-gray-600">
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-            )}
-          </div>
-          </div>
+              <div className="border border-warm bg-cream/50 rounded-xl p-4 mb-3">
+                <p className="font-display text-lg text-gray-900 text-center">{questions[reviewQuestion].question}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {questions[reviewQuestion].options.map((option, i) => {
+                  const wasSelected = selectedAnswers[reviewQuestion] === i;
+                  const isCorrect = i === questions[reviewQuestion].correctIndex;
+                  let bgClass = 'bg-cream border-warm text-gray-400';
+                  if (isCorrect) bgClass = 'bg-[#10b981] border-[#10b981] text-white';
+                  else if (wasSelected) bgClass = 'bg-red-500 border-red-500 text-white';
+                  return (
+                    <div key={i} className={`p-3 rounded-xl border-2 text-sm font-display text-center ${bgClass}`}>
+                      {option}
+                      {isCorrect && <Check className="w-4 h-4 inline ml-1" />}
+                      {wasSelected && !isCorrect && <X className="w-4 h-4 inline ml-1" />}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );

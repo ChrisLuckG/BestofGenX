@@ -2,15 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import Battle from '@/models/Battle';
 import User from '@/models/User';
-import Card from '@/models/Card';
+import Question from '@/models/Question';
 import { TOPIC_TO_THEME } from '@/lib/battleTopics';
 
 // NOTE: culture removed - not enough DB questions for this theme yet
 const TOPICS = ['sport', 'music', 'film', 'fashion', 'games', 'tv'];
-// BOGX wager amounts - Bot uses the lowest VALID wager so new users can play
-// (0.05 no longer exists - minimum is 0.10)
+// BOGX wager amounts - Bots use various wagers
 const WAGERS = [
-  { amount: 0.10, rounds: 3 },
+  { amount: 0.25, rounds: 3 },
+  { amount: 0.50, rounds: 3 },
+  { amount: 0.75, rounds: 5 },
+  { amount: 1.00, rounds: 5 },
 ];
 
 // Shadow Hunter is always available - find or ensure he has a battle
@@ -56,20 +58,20 @@ async function ensureShadowHunterBattle(): Promise<{ created: boolean; joined: b
     
     // Get random cards using aggregation with $sample - MUST match the battle topic,
     // otherwise the battle is labelled e.g. FILM but serves SPORTS questions.
-    const cards = await Card.aggregate([
+    const questions = await Question.aggregate([
       { $match: { active: true, theme: TOPIC_TO_THEME[topic] } },
       { $sample: { size: wagerConfig.rounds } }
     ]);
     
-    if (cards.length >= wagerConfig.rounds) {
-      const questions = cards.map((card: any) => {
-        const q = card.questions?.[0];
+    if (questions.length >= wagerConfig.rounds) {
+      const battleQuestions = questions.map((q: any) => {
+        const correctIndex = q.options?.indexOf(q.correctAnswer) ?? 0;
         return {
-          cardId: card._id,
-          question: q?.question || 'Question',
-          answers: q?.options || ['A', 'B', 'C', 'D'],
-          correctIndex: q?.options?.indexOf(q?.correctAnswer) || 0,
-          topic: card.topic,
+          questionId: q._id.toString(),
+          question: q.question || 'Question',
+          answers: q.options || ['A', 'B', 'C', 'D'],
+          correctIndex: correctIndex >= 0 ? correctIndex : 0,
+          topic: q.topic,
         };
       });
       
@@ -79,7 +81,7 @@ async function ensureShadowHunterBattle(): Promise<{ created: boolean; joined: b
         wager: wagerConfig.amount,
         rounds: wagerConfig.rounds,
         status: 'open',
-        questions,
+        questions: battleQuestions,
         creatorResults: [],
         opponentResults: [],
         createdVia: 'trigger-bots:ensureShadowHunterBattle',
@@ -185,7 +187,8 @@ export async function POST(request: NextRequest) {
       });
     }
     
-    // Get 1-2 random active bots with enough points.
+    // Get up to 8 random active bots with enough points.
+    // Each bot can only have 1 open battle at a time.
     // MUST match on isBot only. Matching `botActive: true` as an alternative was a
     // severe bug: botActive defaults to true on normal user accounts, so real users
     // were picked as "bots" and had battles created under their name (wager deducted
@@ -195,10 +198,10 @@ export async function POST(request: NextRequest) {
         $match: { 
           isBot: true,
           botActive: { $ne: false },
-          bogxCoins: { $gte: 25 }
+          bogxCoins: { $gte: 0.25 } // Minimum wager
         } 
       },
-      { $sample: { size: 2 } }
+      { $sample: { size: 8 } }
     ]);
     
     if (bots.length === 0) {
@@ -215,30 +218,43 @@ export async function POST(request: NextRequest) {
     };
     
     for (const bot of bots) {
-      // 50% chance to create a battle, 50% to join an existing one
-      const shouldCreate = Math.random() > 0.5;
+      // Check if this bot already has an open battle
+      const existingBotBattle = await Battle.findOne({
+        creator: bot._id,
+        status: 'open'
+      });
+      
+      if (existingBotBattle) {
+        // Bot already has an open battle, skip
+        continue;
+      }
+      
+      // 70% chance to create a battle, 30% to join an existing one
+      const shouldCreate = Math.random() > 0.3;
       
       if (shouldCreate) {
-        // Create a new battle
+        // Create a new battle - each bot gets a different wager based on their index
         const topic = TOPICS[Math.floor(Math.random() * TOPICS.length)];
-        const wagerConfig = WAGERS[Math.floor(Math.random() * WAGERS.length)];
+        // Assign wager based on bot index for variety
+        const botIndex = bots.indexOf(bot);
+        const wagerConfig = WAGERS[botIndex % WAGERS.length];
         
         if (bot.bogxCoins >= wagerConfig.amount) {
-          // Get random cards for this battle using $sample - MUST match the battle topic
-          const cards = await Card.aggregate([
+          // Get random questions for this battle
+          const dbQuestions = await Question.aggregate([
             { $match: { active: true, theme: TOPIC_TO_THEME[topic] } },
             { $sample: { size: wagerConfig.rounds } }
           ]);
           
-          if (cards.length >= wagerConfig.rounds) {
-            const questions = cards.map((card: any) => {
-              const q = card.questions?.[0];
+          if (dbQuestions.length >= wagerConfig.rounds) {
+            const battleQuestions = dbQuestions.map((q: any) => {
+              const correctIndex = q.options?.indexOf(q.correctAnswer) ?? 0;
               return {
-                cardId: card._id,
-                question: q?.question || 'Question',
-                answers: q?.options || ['A', 'B', 'C', 'D'],
-                correctIndex: q?.options?.indexOf(q?.correctAnswer) || 0,
-                topic: card.topic,
+                questionId: q._id.toString(),
+                question: q.question || 'Question',
+                answers: q.options || ['A', 'B', 'C', 'D'],
+                correctIndex: correctIndex >= 0 ? correctIndex : 0,
+                topic: q.topic,
               };
             });
             
@@ -248,7 +264,7 @@ export async function POST(request: NextRequest) {
               wager: wagerConfig.amount,
               rounds: wagerConfig.rounds,
               status: 'open',
-              questions,
+              questions: battleQuestions,
               creatorResults: [],
               opponentResults: [],
               createdVia: 'trigger-bots:botLoop',

@@ -21,10 +21,10 @@ export async function POST(request: NextRequest) {
     
     console.log("Generating quiz for topic:", topic || "RANDOM GenX", "theme:", theme);
 
-    // Build user prompt
+    // Build user prompt - ENGLISH ONLY, no German!
     const userPrompt = hasCustomTopic 
-      ? `Erstelle eine Quiz-Frage über: "${topic}"`
-      : `Erstelle eine ZUFÄLLIGE Quiz-Frage aus der GenX-Ära (1980-2005). Wähle ein UNERWARTETES Thema!`;
+      ? `Create a quiz question about: "${topic}"`
+      : `Create a RANDOM quiz question from the GenX era (1980-2005). Pick an UNEXPECTED topic!`;
 
     // Generate quiz content with GPT
     const completion = await openai.chat.completions.create({

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, X, Check, HelpCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Check, HelpCircle, Music, Dumbbell, Film, Gamepad2, Landmark } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { compareBattleResults } from "@/utils/battleWinner";
 import { formatCurrency } from "@/utils/currency";
 
@@ -38,17 +39,15 @@ interface BattleResultCardProps {
   questions?: BattleQuestion[];
 }
 
-// Topic config
-const TOPICS: Record<string, { label: string; emoji: string }> = {
-  sport: { label: 'Sport', emoji: '⚽' },
-  music: { label: 'Music', emoji: '🎵' },
-  film: { label: 'Film', emoji: '🎬' },
-  culture: { label: 'Culture', emoji: '🕹' },
-  fashion: { label: 'Fashion', emoji: '👗' },
-  games: { label: 'Games', emoji: '🎮' },
-  tv: { label: 'TV', emoji: '📺' },
-  art: { label: 'Art', emoji: '🎨' },
-  food: { label: 'Food', emoji: '🍔' },
+// Topic config - 5 official categories only
+const TOPICS: Record<string, { label: string; icon: LucideIcon }> = {
+  music: { label: 'Music', icon: Music },
+  sport: { label: 'Sport', icon: Dumbbell },
+  film: { label: 'Movies', icon: Film },
+  movies: { label: 'Movies', icon: Film },
+  games: { label: 'Gaming', icon: Gamepad2 },
+  gaming: { label: 'Gaming', icon: Gamepad2 },
+  politik: { label: 'Politik', icon: Landmark },
 };
 
 export default function BattleResultCard({
@@ -268,8 +267,8 @@ export default function BattleResultCard({
       
       {/* Header - sticky close button */}
       <div className="flex items-center justify-between mb-2 flex-shrink-0">
-        <span className="px-2 py-1 bg-white border border-warm rounded-lg text-[10px] text-gray-700 uppercase tracking-wider font-semibold">
-          {topicConfig.emoji} {topicConfig.label}
+        <span className="px-2 py-1 bg-white border border-warm rounded-lg text-[10px] text-gray-700 uppercase tracking-wider font-semibold flex items-center gap-1">
+          <topicConfig.icon className="w-3 h-3" /> {topicConfig.label}
         </span>
         <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">
           Battle Complete
@@ -406,6 +405,16 @@ export default function BattleResultCard({
               </div>
             );
           })}
+          {/* Total - highlight winner */}
+          <div 
+            className={`min-w-[70px] p-1.5 rounded-lg border-2 ${won || isTie ? 'border-green-400 bg-green-100' : 'border-gray-200 bg-gray-50'}`}
+          >
+            <div className="text-[8px] font-bold text-gray-500 uppercase text-center">TOT</div>
+            <div className={`text-lg font-bold text-center ${won || isTie ? 'text-green-600' : 'text-gray-600'}`}>
+              {formatCurrency(myTotalPoints)}
+            </div>
+            <div className="text-[9px] text-gray-500 text-center">{(myTotalTime / 1000).toFixed(1)}s</div>
+          </div>
         </div>
       </div>
 
@@ -441,7 +450,7 @@ export default function BattleResultCard({
               onClick={onBackToPool}
               className="flex-1 py-2 bg-white border border-warm text-gray-600 font-semibold text-xs rounded-lg hover:bg-gray-50"
             >
-              ← POOL
+              ← Back
             </button>
           )}
           {hasQuestions && (

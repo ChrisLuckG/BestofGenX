@@ -5,6 +5,7 @@ import User from '@/models/User';
 import Notification from '@/models/Notification';
 import Prediction from '@/models/Prediction';
 import UserPrediction from '@/models/UserPrediction';
+import { compareBattleResults } from '@/utils/battleWinner';
 
 // GET - Get notifications for a user (battle results, challenges, etc.)
 export async function GET(request: NextRequest) {
@@ -38,7 +39,8 @@ export async function GET(request: NextRequest) {
       avatar: n.avatar || '/images/genxlogo1.png',
       createdAt: n.createdAt,
       read: n.read,
-      battleId: n.data?.battleId
+      battleId: n.data?.battleId,
+      articleId: n.data?.articleId
     }));
     
     // Get completed battles where user was creator or opponent
@@ -64,25 +66,10 @@ export async function GET(request: NextRequest) {
     .sort({ acceptedAt: -1 })
     .limit(10);
     
-    // Get open challenges where user was challenged (private battles)
-    const pendingChallenges = await Battle.find({
-      challengedUser: userId,
-      status: 'open',
-      isPrivate: true
-    })
-    .populate('creator', 'username avatar')
-    .sort({ createdAt: -1 })
-    .limit(10);
-    
-    console.log(`Notifications for user ${userId}: found ${pendingChallenges.length} pending challenges`);
-    
-    // Also check all private battles to debug
-    const allPrivateBattles = await Battle.find({ isPrivate: true, status: 'open' }).select('_id challengedUser creator');
-    console.log('All open private battles:', allPrivateBattles.map(b => ({ 
-      id: b._id, 
-      challengedUser: b.challengedUser?.toString(), 
-      creator: b.creator?.toString() 
-    })));
+    // NOTE: We no longer query pendingChallenges here because:
+    // - Battle challenges are now created as DB notifications when the creator finishes playing
+    // - This prevents duplicate notifications (one from DB, one from pendingChallenges query)
+    // - The old approach showed challenges before the creator even played, which was wrong
     
     // Format notifications
     const notifications: any[] = [];
@@ -91,18 +78,23 @@ export async function GET(request: NextRequest) {
     for (const battle of completedBattles) {
       const creator = battle.creator as any;
       const opponentUser = battle.opponent as any;
-      const winnerUser = battle.winner as any;
       const isCreator = creator?._id?.toString() === userId;
       const opponent = isCreator ? opponentUser : creator;
-      const won = winnerUser?._id?.toString() === userId;
-      const isTie = !battle.winner;
+      // Derive the outcome from the results with the shared rules instead of the
+      // stored winner, so older battles decided by the old (buggy) tie-break are
+      // shown the same way as the result screen shows them.
+      const myResults = (isCreator ? battle.creatorResults : battle.opponentResults) || [];
+      const oppResults = (isCreator ? battle.opponentResults : battle.creatorResults) || [];
+      const cmp = compareBattleResults(myResults as any, oppResults as any);
+      const won = cmp > 0;
+      const isTie = cmp === 0;
       
       const opponentName = opponent?.username || 'Opponent';
       const notifId = `battle-result-${battle._id}`;
       notifications.push({
         id: notifId,
         type: 'battle_result',
-        title: isTie ? '🤝 It\'s a Tie!' : (won ? '🏆 You Won!' : '😢 You Lost'),
+        title: isTie ? 'It\'s a Tie!' : (won ? 'You Won!' : 'You Lost'),
         message: isTie 
           ? `You and ${opponentName} tied! No coins exchanged.`
           : (won 
@@ -131,33 +123,9 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    // Add pending challenges (someone challenged you!)
-    // Skip if a DB notification already exists for this battle (to avoid duplicates)
-    const existingBattleNotifIds = new Set(
-      dbNotifications
-        .filter((n: any) => n.type === 'battle_challenge' && n.data?.battleId)
-        .map((n: any) => n.data.battleId)
-    );
-    
-    for (const battle of pendingChallenges) {
-      // Skip if we already have a DB notification for this battle
-      if (existingBattleNotifIds.has(battle._id.toString())) continue;
-      
-      const creatorUser = battle.creator as any;
-      const notifId = `battle-challenge-${battle._id}`;
-      notifications.push({
-        id: notifId,
-        type: 'battle_challenge',
-        title: '⚔️ You\'ve Been Challenged!',
-        message: `${creatorUser?.username || 'Someone'} challenges you to a ${battle.topic.toUpperCase()} battle for ${battle.wager.toFixed(2)} BOGX!`,
-        avatar: creatorUser?.avatar,
-        battleId: battle._id,
-        wager: battle.wager,
-        topic: battle.topic,
-        createdAt: battle.createdAt,
-        read: readIds.has(notifId)
-      });
-    }
+    // NOTE: pendingChallenges loop removed - battle_challenge notifications are now 
+    // created in the DB when the creator finishes playing (in submit route)
+    // This prevents showing challenges before creator played and duplicate notifications
     
     // Add resolved-prediction results for this user
     const userPicks = await UserPrediction.find({ userId }).sort({ updatedAt: -1 }).limit(30).lean();

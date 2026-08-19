@@ -74,10 +74,11 @@ export function useLiveRankings({
   const [isLive, setIsLive] = useState(true);
   const prevRankingsRef = useRef<Map<string, { rank: number; points: number; change: "up" | "down" | null }>>(new Map());
   
-  // Load previous rankings from localStorage on first render
+  // Load previous rankings from localStorage on first render (period-specific key)
+  const storageKey = `rankings-prev-state-${period}`;
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('rankings-prev-state');
+      const saved = localStorage.getItem(storageKey);
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
@@ -85,7 +86,7 @@ export function useLiveRankings({
         } catch { /* ignore */ }
       }
     }
-  }, []);
+  }, [storageKey]);
 
   const fetchRankings = useCallback(
     async (silent = false) => {
@@ -126,7 +127,7 @@ export function useLiveRankings({
             name: r.username || r.name || "Unknown",
             country: r.country || "World",
             flag: r.countryFlag || r.flag || "🌍",
-            points: autoConvertToBOGX(r.points || 0),
+            points: autoConvertToBOGX(r.points ?? 0),
             wins: r.wins || 0,
             avatar:
               r.avatar && r.avatar.length > 0
@@ -146,10 +147,10 @@ export function useLiveRankings({
         players.forEach((p) => newPrev.set(p.id, { rank: p.rank, points: p.points, change: p.change || null }));
         prevRankingsRef.current = newPrev;
         
-        // Save to localStorage for persistence across refreshes
+        // Save to localStorage for persistence across refreshes (period-specific key)
         try {
           const toSave = Object.fromEntries(newPrev.entries());
-          localStorage.setItem('rankings-prev-state', JSON.stringify(toSave));
+          localStorage.setItem(storageKey, JSON.stringify(toSave));
         } catch { /* ignore */ }
 
         setRankings(limit ? players.slice(0, limit) : players);

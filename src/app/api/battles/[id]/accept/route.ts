@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import Battle from '@/models/Battle';
 import User from '@/models/User';
-import Card from '@/models/Card';
+import Question from '@/models/Question';
 import UserQuestionHistory from '@/models/UserQuestionHistory';
 import { sendPushNotification } from '@/lib/webpush';
 import { themeForTopic } from '@/lib/battleTopics';
@@ -121,40 +121,34 @@ export async function POST(
       if (!expectedTheme) {
         console.error(`Accept: unknown topic "${battle.topic}" - keeping original questions`);
       } else {
-        const allCards = await Card.find({ active: true, theme: expectedTheme }).lean();
+        // Get all questions for this theme
+        const allQuestions = await Question.find({ active: true, theme: expectedTheme } as any).lean();
         
         // Collect unseen questions
         const unseenQuestions: any[] = [];
-        for (const card of allCards) {
-          if (!card.questions || !Array.isArray(card.questions)) continue;
-          for (const q of card.questions as any[]) {
-            if (!q.question || !q.options || q.options.length < 2) continue;
-            
-            const qHash = hashQuestion(q.question);
-            if (seenHashes.has(qHash)) continue; // Skip seen questions
-            
-            const correctIndex = q.options.indexOf(q.correctAnswer);
-            if (correctIndex === -1) continue; // Skip invalid questions
-            
-            unseenQuestions.push({
-              // Keep the same shape the creation path writes, so a question's origin
-              // stays traceable (used by the battle-topic audit).
-              questionId: `${card._id}_${q.difficulty || 0}`,
-              cardId: card._id,
-              question: q.question,
-              answers: q.options,
-              correctIndex,
-              points: q.maxReward || 100,
-            });
-          }
+        for (const q of allQuestions) {
+          if (!q.question || !q.options || q.options.length < 4) continue;
+          
+          const qHash = hashQuestion(q.question);
+          if (seenHashes.has(qHash)) continue;
+          
+          const correctIndex = q.options.indexOf(q.correctAnswer);
+          if (correctIndex === -1) continue;
+          
+          unseenQuestions.push({
+            questionId: q._id.toString(),
+            question: q.question,
+            answers: q.options,
+            correctIndex,
+            points: q.maxReward || 0.10,
+            difficulty: q.difficulty,
+          });
         }
         
         // Shuffle and pick required number
         const shuffled = unseenQuestions.sort(() => Math.random() - 0.5);
         const newQuestions = shuffled.slice(0, battle.rounds);
         
-        // Never fall back to other themes - keeping the original topic-correct
-        // questions is always better than serving the wrong category.
         if (newQuestions.length >= battle.rounds) {
           battle.questions = newQuestions;
           console.log(`Regenerated ${newQuestions.length} unseen ${expectedTheme} questions for battle`);

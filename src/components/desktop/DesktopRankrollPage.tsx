@@ -64,38 +64,13 @@ function useCountdown(endsAt?: string) {
   return countdown;
 }
 
+
+
 // Ranking Card - Image block left, content right
-function RankingCard({ poll, onOpenArticle, onOpenRankroll }: { poll: Poll; onOpenArticle?: (articleId: string) => void; onOpenRankroll?: (poll: Poll) => void }) {
-  const { user } = useAuth();
+function RankingCard({ poll, onOpenArticle, onOpenRankroll, hasVoted, votedCount = 0 }: { poll: Poll; onOpenArticle?: (articleId: string) => void; onOpenRankroll?: (poll: Poll) => void; hasVoted?: boolean; votedCount?: number }) {
   const countdown = useCountdown(poll.closesAt);
   const top3 = [...(poll.items || [])].sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0)).slice(0, 3);
   const [linkedArticleId, setLinkedArticleId] = useState<string | null>(null);
-  const [hasVoted, setHasVoted] = useState(false);
-  
-  // Check if user has already voted
-  useEffect(() => {
-    const checkVotes = async () => {
-      if (!poll._id) return;
-      const params = new URLSearchParams();
-      if (user?.id) params.set('userId', user.id);
-      else {
-        const visitorId = localStorage.getItem('visitorId');
-        if (visitorId) params.set('visitorId', visitorId);
-      }
-      if (!params.toString()) return;
-      
-      try {
-        const res = await fetch(`/api/polls/${poll._id}/vote?${params}`);
-        const data = await res.json();
-        if (data.success && data.votes && Object.keys(data.votes).length > 0) {
-          setHasVoted(true);
-        }
-      } catch (e) {
-        console.error('Failed to check votes:', e);
-      }
-    };
-    checkVotes();
-  }, [poll._id, user?.id]);
   
   // Find the article that links to this poll
   useEffect(() => {
@@ -167,23 +142,41 @@ function RankingCard({ poll, onOpenArticle, onOpenRankroll }: { poll: Poll; onOp
             </h4>
           </div>
           
-          {/* Right: Vote Button */}
-          {hasVoted ? (
-            <span className="flex-shrink-0 px-4 py-2 bg-[#E36B11]/20 text-[#E36B11] border border-[#E36B11]/30 font-display text-sm uppercase tracking-wider rounded-lg flex items-center gap-1.5 whitespace-nowrap">
-              <Check className="w-3.5 h-3.5" />
-              Voted
-              <span className="text-[#E36B11]/40">·</span>
-              <Vote className="w-3.5 h-3.5 text-[#E36B11]/60" />
-              <span>{poll.totalVotes}</span>
-            </span>
-          ) : (
-            <span className="flex-shrink-0 px-4 py-2 bg-[#E36B11] text-white font-display text-sm uppercase tracking-wider rounded-lg group-hover:bg-[#B5682A] group-hover:scale-105 group-hover:shadow-lg transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap">
-              Vote Now
-              <span className="text-white/60">·</span>
-              <Vote className="w-3.5 h-3.5 text-white/80" />
-              <span>{poll.totalVotes}</span>
-            </span>
-          )}
+          {/* Right: Vote Button with Coin Display */}
+          {(() => {
+            const totalItems = poll.items?.length || 0;
+            const votePercent = totalItems > 0 ? Math.round((votedCount / totalItems) * 100) : 0;
+            const isComplete = votedCount >= totalItems;
+            
+            if (hasVoted) {
+              return (
+                <span 
+                  className="flex-shrink-0 px-3 py-1.5 text-white border border-[#E36B11] font-display rounded-lg flex items-center gap-1.5 whitespace-nowrap"
+                  style={{
+                    background: isComplete 
+                      ? '#E36B11' 
+                      : `linear-gradient(to right, #E36B11 ${votePercent}%, rgba(227,107,17,0.3) ${votePercent}%)`
+                  }}
+                >
+                  <span className="text-base">🪙</span>
+                  <span className="text-base font-medium">{(votedCount * 0.01).toFixed(2)}/{(totalItems * 0.01).toFixed(2)} BOGX</span>
+                  <span className="text-white/40">·</span>
+                  <Vote className="w-3.5 h-3.5 text-white/80" />
+                  <span className="text-base">{poll.totalVotes}</span>
+                </span>
+              );
+            } else {
+              return (
+                <span className="flex-shrink-0 px-3 py-1.5 bg-white/90 text-gray-700 border border-gray-200 font-display rounded-lg group-hover:bg-[#E36B11] group-hover:text-white group-hover:border-[#E36B11] transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap">
+                  <span className="text-base">🪙</span>
+                  <span className="text-base font-medium">0/{(totalItems * 0.01).toFixed(2)} BOGX</span>
+                  <span className="text-gray-300 group-hover:text-white/40">·</span>
+                  <Vote className="w-3.5 h-3.5 text-gray-400 group-hover:text-white/80" />
+                  <span className="text-base">{poll.totalVotes}</span>
+                </span>
+              );
+            }
+          })()}
         </div>
         
         {/* Items List */}
@@ -198,7 +191,7 @@ function RankingCard({ poll, onOpenArticle, onOpenRankroll }: { poll: Poll; onOp
                 }`}>
                   {rank.toString().padStart(2, '0')}
                 </span>
-                {/* Image - zooms on card hover */}
+                {/* Image - YouTube thumbnail as static image (no play button) */}
                 <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0">
                   {item.image ? (
                     <img src={item.image} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
@@ -228,37 +221,10 @@ function RankingCard({ poll, onOpenArticle, onOpenRankroll }: { poll: Poll; onOp
 }
 
 // Simple Poll Card - Image block left, content right (same layout as RankingCard)
-function SimplePollCard({ poll, onClick }: { poll: Poll; onClick: () => void }) {
-  const { user } = useAuth();
+function SimplePollCard({ poll, onClick, hasVoted = false }: { poll: Poll; onClick: () => void; hasVoted?: boolean }) {
   const countdown = useCountdown(poll.closesAt);
   const options = poll.options || [];
   const totalVotes = poll.totalVotes || 0;
-  const [hasVoted, setHasVoted] = useState(false);
-  
-  // Check if user has already voted
-  useEffect(() => {
-    const checkVotes = async () => {
-      if (!poll._id) return;
-      const params = new URLSearchParams();
-      if (user?.id) params.set('userId', user.id);
-      else {
-        const visitorId = localStorage.getItem('visitorId');
-        if (visitorId) params.set('visitorId', visitorId);
-      }
-      if (!params.toString()) return;
-      
-      try {
-        const res = await fetch(`/api/polls/${poll._id}/vote?${params}`);
-        const data = await res.json();
-        if (data.success && (data.hasVoted || (data.votes && Object.keys(data.votes).length > 0))) {
-          setHasVoted(true);
-        }
-      } catch (e) {
-        console.error('Failed to check votes:', e);
-      }
-    };
-    checkVotes();
-  }, [poll._id, user?.id]);
   
   // Get percentage for each option
   const getPercentage = (votes: number) => {
@@ -372,14 +338,48 @@ interface DesktopRankrollPageProps {
   onCoinAnimation?: (amount: number) => void;
 }
 
+// Local storage key for voted polls cache
+const VOTED_POLLS_KEY = 'bogx-voted-polls';
+
+// Get voted polls from localStorage
+const getVotedPollsFromStorage = (): Set<string> => {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const stored = localStorage.getItem(VOTED_POLLS_KEY);
+    if (stored) {
+      return new Set(JSON.parse(stored));
+    }
+  } catch (e) {
+    // ignore
+  }
+  return new Set();
+};
+
+// Save voted polls to localStorage
+const saveVotedPollsToStorage = (voted: Set<string>) => {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(VOTED_POLLS_KEY, JSON.stringify(Array.from(voted)));
+  } catch (e) {
+    // ignore
+  }
+};
+
+// Add a single poll to voted cache
+export const markPollAsVoted = (pollId: string) => {
+  const voted = getVotedPollsFromStorage();
+  voted.add(pollId);
+  saveVotedPollsToStorage(voted);
+};
+
 export default function DesktopRankrollPage({ onOpenArticle, onOpenRankroll }: DesktopRankrollPageProps) {
   const { user } = useAuth();
   const [polls, setPolls] = useState<Poll[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterNotVoted, setFilterNotVoted] = useState(false);
-  const [votedPolls, setVotedPolls] = useState<Set<string>>(new Set());
-  const [votesLoading, setVotesLoading] = useState(false);
-  const [votesChecked, setVotesChecked] = useState(false);
+  const [votedPolls, setVotedPolls] = useState<Set<string>>(() => getVotedPollsFromStorage());
+  const [voteCountByPoll, setVoteCountByPoll] = useState<Record<string, number>>({});
+  const [votesLoading, setVotesLoading] = useState(true);
 
   const loadPolls = async () => {
     try {
@@ -399,55 +399,52 @@ export default function DesktopRankrollPage({ onOpenArticle, onOpenRankroll }: D
     loadPolls();
   }, []);
 
-  // Check which polls user has voted on
-  const checkVotes = async () => {
+  // Fetch voted polls from server and merge with localStorage
+  useEffect(() => {
     if (polls.length === 0) return;
-    const vid = localStorage.getItem('bogx-visitor-id');
-    if (!user?.id && !vid) return;
-
-    setVotesLoading(true);
-    const voted = new Set<string>();
     
-    // Fetch all votes in parallel for better performance
-    const voteChecks = polls.map(async (poll) => {
+    // If no user, just use localStorage and mark as loaded
+    if (!user?.id) {
+      setVotesLoading(false);
+      return;
+    }
+    
+    const fetchVotedPolls = async () => {
       try {
-        const params = new URLSearchParams();
-        if (user?.id) params.set('userId', user.id);
-        else if (vid) params.set('visitorId', vid);
-
-        const res = await fetch(`/api/polls/${poll._id}/vote?${params}`);
+        const pollIds = polls.map(p => p._id);
+        const res = await fetch(`/api/polls/check-votes?userId=${user.id}&pollIds=${pollIds.join(',')}`);
         const data = await res.json();
-        if (data.success && data.votes && Object.keys(data.votes).length > 0) {
-          return poll._id;
+        if (data.success && data.votedPollIds) {
+          // Merge server votes with localStorage
+          const serverVotes = new Set<string>(data.votedPollIds);
+          const localVotes = getVotedPollsFromStorage();
+          const merged = new Set([...Array.from(localVotes), ...Array.from(serverVotes)]);
+          saveVotedPollsToStorage(merged);
+          setVotedPolls(merged);
+          // Store vote counts per poll
+          if (data.voteCountByPoll) {
+            setVoteCountByPoll(data.voteCountByPoll);
+          }
         }
       } catch (e) {
-        // ignore
+        console.error('Failed to fetch voted polls:', e);
+      } finally {
+        setVotesLoading(false);
       }
-      return null;
-    });
+    };
     
-    const results = await Promise.all(voteChecks);
-    results.forEach(id => { if (id) voted.add(id); });
-    
-    setVotedPolls(voted);
-    setVotesLoading(false);
-    setVotesChecked(true);
-  };
+    fetchVotedPolls();
+  }, [user?.id, polls]);
 
-  // Auto-check votes when polls load (but only once)
-  useEffect(() => {
-    if (polls.length > 0 && !votesChecked) {
-      checkVotes();
-    }
-  }, [polls, user?.id]);
-  
-  // Handle filter toggle - check votes if not already done
+  // Handle filter toggle
   const handleFilterToggle = () => {
-    if (!filterNotVoted && !votesChecked) {
-      // Turning filter ON and votes not checked yet
-      checkVotes();
-    }
     setFilterNotVoted(!filterNotVoted);
+  };
+  
+  // Update local state when a vote is cast (called from child components)
+  const handleVoteCast = (pollId: string) => {
+    markPollAsVoted(pollId);
+    setVotedPolls(prev => new Set(Array.from(prev).concat(pollId)));
   };
 
   // Filter to only show ranking type polls
@@ -475,21 +472,24 @@ export default function DesktopRankrollPage({ onOpenArticle, onOpenRankroll }: D
         </div>
         <button
           onClick={handleFilterToggle}
+          disabled={votesLoading}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-            filterNotVoted 
-              ? 'bg-[#E36B11] text-white' 
-              : 'bg-[#E36B11]/10 text-[#E36B11] hover:bg-[#E36B11]/20'
+            votesLoading
+              ? 'bg-gray-100 text-gray-400 cursor-wait'
+              : filterNotVoted 
+                ? 'bg-[#E36B11] text-white' 
+                : 'bg-[#E36B11]/10 text-[#E36B11] hover:bg-[#E36B11]/20'
           }`}
         >
-          <Filter className="w-3.5 h-3.5" />
-          Not Voted
+          <Filter className={`w-3.5 h-3.5 ${votesLoading ? 'animate-pulse' : ''}`} />
+          {votesLoading ? 'Loading...' : 'Not Voted'}
         </button>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 bg-gradient-to-b from-transparent to-[#E36B11]/[0.03]" style={{ scrollbarWidth: "none" }}>
 
-        {loading || (votesLoading && filterNotVoted) ? (
+        {loading ? (
           <PollsSkeleton />
         ) : rankingPolls.length === 0 && otherPolls.length === 0 ? (
           <div className="text-center py-12">
@@ -512,7 +512,14 @@ export default function DesktopRankrollPage({ onOpenArticle, onOpenRankroll }: D
             {rankingPolls.length > 0 && (
               <div className="space-y-4">
                 {rankingPolls.map((poll) => (
-                  <RankingCard key={poll._id} poll={poll} onOpenArticle={onOpenArticle} onOpenRankroll={onOpenRankroll} />
+                  <RankingCard 
+                    key={poll._id} 
+                    poll={poll} 
+                    onOpenArticle={onOpenArticle} 
+                    onOpenRankroll={onOpenRankroll}
+                    hasVoted={votedPolls.has(poll._id)}
+                    votedCount={voteCountByPoll[poll._id] || 0}
+                  />
                 ))}
               </div>
             )}
@@ -528,6 +535,7 @@ export default function DesktopRankrollPage({ onOpenArticle, onOpenRankroll }: D
                       <SimplePollCard 
                         key={poll._id}
                         poll={poll} 
+                        hasVoted={votedPolls.has(poll._id)}
                         onClick={() => {
                           if (poll.linkedArticleId && onOpenArticle) {
                             onOpenArticle(poll.linkedArticleId);

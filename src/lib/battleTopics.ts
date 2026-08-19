@@ -11,16 +11,37 @@
  * mapping as an error rather than falling back to another theme, otherwise the
  * label/question mismatch silently comes back.
  */
+/**
+ * OFFICIAL CATEGORIES (5 only):
+ * - MUSIC
+ * - SPORTS  
+ * - MOVIES (includes TV Shows & Cinema)
+ * - GAMING
+ * - POLITIK
+ */
 export const TOPIC_TO_THEME: Record<string, string> = {
+  // Primary mappings
   sport: 'SPORTS',
+  sports: 'SPORTS',
   music: 'MUSIC',
-  film: 'MOVIES',
-  culture: 'CULTURE',
-  fashion: 'FASHION',
+  film: 'TV & MOVIES',
+  movies: 'TV & MOVIES',
+  tv: 'TV & MOVIES',
+  'tv shows': 'TV & MOVIES',
+  'tv & movies': 'TV & MOVIES',
+  cinema: 'TV & MOVIES',
   games: 'GAMING',
-  tv: 'TV SHOWS',
-  art: 'ART',
-  food: 'FOOD',
+  gaming: 'GAMING',
+  politik: 'POLITIK',
+  politics: 'POLITIK',
+  
+  // Legacy mappings -> redirect to closest category
+  culture: 'TV & MOVIES',
+  fashion: 'TV & MOVIES',
+  art: 'TV & MOVIES',
+  food: 'TV & MOVIES',
+  celebrities: 'TV & MOVIES',
+  technology: 'GAMING',
 };
 
 /**

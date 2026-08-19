@@ -108,17 +108,25 @@ export const PROMPT_SUGGESTIONS = [
 ];
 
 // Template prompts for quick selection
+// IMPORTANT: The event's real day+month must match TODAY exactly. NEVER move a real
+// event onto today's date — always report the true, verifiable date.
+// Must stay free of intent keywords ("born", "died", "death", "rip", ...) - the
+// newsroom sniffs prompts for those words to decide Birthday vs RIP vs Event.
+const DATE_RULE = '⚠️ DATE ACCURACY RULE (most important):\n' +
+  '- The REAL day AND month must be EXACTLY today\'s calendar date (any year).\n' +
+  '- NEVER shift, round or "adjust" a date to make it fit today. Timezones are irrelevant — use the documented historical date.\n' +
+  '- Off by even ONE day = does NOT count.\n' +
+  '- Always state the exact real date (DD.MM.YYYY) you found.\n' +
+  '- If you are not certain about the exact date, discard it and pick another one.\n' +
+  '- Better to report nothing than to invent or shift a date.\n\n';
+
 export const PROMPT_TEMPLATES = [
-  { id: 'birthday', label: '🎂 Birthday', category: '', prompt: 'Find a GenX celebrity (born 1965-1980) who has a birthday TODAY. Search your region/continent.' },
-  { id: 'rip', label: '🕯️ RIP', category: '', prompt: 'Find a GenX celebrity (born 1965-1980) who DIED on this day (any year). This is for a memorial/RIP article.' },
-  { id: 'movie-tv', label: '📺 Movie/TV', category: 'movies-tv', prompt: 'Find a GenX actor/actress (born 1965-1980) who has a birthday TODAY.' },
-  { id: 'music', label: '🎵 Music', category: 'music', prompt: 'Find a GenX musician/singer (born 1965-1980) who has a birthday TODAY.' },
-  { id: 'sport', label: '🏆 Sport', category: 'sports', prompt: 'Find a GenX athlete (born 1965-1980) who has a birthday TODAY.' },
-  { id: 'history', label: '📜 History', category: '', prompt: 'What significant event happened ON THIS DAY in history that would interest Generation X?' },
-  { id: 'band', label: '🎸 Band', category: 'music', prompt: 'Find a band/group formed in the 80s or 90s that has an anniversary TODAY.' },
-  { id: 'album', label: '💿 Album', category: 'music', prompt: 'Find a classic album released ON THIS DAY that Generation X would remember.' },
-  { id: 'tv-series', label: '📺 TV Series', category: 'movies-tv', prompt: 'Find a TV series from the 80s/90s that premiered or had a finale ON THIS DAY.' },
-  { id: 'game', label: '🎮 Game', category: 'gaming', prompt: 'Find a classic video game released ON THIS DAY that Generation X played.' },
+  { id: 'birthday', label: '🎂 Birthday', category: '', prompt: DATE_RULE + 'TASK: BIRTHDAY ARTICLE. Find a GenX celebrity (born 1965-1980) whose birthday falls in the window. State their real birth date. If nobody fits, respond with "NO BIRTHDAY FOUND".' },
+  { id: 'rip', label: '🕯️ RIP', category: 'rip', prompt: DATE_RULE + 'TASK: RIP/MEMORIAL ARTICLE. Find a GenX celebrity (born 1965-1980) whose death date falls in the window (any year). State their real death date. If nobody fits, respond with "NO RIP FOUND".' },
+  { id: 'movie-tv', label: '📺 Movie/TV', category: 'movies-tv', prompt: DATE_RULE + 'TASK: MOVIE/TV EVENT. Find a MOVIE or TV SHOW premiere in the window. State the real premiere date. If nothing fits, respond "NO MOVIE/TV EVENT FOUND".' },
+  { id: 'music', label: '🎵 Music', category: 'music', prompt: DATE_RULE + 'TASK: MUSIC EVENT. Find a MUSIC EVENT (album release, concert, #1 hit) in the window. State the real date. If nothing fits, respond "NO MUSIC EVENT FOUND".' },
+  { id: 'sport', label: '🏆 Sport', category: 'sports', prompt: DATE_RULE + 'TASK: SPORTS EVENT. Find a SPORTS EVENT in the window. State the real date. If nothing fits, respond "NO SPORTS EVENT FOUND".' },
+  { id: 'radio', label: '📻 Radio', category: 'music', prompt: DATE_RULE + 'TASK: RADIO/SONG ARTICLE. Find a classic song or radio moment from the 80s/90s in the window. State the real date. If nothing fits, respond with "NO RADIO FOUND".' },
 ];
 
 // Search categories for filtering

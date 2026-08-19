@@ -169,7 +169,7 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
     name: user.username || 'You',
     country: user.country || 'World',
     flag: user.countryFlag || '🌍',
-    points: user.bogxCoins || user.coins || 0,
+    points: user.bogxCoins ?? user.coins ?? 0,
     wins: user.wins || 0,
     avatar: user.avatar || `https://i.pravatar.cc/100?u=${user.id}`,
     isCurrentUser: true,
@@ -665,8 +665,8 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
                     {wentDown && <span className="text-[9px] font-semibold text-red-500">↓</span>}
                     {!wentUp && !wentDown && <span className="text-[9px] text-gray-300">—</span>}
                     <div className="flex items-center gap-1 relative">
-                      <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
-                      <span className={`font-display text-lg transition-all duration-300 ${isMe ? 'text-gray-900 font-bold' : 'text-gray-900'}`}>
+                      <img src="/images/bogxcoin.png" alt="" className="w-3.5 h-3.5" />
+                      <span className={`font-display text-base transition-all duration-300 ${isMe ? 'text-gray-900 font-bold' : 'text-gray-900'}`}>
                         {formatCurrency(player.points)}
                       </span>
                       {/* Point change animation */}

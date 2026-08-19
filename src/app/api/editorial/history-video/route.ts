@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { searchYouTubeVideo, PREFER_LONG } from "@/lib/youtubeSearch";
+import { searchYouTubeVideo, PREFER_LONG, PREFER_LONG_THEN_ANY } from "@/lib/youtubeSearch";
 
 // Search for a different YouTube video for a history event.
 // Uses the shared helper so this "give me another video" action honours the same
@@ -23,24 +23,50 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "No query provided" });
     }
 
-    const hit = await searchYouTubeVideo({
+    console.log(`[history-video] Searching for different video. Query: "${query}", Year: ${year}, Exclude: ${excludeVideoId}`);
+
+    // Try with more query variations to find a different video
+    let hit = await searchYouTubeVideo({
       query,
       year,
       excludeVideoId,
       tiers: PREFER_LONG,
+      maxResults: 15, // Get more results to find alternatives
       extraQueries: [
         `${query} ${year || ''} history`.trim(),
         `${query} original`,
+        `${query} documentary ${year || ''}`.trim(),
+        `${query} archive footage`,
+        `${query} full video`,
+        `${query} news report ${year || ''}`.trim(),
       ],
     });
 
-    if (!hit) {
-      return NextResponse.json({
-        success: false,
-        error: "No other long-form video found for this event",
+    // If still no result, try with 'any' duration as last resort
+    if (!hit && excludeVideoId) {
+      console.log(`[history-video] No long/medium video found, trying with 'any' duration...`);
+      hit = await searchYouTubeVideo({
+        query,
+        year,
+        excludeVideoId,
+        tiers: PREFER_LONG_THEN_ANY,
+        maxResults: 20,
+        extraQueries: [
+          `${query} ${year || ''}`.trim(),
+          `${query} highlights`,
+        ],
       });
     }
 
+    if (!hit) {
+      console.log(`[history-video] No alternative video found for "${query}"`);
+      return NextResponse.json({
+        success: false,
+        error: "No other video found for this event. Try a different search term.",
+      });
+    }
+
+    console.log(`[history-video] Found alternative: ${hit.videoId} - "${hit.title}"`);
     return NextResponse.json({
       success: true,
       videoId: hit.videoId,

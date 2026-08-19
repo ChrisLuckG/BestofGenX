@@ -85,7 +85,7 @@ export default function BattlePoolScreen({
           <button
             onClick={() => {
               if (isOnBreak) {
-                showAlert('info', 'Battles are disabled during the break (9:00-10:00).');
+                showAlert('info', 'Battles are disabled during the break (9:55-10:00).');
                 return;
               }
               if (!isLoggedIn) {
@@ -105,7 +105,7 @@ export default function BattlePoolScreen({
           <button
             onClick={() => {
               if (isOnBreak) {
-                showAlert('info', 'Battles are disabled during the break (9:00-10:00).');
+                showAlert('info', 'Battles are disabled during the break (9:55-10:00).');
                 return;
               }
               if (!isLoggedIn) {
@@ -141,7 +141,7 @@ export default function BattlePoolScreen({
           <button
             onClick={() => onTopicFilterChange('all')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-all border ${
-              topicFilter === 'all' ? 'bg-[#A855F7] text-white border-[#A855F7]' : 'bg-cream text-gray-700 hover:bg-[#A855F7]/10 border-warm'
+              topicFilter === 'all' ? 'bg-[#A855F7] text-white border-[#A855F7]' : 'bg-cream text-gray-500 hover:bg-[#A855F7]/10 border-warm'
             }`}
           >
             <LayoutGrid className="w-4 h-4" />
@@ -154,7 +154,7 @@ export default function BattlePoolScreen({
                 key={t.id}
                 onClick={() => onTopicFilterChange(t.id)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-all border ${
-                  topicFilter === t.id ? 'bg-[#A855F7] text-white border-[#A855F7]' : 'bg-cream text-gray-700 hover:bg-[#A855F7]/10 border-warm'
+                  topicFilter === t.id ? 'bg-[#A855F7] text-white border-[#A855F7]' : 'bg-cream text-gray-500 hover:bg-[#A855F7]/10 border-warm'
                 }`}
               >
                 <Icon className="w-4 h-4" />
@@ -177,7 +177,7 @@ export default function BattlePoolScreen({
           <button
             onClick={() => onWagerFilterChange('all')}
             className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap transition-all border ${
-              wagerFilter === 'all' ? 'bg-[#A855F7] text-white border-[#A855F7]' : 'bg-cream text-gray-700 hover:bg-[#A855F7]/10 border-warm'
+              wagerFilter === 'all' ? 'bg-[#A855F7] text-white border-[#A855F7]' : 'bg-cream text-gray-500 hover:bg-[#A855F7]/10 border-warm'
             }`}
           >
             <LayoutGrid className="w-3.5 h-3.5" />
@@ -188,7 +188,7 @@ export default function BattlePoolScreen({
               key={w.amount}
               onClick={() => onWagerFilterChange(w.amount)}
               className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap transition-all border ${
-                wagerFilter === w.amount ? 'bg-[#A855F7] text-white border-[#A855F7]' : 'bg-cream text-gray-700 hover:bg-[#A855F7]/10 border-warm'
+                wagerFilter === w.amount ? 'bg-[#A855F7] text-white border-[#A855F7]' : 'bg-cream text-gray-500 hover:bg-[#A855F7]/10 border-warm'
               }`}
             >
               <img src="/images/bogxcoin.png" alt="" className="w-3.5 h-3.5" />
@@ -315,7 +315,7 @@ export default function BattlePoolScreen({
                 <img src="/images/coffee-break.svg" alt="" className="w-6 h-6" />
                 <div className="text-left">
                   <h3 className="font-display text-sm font-bold text-[#A855F7] uppercase tracking-wide">Daily Break</h3>
-                  <p className="text-[10px] text-gray-500">9:00 – 10:00 AM</p>
+                  <p className="text-[10px] text-gray-500">9:55 – 10:00 AM</p>
                 </div>
               </div>
               
@@ -417,7 +417,7 @@ export default function BattlePoolScreen({
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <span className="font-display text-xl text-[#A855F7]">{formatCurrency(toBOGX(battle.wager))}</span>
+                    <span className="font-display text-xl text-[#C9A227]">{formatCurrency(toBOGX(battle.wager))}</span>
                     <img src="/images/bogxcoin.png" alt="BOGX" className="w-5 h-5" />
                     <ChevronRight className="w-5 h-5 text-gray-300" />
                   </div>

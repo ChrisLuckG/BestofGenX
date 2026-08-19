@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
-import Card from '@/models/Card';
+import Question from '@/models/Question';
 import UserQuestionHistory from '@/models/UserQuestionHistory';
 import OpenAI from 'openai';
 import crypto from 'crypto';
@@ -10,25 +10,22 @@ import { combinePrompts } from '@/lib/loadPrompt';
 // 6 months cooldown for questions
 const QUESTION_COOLDOWN_DAYS = 180;
 
-// Load modular prompts: core + trivia rules
+// Load modular prompts
 const systemPrompt = combinePrompts(['core.txt', 'trivia.txt']);
 
 // Category mapping from frontend to database themes
 const CATEGORY_MAP: Record<string, string[]> = {
-  'music': ['MUSIC', 'Music', 'music'],
-  'movies': ['MOVIES', 'Movies', 'movies', 'FILM', 'Film', 'film', 'TV', 'MOVIES & TV', 'Movies & TV'],
-  'sports': ['SPORTS', 'Sports', 'sports', 'SPORT', 'Sport', 'sport'],
-  'history': ['HISTORY', 'History', 'history'],
-  'science': ['SCIENCE', 'Science', 'science', 'TECH', 'Tech', 'tech'],
+  'music': ['MUSIC'],
+  'movies': ['TV & MOVIES'],
+  'tv': ['TV & MOVIES'],
+  'tv & movies': ['TV & MOVIES'],
+  'sports': ['SPORTS'],
+  'gaming': ['GAMING'],
+  'politik': ['POLITIK'],
 };
 
-const THEME_NAMES: Record<string, string> = {
-  'music': 'MUSIC',
-  'movies': 'FILM',
-  'sports': 'SPORT',
-  'history': 'HISTORY',
-  'science': 'SCIENCE',
-};
+const VALID_THEMES = ['MUSIC', 'SPORTS', 'TV & MOVIES', 'GAMING', 'POLITIK'] as const;
+type ValidTheme = typeof VALID_THEMES[number];
 
 // Generate questions with OpenAI and save to DB
 async function generateAndSaveQuestions(count: number, category: string | null): Promise<any[]> {
@@ -36,36 +33,33 @@ async function generateAndSaveQuestions(count: number, category: string | null):
   if (!apiKey) throw new Error('OpenAI API key not configured');
 
   const openai = new OpenAI({ apiKey });
-  const theme = category ? THEME_NAMES[category] || 'GENERAL' : 'GENERAL';
+  const theme = category ? (CATEGORY_MAP[category]?.[0] || 'TV & MOVIES') : 'TV & MOVIES';
   
   const categoryPrompt = category 
     ? `Focus on the category: ${category}. All questions should be about ${category}.`
-    : 'Mix questions from various categories: Music, Movies & TV, Sports, History, Science, Pop Culture.';
+    : 'Mix questions from: Music, Movies, Sports, Gaming, Politik.';
 
   const userPrompt = `Generate ${count} trivia questions for a quiz game.
 
 ${categoryPrompt}
 
-Target audience: Gen X (born 1965-1980), so include references to 80s, 90s, and early 2000s pop culture when relevant.
+Target audience: Gen X (born 1965-1980), so include references to 80s, 90s, and early 2000s.
 
-Return a JSON array with this exact format:
+Return a JSON array:
 [
   {
-    "topic": "Short topic name",
     "question": "The question text",
     "options": ["Option A", "Option B", "Option C", "Option D"],
     "correctAnswer": "The correct option text",
-    "difficulty": 3,
-    "difficultyText": "Medium"
+    "difficulty": "Easy|Medium|Hard",
+    "topic": "Short topic name"
   }
 ]
 
 Requirements:
 - Each question has exactly 4 options
 - correctAnswer must match one of the options exactly
-- difficulty is 1-5 (1=Easy, 5=Hard)
-- Questions should be challenging but fair
-- Return ONLY the JSON array, no other text`;
+- Return ONLY the JSON array`;
 
   const response = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
@@ -79,7 +73,6 @@ Requirements:
 
   const content = response.choices[0]?.message?.content || '[]';
   
-  // Parse JSON
   let questions;
   const jsonMatch = content.match(/\[[\s\S]*\]/);
   if (jsonMatch) {
@@ -88,33 +81,30 @@ Requirements:
     questions = JSON.parse(content);
   }
 
-  // Save each question to DB as a Card
+  // Save each question to DB
   const savedQuestions = [];
   for (const q of questions) {
     if (!q.question || !q.options || q.options.length !== 4) continue;
+    if (!q.options.includes(q.correctAnswer)) continue;
 
-    const questionHash = crypto.createHash('md5').update(q.question).digest('hex');
+    const questionHash = crypto.createHash('md5').update(q.question.toLowerCase().trim()).digest('hex');
     
     // Check if already exists
-    const existing = await Card.findOne({ questionHash });
+    const existing = await Question.findOne({ questionHash });
     if (existing) continue;
 
-    const card = await Card.create({
-      type: 'quiz',
-      theme: theme,
-      topic: q.topic || 'General',
-      questions: [{
-        question: q.question,
-        options: q.options,
-        correctAnswer: q.correctAnswer,
-        highlightWords: [],
-        difficulty: q.difficulty || 3,
-        difficultyText: q.difficultyText || 'Medium',
-        maxReward: 100,
-      }],
-      timeLimit: 10,
+    const difficulty = ['Easy', 'Medium', 'Hard'].includes(q.difficulty) ? q.difficulty : 'Medium';
+    const maxReward = difficulty === 'Easy' ? 0.05 : difficulty === 'Medium' ? 0.10 : 0.15;
+
+    await Question.create({
+      question: q.question,
+      options: q.options.map((o: any) => String(o)),
+      correctAnswer: String(q.correctAnswer),
+      theme: theme as ValidTheme,
+      topic: q.topic || '',
+      difficulty,
+      maxReward,
       active: true,
-      guestCard: false,
       questionHash,
       source: 'generated',
     });
@@ -136,16 +126,16 @@ export async function POST(request: NextRequest) {
     
     const { count = 10, category, userId } = await request.json();
 
-    // Build query - get active cards
+    // Build query
     const query: any = { active: true };
     
-    // Filter by category if specified
     if (category && CATEGORY_MAP[category]) {
       query.theme = { $in: CATEGORY_MAP[category] };
     }
 
-    // Get cards the user has seen in the last 6 months
-    let excludeCardIds: mongoose.Types.ObjectId[] = [];
+    // Get questions the user has seen
+    let excludeIds: mongoose.Types.ObjectId[] = [];
+    
     if (userId) {
       const cooldownDate = new Date();
       cooldownDate.setDate(cooldownDate.getDate() - QUESTION_COOLDOWN_DAYS);
@@ -153,36 +143,69 @@ export async function POST(request: NextRequest) {
       const seenHistory = await UserQuestionHistory.find({
         userId: new mongoose.Types.ObjectId(userId),
         answeredAt: { $gte: cooldownDate }
-      }).select('cardId').lean();
+      }).select('questionId').lean();
       
-      excludeCardIds = seenHistory.map(h => h.cardId);
-      console.log(`User ${userId} has seen ${excludeCardIds.length} questions in last 6 months`);
+      excludeIds = seenHistory
+        .filter(h => h.questionId)
+        .map(h => h.questionId);
+      
+      console.log(`User ${userId} has seen ${excludeIds.length} questions in last 6 months`);
     }
 
-    // Exclude seen cards
-    if (excludeCardIds.length > 0) {
-      query._id = { $nin: excludeCardIds };
-    }
+    // Count available
+    const totalAvailable = await Question.countDocuments(query);
+    const unseenCount = totalAvailable - excludeIds.length;
+    
+    console.log(`Total questions: ${totalAvailable}, Unseen: ${unseenCount}, Requested: ${count}`);
 
-    // Get random cards from database
-    let cards = await Card.aggregate([
+    // Exclude seen questions
+    if (excludeIds.length > 0) {
+      query._id = { $nin: excludeIds };
+    }
+    
+    // Get random questions
+    let questions = await Question.aggregate([
       { $match: query },
       { $sample: { size: count } }
     ]);
 
-    // If not enough questions, generate more
-    if (!cards || cards.length < count) {
-      console.log(`Only ${cards?.length || 0} questions in DB, generating ${count} more...`);
+    // If pool is low, generate more in background
+    if (unseenCount < 50 && unseenCount > 0) {
+      console.log(`Low pool (${unseenCount}), generating more...`);
+      generateAndSaveQuestions(20, category).catch(e => 
+        console.error('Background generation failed:', e)
+      );
+    }
+
+    // If not enough, include seen questions (oldest first)
+    if (questions.length < count && userId && excludeIds.length > 0) {
+      const needed = count - questions.length;
+      
+      const oldestSeen = await UserQuestionHistory.find({
+        userId: new mongoose.Types.ObjectId(userId),
+      })
+        .sort({ answeredAt: 1 })
+        .limit(needed * 2)
+        .select('questionId')
+        .lean();
+      
+      const oldIds = oldestSeen.filter(h => h.questionId).map(h => h.questionId);
+      
+      if (oldIds.length > 0) {
+        const oldQuestions = await Question.aggregate([
+          { $match: { _id: { $in: oldIds }, active: true } },
+          { $sample: { size: needed } }
+        ]);
+        questions = [...questions, ...oldQuestions];
+      }
+    }
+
+    // Still not enough? Generate fresh
+    if (questions.length < count) {
+      console.log(`Only ${questions.length}, generating fresh...`);
       const generated = await generateAndSaveQuestions(count, category);
       
-      // Fetch again after generating
-      cards = await Card.aggregate([
-        { $match: query },
-        { $sample: { size: count } }
-      ]);
-      
-      // If still no cards, use the generated ones directly
-      if (!cards || cards.length === 0) {
+      if (questions.length === 0) {
         return NextResponse.json({ 
           success: true, 
           questions: generated.slice(0, count) 
@@ -190,48 +213,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Transform cards to trivia format - NO FALLBACKS
-    const questions = cards.map(card => {
-      const variants = card.questions || [];
-      const variant = variants.length > 0 
-        ? variants[Math.floor(Math.random() * variants.length)]
-        : null;
-
-      if (!variant) {
-        console.error('Card has no question variants:', card._id);
-        return null;
-      }
-
-      const correctAnswer = variant.correctAnswer;
-      const options = variant.options?.map((o: any) => String(o));
-      
-      // Strict validation - NO FALLBACKS
-      if (!variant.question || typeof variant.question !== 'string') {
-        console.error('Invalid question text in card:', card._id);
-        return null;
-      }
-      if (!Array.isArray(options) || options.length !== 4) {
-        console.error('Invalid options in card:', card._id, options);
-        return null;
-      }
-      
-      const correctIndex = options.findIndex((o: string) => o === String(correctAnswer));
+    // Transform to frontend format
+    const result = questions.map(q => {
+      const correctIndex = q.options.findIndex((o: string) => o === q.correctAnswer);
       if (correctIndex === -1) {
-        console.error('Correct answer not found in options:', card._id, { correctAnswer, options });
-        return null; // NO FALLBACK - reject invalid question
+        console.error('Invalid question:', q._id);
+        return null;
       }
 
       return {
-        question: variant.question,
-        options: options,
-        correctIndex: correctIndex,
-        category: card.theme || 'General'
+        _id: q._id,
+        question: q.question,
+        options: q.options,
+        correctIndex,
+        category: q.theme,
+        difficulty: q.difficulty,
       };
     }).filter(Boolean);
 
     return NextResponse.json({ 
       success: true, 
-      questions: questions.slice(0, count) 
+      questions: result.slice(0, count) 
     });
 
   } catch (error: any) {

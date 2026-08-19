@@ -4,11 +4,12 @@ import { useState, useEffect, useRef } from "react";
 import { 
   X, Send, Loader2, ListOrdered, FileText, Tv, Radio, Plus, Check, ChevronDown, 
   CheckCircle, AlertCircle, Users, Sparkles, ExternalLink, User, Eye, Pencil, Save,
-  RefreshCw, Trash2, Calendar, Square, BookOpen, Play, RotateCcw, Video, Music
+  RefreshCw, Trash2, Calendar, Square, BookOpen, Play, RotateCcw, Video, Music, Download
 } from "lucide-react";
 import BlockEditor from "@/components/admin/BlockEditor";
 import ImagePickerModal from "@/components/admin/ImagePickerModal";
 import CountryFlag from "@/components/CountryFlag";
+import { countryNameToCode } from "@/lib/countryFlags";
 import RankrollTab from "@/components/admin/RankrollTab";
 
 // Region constants (duplicated from ReporterProfile to avoid mongoose import on client)
@@ -63,6 +64,9 @@ interface Proposal {
   isError?: boolean; // True if reporter couldn't find anyone
   errorReason?: string; // Why the proposal failed
   savedToMenschen?: boolean; // True if successfully saved to Menschen DB
+  // For Rankroll: pre-fetched media for items
+  rankrollItems?: Array<{ title: string; image: string; videoId?: string }>;
+  mediaType?: 'youtube' | 'gif'; // What type of media was fetched
 }
 
 interface ConferenceMessage {
@@ -210,19 +214,47 @@ const COLOR_CYCLE = [
   { text: "text-red-400", bg: "bg-red-400" },
 ];
 
+// DATE ACCURACY: the event's real day+month must equal TODAY exactly. LLMs tend to
+// shift near-misses onto today (Elvis died 16.08. — never 17.08.). Reporting nothing
+// is the correct answer when no event falls on today's date.
+// NOTE: this text must stay free of intent keywords ("born", "died", "death", "rip",
+// "on this day", ...). sendMessage() sniffs the prompt for such words when no template
+// is active, so a stray word here silently turns a Birthday search into a RIP search.
+const DATE_RULE = '⚠️ DATE ACCURACY RULE (most important):\n' +
+  '- The REAL day AND month must be EXACTLY today\'s calendar date (any year).\n' +
+  '- NEVER shift, round or "adjust" a date to make it fit today. Timezones are irrelevant — use the documented historical date.\n' +
+  '- Off by even ONE day = does NOT count.\n' +
+  '- Always state the exact real date (DD.MM.YYYY) you found — in the title/teaser too.\n' +
+  '- If you are not certain about the exact date, discard it and pick another one.\n' +
+  '- Better to report nothing than to invent or shift a date.\n\n';
+
+// A template is binding: a "Sport" search must return sports or nothing at all.
+// Birthday/RIP/Radio stay unrestricted (they are person-based, any field).
+const TEMPLATE_CATEGORY: Record<string, string> = {
+  movie: 'movies-tv',
+  music: 'music',
+  sport: 'sports',
+};
+
+const TEMPLATE_CATEGORY_LABEL: Record<string, string> = {
+  'movies-tv': 'Movies/TV',
+  music: 'Music',
+  sports: 'Sports',
+  gaming: 'Gaming',
+  politics: 'Politics',
+  tech: 'Tech',
+  culture: 'Culture',
+  lifestyle: 'Lifestyle',
+};
+
 const PROMPT_TEMPLATES = [
   // Person-based templates (Birthday/RIP)
-  { id: 'birthday', label: '🎂 Birthday', prompt: 'BORN ON THIS DAY — find a GenX celebrity (born 1965-1980) who was BORN ON THIS EXACT DATE. Include their birth date, country, and why they matter to GenX.' },
-  { id: 'rip', label: '🕯️ RIP', prompt: 'DIED ON THIS DAY — find a GenX celebrity (born 1965-1980) who DIED ON THIS EXACT DATE. Include their birth date, death date, country, and a tribute to their legacy.' },
-  // Event-based templates (ON THIS DAY)
-  { id: 'movie', label: '🎬 Movie/TV', prompt: 'ON THIS DAY — find a movie or TV show that PREMIERED or had a significant event ON THIS EXACT DATE (any year 1975-2000). Could be: a film premiere, a TV series finale, a famous episode airing, an Oscar win, etc. Give the exact date, title, and why it mattered to GenX. NOT a person — an EVENT.' },
-  { id: 'music', label: '🎵 Music', prompt: 'ON THIS DAY — find a music event that happened ON THIS EXACT DATE (any year 1975-2000). Could be: an album release, a legendary concert, a #1 hit, a band forming/breaking up, an award show moment, etc. Give the exact date, artist/song, and why it mattered to GenX. NOT a person — an EVENT.' },
-  { id: 'sport', label: '⚽ Sport', prompt: 'ON THIS DAY — find a sports event that happened ON THIS EXACT DATE (any year 1975-2000). Could be: a championship game, a world record, a legendary match, an upset, a retirement, etc. Give the exact date, teams/athletes, scores, and why it became folklore. NOT a birthday — an EVENT.' },
-  { id: 'history', label: '📜 History', prompt: 'ON THIS DAY — find a historical event that happened ON THIS EXACT DATE (any year 1975-2000). Could be: a political moment, a cultural shift, a tragedy, a triumph, a tech launch, etc. Give the exact date, what happened, and why it shaped GenX. NOT a person — an EVENT.' },
-  { id: 'band', label: '💎 Band', prompt: 'ON THIS DAY — find a band-related event that happened ON THIS EXACT DATE (any year 1975-2000). Could be: a band forming, breaking up, a legendary concert, a debut album release, etc. Give the exact date, band name, and why it mattered. NOT a person — an EVENT.' },
-  { id: 'album', label: '💿 Album', prompt: 'ON THIS DAY — find an album that was RELEASED ON THIS EXACT DATE (any year 1975-2000). Give the exact release date, artist, album name, and why it was significant to GenX. NOT a person — an EVENT.' },
-  { id: 'tvseries', label: '📺 TV Series', prompt: 'ON THIS DAY — find a TV series event that happened ON THIS EXACT DATE (any year 1975-2000). Could be: a series premiere, a finale, a famous episode, etc. Give the exact date, show name, and why it mattered. NOT a person — an EVENT.' },
-  { id: 'game', label: '🎮 Game', prompt: 'ON THIS DAY — find a video game that was RELEASED ON THIS EXACT DATE (any year 1975-2000). Could be: an arcade game debut, a console launch, a legendary game release, etc. Give the exact date, game name, and why it mattered to GenX. NOT a person — an EVENT.' },
+  { id: 'birthday', label: '🎂 Birthday', prompt: DATE_RULE + 'TASK: BIRTHDAY ARTICLE. Find a GenX celebrity (born 1965-1980) whose birthday falls in the window. Include their real birth date, country, and why they matter to GenX. If nobody fits, respond with "NO BIRTHDAY FOUND" - do NOT suggest something else.' },
+  { id: 'rip', label: '🕯️ RIP', prompt: DATE_RULE + 'TASK: RIP/MEMORIAL ARTICLE. Find a GenX celebrity (born 1965-1980) whose death date falls in the window (any year). Include their real birth date, death date, country, and a tribute to their legacy. If nobody fits, respond with "NO RIP FOUND" - do NOT suggest a birthday instead.' },
+  // Event-based templates (window around today)
+  { id: 'movie', label: '🎬 Movie/TV', prompt: DATE_RULE + 'TASK: MOVIE/TV EVENT. Find a MOVIE or TV SHOW premiere or significant event in the window (any year 1975-2000). State the real date. If nothing fits, respond "NO MOVIE/TV EVENT FOUND".' },
+  { id: 'music', label: '🎵 Music', prompt: DATE_RULE + 'TASK: MUSIC EVENT. Find a MUSIC EVENT (album release, concert, #1 hit) in the window (any year 1975-2000). State the real date. If nothing fits, respond "NO MUSIC EVENT FOUND".' },
+  { id: 'sport', label: '⚽ Sport', prompt: DATE_RULE + 'TASK: SPORTS EVENT. Find a SPORTS EVENT in the window (any year 1975-2000). State the real date. If nothing fits, respond "NO SPORTS EVENT FOUND".' },
   // Special templates (load data dynamically)
   { id: 'radio', label: '📻 Radio', prompt: 'RADIO_SONG_REQUESTS', isDynamic: true },
   { id: 'custom', label: '✏️ Custom', prompt: '' },
@@ -322,6 +354,36 @@ function todayLabel(): string {
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+/**
+ * Image for a search term: Wikimedia Commons first, Tenor GIF only as fallback.
+ *
+ * Tenor used to be the primary source and kept returning unrelated memes for
+ * real people and events (a search for a footballer returning a cartoon GIF).
+ * Wikimedia gives real, licensed photos of the actual subject, so it goes first
+ * everywhere; Tenor stays as a last resort for topics Commons has nothing on.
+ */
+async function findImageForTerm(term: string): Promise<string> {
+  if (!term?.trim()) return '';
+  try {
+    const res = await fetch('/api/search-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic: term }),
+    });
+    const data = await res.json();
+    const first = data.allImages?.[0];
+    if (data.success && first) return first.thumbUrl || first.url || '';
+  } catch { /* fall through to Tenor */ }
+
+  try {
+    const res = await fetch(`/api/tenor-search?q=${encodeURIComponent(term)}`);
+    const data = await res.json();
+    if (data.success && data.url) return data.url;
+  } catch { /* no image available */ }
+
+  return '';
 }
 
 // ---- Component ------------------------------------------------------------
@@ -462,9 +524,16 @@ export default function NewsroomConference({
     thumbnail: string;
   }>>([]);
   const [tvSaving, setTvSaving] = useState<number | null>(null); // Position being saved (1, 2, or 3)
+  const [tvPulling, setTvPulling] = useState(false); // Loading state for pulling today's articles
   
   // Pending reporters (for proposal loading states)
   const [pendingReporters, setPendingReporters] = useState<Array<{id: string; name: string; status: 'searching' | 'done' | 'error'; error?: string}>>([]);
+  
+  // Reassign dropdown state (proposalKey -> open/closed)
+  const [reassignOpen, setReassignOpen] = useState<string | null>(null);
+  
+  // Rankroll media type preference (youtube or gif)
+  const [rankrollMediaType, setRankrollMediaType] = useState<'youtube' | 'gif'>('youtube');
   
   // Reporter category assignments (reporterId -> category)
   const [reporterCategories, setReporterCategories] = useState<Record<string, string>>({});
@@ -595,6 +664,8 @@ export default function NewsroomConference({
   const [selectedArticleTab, setSelectedArticleTab] = useState<string | null>(null);
   const [selectingProposal, setSelectingProposal] = useState<string | null>(null); // Track which proposal is being selected
   const [retryingReporter, setRetryingReporter] = useState<string | null>(null); // Track which reporter is retrying
+  const [selectedProposals, setSelectedProposals] = useState<Set<string>>(new Set()); // Multi-select checkboxes
+  const [processingBatch, setProcessingBatch] = useState(false); // Processing multiple proposals
   const [savingArticle, setSavingArticle] = useState(false); // Track article save
   const [abortController, setAbortController] = useState<AbortController | null>(null); // For cancelling article generation
   
@@ -649,6 +720,28 @@ export default function NewsroomConference({
   });
   const [historySearching, setHistorySearching] = useState(false);
   const [historyCompiling, setHistoryCompiling] = useState(false);
+
+  // Events used in previous sessions (last 21 days). Multi-day events like Woodstock
+  // (15-18 Aug 1969) otherwise resurface on every single day of their span.
+  const recentHistoryTitles = () => {
+    if (typeof window === 'undefined') return [] as string[];
+    try {
+      const raw = JSON.parse(localStorage.getItem('newsroom-historyUsed') || '[]') as Array<{ title: string; at: number }>;
+      const cutoff = Date.now() - 21 * 24 * 60 * 60 * 1000;
+      return raw.filter(e => e.at > cutoff).map(e => e.title);
+    } catch { return []; }
+  };
+
+  const rememberHistoryTitle = (title: string) => {
+    if (typeof window === 'undefined' || !title) return;
+    try {
+      const raw = JSON.parse(localStorage.getItem('newsroom-historyUsed') || '[]') as Array<{ title: string; at: number }>;
+      const cutoff = Date.now() - 21 * 24 * 60 * 60 * 1000;
+      const next = raw.filter(e => e.at > cutoff && e.title !== title);
+      next.push({ title, at: Date.now() });
+      localStorage.setItem('newsroom-historyUsed', JSON.stringify(next));
+    } catch { /* ignore */ }
+  };
   const [historyBanner, setHistoryBanner] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('newsroom-historyBanner') || null;
@@ -970,7 +1063,8 @@ export default function NewsroomConference({
     reporter: typeof activePeople[0], 
     reporterCategories: Record<string, string>,
     isEventRequest: boolean,
-    isRIPRequest: boolean
+    isRIPRequest: boolean,
+    requiredCategory?: string
   ): Proposal {
     // Parse structured format
     const nameMatch = text.match(/(?:NAME|EVENT|TITLE):\s*(.+)/i);
@@ -998,7 +1092,7 @@ export default function NewsroomConference({
     if (rawCategory === 'athlete' || rawCategory === 'football' || rawCategory === 'basketball' || rawCategory === 'soccer' || rawCategory === 'nfl' || rawCategory === 'nba') rawCategory = 'sports';
     if (rawCategory === 'history' || rawCategory === 'historical') rawCategory = 'culture';
     const validCategories = ['sports', 'music', 'movies-tv', 'gaming', 'politics', 'tech', 'culture', 'lifestyle', 'rip'];
-    const category = validCategories.includes(rawCategory) ? rawCategory : (globalCategory || 'culture');
+    const category = validCategories.includes(rawCategory) ? rawCategory : (requiredCategory || globalCategory || 'culture');
     const description = descMatch ? descMatch[1].trim().slice(0, 300) : text.slice(0, 200);
     const isEvent = isEventRequest || text.toLowerCase().includes('event:');
     
@@ -1011,14 +1105,31 @@ export default function NewsroomConference({
       name = 'Unknown';
       noCategoryMatch = true;
     }
+    // Reporters often answer in prose ("NO SPORTS EVENT FOUND ON THIS DATE") instead
+    // of the structured format - treat that as "nothing found", never as a proposal.
+    if (/\bNO\s+[A-Z/\- ]*\b(EVENT|BIRTHDAY|RIP|RADIO|MATCH)[A-Z ]*\s+FOUND/i.test(text)) {
+      name = 'Unknown';
+      noCategoryMatch = true;
+    }
     
     // Validate - different rules for events vs people
     let isValid = name !== 'Unknown' && birthday;
     let errorReason = '';
     if (noCategoryMatch) {
-      errorReason = `No ${category || 'matching'} events found for this date. Try a different category.`;
+      errorReason = `No ${TEMPLATE_CATEGORY_LABEL[requiredCategory || ''] || category || 'matching'} event happened on today's exact date.`;
     } else if (!isValid) {
-      errorReason = isEvent ? 'Could not find any event for this date' : 'Could not find anyone for this date';
+      // Explain WHY it failed instead of a generic dead end - and quote what the
+      // reporter actually said so the editor can judge/adjust.
+      const said = text.trim().replace(/\s+/g, ' ').slice(0, 160);
+      if (name === 'Unknown' && !birthday) {
+        errorReason = said
+          ? `No usable answer (missing NAME/date). Reporter said: "${said}${text.trim().length > 160 ? '…' : ''}"`
+          : 'Reporter returned an empty response.';
+      } else if (name === 'Unknown') {
+        errorReason = `Got a date (${birthday}) but no name. Reporter said: "${said}"`;
+      } else {
+        errorReason = `Found "${name}" but no valid date (DD.MM.YYYY) — cannot verify it is today.`;
+      }
     } else if (!isEvent && birthday) {
       // Only validate GenX year for PEOPLE, not events
       const yearMatch = birthday.match(/(\d{4})/);
@@ -1035,6 +1146,12 @@ export default function NewsroomConference({
         if (year < 1975) { isValid = false; errorReason = `Event from ${year} - too early (need 1975-2000)`; }
         else if (year > 2000) { isValid = false; errorReason = `Event from ${year} - too recent (need 1975-2000)`; }
       }
+    }
+
+    // Template category is binding: a Sport search must never return Music/Movies.
+    if (isValid && requiredCategory && category !== requiredCategory) {
+      isValid = false;
+      errorReason = `Off-topic: returned ${TEMPLATE_CATEGORY_LABEL[category] || category} instead of ${TEMPLATE_CATEGORY_LABEL[requiredCategory] || requiredCategory}. Nothing found in this category.`;
     }
     
     return {
@@ -1120,7 +1237,54 @@ export default function NewsroomConference({
         // Process reporters sequentially - each one updates the UI immediately (like Articles)
         cancelRequestedRef.current = false;
         
+        // QUOTA: one YouTube search costs 100 of the 10.000 daily units, i.e. only
+        // 100 searches per DAY for the whole app. Searching per reporter (9x) or per
+        // ranking item (10x) exhausts that in a few clicks. So the video pool is
+        // fetched ONCE per topic here and then split across the reporters below.
+        let videoPool: Array<{ videoId: string; title: string; thumbnail: string }> = [];
+        let videoPoolError: string | null = null;
+        
+        if (rankrollMediaType === 'youtube') {
+          try {
+            const poolRes = await fetch('/api/youtube-search-bulk', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ topic, count: 50 }),
+            });
+            const poolData = await poolRes.json();
+            if (poolData.success) {
+              videoPool = poolData.videos || [];
+            } else {
+              videoPoolError = poolData.quotaExceeded
+                ? '⚠️ YouTube quota exceeded (100 searches/day)'
+                : poolData.error || 'YouTube search failed';
+            }
+          } catch (err) {
+            videoPoolError = 'YouTube search failed';
+            console.error('YouTube pool fetch failed:', err);
+          }
+          
+          // No videos at all: tell the user why instead of letting every card
+          // claim "not enough videos found".
+          if (videoPoolError || videoPool.length === 0) {
+            setTyping(false);
+            updatePieceMessages(currentPiece.id, msgs => [
+              ...msgs,
+              {
+                id: generateId(),
+                from: 'system',
+                text: videoPoolError
+                  ? `${videoPoolError} — switch to 🎞️ GIFs or try again tomorrow.`
+                  : `No YouTube videos found for "${topic}". Try a different topic or switch to 🎞️ GIFs.`,
+              },
+            ]);
+            return;
+          }
+        }
+        
+        let reporterIndex = -1;
         for (const reporter of targetReporters) {
+          reporterIndex++;
           // Check if cancel was requested
           if (cancelRequestedRef.current) {
             setTyping(false);
@@ -1191,17 +1355,50 @@ DESCRIPTION: [1 sentence hook that makes people curious]`,
           const validCats = ['sports', 'music', 'movies-tv', 'gaming', 'culture', 'lifestyle'];
           const category = validCats.includes(rawCat) ? rawCat : 'sports';
           
+          // Pre-fetch media for each item (video or image, based on preference)
+          let rankrollItems: Array<{ title: string; image: string; videoId?: string }> = [];
+          
+          if (rankrollMediaType === 'youtube') {
+            // YOUTUBE MODE: items come FROM the video pool, so every item is
+            // guaranteed to have a playable video. Each reporter gets a rotated
+            // slice of the shared pool so the proposals are not identical, and
+            // no extra API call is spent per reporter.
+            const perReporter = 8;
+            const offset = (reporterIndex * 3) % videoPool.length;
+            const rotated = [...videoPool.slice(offset), ...videoPool.slice(0, offset)];
+            rankrollItems = rotated.slice(0, perReporter).map(v => ({
+              title: v.title,
+              image: v.thumbnail,
+              videoId: v.videoId,
+            }));
+          } else {
+            // IMAGE MODE: AI-generated items, illustrated via Wikimedia (Tenor fallback)
+            if (items.length >= 3) {
+              const allItems = await Promise.all(
+                items.slice(0, 12).map(async (itemTitle: string) => {
+                  const image = await findImageForTerm(`${topic} ${itemTitle}`);
+                  return image ? { title: itemTitle, image } : null;
+                })
+              );
+              rankrollItems = allItems.filter((item): item is { title: string; image: string; videoId?: string } => item !== null);
+            }
+          }
+          
           const newProposal: Proposal = {
             name: title,
-            birthday: itemsRaw, // FULL items list - needed for selectProposal()
-            country: `${items.length} items`,
+            birthday: rankrollItems.map(i => i.title).join(', '), // Only items with media
+            country: rankrollMediaType === 'youtube' ? `🎬 ${rankrollItems.length} videos` : `🎞️ ${rankrollItems.length} GIFs`,
             profession: '',
             description,
             reporterId: reporter.id,
             reporterName: reporter.name,
             category,
-            isError: items.length < 3,
-            errorReason: items.length < 3 ? 'Not enough items' : undefined,
+            isError: rankrollItems.length < 3,
+            errorReason: rankrollItems.length < 3
+              ? (rankrollMediaType === 'youtube' ? 'Not enough videos found' : 'Not enough images found')
+              : undefined,
+            rankrollItems,
+            mediaType: rankrollMediaType,
           };
           
           // Add to messages immediately so card updates (like Article flow)
@@ -1243,18 +1440,32 @@ DESCRIPTION: [1 sentence hook that makes people curious]`,
     const today = new Date();
     const dayMonth = `${today.getDate()}.${(today.getMonth() + 1).toString().padStart(2, '0')}`;
     
+    // When a template button was used we KNOW the intent - never sniff keywords then.
+    // Keyword sniffing is dangerously fragile: any word like "died" or even
+    // "desc-rip-tion" inside the prompt used to flip a Birthday search into a RIP search.
+    const templateIntent: Record<string, 'rip' | 'birthday' | 'event'> = {
+      rip: 'rip',
+      birthday: 'birthday',
+      movie: 'event',
+      music: 'event',
+      sport: 'event',
+    };
+    const intent = selectedTemplate ? templateIntent[selectedTemplate] : undefined;
+
     // Detect if this is a RIP request (death anniversary) vs Birthday
-    const isRIPRequest = lowerMsg.includes('rip') || 
-                         lowerMsg.includes('died') || 
-                         lowerMsg.includes('death') ||
-                         lowerMsg.includes('todestag') ||
-                         lowerMsg.includes('gestorben');
+    const isRIPRequest = intent
+      ? intent === 'rip'
+      : (lowerMsg.includes('rip') || 
+         lowerMsg.includes('died') || 
+         lowerMsg.includes('death') ||
+         lowerMsg.includes('todestag') ||
+         lowerMsg.includes('gestorben'));
     
     // EVENT request (ON THIS DAY) - not a person, but an event like movie premiere, album release
     // IMPORTANT: "BORN ON THIS DAY" is NOT an event request - it's a birthday request!
     const hasOnThisDay = lowerMsg.includes('on this day');
     const isBirthdayOrRIP = lowerMsg.includes('born') || lowerMsg.includes('died') || lowerMsg.includes('death') || lowerMsg.includes('rip');
-    const isEventRequest = !isBirthdayOrRIP && (
+    const isEventRequest = intent ? intent === 'event' : !isBirthdayOrRIP && (
       hasOnThisDay ||
       lowerMsg.includes('premiered') ||
       lowerMsg.includes('this exact date') ||
@@ -1456,7 +1667,7 @@ DESCRIPTION: [1 sentence about them]`;
         
         // Immediately show this reporter's result
         const text = data.response || '';
-        let proposal = parseProposalResponse(text, reporter, reporterCategories, isEventRequest, isRIPRequest);
+        let proposal = parseProposalResponse(text, reporter, reporterCategories, isEventRequest, isRIPRequest, TEMPLATE_CATEGORY[selectedTemplate || '']);
         
         console.log(`[Reporter ${i+1}] Parsed name: "${proposal.name}" | isError: ${proposal.isError}`);
         
@@ -1518,11 +1729,12 @@ DESCRIPTION: [1 sentence about them]`;
                 lastname,
                 born,
                 died,
-                causeOfDeath: '',
+                causeOfDeath: proposal.causeOfDeath || '',
                 profession,
                 subcat: proposal.category || '',
                 knownfor: proposal.description || '',
                 countryBorn: proposal.country || '',
+                nationality: proposal.country || '',
                 // Discovery tracking
                 discoveredBy: reporter.id,
                 discoveredByName: reporter.name,
@@ -1755,41 +1967,84 @@ DESCRIPTION: [1 sentence about them]`;
           ) : undefined,
       };
 
-      // AUTO-SAVE to Menschen database if valid proposal found
-      console.log('[Menschen] Checking save conditions:', { isValidGenX, isDuplicate, name, birthday, country, description });
+      // AUTO-SAVE to Almanac Person database if valid proposal found
+      console.log('[Almanac] Checking save conditions:', { isValidGenX, isDuplicate, name, birthday, country, description });
       if (isValidGenX && !isDuplicate && name !== 'Unknown') {
         try {
+          // Split name into firstname/lastname
+          const nameParts = name.trim().split(' ');
+          const firstname = nameParts[0] || '';
+          const lastname = nameParts.slice(1).join(' ') || '';
+          
+          // Convert birthday from DD.MM.YYYY to YYYY-MM-DD
+          let born = '';
+          if (birthday) {
+            const match = birthday.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+            if (match) {
+              born = `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
+            }
+          }
+          
+          // Convert deathday from DD.MM.YYYY to YYYY-MM-DD
+          let died = '';
+          if (deathday) {
+            const match = deathday.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+            if (match) {
+              died = `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
+            }
+          }
+          
+          // Map category to profession enum
+          const professionMap: Record<string, string> = {
+            'music': 'Music',
+            'sports': 'Sport',
+            'movies-tv': 'Actor',
+            'politics': 'Politik',
+            'tech': 'Tech',
+            'culture': 'Art',
+            'lifestyle': 'Other',
+            'gaming': 'Other',
+          };
+          const profession = professionMap[category?.toLowerCase() || ''] || 'Other';
+          
           const payload = {
-            name,
-            birthday: birthday || '',
-            deathday: deathday || '',
+            type: 'people',
+            firstname,
+            lastname,
+            born,
+            died,
             causeOfDeath: causeOfDeath || '',
-            country: country || 'Unknown',
+            profession,
             category: category || 'culture',
+            subcat: category || '',
+            knownfor: description || '',
             description: description || `${name} - GenX personality`,
+            countryBorn: country || '',
+            nationality: country || '',
             discoveredBy: reporterId,
             discoveredByName: reporterName,
             discoveredFor: isRIP ? 'rip' : 'birthday',
+            hasArticle: false,
           };
-          console.log('[Menschen] Saving with payload:', payload);
-          const saveRes = await fetch('/api/menschen', {
+          console.log('[Almanac] Saving with payload:', payload);
+          const saveRes = await fetch('/api/almanac', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
           });
           const saveData = await saveRes.json();
-          console.log('[Menschen] Save response:', saveData);
+          console.log('[Almanac] Save response:', saveData);
           if (saveData.success) {
             newProposal.savedToMenschen = true;
-            console.log(`[Menschen] ✅ Auto-saved: ${name}`, saveData.alreadyExists ? '(already existed)' : '(new)');
+            console.log(`[Almanac] ✅ Auto-saved: ${name}`, saveData.alreadyExists ? '(already existed)' : '(new)');
           } else {
-            console.error('[Menschen] ❌ Save failed:', saveData.error);
+            console.error('[Almanac] ❌ Save failed:', saveData.error);
           }
         } catch (e) {
-          console.error('[Menschen] ❌ Auto-save exception:', e);
+          console.error('[Almanac] ❌ Auto-save exception:', e);
         }
       } else {
-        console.log('[Menschen] ⏭️ Skipping save - conditions not met');
+        console.log('[Almanac] ⏭️ Skipping save - conditions not met');
       }
       
       // Update existing proposal for this reporter (replace, don't add new)
@@ -1837,49 +2092,72 @@ DESCRIPTION: [1 sentence about them]`;
   }
 
   // Select a proposal and ask that reporter to write the article - opens editor modal
-  async function selectProposal(proposal: Proposal) {
+  // overrideReporter: optionally use a different reporter to write the article
+  async function selectProposal(proposal: Proposal, overrideReporter?: { id: string; name: string }) {
     if (!currentPiece) return;
     if (selectingProposal) return; // Prevent double-click
     
-    // For RANKROLL: generate items with images, then open the full RankrollTab editor
+    // Use override reporter if provided, otherwise use the proposal's reporter
+    const writerId = overrideReporter?.id || proposal.reporterId;
+    const writerName = overrideReporter?.name || proposal.reporterName;
+    
+    // For RANKROLL: use pre-fetched items with images, then open the full RankrollTab editor
     if (currentPiece.type === 'rankroll') {
-      setSelectingProposal(proposal.reporterId);
+      setSelectingProposal(writerId);
       
       updatePieceMessages(currentPiece.id, msgs => [
         ...msgs,
         { id: generateId(), from: 'me', name: 'Editor', text: `Create ranking: ${proposal.name}` },
       ]);
       
-      setTyping(proposal.reporterName);
+      setTyping(writerName);
       
       try {
-        // Items are already in proposal.birthday (comma-separated from the proposal)
-        const itemTitles = proposal.birthday
-          .replace(/\.\.\.$/,'') // Remove trailing ...
-          .split(',')
-          .map((s: string) => s.trim().replace(/^["']|["']$/g, '')) // Remove quotes
-          .filter((s: string) => s.length > 0);
+        // Use pre-fetched items if available (from proposal generation)
+        let itemsWithImages: Array<{ title: string; description: string; image: string }>;
         
-        if (itemTitles.length < 3) {
-          throw new Error('Not enough items in proposal');
+        if (proposal.rankrollItems && proposal.rankrollItems.length >= 3) {
+          // Use pre-fetched items - already have images!
+          itemsWithImages = proposal.rankrollItems.map(item => ({
+            title: item.title,
+            description: '',
+            image: item.image,
+          }));
+        } else {
+          // Fallback: parse from birthday string (legacy proposals)
+          const itemTitles = proposal.birthday
+            .replace(/\.\.\.$/,'')
+            .split(',')
+            .map((s: string) => s.trim().replace(/^["']|["']$/g, ''))
+            .filter((s: string) => s.length > 0);
+          
+          if (itemTitles.length < 3) {
+            throw new Error('Not enough items in proposal');
+          }
+          
+          // Fetch images (only for legacy proposals without pre-fetched items)
+          itemsWithImages = await Promise.all(
+            itemTitles.map(async (title: string) => {
+              try {
+                const searchQuery = `${proposal.name} ${title}`;
+                
+                if (rankrollMediaType === 'youtube') {
+                  const ytRes = await fetch(`/api/youtube-thumbnail?q=${encodeURIComponent(searchQuery)}`);
+                  const ytData = await ytRes.json();
+                  if (ytData.success && ytData.url) {
+                    return { title, description: '', image: ytData.url };
+                  }
+                }
+                
+                return { title, description: '', image: await findImageForTerm(searchQuery) };
+              } catch {
+                return { title, description: '', image: '' };
+              }
+            })
+          );
         }
         
-        // Get Tenor GIFs for each item
-        const itemsWithImages = await Promise.all(
-          itemTitles.map(async (title: string) => {
-            try {
-              const gifRes = await fetch(`/api/tenor-search?q=${encodeURIComponent(title)}`);
-              const gifData = await gifRes.json();
-              return {
-                title,
-                description: '',
-                image: gifData.success ? gifData.url : '',
-              };
-            } catch {
-              return { title, description: '', image: '' };
-            }
-          })
-        );
+        const itemTitles = itemsWithImages.map(item => item.title);
         
         // Generate descriptions for all items in one API call
         try {
@@ -1887,7 +2165,7 @@ DESCRIPTION: [1 sentence about them]`;
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              reporterUserId: proposal.reporterId,
+              reporterUserId: writerId,
               message: `Write SHORT descriptions (1-2 sentences each) for these ranking items about "${proposal.name}":
 
 ${itemTitles.map((t: string, i: number) => `${i + 1}. ${t}`).join('\n')}
@@ -1964,7 +2242,7 @@ Make them FUN and ENGAGING - not boring Wikipedia summaries!`,
       { id: generateId(), from: 'me', name: 'Editor', text: `Write an article about ${proposal.name}` },
     ]);
 
-    setTyping(proposal.reporterName);
+    setTyping(writerName);
 
     try {
       // Build the article request message with RIP info if applicable
@@ -1984,7 +2262,7 @@ This is a memorial article honoring their life and legacy. Create the full artic
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          reporterUserId: proposal.reporterId,
+          reporterUserId: writerId,
           message: articleMessage,
           userId,
           skipSave: true, // Don't save to DB yet - user will review first
@@ -2014,8 +2292,8 @@ This is a memorial article honoring their life and legacy. Create the full artic
               coverImage: data.articleData.coverImage || '',
               imagePosX: 50,
               imagePosY: 50,
-              author: proposal.reporterId,
-              authorName: proposal.reporterName,
+              author: writerId,
+              authorName: writerName,
               status: 'draft',
               personName: proposal.name,
               personBirthday: proposal.birthday,
@@ -2054,8 +2332,8 @@ This is a memorial article honoring their life and legacy. Create the full artic
               coverImage: data.articleData.coverImage || '',
               imagePosX: 50,
               imagePosY: 50,
-              reporterId: proposal.reporterId,
-              reporterName: proposal.reporterName,
+              reporterId: writerId,
+              reporterName: writerName,
               personName: proposal.name,
               personBirthday: proposal.birthday,
               personDeathday: proposal.deathday,
@@ -2066,7 +2344,7 @@ This is a memorial article honoring their life and legacy. Create the full artic
             setCreatedArticles(prev => [...prev, {
               id: newArticleId,
               title: data.articleData.title || proposal.name,
-              reporterName: proposal.reporterName,
+              reporterName: writerName,
               draft: newDraft,
             }]);
             updatePieceMessages(currentPiece.id, msgs => [
@@ -2091,8 +2369,8 @@ This is a memorial article honoring their life and legacy. Create the full artic
             coverImage: data.articleData.coverImage || '',
             imagePosX: 50,
             imagePosY: 50,
-            reporterId: proposal.reporterId,
-            reporterName: proposal.reporterName,
+            reporterId: writerId,
+            reporterName: writerName,
             personName: proposal.name,
             personBirthday: proposal.birthday,
             personDeathday: proposal.deathday,
@@ -2103,7 +2381,7 @@ This is a memorial article honoring their life and legacy. Create the full artic
           setCreatedArticles(prev => [...prev, {
             id: newArticleId,
             title: data.articleData.title || proposal.name,
-            reporterName: proposal.reporterName,
+            reporterName: writerName,
             draft: newDraft,
           }]);
           updatePieceMessages(currentPiece.id, msgs => [
@@ -2117,13 +2395,13 @@ This is a memorial article honoring their life and legacy. Create the full artic
         }
       } else if (data.response) {
         // Reporter responded but didn't create an article (maybe person is not GenX, etc.)
-        const reporter = roster.find(r => r.id === proposal.reporterId);
+        const reporter = roster.find(r => r.id === writerId);
         updatePieceMessages(currentPiece.id, msgs => [
           ...msgs,
           {
             id: generateId(),
-            from: proposal.reporterId,
-            name: proposal.reporterName,
+            from: writerId,
+            name: writerName,
             avatar: reporter?.avatar,
             text: data.response,
           },
@@ -2164,6 +2442,55 @@ This is a memorial article honoring their life and legacy. Create the full artic
     }
   }
 
+  // Toggle proposal selection for batch processing
+  function toggleProposalSelection(reporterId: string) {
+    setSelectedProposals(prev => {
+      const next = new Set(prev);
+      if (next.has(reporterId)) {
+        next.delete(reporterId);
+      } else {
+        next.add(reporterId);
+      }
+      return next;
+    });
+  }
+
+  // Process multiple selected proposals sequentially
+  async function processSelectedProposals() {
+    if (!currentPiece || selectedProposals.size === 0) return;
+    
+    setProcessingBatch(true);
+    
+    // Get all proposals from messages that are selected
+    const messages = currentPiece.messages;
+    const proposalsToProcess: Proposal[] = [];
+    const selectedIds = Array.from(selectedProposals);
+    
+    for (const reporterId of selectedIds) {
+      // Find proposal in messages
+      const proposalMsg = messages.find(m => m.from === 'proposals' && m.proposals?.some(p => p.reporterId === reporterId));
+      const proposal = proposalMsg?.proposals?.find(p => p.reporterId === reporterId);
+      if (proposal && !proposal.isError) {
+        proposalsToProcess.push(proposal);
+      }
+    }
+    
+    // Process each proposal sequentially
+    for (const proposal of proposalsToProcess) {
+      try {
+        await selectProposal(proposal);
+        // Small delay between articles to avoid overwhelming the API
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (err) {
+        console.error(`Failed to process proposal for ${proposal.name}:`, err);
+      }
+    }
+    
+    // Clear selections after processing
+    setSelectedProposals(new Set());
+    setProcessingBatch(false);
+  }
+
   // Ask all active reporters for proposals based on template
   async function askProposals(templateId: string, prompt: string) {
     if (!currentPiece || activePeople.length === 0) return;
@@ -2173,13 +2500,115 @@ This is a memorial article honoring their life and legacy. Create the full artic
     // Add system message
     updatePieceMessages(currentPiece.id, msgs => [
       ...msgs,
-      { id: generateId(), from: 'system', text: `📋 Asking ${activePeople.length} reporter(s) for proposals: "${prompt}"` },
+      { id: generateId(), from: 'system', text: `📋 Fetching Wikipedia data and asking ${activePeople.length} reporter(s)...` },
     ]);
     
-    // Just send the template prompt - reporters already have TODAY'S DATE and BIRTHDAYS TODAY in their context
-    const proposalPrompt = `${prompt}
+    // Fetch Wikipedia "On This Day" data based on template type
+    let wikiContext = "";
+    try {
+      // Determine which Wikipedia data to fetch
+      const wikiType = templateId === 'birthday' ? 'births' 
+                     : templateId === 'rip' ? 'deaths' 
+                     : 'selected'; // 'selected' gives curated significant events for music/sport/movie
+      
+      // For event-based templates, also fetch general events
+      const wikiRes = await fetch(`/api/wikipedia/on-this-day?type=${wikiType}`);
+      const wikiData = await wikiRes.json();
+      
+      // For music/sport/movie, also get general events to have more options
+      let allEvents = wikiData.events || [];
+      if (['music', 'sport', 'movie'].includes(templateId)) {
+        const eventsRes = await fetch(`/api/wikipedia/on-this-day?type=events`);
+        const eventsData = await eventsRes.json();
+        if (eventsData.success && eventsData.events) {
+          allEvents = [...allEvents, ...eventsData.events];
+        }
+      }
+      
+      if (allEvents.length > 0) {
+        // Filter events based on template type
+        let filteredEvents = allEvents;
+        // Keyword sets are MULTILINGUAL: the pool now contains German, Russian,
+        // Spanish, Chinese ... entries. English-only patterns would silently drop
+        // every non-English event and push us back to a US-only newsroom.
+        if (templateId === 'music') {
+          filteredEvents = allEvents.filter((e: any) => 
+            /music|album|song|band|concert|singer|musician|chart|hit|record|grammy|mtv|rock|pop|rap|hip.hop|jazz|blues|musik|lied|sänger|kapelle|konzert|musique|chanson|chanteur|música|canción|cantante|musica|canzone|cantante|музык|песн|певец|альбом|концерт|müzik|şarkı|музик|пісн|hudba|píseň|zpěvák|音楽|音乐|歌手|专辑|موسيق|أغني|مطرب|sång|sångare/i.test(e.text)
+          );
+        } else if (templateId === 'sport') {
+          filteredEvents = allEvents.filter((e: any) => 
+            /sport|game|match|championship|olympic|world cup|nba|nfl|nhl|mlb|fifa|tennis|golf|boxing|race|medal|team|player|coach|stadium|league|tournament|final|fußball|fussball|weltmeister|europameister|meisterschaft|olympia|mannschaft|spieler|stadion|turnier|rennen|medaille|football|championnat|coupe du monde|équipe|jeux olympiques|fútbol|campeonato|copa mundial|equipo|olímpic|calcio|campionato|mondiale|squadra|olimpi|футбол|чемпионат|олимп|сборн|матч|турнир|медал|futebol|campeonato|seleção|olímpic|şampiyon|olimpiyat|takım|maç|футбол|чемпіонат|олімп|fotbal|mistrovství|olympij|fotboll|mästerskap|olympisk|奥运|锦标赛|足球|世界杯|أولمب|بطول|كرة القدم/i.test(e.text)
+          );
+        } else if (templateId === 'movie') {
+          filteredEvents = allEvents.filter((e: any) => 
+            /film|movie|cinema|premiere|actor|actress|director|oscar|emmy|tv|television|series|show|episode|hollywood|studio|screen|kino|premiere|schauspieler|regisseur|fernsehen|serie|cinéma|réalisateur|acteur|télévision|película|cine|actor|actriz|director|televisión|regista|attore|attrice|televisione|фильм|кино|актёр|актер|режиссёр|телевиден|сериал|filme|ator|diretor|televisão|sinema|oyuncu|yönetmen|фільм|кіно|актор|режисер|телебачення|kino|herec|režisér|televize|biograf|skådespelare|regissör|电影|导演|演员|电视|فيلم|سينما|ممثل|مخرج|تلفزيون/i.test(e.text)
+          );
+        }
+        
+        const categoryLabel = templateId === 'birthday' ? 'BIRTHDAYS' 
+                            : templateId === 'rip' ? 'DEATHS'
+                            : templateId === 'music' ? 'MUSIC EVENTS'
+                            : templateId === 'sport' ? 'SPORTS EVENTS'
+                            : templateId === 'movie' ? 'MOVIE/TV EVENTS'
+                            : 'EVENTS';
 
-Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to GenX. Do NOT write the article yet.`;
+        // NEVER fall back to unrelated events - that is what made a "Sport" search
+        // return Music/Movie cards. No match in the category => tell them to say so.
+        if (filteredEvents.length === 0) {
+          wikiContext = `\n\n📚 WIKIPEDIA CHECK FOR TODAY (${wikiData.date}): NO ${categoryLabel} found in the verified list.\n\n⚠️ Respond with exactly "NO ${categoryLabel} FOUND ON THIS DATE" - do NOT substitute an event from another category.`;
+          updatePieceMessages(currentPiece.id, msgs => [
+            ...msgs,
+            { id: generateId(), from: 'system', text: `⚠️ No verified ${categoryLabel.toLowerCase()} on Wikipedia for today` },
+          ]);
+        } else {
+          const eventList = filteredEvents.slice(0, 25).map((e: any) => 
+            `- ${e.date}${e.source ? ` [${e.source}]` : ''}: ${e.text}${e.title ? ` (${e.title})` : ''}`
+          ).join('\n');
+
+          wikiContext = `\n\n📚 VERIFIED WIKIPEDIA ${categoryLabel} FOR TODAY (${wikiData.date}) — pooled from 13 language editions:\n${eventList}\n\n⚠️ YOU MUST ONLY CHOOSE FROM THE LIST ABOVE! Do NOT invent or guess dates. Do NOT switch to another category. If none fit, say "NO ${categoryLabel} FOUND ON THIS DATE".\n🌍 The [bracket] tag shows the language edition an entry came from. Do NOT default to US/American items — prefer non-US ones when available.\n🈯 Entries may be written in German, Russian, Chinese, Arabic etc. ALWAYS write your answer in ENGLISH regardless of the source language.`;
+
+          updatePieceMessages(currentPiece.id, msgs => [
+            ...msgs,
+            { id: generateId(), from: 'system', text: `✅ Found ${filteredEvents.length} verified ${categoryLabel.toLowerCase()} from Wikipedia for today` },
+          ]);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch Wikipedia data:", e);
+    }
+    
+    // Add category and country filters to the prompt
+    let filterContext = "";
+    if (globalCategory) {
+      const categoryLabels: Record<string, string> = {
+        'sports': 'SPORTS (athletes, games, matches)',
+        'music': 'MUSIC (musicians, singers, bands)',
+        'movies-tv': 'MOVIES/TV (actors, actresses, films, TV shows)',
+        'gaming': 'GAMING (video games, game developers)',
+        'politics': 'POLITICS (politicians, political events)',
+        'tech': 'TECH (technology, computers, internet)',
+      };
+      filterContext += `\n⚠️ CATEGORY FILTER: Only suggest ${categoryLabels[globalCategory] || globalCategory}!`;
+    }
+    if (globalCountry) {
+      const countryLabels: Record<string, string> = {
+        'US': 'USA/American', 'CA': 'Canadian', 'UK': 'British/UK', 'DE': 'German',
+        'FR': 'French', 'IT': 'Italian', 'ES': 'Spanish', 'PT': 'Portuguese',
+        'NL': 'Dutch', 'BE': 'Belgian', 'AT': 'Austrian', 'CH': 'Swiss',
+        'SE': 'Swedish', 'NO': 'Norwegian', 'DK': 'Danish', 'FI': 'Finnish',
+        'PL': 'Polish', 'CZ': 'Czech', 'HU': 'Hungarian', 'GR': 'Greek',
+        'IE': 'Irish', 'RU': 'Russian', 'UA': 'Ukrainian',
+        'MX': 'Mexican', 'BR': 'Brazilian', 'AR': 'Argentinian', 'CO': 'Colombian',
+        'JP': 'Japanese', 'KR': 'South Korean', 'CN': 'Chinese', 'IN': 'Indian',
+        'AU': 'Australian', 'NZ': 'New Zealand', 'ZA': 'South African',
+      };
+      filterContext += `\n⚠️ COUNTRY FILTER: Only suggest ${countryLabels[globalCountry] || globalCountry} people/events!`;
+    }
+    
+    const proposalPrompt = `${prompt}${wikiContext}${filterContext}
+
+Propose ONE person/event FROM THE WIKIPEDIA LIST ABOVE that matches the filters. Format: Name (DD.MM.YYYY) - Country - Why they matter to GenX. Do NOT write the article yet.
+If nothing in the list matches the requested category, answer with the "NO ... FOUND" line only. Never substitute an item from a different category - an empty result is the correct answer.`;
     
     // Show who is typing - single name or "multiple"
     setTyping(activePeople.length === 1 ? activePeople[0].name : 'multiple');
@@ -2275,14 +2704,19 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
             <span className="text-[10px] text-gray-500">{roster.length} reporters</span>
             {/* API Status */}
             {apiStatus && apiStatus.status !== 'active' && (
-              <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-medium ${
-                apiStatus.status === 'quota_exceeded' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
-                apiStatus.status === 'invalid_key' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
-                'bg-gray-500/20 text-gray-400 border border-gray-500/30'
-              }`}>
+              <a 
+                href="https://platform.openai.com/usage"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-medium cursor-pointer hover:opacity-80 ${
+                  apiStatus.status === 'quota_exceeded' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                  apiStatus.status === 'invalid_key' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                  'bg-gray-500/20 text-gray-400 border border-gray-500/30'
+                }`}
+              >
                 <AlertCircle className="w-3 h-3" />
                 {apiStatus.message}
-              </div>
+              </a>
             )}
             {apiStatus && apiStatus.status === 'active' && (
               <div className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-green-500/10 text-green-400 border border-green-500/20">
@@ -2316,7 +2750,7 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
         </div>
 
         {/* Content-type TABS + piece tabs */}
-        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-800 bg-gray-950 shrink-0 relative z-30">
+        <div className="flex items-center gap-2 px-4 pt-4 pb-2.5 border-b border-gray-800 bg-gray-950 shrink-0 relative z-30">
 
           {/* Content type tabs - Article, Rankroll, TV, Radio */}
           <div className="flex gap-1 shrink-0">
@@ -2343,7 +2777,7 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
           <div className="w-px h-5 bg-gray-700 shrink-0 mx-1" />
 
           {/* Piece tabs - scrollable container */}
-          <div className="flex items-center gap-2 overflow-x-auto flex-1 min-w-0">
+          <div className="flex items-center gap-2 overflow-x-auto overflow-y-visible flex-1 min-w-0 py-1">
           {deptPieces.map(p => {
             const typeInfo = CONTENT_TYPES.find(t => t.id === p.type);
             const isActive = p.id === currentPieceId;
@@ -2391,8 +2825,9 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
         <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
           {/* Reporter Row - clean cards, multiple rows */}
           <div className="border-b border-gray-800 bg-gray-950 px-3 py-2">
-            {/* Select All button */}
-            <div className="flex items-center gap-2 mb-2">
+            {/* Reporter grid with Select All first */}
+            <div className="flex flex-wrap items-center gap-1">
+              {/* Select All button */}
               <button
                 onClick={() => {
                   const allActive = roster.every(p => activeReporters[p.id]);
@@ -2400,20 +2835,14 @@ Propose ONE person. Format: Name (DD.MM.YYYY) - Country - Why they matter to Gen
                   roster.forEach(p => { newState[p.id] = !allActive; });
                   setActiveReporters(newState);
                 }}
-                className={`text-xs px-3 py-1 rounded font-medium transition-colors ${
+                className={`flex items-center gap-1.5 px-2 py-1 rounded border text-xs font-medium transition-colors ${
                   roster.every(p => activeReporters[p.id])
-                    ? "bg-gray-700 text-white hover:bg-gray-600"
-                    : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                    ? "bg-gray-700 border-gray-600 text-white hover:bg-gray-600"
+                    : "bg-gray-800 border-gray-700 text-gray-400 hover:bg-gray-700"
                 }`}
               >
-                {roster.every(p => activeReporters[p.id]) ? '✓ All Selected' : 'Select All'}
+                {roster.every(p => activeReporters[p.id]) ? '✓ All' : 'Select All'}
               </button>
-              <span className="text-[10px] text-gray-500">
-                {Object.values(activeReporters).filter(Boolean).length} / {roster.length} active
-              </span>
-            </div>
-            {/* Reporter grid */}
-            <div className="flex flex-wrap gap-1">
             {roster.map(p => {
               return (
                 <div 
@@ -2680,6 +3109,31 @@ Length: 800-1200 words`;
                   placeholder="e.g. Robert De Niro best movies, 90s hip hop albums, Mike Tyson fights..."
                   className="flex-1 bg-gray-700 px-3 py-2 rounded text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-[#E36B11]"
                 />
+                {/* Media type toggle */}
+                <div className="flex items-center bg-gray-700 rounded overflow-hidden shrink-0">
+                  <button
+                    onClick={() => setRankrollMediaType('youtube')}
+                    className={`px-2 py-1.5 text-xs font-medium flex items-center gap-1 ${
+                      rankrollMediaType === 'youtube' 
+                        ? 'bg-red-600 text-white' 
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                    title="Use YouTube videos"
+                  >
+                    <Video size={12} /> YouTube
+                  </button>
+                  <button
+                    onClick={() => setRankrollMediaType('gif')}
+                    className={`px-2 py-1.5 text-xs font-medium flex items-center gap-1 ${
+                      rankrollMediaType === 'gif' 
+                        ? 'bg-purple-600 text-white' 
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                    title="Use images (Wikimedia Commons, Tenor GIF as fallback)"
+                  >
+                    🖼️ Images
+                  </button>
+                </div>
                 {typing ? (
                   <button
                     onClick={() => {
@@ -2746,6 +3200,86 @@ Length: 800-1200 words`;
                   placeholder="e.g. Max Cavalera interview, Nirvana live, Brad Pitt movies..."
                   className="flex-1 bg-gray-700 px-3 py-2 rounded text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
                 />
+                {/* Pull Today's Articles Button */}
+                <button
+                  onClick={async () => {
+                    setTvPulling(true);
+                    try {
+                      // Fetch articles created today (admin mode to see drafts too)
+                      const today = new Date().toISOString().split('T')[0];
+                      const res = await fetch(`/api/articles?createdAfter=${today}&limit=10&admin=true&status=all`);
+                      const data = await res.json();
+                      
+                      console.log('Pull articles response:', data);
+                      
+                      if (data.articles && data.articles.length > 0) {
+                        // Extract person names from articles
+                        // Priority: personName > title before ":" > title before "-" > full title
+                        const personNames: string[] = [];
+                        for (const article of data.articles) {
+                          let name = article.personName;
+                          if (!name && article.title) {
+                            // Try to extract name from title patterns like "Name: Title" or "Name - Title"
+                            const colonMatch = article.title.match(/^([^:]+):/);
+                            const dashMatch = article.title.match(/^([^-–—]+)\s*[-–—]/);
+                            name = colonMatch?.[1]?.trim() || dashMatch?.[1]?.trim() || article.title;
+                          }
+                          if (name && name.length > 2 && !personNames.includes(name)) {
+                            personNames.push(name);
+                          }
+                          if (personNames.length >= 3) break;
+                        }
+                        
+                        console.log('Extracted person names:', personNames);
+                        
+                        if (personNames.length > 0) {
+                          // Set the search input with the names
+                          setTvSearchInput(personNames.join(', '));
+                          
+                          // Auto-search for videos
+                          setTvSearching(true);
+                          setTvResults([]);
+                          
+                          // Search for each person (2 videos each)
+                          const allVideos: typeof tvResults = [];
+                          for (const name of personNames) {
+                            try {
+                              console.log('Searching videos for:', name);
+                              const searchRes = await fetch('/api/editorial/tv-search', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ topic: `${name} interview documentary`, count: 2, searchOnly: true }),
+                              });
+                              const searchData = await searchRes.json();
+                              console.log('Video search result for', name, ':', searchData);
+                              if (searchData.success && searchData.videos) {
+                                allVideos.push(...searchData.videos.map((v: any) => ({
+                                  youtubeId: v.youtubeId,
+                                  title: v.title,
+                                  description: v.description || '',
+                                  duration: v.duration || '',
+                                  thumbnail: v.thumbnail || `https://img.youtube.com/vi/${v.youtubeId}/mqdefault.jpg`,
+                                })));
+                              }
+                            } catch (err) {
+                              console.error('Video search error for', name, ':', err);
+                            }
+                          }
+                          setTvResults(allVideos);
+                          setTvSearching(false);
+                        }
+                      }
+                    } catch (err) {
+                      console.error('Pull articles error:', err);
+                    }
+                    setTvPulling(false);
+                  }}
+                  disabled={tvPulling || tvSearching}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded text-xs font-bold shrink-0 disabled:opacity-50 bg-purple-600 hover:bg-purple-500 text-white"
+                  title="Pull names from today's articles"
+                >
+                  {tvPulling ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />} Pull
+                </button>
                 <button
                   onClick={async () => {
                     if (tvSearchInput.trim() && !tvSearching) {
@@ -3076,8 +3610,10 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                       });
                       setHistoryEvents(initialEvents);
                       
-                      // Fetch events SEQUENTIALLY so each reporter knows what others found
-                      const foundEvents: string[] = []; // Track found event titles to avoid duplicates
+                      // Fetch events SEQUENTIALLY so each reporter knows what others found.
+                      // Seed with titles from previous days so multi-day events (Woodstock)
+                      // cannot be retold once per day of their span.
+                      const foundEvents: string[] = recentHistoryTitles();
                       
                       for (const reporterId of activeIds) {
                         try {
@@ -3092,8 +3628,9 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                           const data = await res.json();
                           
                           if (data.success && data.event) {
-                            // Add to found events list
+                            // Add to found events list (session + cross-day memory)
                             foundEvents.push(data.event.title);
+                            rememberHistoryTitle(data.event.title);
                             
                             // Update this reporter's event immediately
                             setHistoryEvents(prev => prev.map(e => 
@@ -3545,6 +4082,86 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
               <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
                 {/* Reporter Cards Grid - PERSISTENT cards that update with status */}
                 {(typing || messages.some(m => m.from === 'proposals')) && (
+                  <>
+                  {/* Multi-select action bar */}
+                  {(() => {
+                    // Count valid proposals (not errors, not searching)
+                    const validProposals = roster.filter(r => {
+                      if (!activeReporters[r.id]) return false;
+                      const proposalMsg = messages.find(m => m.from === 'proposals' && m.proposals?.some(p => p.reporterId === r.id));
+                      const proposal = proposalMsg?.proposals?.find(p => p.reporterId === r.id);
+                      return proposal && !proposal.isError;
+                    });
+                    const allSelected = validProposals.length > 0 && validProposals.every(r => selectedProposals.has(r.id));
+                    
+                    return (
+                      <div className="flex items-center gap-3 mb-3 p-3 bg-gray-800/50 border border-gray-700 rounded-lg">
+                        {/* Select All checkbox */}
+                        <button
+                          onClick={() => {
+                            if (allSelected) {
+                              setSelectedProposals(new Set());
+                            } else {
+                              const newSelected = new Set<string>();
+                              validProposals.forEach(r => newSelected.add(r.id));
+                              setSelectedProposals(newSelected);
+                            }
+                          }}
+                          disabled={validProposals.length === 0 || !!selectingProposal || processingBatch}
+                          className={`flex items-center gap-2 text-sm ${
+                            validProposals.length === 0 || selectingProposal || processingBatch
+                              ? 'text-gray-500 cursor-not-allowed'
+                              : 'text-gray-300 hover:text-white'
+                          }`}
+                        >
+                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                            allSelected
+                              ? 'bg-[#E36B11] border-[#E36B11]'
+                              : 'border-gray-500 hover:border-[#E36B11]'
+                          }`}>
+                            {allSelected && <Check className="w-3 h-3 text-white" />}
+                          </div>
+                          Select All ({validProposals.length})
+                        </button>
+                        
+                        {selectedProposals.size > 0 && (
+                          <>
+                            <div className="w-px h-5 bg-gray-600" />
+                            <span className="text-sm text-[#E36B11] font-medium">
+                              {selectedProposals.size} selected
+                            </span>
+                            <button
+                              onClick={processSelectedProposals}
+                              disabled={processingBatch || !!selectingProposal}
+                              className={`flex items-center gap-2 px-4 py-1.5 rounded text-sm font-bold text-white ${
+                                processingBatch || selectingProposal
+                                  ? 'bg-gray-600 cursor-not-allowed'
+                                  : 'bg-[#E36B11] hover:bg-[#c07830]'
+                              }`}
+                            >
+                              {processingBatch ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  Processing...
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="w-4 h-4" />
+                                  Start Selected
+                                </>
+                              )}
+                            </button>
+                            <button
+                              onClick={() => setSelectedProposals(new Set())}
+                              className="text-xs text-gray-400 hover:text-white"
+                            >
+                              Clear
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()}
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                     {roster.filter(r => activeReporters[r.id]).map(r => {
                       // Find this reporter's proposal in messages
@@ -3565,7 +4182,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                                   : "bg-gray-900 border border-gray-700"
                           }`}
                         >
-                          {/* Reporter header: Avatar + Name + Category */}
+                          {/* Reporter header: Avatar + Name + Category + Checkbox */}
                           <div className="flex items-center gap-2 mb-2">
                             {r.avatar ? (
                               <img src={r.avatar} alt={r.name} className="w-6 h-6 rounded-full object-cover" />
@@ -3576,16 +4193,35 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                             )}
                             <div className="text-xs font-semibold text-gray-200 flex-1">{r.name}</div>
                             {proposal && !proposal.isError && (
-                              <span className="text-[8px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400">
-                                {proposal.category === 'sports' ? 'Sports' : 
-                                  proposal.category === 'music' ? 'Music' : 
-                                  proposal.category === 'gaming' ? 'Gaming' :
-                                  proposal.category === 'politics' ? 'Politics' :
-                                  proposal.category === 'tech' ? 'Tech' :
-                                  proposal.category === 'movies-tv' ? 'Movies/TV' :
-                                  proposal.category === 'lifestyle' ? 'Lifestyle' :
-                                  'Culture'}
-                              </span>
+                              <>
+                                <span className="text-[8px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-400">
+                                  {proposal.category === 'sports' ? 'Sports' : 
+                                    proposal.category === 'music' ? 'Music' : 
+                                    proposal.category === 'gaming' ? 'Gaming' :
+                                    proposal.category === 'politics' ? 'Politics' :
+                                    proposal.category === 'tech' ? 'Tech' :
+                                    proposal.category === 'movies-tv' ? 'Movies/TV' :
+                                    proposal.category === 'lifestyle' ? 'Lifestyle' :
+                                    'Culture'}
+                                </span>
+                                {/* Multi-select checkbox */}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleProposalSelection(r.id);
+                                  }}
+                                  disabled={!!selectingProposal || processingBatch}
+                                  className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                                    selectedProposals.has(r.id)
+                                      ? 'bg-[#E36B11] border-[#E36B11]'
+                                      : 'border-gray-500 hover:border-[#E36B11]'
+                                  } ${(selectingProposal || processingBatch) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                  {selectedProposals.has(r.id) && (
+                                    <Check className="w-3 h-3 text-white" />
+                                  )}
+                                </button>
+                              </>
                             )}
                           </div>
                           
@@ -3609,7 +4245,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                               {proposal.birthday && (
                                 <div className="text-[9px] text-white/70 mb-1">📅 {proposal.birthday?.length > 60 ? proposal.birthday.slice(0, 60) + '...' : proposal.birthday}</div>
                               )}
-                              <p className="text-[10px] text-red-400/80 flex-1">{proposal.errorReason}</p>
+                              <p className="text-[10px] text-red-400/80 flex-1 whitespace-pre-wrap break-words overflow-y-auto max-h-24" title={proposal.errorReason}>{proposal.errorReason}</p>
                               <button
                                 onClick={() => askForAnother(r.id, r.name, selectedTemplate === 'rip')}
                                 disabled={!!retryingReporter}
@@ -3648,38 +4284,12 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                                     <span className="font-semibold text-white">{proposal.name}</span>
                                     <span className="text-white/60">·</span>
                                     <span className="text-white/90">{proposal.birthday?.length > 80 ? proposal.birthday.slice(0, 80) + '...' : proposal.birthday}</span>
+                                    {/* Central mapping instead of a hardcoded chain that fell
+                                        back to 'US' - a Finnish artist showed a US flag.
+                                        Unknown country now renders no flag at all. */}
                                     {proposal.country && !proposal.country.includes('items') && (
                                       <CountryFlag 
-                                        flag={
-                                          proposal.country === 'Canada' ? 'CA' : 
-                                          proposal.country === 'USA' || proposal.country === 'United States' ? 'US' :
-                                          proposal.country === 'UK' || proposal.country === 'United Kingdom' ? 'GB' :
-                                          proposal.country === 'Northern Ireland' || proposal.country?.includes('Northern Ireland') ? 'NI' :
-                                          proposal.country === 'Scotland' ? 'gb-sct' :
-                                          proposal.country === 'Wales' ? 'gb-wls' :
-                                          proposal.country === 'England' ? 'gb-eng' :
-                                          proposal.country === 'Germany' ? 'DE' :
-                                          proposal.country === 'France' ? 'FR' :
-                                          proposal.country === 'Italy' ? 'IT' :
-                                          proposal.country === 'Spain' ? 'ES' :
-                                          proposal.country === 'Japan' ? 'JP' :
-                                          proposal.country === 'Australia' ? 'AU' :
-                                          proposal.country === 'Brazil' ? 'BR' :
-                                          proposal.country === 'Poland' ? 'PL' :
-                                          proposal.country === 'Singapore' ? 'SG' :
-                                          proposal.country === 'Libya' || proposal.country?.includes('Libya') ? 'LY' :
-                                          proposal.country === 'Mexico' ? 'MX' :
-                                          proposal.country === 'Argentina' ? 'AR' :
-                                          proposal.country === 'Netherlands' ? 'NL' :
-                                          proposal.country === 'Sweden' ? 'SE' :
-                                          proposal.country === 'Norway' ? 'NO' :
-                                          proposal.country === 'Russia' ? 'RU' :
-                                          proposal.country === 'China' ? 'CN' :
-                                          proposal.country === 'South Korea' ? 'KR' :
-                                          proposal.country === 'India' ? 'IN' :
-                                          proposal.country === 'Ireland' ? 'IE' :
-                                          'US'
-                                        } 
+                                        flag={countryNameToCode(proposal.country)} 
                                         className="w-4 h-3 rounded-[1px]"
                                       />
                                     )}
@@ -3705,18 +4315,53 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                                     Stop
                                   </button>
                                 ) : (
-                                  /* Select button when idle */
-                                  <button
-                                    onClick={() => selectProposal(proposal)}
-                                    disabled={!!selectingProposal}
-                                    className={`flex-1 py-1 rounded text-[10px] font-bold text-white flex items-center justify-center gap-1 ${
-                                      selectingProposal
-                                        ? 'bg-gray-600 cursor-not-allowed'
-                                        : 'bg-[#E36B11] hover:bg-[#c07830]'
-                                    }`}
-                                  >
-                                    Select
-                                  </button>
+                                  /* Select button with dropdown for reassigning */
+                                  <div className="flex-1 relative">
+                                    <div className="flex">
+                                      <button
+                                        onClick={() => selectProposal(proposal)}
+                                        disabled={!!selectingProposal}
+                                        className={`flex-1 py-1 rounded-l text-[10px] font-bold text-white flex items-center justify-center gap-1 ${
+                                          selectingProposal
+                                            ? 'bg-gray-600 cursor-not-allowed'
+                                            : 'bg-[#E36B11] hover:bg-[#c07830]'
+                                        }`}
+                                      >
+                                        Select
+                                      </button>
+                                      <button
+                                        onClick={() => setReassignOpen(reassignOpen === `${r.id}-${proposal.name}` ? null : `${r.id}-${proposal.name}`)}
+                                        disabled={!!selectingProposal}
+                                        className={`px-1 py-1 rounded-r border-l border-orange-700 text-[10px] text-white ${
+                                          selectingProposal
+                                            ? 'bg-gray-600 cursor-not-allowed'
+                                            : 'bg-[#E36B11] hover:bg-[#c07830]'
+                                        }`}
+                                        title="Assign to different reporter"
+                                      >
+                                        <ChevronDown className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                    {/* Reassign dropdown */}
+                                    {reassignOpen === `${r.id}-${proposal.name}` && (
+                                      <div className="absolute top-full left-0 right-0 mt-1 bg-gray-800 border border-gray-600 rounded shadow-lg z-50 max-h-32 overflow-y-auto">
+                                        <div className="text-[9px] text-gray-400 px-2 py-1 border-b border-gray-700">Assign to:</div>
+                                        {roster.filter(rep => rep.id !== r.id).map(rep => (
+                                          <button
+                                            key={rep.id}
+                                            onClick={() => {
+                                              setReassignOpen(null);
+                                              selectProposal(proposal, { id: rep.id, name: rep.name });
+                                            }}
+                                            className="w-full text-left px-2 py-1.5 text-[10px] text-white hover:bg-gray-700 flex items-center gap-2"
+                                          >
+                                            {rep.avatar && <img src={rep.avatar} className="w-4 h-4 rounded-full" />}
+                                            <span>{rep.name}</span>
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
                                 )}
                                 <button
                                   onClick={() => askForAnother(r.id, r.name, proposal.isRIP)}
@@ -3744,6 +4389,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                       );
                     })}
                   </div>
+                  </>
                 )}
                 
                 {/* Result cards (article created) */}

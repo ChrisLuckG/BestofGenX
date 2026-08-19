@@ -5,7 +5,7 @@ import Article from '@/models/Article';
 import User from '@/models/User';
 import Comment from '@/models/Comment';
 import Reaction from '@/models/Reaction';
-import Menschen from '@/models/Menschen';
+import { Person } from '@/models/Almanac';
 import { markMenschCovered } from '@/lib/menschenDb';
 import { getAutoFillSlugs } from '@/lib/categories';
 import { countryNameToCode } from '@/lib/countryFlags';
@@ -91,6 +91,12 @@ export async function GET(request: NextRequest) {
     // Filter by author name
     const author = searchParams.get('author');
     if (author) query.authorName = author;
+    
+    // Filter by creation date (for "today's articles")
+    const createdAfter = searchParams.get('createdAfter');
+    if (createdAfter) {
+      query.createdAt = { $gte: new Date(createdAfter) };
+    }
     
     const skip = (page - 1) * limit;
     
@@ -287,39 +293,73 @@ export async function POST(request: NextRequest) {
       personCountryCode: personCountryCode || undefined,
     });
     
-    // Auto-create Menschen entry if person data is provided
+    // Auto-create Person entry (Almanac) if person data is provided
     const personCountry = personCountryRaw;
     let menschCreated = false;
     
     if (personName && personBirthday) {
       try {
-        // Check if person already exists (by name + birthday)
-        const existing = await Menschen.findOne({ name: personName, birthday: personBirthday });
+        // Split name into firstname/lastname
+        const nameParts = personName.trim().split(/\s+/);
+        const firstname = nameParts[0] || '';
+        const lastname = nameParts.slice(1).join(' ') || '';
+        
+        // Convert birthday from DD.MM.YYYY to YYYY-MM-DD
+        let born = personBirthday;
+        const dateMatch = personBirthday.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+        if (dateMatch) {
+          born = `${dateMatch[3]}-${dateMatch[2].padStart(2, '0')}-${dateMatch[1].padStart(2, '0')}`;
+        }
+        
+        // Convert deathday similarly
+        let died = personDeathday || '';
+        if (personDeathday) {
+          const deathMatch = personDeathday.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+          if (deathMatch) {
+            died = `${deathMatch[3]}-${deathMatch[2].padStart(2, '0')}-${deathMatch[1].padStart(2, '0')}`;
+          }
+        }
+        
+        // Check if person already exists (by firstname + lastname, case-insensitive)
+        const existing = await Person.findOne({ 
+          firstname: { $regex: new RegExp(`^${firstname}$`, 'i') },
+          lastname: { $regex: new RegExp(`^${lastname}$`, 'i') }
+        });
         
         if (existing) {
           // Update existing entry with article link
-          await Menschen.findByIdAndUpdate(existing._id, {
+          await Person.findByIdAndUpdate(existing._id, {
             hasArticle: true,
             articleId: article._id,
             articleCreatedAt: new Date(),
             articleCreatedBy: userId,
             // Update deathday if this is a RIP article and we have new info
-            ...(isRIP && personDeathday && !existing.deathday ? { deathday: personDeathday, causeOfDeath: personCauseOfDeath } : {}),
+            ...(isRIP && died && !existing.died ? { died, causeOfDeath: personCauseOfDeath } : {}),
           });
           menschCreated = true;
-        } else {
-          // Create new Menschen entry
-          await Menschen.create({
-            name: personName,
-            birthday: personBirthday,
-            deathday: personDeathday || undefined,
+        } else if (firstname && lastname) {
+          // Map category to profession
+          const professionMap: Record<string, string> = {
+            'music': 'Music', 'sports': 'Sport', 'movies-tv': 'Actor',
+            'politics': 'Politik', 'tech': 'Tech', 'culture': 'Art',
+          };
+          const profession = professionMap[resolvedCategory] || 'Other';
+          
+          // Create new Person entry
+          await Person.create({
+            firstname,
+            lastname,
+            born,
+            died: died || undefined,
             causeOfDeath: personCauseOfDeath || undefined,
-            country: personCountry || 'Unknown',
+            countryBorn: personCountry || 'Unknown',
+            nationality: personCountry || '',
             category: resolvedCategory === 'rip' ? 'unknown' : resolvedCategory,
-            profession: '', // Could be extracted from article content later
+            profession,
             isGenX: true,
+            knownfor: subtitle || title,
             description: subtitle || title,
-            imageUrl: coverImage || '',
+            image: coverImage || '',
             discoveredBy: authorId || 'system',
             discoveredByName: authorName,
             discoveredAt: new Date(),
@@ -334,8 +374,8 @@ export async function POST(request: NextRequest) {
           menschCreated = true;
         }
       } catch (menschErr: any) {
-        // Don't fail article creation if Menschen creation fails (e.g., duplicate key)
-        console.error('Menschen creation failed (non-fatal):', menschErr.message);
+        // Don't fail article creation if Person creation fails (e.g., duplicate key)
+        console.error('Person creation failed (non-fatal):', menschErr.message);
       }
     }
 

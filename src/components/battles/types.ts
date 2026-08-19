@@ -78,11 +78,12 @@ export const getTopicConfig = (topicId: string): TopicConfig => {
 // ═══════════════════════════════════════════════════════════════
 
 export const WAGERS = [
-  { amount: 0.10, rounds: 3 },
   { amount: 0.25, rounds: 3 },
-  { amount: 0.50, rounds: 5 },
+  { amount: 0.50, rounds: 3 },
   { amount: 0.75, rounds: 5 },
   { amount: 1.00, rounds: 5 },
+  { amount: 2.50, rounds: 7 },
+  { amount: 5.00, rounds: 10 },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -124,10 +125,11 @@ export const getFlag = (flag: string | undefined): string => {
 // All wagers are stored directly in BOGX coins (0.10, 0.25, 0.50, ...)
 export const toBOGX = (wager: number) => wager;
 
-// Check if game is on break (9:00-10:00 CET - daily reset period)
+// Check if game is on break (9:55-10:00 CET - 5 minute daily reset)
 export const isGameOnBreak = () => {
   const now = new Date();
   const germanTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
   const hour = germanTime.getHours();
-  return hour >= 9 && hour < 10;
+  const minute = germanTime.getMinutes();
+  return hour === 9 && minute >= 55;
 };

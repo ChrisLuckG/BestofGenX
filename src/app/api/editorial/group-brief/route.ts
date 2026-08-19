@@ -416,7 +416,7 @@ export async function POST(request: NextRequest) {
       ? await fetchRecentGenXDeaths(now, wantsWholeYear)
       : { contextStr: '', nameList: [] as string[] };
 
-    const fullKnowledge = `TODAY'S DATE: ${todayStr}\n\n${PLATFORM_STRUCTURE}${todayCtx.contextStr}${deathsCtx.contextStr}\n\n================================================================================\nBOGX BRAND & CONTENT GUIDE\n================================================================================\n${bogxKnowledge}`;
+    const fullKnowledge = `TODAY'S DATE: ${todayStr}\n\nHISTORICAL DATE ACCURACY (hard rule):\n- Historical events keep their REAL date. NEVER move an event onto today's date to make it fit.\n- "On this day" means the event's real day AND month are EXACTLY today's (any year). Off by one day = does not count.\n- Timezones are irrelevant. Use the documented historical date, never a local-time variant.\n- Always state the real date (DD.MM.YYYY) and never contradict well-known facts (Elvis Presley died on 16.08.1977 — so he is NOT valid on 17.08.).\n- If unsure about an exact date, drop that event and pick another one you are sure about.\n- Finding nothing for today is a valid, expected answer.\n\n${PLATFORM_STRUCTURE}${todayCtx.contextStr}${deathsCtx.contextStr}\n\n================================================================================\nBOGX BRAND & CONTENT GUIDE\n================================================================================\n${bogxKnowledge}`;
 
     const reporterKnowledge = `
 EDITORIAL INTELLIGENCE — you know this, the CEO does not need to tell you:

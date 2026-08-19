@@ -5,6 +5,7 @@ import PollVote from '@/models/PollVote';
 import PollReward from '@/models/PollReward';
 import User from '@/models/User';
 import { awardBogx } from '@/lib/awardBogx';
+import { cache } from '@/lib/cache';
 
 // POST - Vote on a poll
 export async function POST(
@@ -144,6 +145,8 @@ export async function POST(
       }
       
       const updatedPoll = await Poll.findById(pollId);
+      // Invalidate polls cache after vote
+      cache.invalidatePrefix('polls:');
       return NextResponse.json({ success: true, poll: updatedPoll, action, coinsAwarded });
     }
     
@@ -186,6 +189,9 @@ export async function POST(
     
     // Get updated poll
     const updatedPoll = await Poll.findById(pollId);
+    
+    // Invalidate polls cache after vote
+    cache.invalidatePrefix('polls:');
     
     return NextResponse.json({ success: true, poll: updatedPoll });
   } catch (error: any) {

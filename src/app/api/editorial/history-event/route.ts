@@ -14,43 +14,68 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-// Fetch real "On This Day" events from Wikipedia
-async function fetchWikipediaOnThisDay(): Promise<Array<{ year: number; text: string }>> {
-  try {
-    const now = new Date();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    
-    // Wikipedia "On This Day" API
-    const response = await fetch(
-      `https://api.wikimedia.org/feed/v1/wikipedia/en/onthisday/events/${month}/${day}`,
-      {
-        headers: {
-          'User-Agent': 'BOGX-Newsroom/1.0 (contact@bogx.com)',
-        },
+// Language editions to query. English alone is heavily US/Anglo-centric, which is
+// why the newsroom kept producing American-only history. Each edition surfaces its
+// own regional events.
+// These 13 are the COMPLETE set supported by the Wikimedia "onthisday" feed API -
+// every other language code (ja, pl, nl, ko, ...) returns HTTP 404.
+const WIKI_LANGS: Array<{ code: string; label: string }> = [
+  { code: 'en', label: 'International' },
+  { code: 'de', label: 'German-speaking' },
+  { code: 'fr', label: 'French-speaking' },
+  { code: 'es', label: 'Spanish-speaking' },
+  { code: 'it', label: 'Italian' },
+  { code: 'pt', label: 'Portuguese/Brazilian' },
+  { code: 'ru', label: 'Russian' },
+  { code: 'uk', label: 'Ukrainian' },
+  { code: 'zh', label: 'Chinese' },
+  { code: 'ar', label: 'Arabic' },
+  { code: 'tr', label: 'Turkish' },
+  { code: 'sv', label: 'Swedish/Nordic' },
+  { code: 'cs', label: 'Czech' },
+];
+
+// Fetch real "On This Day" events from Wikipedia across several language editions
+async function fetchWikipediaOnThisDay(): Promise<Array<{ year: number; text: string; source: string }>> {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+
+  const perLang = await Promise.all(
+    WIKI_LANGS.map(async ({ code, label }) => {
+      try {
+        const response = await fetch(
+          `https://api.wikimedia.org/feed/v1/wikipedia/${code}/onthisday/events/${month}/${day}`,
+          { headers: { 'User-Agent': 'BOGX-Newsroom/1.0 (contact@bogx.com)' } }
+        );
+        if (!response.ok) {
+          console.error(`Wikipedia API error (${code}):`, response.status);
+          return [];
+        }
+        const data = await response.json();
+        // Filter events from 1965-2005 (GenX era)
+        return (data.events || [])
+          .filter((e: any) => e.year >= 1965 && e.year <= 2005)
+          .map((e: any) => ({ year: e.year, text: e.text as string, source: label }));
+      } catch (err) {
+        console.error(`Failed to fetch Wikipedia events (${code}):`, err);
+        return [];
       }
-    );
-    
-    if (!response.ok) {
-      console.error("Wikipedia API error:", response.status);
-      return [];
+    })
+  );
+
+  // Merge + dedupe: the same event is often listed in several editions
+  const seen = new Set<string>();
+  const merged: Array<{ year: number; text: string; source: string }> = [];
+  for (const list of perLang) {
+    for (const e of list) {
+      const key = `${e.year}|${e.text.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 60)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(e);
     }
-    
-    const data = await response.json();
-    
-    // Filter events from 1965-2005 (GenX era)
-    const events = (data.events || [])
-      .filter((e: any) => e.year >= 1965 && e.year <= 2005)
-      .map((e: any) => ({
-        year: e.year,
-        text: e.text,
-      }));
-    
-    return events;
-  } catch (err) {
-    console.error("Failed to fetch Wikipedia events:", err);
-    return [];
   }
+  return merged;
 }
 
 interface HistoryEvent {
@@ -138,9 +163,10 @@ export async function POST(request: NextRequest) {
       ? `\n\n⚠️ CRITICAL: Your colleagues have ALREADY written about these topics. You MUST NOT choose any of these:\n${excludeEvents.map(e => `❌ ${e}`).join('\n')}\n\nChoose something COMPLETELY DIFFERENT from the list above.`
       : '';
 
-    // Build Wikipedia events list for prompt
+    // Build Wikipedia events list for prompt (with the language edition it came from
+    // so reporters can see this is a worldwide pool, not just US news)
     const wikiEventsList = wikipediaEvents.length > 0
-      ? `\n\nHere are VERIFIED historical events from Wikipedia for ${todayStr}. You MUST choose from this list:\n${wikipediaEvents.map(e => `- ${e.year}: ${e.text}`).join('\n')}`
+      ? `\n\nHere are VERIFIED historical events from Wikipedia (${WIKI_LANGS.length} language editions) for ${todayStr}. You MUST choose from this list:\n${wikipediaEvents.map(e => `- ${e.year} [${e.source}]: ${e.text}`).join('\n')}`
       : '';
 
     // Build prompt based on reporter's personality and writing style
@@ -158,6 +184,23 @@ REQUIREMENTS:
 - Choose an event that matches your specialty (${specialty}) if possible
 - If no events match your specialty, pick one that would interest Generation X
 - Write the description in YOUR unique voice - be opinionated, colorful, personal
+
+⚠️ EXACT DATE RULE:
+- The event must have happened on ${todayStr} itself. Never shift a date to make it fit.
+- MULTI-DAY EVENTS (festivals, tournaments, wars, summits, space missions): only allowed if
+  ${todayStr} is the documented START date. Do NOT pick an event just because ${todayStr} falls
+  somewhere inside its span, and never re-tell an event on its 2nd/3rd day.
+  Example: Woodstock ran 15-18 August 1969 - it belongs to 15 August ONLY.
+- "date" in your JSON must be the real documented date of the event.
+
+🌍 GLOBAL COVERAGE:
+- The list contains events from several language editions - the tag in [brackets] shows the origin.
+- Do NOT default to US/American events. Prefer an event from your own region (${nationality || region})
+  or another non-US country when the list offers one.
+- Source entries are written in their own language (German, Russian, Chinese, Arabic, ...).
+  ALWAYS write your title and description in ENGLISH, no matter which language the source entry uses.
+  Translate names and places to their common English form (e.g. "Jahrhunderthochwasser" -> "the
+  once-in-a-century Elbe flood").
 
 Respond with a JSON object:
 {
@@ -194,7 +237,33 @@ Respond with a JSON object:
     }
 
     // Search for a YouTube video - pass year for better results
-    const videoId = await searchYouTube(eventData.youtubeSearch || eventData.title, eventData.year);
+    // Try multiple search variations to find a video
+    let videoId = await searchYouTube(eventData.youtubeSearch || eventData.title, eventData.year);
+    
+    // If no video found, try alternative searches
+    if (!videoId) {
+      console.log(`No video found for "${eventData.youtubeSearch}", trying alternatives...`);
+      // Try with just the title
+      videoId = await searchYouTube(eventData.title, eventData.year);
+    }
+    if (!videoId) {
+      // Try with title + "documentary"
+      videoId = await searchYouTube(`${eventData.title} documentary`, eventData.year);
+    }
+    if (!videoId) {
+      // Try with title + category
+      videoId = await searchYouTube(`${eventData.title} ${eventData.category}`, eventData.year);
+    }
+    
+    // REQUIRE a video - reject events without video
+    if (!videoId) {
+      console.log(`No video found for event "${eventData.title}" after all attempts - rejecting`);
+      return NextResponse.json({ 
+        success: false, 
+        error: `No video found for "${eventData.title}". Reporter must find an event with available video footage.`,
+        noVideo: true
+      });
+    }
 
     const event: HistoryEvent = {
       title: eventData.title,
@@ -203,7 +272,7 @@ Respond with a JSON object:
       description: eventData.description,
       category: eventData.category || "culture",
       youtubeSearch: eventData.youtubeSearch || eventData.title,
-      youtubeVideoId: videoId || undefined,
+      youtubeVideoId: videoId,
       reporterId,
       reporterName,
     };

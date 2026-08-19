@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { Film, Megaphone, Minus, Type, Trash2, GripVertical, ChevronUp, ChevronDown, Plus, X, Image as ImageIcon, Upload, Loader2, Headphones, Gamepad2, ShoppingBag, FileText, Tv, Sparkles, Music, Vote, LayoutGrid } from "lucide-react";
+import { Film, Megaphone, Minus, Type, Trash2, GripVertical, ChevronUp, ChevronDown, Plus, X, Image as ImageIcon, Upload, Loader2, Headphones, Gamepad2, ShoppingBag, FileText, Tv, Sparkles, Music, Vote, LayoutGrid, Play } from "lucide-react";
 
 // List of available fonts (must match the CSS in globals.css)
 const AVAILABLE_FONTS = [
@@ -988,28 +988,44 @@ function BlockContent({
   }
 
   if (block.type === "video") {
+    // Extract video ID for thumbnail preview
+    const videoIdMatch = block.content.match(/embed\/([^?]+)/);
+    const videoId = videoIdMatch?.[1];
+    const thumbnailUrl = videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : null;
+    
     return (
-      <div className="p-3">
-        <div className="flex items-center gap-2 mb-2 text-xs text-gray-500">
-          <Film className="w-4 h-4" />
-          <span className="font-medium">Video Embed</span>
+      <div className="p-2 flex items-center gap-3 bg-gray-900 rounded">
+        {/* Compact thumbnail preview */}
+        <div className="w-32 h-20 bg-black rounded overflow-hidden shrink-0 relative group">
+          {thumbnailUrl ? (
+            <>
+              <img src={thumbnailUrl} alt="Video" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                <Play className="w-6 h-6 text-white fill-white" />
+              </div>
+            </>
+          ) : (
+            <iframe
+              src={block.content}
+              className="w-full h-full pointer-events-none"
+              frameBorder="0"
+            />
+          )}
         </div>
-        <div className="aspect-video bg-black rounded overflow-hidden">
-          <iframe
-            src={block.content}
-            className="w-full h-full"
-            frameBorder="0"
-            allowFullScreen
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        {/* Video info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1 text-xs text-gray-400">
+            <Film className="w-3 h-3" />
+            <span className="font-medium">Video Embed</span>
+          </div>
+          <input
+            type="url"
+            value={block.content}
+            onChange={(e) => onChange(e.target.value)}
+            className="w-full px-2 py-1 text-xs text-gray-300 bg-gray-800 border border-gray-700 rounded truncate"
+            placeholder="Embed URL"
           />
         </div>
-        <input
-          type="url"
-          value={block.content}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full mt-2 px-2 py-1 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded"
-          placeholder="Embed URL"
-        />
       </div>
     );
   }

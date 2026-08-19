@@ -15,8 +15,8 @@ export async function POST(request: NextRequest) {
     await dbConnect();
     
     // Find all open battles with invalid wagers
-    // Valid BOGX wagers are: 0.10, 0.25, 0.50, 0.75, 1.00 (NO 0.05!)
-    const validWagers = [0.10, 0.25, 0.50, 0.75, 1.00];
+    // Valid BOGX wagers are: 0.25, 0.50, 0.75, 1.00, 2.50, 5.00
+    const validWagers = [0.25, 0.50, 0.75, 1.00, 2.50, 5.00];
     const oldBotBattles = await Battle.find({
       status: 'open',
       wager: { $nin: validWagers }

@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Search, Swords, X, ArrowRight, Wifi, Globe, BarChart3, Trophy, Check, Hash, Mail } from "lucide-react";
+import { Search, Swords, X, ArrowRight, Wifi, Globe, BarChart3, Trophy, Check, Hash, Mail, Dumbbell, Music, Film, Landmark, Shirt, Gamepad2, Tv, Palette, UtensilsCrossed } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import LogoLoader from "../LogoLoader";
 import BackButton from "../BackButton";
 import CountryFlag from "../CountryFlag";
@@ -17,30 +18,32 @@ interface User {
   countryFlag?: string;
 }
 
-type PlayerFilter = 'online' | 'country' | 'level';
+type PlayerFilter = 'all' | 'online' | 'country' | 'level';
 
 // BOGX wager amounts
 const WAGERS = [
-  { amount: 0.10, rounds: 3 },
   { amount: 0.25, rounds: 3 },
-  { amount: 0.50, rounds: 5 },
+  { amount: 0.50, rounds: 3 },
   { amount: 0.75, rounds: 5 },
   { amount: 1.00, rounds: 5 },
+  { amount: 2.50, rounds: 7 },
+  { amount: 5.00, rounds: 10 },
 ];
 
-const TOPICS = [
-  { id: 'sport',   label: 'Sport',   emoji: '⚽' },
-  { id: 'music',   label: 'Music',   emoji: '🎵' },
-  { id: 'film',    label: 'Film',    emoji: '🎬' },
-  { id: 'culture', label: 'Culture', emoji: '🎭' },
-  { id: 'fashion', label: 'Fashion', emoji: '👗' },
-  { id: 'games',   label: 'Games',   emoji: '🎮' },
-  { id: 'tv',      label: 'TV',      emoji: '📺' },
-  { id: 'art',     label: 'Art',     emoji: '🎨' },
-  { id: 'food',    label: 'Food',    emoji: '🍕' },
+const TOPICS: { id: string; label: string; icon: LucideIcon }[] = [
+  { id: 'sport',   label: 'Sport',   icon: Dumbbell },
+  { id: 'music',   label: 'Music',   icon: Music },
+  { id: 'film',    label: 'Film',    icon: Film },
+  { id: 'culture', label: 'Culture', icon: Landmark },
+  { id: 'fashion', label: 'Fashion', icon: Shirt },
+  { id: 'games',   label: 'Games',   icon: Gamepad2 },
+  { id: 'tv',      label: 'TV',      icon: Tv },
+  { id: 'art',     label: 'Art',     icon: Palette },
+  { id: 'food',    label: 'Food',    icon: UtensilsCrossed },
 ];
 
 const PLAYER_FILTERS: { id: PlayerFilter; label: string; icon: typeof Wifi }[] = [
+  { id: 'all', label: 'All', icon: Globe },
   { id: 'online', label: 'Online', icon: Wifi },
   { id: 'country', label: 'Country', icon: Globe },
   { id: 'level', label: 'Same Level', icon: BarChart3 },
@@ -70,6 +73,8 @@ export default function InviteFlowModal({
   isGenerating 
 }: InviteFlowModalProps) {
   const { user: currentUser } = useAuth();
+  // Use currentUserId prop or fall back to auth context
+  const myUserId = currentUserId || currentUser?.id;
   const [step, setStep] = useState<Step>('search');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [wager, setWager] = useState(0.25);
@@ -81,7 +86,7 @@ export default function InviteFlowModal({
   const [isSearching, setIsSearching] = useState(false);
   const [onlinePlayers, setOnlinePlayers] = useState<User[]>([]);
   const [loadingOnline, setLoadingOnline] = useState(false);
-  const [playerFilter, setPlayerFilter] = useState<PlayerFilter>('online');
+  const [playerFilter, setPlayerFilter] = useState<PlayerFilter>('all');
 
   // Success step: staggered "preparing" checklist before revealing the final state
   const [checklistIndex, setChecklistIndex] = useState(0);
@@ -108,7 +113,7 @@ export default function InviteFlowModal({
     const searchUsers = async () => {
       setIsSearching(true);
       try {
-        const res = await fetch(`/api/users/search?q=${encodeURIComponent(searchQuery)}&exclude=${currentUserId || ''}`);
+        const res = await fetch(`/api/users/search?q=${encodeURIComponent(searchQuery)}&exclude=${myUserId || ''}`);
         const data = await res.json();
         if (data.success) {
           setSearchResults(data.users || []);
@@ -122,7 +127,7 @@ export default function InviteFlowModal({
 
     const debounce = setTimeout(searchUsers, 300);
     return () => clearTimeout(debounce);
-  }, [searchQuery, currentUserId]);
+  }, [searchQuery, myUserId]);
 
   // Load online players when modal opens
   useEffect(() => {
@@ -131,16 +136,17 @@ export default function InviteFlowModal({
     }
   }, [isOpen, step]);
 
-  const loadOnlinePlayers = async () => {
+  const loadOnlinePlayers = async (filter: PlayerFilter = 'all') => {
     setLoadingOnline(true);
     try {
-      const res = await fetch(`/api/users/online?exclude=${currentUserId || ''}&limit=10`);
+      const filterParam = filter === 'online' ? '&filter=online' : '';
+      const res = await fetch(`/api/users/online?exclude=${myUserId || ''}&limit=20${filterParam}`);
       const data = await res.json();
       if (data.success) {
         setOnlinePlayers(data.users || []);
       }
     } catch (error) {
-      console.error('Failed to load online players:', error);
+      console.error('Failed to load players:', error);
     } finally {
       setLoadingOnline(false);
     }
@@ -155,24 +161,30 @@ export default function InviteFlowModal({
       setSearchResults([]);
       setWager(0.25);
       setTopic('sport');
-      setPlayerFilter('online');
+      setPlayerFilter('all');
       setChecklistIndex(0);
       setSentBattle(null);
     }
   }, [isOpen]);
 
-  // Apply the active filter to the online players list
+  // Apply the active filter to the players list
   const filteredPlayers = onlinePlayers.filter((u) => {
+    // Don't show current user
+    if (u._id === myUserId) return false;
+    
+    if (playerFilter === 'online') {
+      return (u as any).isOnline === true;
+    }
     if (playerFilter === 'country') {
       return currentUserCountry && u.country === currentUserCountry;
     }
     if (playerFilter === 'level') {
-      const mine = currentUserPoints || 0;
+      const mine = currentUserPoints ?? 0;
       if (mine <= 0) return true;
       // "Same level" = within 40% of your points
-      return Math.abs((u.points || 0) - mine) <= mine * 0.4;
+      return Math.abs((u.points ?? 0) - mine) <= mine * 0.4;
     }
-    return true; // online
+    return true; // all
   });
 
   if (!isOpen) return null;
@@ -294,8 +306,12 @@ export default function InviteFlowModal({
                             <div className="text-gray-900 font-semibold">{u.username}</div>
                             {u.countryFlag && <CountryFlag flag={u.countryFlag} className="w-4 h-3 rounded-[2px]" />}
                           </div>
-                          <div className="text-gray-600 text-xs">{(u.points || 0).toFixed(2)} coins</div>
+                          <div className="flex items-center gap-1.5 text-gray-700 text-sm font-bold">
+                            <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
+                            {(u.points ?? 0).toFixed(2)}
+                          </div>
                         </div>
+                        {(u as any).isOnline && <span className="w-2 h-2 bg-green-500 rounded-full" />}
                         <ArrowRight className="w-4 h-4 text-gray-500" />
                       </button>
                     ))
@@ -316,7 +332,12 @@ export default function InviteFlowModal({
                       return (
                         <button
                           key={f.id}
-                          onClick={() => setPlayerFilter(f.id)}
+                          onClick={() => {
+                            setPlayerFilter(f.id);
+                            if (f.id === 'online' || f.id === 'all') {
+                              loadOnlinePlayers(f.id);
+                            }
+                          }}
                           className={`flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold border transition-colors ${
                             active
                               ? 'bg-[#E36B11] text-white border-[#E36B11]'
@@ -330,7 +351,7 @@ export default function InviteFlowModal({
                     })}
                   </div>
 
-                  <div className="space-y-1 max-h-60 overflow-y-auto">
+                  <div className="space-y-1 max-h-60 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#E36B11 #F5F0E8' }}>
                     {loadingOnline ? (
                       <div className="flex justify-center py-4">
                         <LogoLoader size="sm" />
@@ -350,14 +371,17 @@ export default function InviteFlowModal({
                                 u.username?.charAt(0).toUpperCase()
                               )}
                             </div>
-                            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-500 border-2 border-white" />
+                            {(u as any).isOnline && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-500 border-2 border-white" />}
                           </div>
                           <div className="flex-1 text-left">
                             <div className="flex items-center gap-1.5">
                               <div className="text-gray-900 font-semibold">{u.username}</div>
                               {u.countryFlag && <CountryFlag flag={u.countryFlag} className="w-4 h-3 rounded-[2px]" />}
                             </div>
-                            <div className="text-gray-600 text-xs">{(u.points || 0).toFixed(2)} coins</div>
+                            <div className="flex items-center gap-1.5 text-gray-700 text-sm font-bold">
+                              <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
+                              {(u.points ?? 0).toFixed(2)}
+                            </div>
                           </div>
                           <Swords className="w-4 h-4 text-gray-600" />
                         </button>
@@ -365,10 +389,12 @@ export default function InviteFlowModal({
                     ) : (
                       <div className="text-center text-gray-600 py-6 text-sm">
                         {playerFilter === 'country'
-                          ? 'No online players from your country right now'
+                          ? 'No players from your country found'
                           : playerFilter === 'level'
-                            ? 'No online players at your level right now'
-                            : 'No players online right now'}
+                            ? 'No players at your level found'
+                            : playerFilter === 'online'
+                              ? 'No players online right now'
+                              : 'No players found'}
                       </div>
                     )}
                   </div>
@@ -412,55 +438,53 @@ export default function InviteFlowModal({
                     <div className="text-xs font-bold text-gray-900 mt-1 max-w-[80px] truncate text-center">{selectedUser.username}</div>
                     <div className="flex items-center gap-1 text-[10px] text-gray-500">
                       <img src="/images/bogxcoin.png" alt="" className="w-3 h-3" />
-                      {(selectedUser.points || 0).toFixed(2)}
+                      {(selectedUser.points ?? 0).toFixed(2)}
                     </div>
                   </div>
                 </div>
 
-                {/* Wager Selection */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2.5">
-                    <span className="w-5 h-5 bg-[#E36B11] text-white text-[10px] font-bold flex items-center justify-center rounded">1</span>
-                    <span className="text-xs font-bold tracking-widest text-[#E36B11] uppercase">Choose Wager</span>
-                  </div>
-                  <div className="grid grid-cols-5 gap-2">
-                    {WAGERS.map(w => (
-                      <button
-                        key={w.amount}
-                        onClick={() => setWager(w.amount)}
-                        className={`py-3 text-center transition-all rounded-xl border-2 ${
-                          wager === w.amount
-                            ? 'bg-[#E36B11] border-[#E36B11] text-white shadow-md shadow-[#E36B11]/30'
-                            : 'bg-cream border-warm text-gray-700 hover:border-[#E36B11]/40'
-                        }`}
-                      >
-                        <div className="font-display text-sm font-bold">{w.amount.toFixed(2)}</div>
-                        <div className="text-[9px] opacity-60">{w.rounds}R</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* RIGHT COLUMN: Topics only */}
-              <div className="lg:w-1/2 lg:pl-6 flex flex-col">
+                {/* Topic Selection - Step 1 */}
                 <div className="flex items-center gap-2 mb-2.5">
-                  <span className="w-5 h-5 bg-[#E36B11] text-white text-[10px] font-bold flex items-center justify-center rounded">2</span>
+                  <span className="w-5 h-5 bg-[#E36B11] text-white text-[10px] font-bold flex items-center justify-center rounded">1</span>
                   <span className="text-xs font-bold tracking-widest text-[#E36B11] uppercase">Choose Topic</span>
                 </div>
-                <div className="grid grid-cols-3 gap-1.5 flex-1" style={{ gridAutoRows: '1fr' }}>
+                <div className="grid grid-cols-3 gap-1.5 mb-4">
                   {TOPICS.map(t => (
                     <button
                       key={t.id}
                       onClick={() => setTopic(t.id)}
-                      className={`flex items-center justify-center gap-1.5 px-2 py-2 text-sm font-semibold transition-all rounded-xl border-2 w-full h-full ${
+                      className={`flex items-center justify-center gap-1.5 px-2 py-2 text-sm font-semibold transition-all rounded-xl border-2 ${
                         topic === t.id
                           ? 'bg-[#E36B11] border-[#E36B11] text-white shadow-md shadow-[#E36B11]/30'
                           : 'bg-cream border-warm text-gray-700 hover:border-[#E36B11]/40'
                       }`}
                     >
-                      <span className="text-base">{t.emoji}</span>
+                      <t.icon className="w-4 h-4" />
                       <span>{t.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* RIGHT COLUMN: Wager - Step 2 */}
+              <div className="lg:w-1/2 lg:pl-6 flex flex-col">
+                <div className="flex items-center gap-2 mb-2.5">
+                  <span className="w-5 h-5 bg-[#E36B11] text-white text-[10px] font-bold flex items-center justify-center rounded">2</span>
+                  <span className="text-xs font-bold tracking-widest text-[#E36B11] uppercase">Choose Wager</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {WAGERS.map(w => (
+                    <button
+                      key={w.amount}
+                      onClick={() => setWager(w.amount)}
+                      className={`py-3 text-center transition-all rounded-xl border-2 ${
+                        wager === w.amount
+                          ? 'bg-[#E36B11] border-[#E36B11] text-white shadow-md shadow-[#E36B11]/30'
+                          : 'bg-cream border-warm text-gray-700 hover:border-[#E36B11]/40'
+                      }`}
+                    >
+                      <div className="font-display text-sm font-bold">{w.amount.toFixed(2)}</div>
+                      <div className="text-[9px] opacity-60">{w.rounds}R</div>
                     </button>
                   ))}
                 </div>
@@ -512,7 +536,7 @@ export default function InviteFlowModal({
                 <div className="text-gray-900 font-semibold text-xl">{selectedUser.username}</div>
                 <div className="flex items-center gap-1 text-xs text-gray-500 mt-0.5">
                   <img src="/images/bogxcoin.png" alt="" className="w-3.5 h-3.5" />
-                  {(selectedUser.points || 0).toFixed(2)} coins
+                  {(selectedUser.points ?? 0).toFixed(2)} coins
                 </div>
               </div>
 
@@ -520,7 +544,9 @@ export default function InviteFlowModal({
               <div className="bg-cream border border-warm rounded-xl mb-4 text-left divide-y divide-warm overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-3">
                   <div className="flex items-center gap-2.5 text-gray-500">
-                    <span className="w-7 h-7 rounded-lg bg-[#E36B11]/10 flex items-center justify-center text-sm">{selectedTopic.emoji}</span>
+                    <span className="w-7 h-7 rounded-lg bg-[#E36B11]/10 flex items-center justify-center">
+                      <selectedTopic.icon className="w-4 h-4 text-[#E36B11]" />
+                    </span>
                     <span>Topic</span>
                   </div>
                   <span className="text-gray-900 font-semibold">{selectedTopic.label}</span>

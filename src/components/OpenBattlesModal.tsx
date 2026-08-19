@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { X, Swords, Clock, RotateCcw, Play, Loader2, ShieldX, Check, XCircle } from "lucide-react";
+import { X, Swords, Clock, RotateCcw, Play, Loader2, ShieldX, Check, XCircle, Gamepad2 } from "lucide-react";
 import { formatCurrency } from "@/utils/currency";
 import ConfirmModal from "./ConfirmModal";
 import CountryFlag from "./CountryFlag";
@@ -33,6 +33,10 @@ interface Props {
   onCoinsChange?: (amount: number) => void;
   onShowLogin?: () => void;
   accentColor?: 'orange' | 'purple'; // orange for Arcade, purple for BattlesPage
+  /** Fires whenever the number of battles needing attention changes, so the
+      parent's badge updates immediately (e.g. after Give Up) instead of only
+      on the next refresh. */
+  onCountChange?: (count: number) => void;
 }
 
 function timeAgo(iso: string) {
@@ -46,11 +50,13 @@ function timeAgo(iso: string) {
   return "just now";
 }
 
-export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle, onCoinsChange, onShowLogin, accentColor = 'orange' }: Props) {
+export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle, onCoinsChange, onShowLogin, accentColor = 'orange', onCountChange }: Props) {
   // Color classes based on accent
   const colors = accentColor === 'purple' 
     ? { bg: 'bg-[#A855F7]', bgLight: 'bg-[#A855F7]/10', border: 'border-[#A855F7]/40', text: 'text-[#A855F7]', gradient: 'from-[#A855F7]/5' }
     : { bg: 'bg-[#E36B11]', bgLight: 'bg-[#E36B11]/10', border: 'border-[#E36B11]/40', text: 'text-[#E36B11]', gradient: 'from-[#E36B11]/5' };
+  const [isVisible, setIsVisible] = useState(false);
+  const [shouldRender, setShouldRender] = useState(false);
   const [battles, setBattles] = useState<Battle[]>([]);
   const [incomingChallenges, setIncomingChallenges] = useState<Battle[]>([]);
   const [declinedBattles, setDeclinedBattles] = useState<Battle[]>([]);
@@ -65,6 +71,21 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
     battle: Battle | null;
     type: "cancel" | "forfeit" | "cancelWaiting";
   }>({ isOpen: false, battle: null, type: "cancel" });
+
+  // Animate in/out with fade
+  useEffect(() => {
+    if (isOpen) {
+      setShouldRender(true);
+      // Small delay for smooth fade-in
+      const timer = setTimeout(() => setIsVisible(true), 50);
+      return () => clearTimeout(timer);
+    } else {
+      // Fade out first, then unmount
+      setIsVisible(false);
+      const timer = setTimeout(() => setShouldRender(false), 500); // Wait for fade animation
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen || !userId) return;
@@ -86,6 +107,26 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
     }).finally(() => setLoading(false));
   }, [isOpen, userId]);
 
+  // Report the badge-relevant count upwards on every change (cancel, decline,
+  // forfeit, accept). Skipped while loading so the badge isn't reset to 0
+  // before the first fetch resolves.
+  useEffect(() => {
+    if (!isOpen || loading) return;
+    onCountChange?.(battles.length + incomingChallenges.length);
+  }, [isOpen, loading, battles, incomingChallenges]);
+
+  // Auto-close when all items are removed - show empty state briefly then fade out
+  const checkAndCloseIfEmpty = (
+    newBattles: Battle[], 
+    newDeclined: Battle[], 
+    newIncoming: Battle[]
+  ) => {
+    if (newBattles.length === 0 && newDeclined.length === 0 && newIncoming.length === 0) {
+      // Show "No Open Battles" state for a moment, then fade out
+      setTimeout(() => onClose(), 1200);
+    }
+  };
+
   const handleCancel = async (battle: Battle) => {
     setCancelling(battle._id);
     try {
@@ -97,7 +138,11 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
       const data = await res.json();
       if (data.success) {
         setCancelledIds(prev => new Set(Array.from(prev).concat([battle._id])));
-        setBattles(prev => prev.filter(b => b._id !== battle._id));
+        setBattles(prev => {
+          const newBattles = prev.filter(b => b._id !== battle._id);
+          checkAndCloseIfEmpty(newBattles, declinedBattles, incomingChallenges);
+          return newBattles;
+        });
         if (data.refunded && onCoinsChange) onCoinsChange(data.refunded);
         window.dispatchEvent(new Event("bogx-updated"));
       } else {
@@ -120,7 +165,11 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
       });
       const data = await res.json();
       if (data.success) {
-        setIncomingChallenges(prev => prev.filter(b => b._id !== battle._id));
+        setIncomingChallenges(prev => {
+          const newIncoming = prev.filter(b => b._id !== battle._id);
+          checkAndCloseIfEmpty(battles, declinedBattles, newIncoming);
+          return newIncoming;
+        });
         window.dispatchEvent(new Event("bogx-updated"));
       } else {
         alert(data.error || "Could not decline battle");
@@ -135,7 +184,11 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
   const handleDismissDeclined = async (battle: Battle) => {
     setDismissing(battle._id);
     // Optimistic removal - this is just a notice, no need to block on the network
-    setDeclinedBattles(prev => prev.filter(b => b._id !== battle._id));
+    setDeclinedBattles(prev => {
+      const newDeclined = prev.filter(b => b._id !== battle._id);
+      checkAndCloseIfEmpty(battles, newDeclined, incomingChallenges);
+      return newDeclined;
+    });
     try {
       await fetch(`/api/battles/${battle._id}`, {
         method: "PATCH",
@@ -222,50 +275,44 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
     }
   };
 
-  if (!isOpen) return null;
-
   const openBattles = battles.filter(b => b.status === "open");
   const activeBattles = battles.filter(b => b.status === "active");
   const totalCount = battles.length + declinedBattles.length + incomingChallenges.length;
 
+  if (!shouldRender) return null;
+
   const modalContent = (
-    <div
-      className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center px-2 sm:p-6 sm:!pb-6"
-      style={{ paddingBottom: "calc(60px + max(env(safe-area-inset-bottom), 8px) + 8px)" }}
+    <div 
+      className={`fixed left-0 right-0 z-[150] transition-transform duration-500 ease-out ${isVisible ? 'translate-y-0' : 'translate-y-full'} bottom-16 sm:bottom-0`}
     >
-      {/* Dark overlay - covers EVERYTHING */}
-      <div className="fixed inset-0 bg-black/70" onClick={onClose} />
-      
-      {/* Modal - floats above the bottom nav */}
-      <div className="relative w-full max-w-md bg-[#F5F0E8] rounded-2xl shadow-2xl border-2 border-[#E5DDD0] flex flex-col overflow-hidden" style={{ maxHeight: "72vh" }}>
-        {/* Handle - only on mobile */}
-        <div className="flex justify-center pt-3 pb-1 sm:hidden">
-          <div className={`w-10 h-1 rounded-full ${colors.bgLight}`} />
+      {/* Banner Container - grows up to 80% of viewport before scrolling */}
+      <div className="shadow-[0_-4px_20px_rgba(0,0,0,0.15)] rounded-t-2xl overflow-hidden border-t border-warm" style={{ maxHeight: '80vh', backgroundColor: '#F5F0E8' }}>
+        {/* Handle */}
+        <div className="flex justify-center pt-2 pb-1">
+          <div className="w-10 h-1 rounded-full bg-gray-300" />
         </div>
 
-        {/* Header - BOGX style */}
-        <div className="flex items-center justify-between px-5 py-4 border-b-2 border-[#E5DDD0] bg-[#F5F0E8] rounded-t-2xl">
-          <div className="flex items-center gap-3">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-2 border-b border-[#E5DDD0]">
+          <div className="flex items-center gap-2">
             <div className={`w-8 h-8 rounded-lg ${colors.bg} flex items-center justify-center`}>
               <Swords className="w-4 h-4 text-white" />
             </div>
             <div>
-              <span className="font-bold text-gray-900 text-base">My Open Battles</span>
+              <span className="font-bold text-gray-900 text-sm">My Open Battles</span>
               {totalCount > 0 && (
-                <span className={`ml-2 px-2 py-0.5 ${colors.bg} text-white text-xs font-bold rounded-full`}>{totalCount}</span>
+                <span className={`ml-2 px-2 py-0.5 ${colors.bg} text-white text-[10px] font-bold rounded-full`}>{totalCount}</span>
               )}
             </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-gray-600 transition-colors">
+          <button onClick={onClose} className="w-7 h-7 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-gray-600 transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Content - CREAM background with top + bottom fade */}
-        <div className="relative flex-1 min-h-0 overflow-y-auto bg-[#F5F0E8]" style={{ scrollbarWidth: "none" }}>
-          {/* Top fade gradient overlay */}
-          <div className="sticky top-0 left-0 right-0 h-5 bg-gradient-to-b from-[#F5F0E8] to-transparent z-10 pointer-events-none" />
-          <div className="px-4 -mt-1 space-y-4">
+        {/* Content - scrollable only after 80vh */}
+        <div className="overflow-y-auto" style={{ maxHeight: 'calc(80vh - 70px)', scrollbarWidth: "none" }}>
+          <div className="px-4 py-3 space-y-3">
           {!userId ? (
             <div className="text-center py-10">
               <Swords className="w-10 h-10 text-gray-300 mx-auto mb-3" />
@@ -281,13 +328,19 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
               )}
             </div>
           ) : loading ? (
-            <div className="flex items-center justify-center py-10">
-              <Loader2 className={`w-6 h-6 ${colors.text} animate-spin`} />
+            <div className="text-center py-6">
+              <div className={`w-12 h-12 rounded-xl ${colors.bgLight} flex items-center justify-center mx-auto mb-3`}>
+                <Loader2 className={`w-6 h-6 ${colors.text} animate-spin`} />
+              </div>
+              <p className="text-gray-900 font-semibold text-sm">Loading...</p>
+              <p className="text-gray-400 text-xs mt-1">Checking your battles</p>
             </div>
           ) : battles.length === 0 && declinedBattles.length === 0 && incomingChallenges.length === 0 ? (
-            <div className="text-center py-10">
-              <Swords className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500 text-sm">No open battles</p>
+            <div className="text-center py-6">
+              <div className={`w-12 h-12 rounded-xl ${colors.bgLight} flex items-center justify-center mx-auto mb-3`}>
+                <Swords className={`w-6 h-6 ${colors.text}`} />
+              </div>
+              <p className="text-gray-900 font-semibold text-sm">No Open Battles</p>
               <p className="text-gray-400 text-xs mt-1">Create a challenge in the Arcade!</p>
             </div>
           ) : (
@@ -476,7 +529,7 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
                     {/* YOUR TURN - you need to play */}
                     {yourTurn.length > 0 && (
                       <div>
-                        <p className={`text-xs font-bold ${colors.text} uppercase tracking-wide mb-1`}>🎮 You haven&apos;t played your rounds yet</p>
+                        <p className={`text-xs font-bold ${colors.text} uppercase tracking-wide mb-1 flex items-center gap-1`}><Gamepad2 className="w-3 h-3" /> You haven&apos;t played your rounds yet</p>
                         <div className="space-y-2">
                           {yourTurn.map(battle => {
                             const isCreator = battle.creator?._id === userId;
@@ -496,7 +549,9 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
                                     <p className="text-[10px] text-gray-400 -mt-0.5">
                                       {isCreator
                                         ? `Your open battle — ${otherPlayer?.username || 'an opponent'} joined it`
-                                        : `${otherPlayer?.username || 'They'} invited you`}
+                                        : battle.challengedUser
+                                          ? `${otherPlayer?.username || 'They'} challenged you — you accepted`
+                                          : `You joined ${otherPlayer?.username || 'their'}'s open battle`}
                                     </p>
                                     {/* Origin trace — makes it verifiable where this battle came from */}
                                     <p className="text-[9px] text-gray-400 font-mono mt-0.5 break-all" title={battle._id}>
@@ -550,14 +605,14 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
                                     {cancelling === battle._id ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
                                     {/* This triggers a FORFEIT (wager is lost), not a free cancel:
                                         the opponent already played, so there is nothing to cancel. */}
-                                    {isCreator ? 'Give Up' : 'Deny'}
+                                    Give Up
                                   </button>
                                   <button
                                     onClick={() => { onClose(); onPlayBattle(battle._id); }}
                                     className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 ${colors.bg} text-white rounded-lg text-xs font-bold hover:opacity-80 transition-colors shadow-sm`}
                                   >
                                     <Play className="w-3 h-3 fill-current" />
-                                    {isCreator ? 'Play Now' : 'Accept'}
+                                    {isCreator ? 'Play Now' : 'Continue'}
                                   </button>
                                 </div>
                               </div>
@@ -617,8 +672,6 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
             </>
           )}
           </div>
-          {/* Bottom fade gradient overlay - content dissolves into the sheet edge */}
-          <div className="sticky bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-[#F5F0E8] to-transparent z-10 pointer-events-none" />
         </div>
       </div>
     </div>
@@ -647,20 +700,17 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
     return { title: "", message: "", confirmText: "", confirmColor: "red" as const };
   };
 
-  // Render via portal to ensure it's above everything
-  if (typeof document !== 'undefined') {
-    return (
-      <>
-        {createPortal(modalContent, document.body)}
-        <ConfirmModal
-          isOpen={confirmModal.isOpen}
-          onClose={() => setConfirmModal({ isOpen: false, battle: null, type: "cancel" })}
-          onConfirm={handleConfirmAction}
-          loading={cancelling === confirmModal.battle?._id}
-          {...getConfirmModalProps()}
-        />
-      </>
-    );
-  }
-  return modalContent;
+  // Portal to body so the panel escapes the main content stacking context (main has z-0)
+  return (
+    <>
+      {typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ isOpen: false, battle: null, type: "cancel" })}
+        onConfirm={handleConfirmAction}
+        loading={cancelling === confirmModal.battle?._id}
+        {...getConfirmModalProps()}
+      />
+    </>
+  );
 }

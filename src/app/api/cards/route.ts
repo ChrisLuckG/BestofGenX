@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
-import Card from '@/models/Card';
+import Question from '@/models/Question';
 import UserQuestionHistory from '@/models/UserQuestionHistory';
 import crypto from 'crypto';
 
@@ -9,20 +9,24 @@ function hashQuestion(text: string): string {
   return crypto.createHash('md5').update(text.toLowerCase().replace(/[^a-z0-9]/g, '')).digest('hex');
 }
 
-// GET cards - optionally filter by date and user's question history
+/**
+ * GET cards - COMPATIBILITY LAYER
+ * Returns Questions in the old Card format for backwards compatibility
+ * Each Question is wrapped to look like a Card with questions[] array
+ */
 export async function GET(request: NextRequest) {
   try {
     await dbConnect();
     
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId'); // Optional: for smart question selection
+    const userId = searchParams.get('userId');
     
-    // Get all active cards (no date filtering - questions are tracked per user)
-    const cards = await Card.find({ active: true }).sort({ createdAt: -1 }).lean();
+    // Get all active questions
+    const questions = await Question.find({ active: true }).sort({ createdAt: -1 }).lean();
     
-    // If userId provided, select questions user hasn't seen recently
+    // Get user's seen questions
+    let seenHashes = new Set<string>();
     if (userId) {
-      // Get user's question history (last 30 days)
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       
@@ -31,34 +35,54 @@ export async function GET(request: NextRequest) {
         answeredAt: { $gte: thirtyDaysAgo }
       }).select('questionHash').lean();
       
-      const seenHashes = new Set(history.map((h: any) => h.questionHash));
+      seenHashes = new Set(history.map((h: any) => h.questionHash));
+    }
+    
+    // Transform Questions to Card format for backwards compatibility
+    const cards = questions.map((q: any) => {
+      const qHash = hashQuestion(q.question);
+      const isSeen = seenHashes.has(qHash);
       
-      // For each card, pick a question the user hasn't seen
-      const cardsWithSmartQuestions = cards.map((card: any) => {
-        if (!card.questions || card.questions.length === 0) return card;
-        
-        // Find unseen questions
-        const unseenQuestions = card.questions.filter((q: any) => {
-          if (!q.question) return true;
-          const hash = hashQuestion(q.question);
-          return !seenHashes.has(hash);
-        });
-        
-        // Pick from unseen, or random if all seen
-        const selectedQuestion = unseenQuestions.length > 0
-          ? unseenQuestions[Math.floor(Math.random() * unseenQuestions.length)]
-          : card.questions[Math.floor(Math.random() * card.questions.length)];
-        
-        return {
-          ...card,
-          _selectedQuestion: selectedQuestion
-        };
+      // Wrap question in Card-like structure
+      const questionVariant = {
+        question: q.question,
+        options: q.options,
+        correctAnswer: q.correctAnswer,
+        difficulty: q.difficulty === 'Easy' ? 1 : q.difficulty === 'Medium' ? 3 : 5,
+        difficultyText: q.difficulty,
+        maxReward: q.maxReward,
+        highlightWords: [],
+      };
+      
+      return {
+        _id: q._id,
+        type: 'quiz',
+        theme: q.theme,
+        topic: q.topic || '',
+        questions: [questionVariant],
+        timeLimit: 10,
+        previewImage: q.image || '',
+        playerImage: q.image || '',
+        active: q.active,
+        guestCard: false,
+        createdAt: q.createdAt,
+        // Smart selection - mark if seen
+        _selectedQuestion: questionVariant,
+        _isSeen: isSeen,
+      };
+    });
+    
+    // Sort: unseen first
+    if (userId) {
+      cards.sort((a: any, b: any) => {
+        if (a._isSeen && !b._isSeen) return 1;
+        if (!a._isSeen && b._isSeen) return -1;
+        return 0;
       });
-      
-      return NextResponse.json({ success: true, cards: cardsWithSmartQuestions });
     }
     
     return NextResponse.json({ success: true, cards });
+    
   } catch (error: any) {
     console.error('Error fetching cards:', error);
     return NextResponse.json(
@@ -68,15 +92,28 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST create new card
+// POST - redirect to questions API
 export async function POST(request: NextRequest) {
   try {
     await dbConnect();
     const data = await request.json();
     
-    const card = await Card.create(data);
+    // Transform Card format to Question format
+    const q = data.questions?.[0] || data;
     
-    return NextResponse.json({ success: true, card });
+    const question = await Question.create({
+      question: q.question,
+      options: q.options,
+      correctAnswer: q.correctAnswer,
+      theme: data.theme,
+      topic: data.topic,
+      difficulty: q.difficultyText || 'Medium',
+      maxReward: q.maxReward || 0.10,
+      active: true,
+      source: 'admin',
+    });
+    
+    return NextResponse.json({ success: true, card: question });
   } catch (error: any) {
     console.error('Error creating card:', error);
     return NextResponse.json(

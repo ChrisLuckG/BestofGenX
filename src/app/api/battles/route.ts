@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
       .select('_id creator opponent topic wager rounds status questions creatorResults opponentResults creatorTotalPoints opponentTotalPoints winner isPrivate challengedUser createdAt acceptedAt createdVia acceptedVia')
       .populate('creator', 'username avatar country countryFlag points bogxCoins isBot')
       .populate('opponent', 'username avatar country countryFlag points bogxCoins isBot')
-      .populate('challengedUser', 'username avatar country countryFlag')
+      .populate('challengedUser', 'username avatar country countryFlag points bogxCoins')
       .sort({ createdAt: -1 })
       .limit(50);
     
@@ -114,6 +114,9 @@ export async function GET(request: NextRequest) {
       }
       if (battle.opponent?._id) {
         battle.opponent.rank = rankMap.get(battle.opponent._id.toString()) || null;
+      }
+      if (battle.challengedUser?._id) {
+        battle.challengedUser.rank = rankMap.get(battle.challengedUser._id.toString()) || null;
       }
       return battle;
     });
@@ -227,45 +230,38 @@ export async function POST(request: NextRequest) {
       opponentExcludeIds = opponentHistory.map((h: any) => h.cardId?.toString()).filter(Boolean);
     }
 
-    // Fetch more candidate cards than rounds needed, since each card may fail
-    // validation (missing/invalid question data) and get skipped below.
-    const candidateCards = await getQuestionsForUser(creatorId, {
+    // Fetch candidate questions (now flat Question documents, not Cards)
+    const candidateQuestions = await getQuestionsForUser(creatorId, {
       theme,
-      count: rounds * 6,
+      count: rounds * 3,
       context: 'battle',
-      excludeCardIds: opponentExcludeIds,
+      excludeIds: opponentExcludeIds,
     });
 
-    console.log(`Found ${candidateCards.length} candidate cards for theme "${theme}" (topic: ${topic})`);
+    console.log(`Found ${candidateQuestions.length} candidate questions for theme "${theme}" (topic: ${topic})`);
 
-    for (const card of candidateCards) {
+    for (const q of candidateQuestions) {
       if (battleQuestions.length >= rounds) break;
-      if (!card.questions || !Array.isArray(card.questions) || card.questions.length === 0) continue;
-
-      // Pick a random difficulty variant from this card
-      const q = card.questions[Math.floor(Math.random() * card.questions.length)];
       if (!q.question || !q.options || q.options.length !== 4) continue;
 
       const correctIndex = q.options.indexOf(q.correctAnswer);
-      // NO FALLBACK - skip invalid questions
       if (correctIndex === -1) {
-        console.error('Correct answer not found in options, skipping card:', card._id);
+        console.error('Correct answer not found in options, skipping:', q._id);
         continue;
       }
 
       battleQuestions.push({
-        questionId: `${card._id}_${q.difficulty || 0}`,
-        cardId: card._id,
+        questionId: q._id.toString(),
         question: q.question,
         answers: q.options,
         correctIndex,
-        points: q.maxReward || 100,
+        points: q.maxReward || 0.10,
         difficulty: q.difficulty,
-        difficultyText: q.difficultyText,
+        difficultyText: q.difficulty,
       });
     }
 
-    console.log(`Using ${battleQuestions.length} questions for battle (topic: ${topic}, candidates: ${candidateCards.length})`);
+    console.log(`Using ${battleQuestions.length} questions for battle (topic: ${topic}, candidates: ${candidateQuestions.length})`);
     
     // 2. If not enough cards, generate FULL quiz sets (Easy/Medium/Hard) with ChatGPT
     //    Each card stored properly with all 3 variants so it can be reused later in normal play

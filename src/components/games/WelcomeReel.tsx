@@ -1583,11 +1583,11 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                           </div>
                           {/* Name */}
                           <div className="flex-1 min-w-0">
-                            <div className={`font-medium truncate group-hover:text-[#E36B11] transition-colors ${article.deceased ? 'text-gray-600' : 'text-gray-900'}`}>
+                            <div className={`font-display text-base tracking-wide truncate group-hover:text-[#E36B11] transition-colors ${article.deceased ? 'text-gray-600' : 'text-gray-900'}`}>
                               {article.personName || article.title}
                               {article.deceased && <span className="ml-1 text-gray-400">†</span>}
                             </div>
-                            <div className="text-xs text-gray-500 truncate">
+                            <div className="text-xs text-gray-500 truncate font-display tracking-wide">
                               {article.personBirthday}
                               {article.personDeathday && ` – † ${article.personDeathday}`}
                               {article.personCountry && ` • ${article.personCountry}`}

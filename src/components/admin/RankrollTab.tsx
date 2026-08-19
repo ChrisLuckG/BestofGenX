@@ -50,7 +50,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const itemImageInputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-search GIF from Tenor based on item title
+  // Auto-search an image for an item: Wikimedia first (real photos), Tenor GIF as fallback
   const searchGifForItem = async (itemIndex: number, title: string, currentImage?: string) => {
     if (!title.trim()) {
       alert('Please enter a title first');
@@ -76,7 +76,14 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
         searchQuery = `${searchQuery} ${country}`;
       }
       
-      // If there's already an image, skip to get a different one
+      // 1. Wikimedia Commons - real, licensed photos of the actual subject
+      const wikiUrl = await fetchWikimediaImage(searchQuery, !!currentImage);
+      if (wikiUrl) {
+        await updateItemImage(itemIndex, wikiUrl);
+        return;
+      }
+      
+      // 2. Tenor GIF as fallback. If there's already an image, skip ahead to get a different one.
       const skip = currentImage ? Math.floor(Math.random() * 10) + 1 : 0;
       const res = await fetch(`/api/tenor-search?q=${encodeURIComponent(searchQuery)}&skip=${skip}`);
       const data = await res.json();
@@ -84,18 +91,39 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
       if (data.success && data.url) {
         await updateItemImage(itemIndex, data.url);
       } else {
-        alert('No GIF found for: ' + title);
+        alert('No image found for: ' + title);
       }
     } catch (error) {
-      console.error('GIF search error:', error);
-      alert('GIF search failed');
+      console.error('Image search error:', error);
+      alert('Image search failed');
     } finally {
       setSearchingGifIndex(null);
     }
   };
 
-  // Fetch GIF for a single title
+  // Wikimedia Commons image for a search term. `randomize` picks a different hit
+  // than the first one, used when replacing an existing image.
+  const fetchWikimediaImage = async (term: string, randomize = false): Promise<string> => {
+    try {
+      const res = await fetch('/api/search-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: term }),
+      });
+      const data = await res.json();
+      const images = data.allImages || [];
+      if (!data.success || images.length === 0) return '';
+      const pick = randomize ? images[Math.floor(Math.random() * images.length)] : images[0];
+      return pick?.thumbUrl || pick?.url || '';
+    } catch {
+      return '';
+    }
+  };
+
+  // Fetch an image for a single title: Wikimedia first, Tenor GIF as fallback
   const fetchGifForTitle = async (title: string): Promise<string> => {
+    const wiki = await fetchWikimediaImage(title);
+    if (wiki) return wiki;
     try {
       const res = await fetch(`/api/tenor-search?q=${encodeURIComponent(title)}`);
       const data = await res.json();
@@ -122,18 +150,18 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
       
       const data = await res.json();
       if (data.success && data.ranking) {
-        // Create items first
+        // Create items with images from API (YouTube thumbnails or Tenor GIFs)
         const items = data.ranking.items.map((item: any, i: number) => ({
           id: `item_${Date.now()}_${i}`,
           title: item.title,
           description: item.description,
-          image: item.image || '',
+          image: item.image || '', // API already provides YouTube thumbnails or GIFs
           upvotes: 0,
           downvotes: 0,
           score: 0,
         }));
         
-        // Set the poll immediately so user sees progress
+        // Set the poll with all data from API
         setEditingPoll({
           ...editingPoll,
           title: data.ranking.title,
@@ -141,21 +169,6 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
           items,
         });
         setAiTopic('');
-        
-        // Now fetch GIFs for all items in parallel
-        const gifPromises = items.map((item: any) => fetchGifForTitle(item.title));
-        const gifs = await Promise.all(gifPromises);
-        
-        // Update items with GIFs
-        const itemsWithGifs = items.map((item: any, i: number) => ({
-          ...item,
-          image: gifs[i] || item.image,
-        }));
-        
-        setEditingPoll((prev: any) => ({
-          ...prev,
-          items: itemsWithGifs,
-        }));
       } else {
         alert('AI generation failed: ' + (data.error || 'Unknown error'));
       }

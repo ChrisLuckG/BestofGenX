@@ -9,6 +9,7 @@ interface RankingItemRowProps {
     title: string;
     description?: string;
     image?: string;
+    videoUrl?: string; // YouTube video URL for inline playback
     upvotes: number;
     downvotes: number;
     score: number;
@@ -38,8 +39,8 @@ export default function RankingItemRow({
       {isDesktop ? (
         /* Desktop: 3-column layout - Image | Text | Voting */
         <div className="flex items-center gap-4">
-          {/* Column 1: Image */}
-          <RankingItemImage image={item.image} rank={rank} title={item.title} size="large" />
+          {/* Column 1: Image/Video */}
+          <RankingItemImage image={item.image} videoUrl={item.videoUrl} rank={rank} title={item.title} size="large" />
           
           {/* Column 2: Content - full text, aligned to top */}
           <div className="flex-1 min-w-0 self-start">
@@ -89,7 +90,7 @@ export default function RankingItemRow({
         /* Mobile: Large image with voting beside, text at bottom */
         <>
           <div className="flex items-stretch gap-3 mb-2">
-            <RankingItemImage image={item.image} rank={rank} title={item.title} size="large" />
+            <RankingItemImage image={item.image} videoUrl={item.videoUrl} rank={rank} title={item.title} size="large" />
             
             {/* Voting buttons - vertical, fill remaining space */}
             <div className="flex-1 flex flex-col gap-1">

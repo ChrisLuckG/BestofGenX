@@ -147,7 +147,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
     name: user.username || 'You',
     country: user.country || 'World',
     flag: user.countryFlag || '🌍',
-    points: user.bogxCoins || autoConvertToBOGX(user.coins || 0),
+    points: user.bogxCoins ?? autoConvertToBOGX(user.coins ?? 0),
     wins: user.wins || 0,
     avatar: user.avatar || `https://i.pravatar.cc/100?u=${user.id}`,
     isCurrentUser: true,

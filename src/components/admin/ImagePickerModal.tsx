@@ -382,16 +382,9 @@ export default function ImagePickerModal({
               ✨ AI Generate
             </button>
           )}
-          <button
-            onClick={() => setActiveTab('tenor')}
-            className={`flex-1 px-2 py-2 text-xs font-medium ${
-              activeTab === 'tenor' 
-                ? 'text-white border-b-2 border-[#E36B11]' 
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            🎬 Tenor
-          </button>
+          {/* Wikimedia is the primary image source - real, licensed photos.
+              Tenor stays available but is deliberately last: as the first option
+              it kept returning unrelated memes instead of the actual subject. */}
           <button
             onClick={() => setActiveTab('wikimedia')}
             className={`flex-1 px-2 py-2 text-xs font-medium ${
@@ -400,7 +393,17 @@ export default function ImagePickerModal({
                 : 'text-gray-400 hover:text-white'
             }`}
           >
-            🌐 Wiki
+            � Wiki
+          </button>
+          <button
+            onClick={() => setActiveTab('tenor')}
+            className={`flex-1 px-2 py-2 text-xs font-medium ${
+              activeTab === 'tenor' 
+                ? 'text-white border-b-2 border-[#E36B11]' 
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            � Tenor
           </button>
         </div>
 

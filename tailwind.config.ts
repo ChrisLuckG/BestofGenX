@@ -19,6 +19,8 @@ const config: Config = {
         'display': '0.01em',
       },
       colors: {
+        // Override white to cream everywhere
+        white: '#F5F0E8',
         sport: {
           DEFAULT: '#FF0000',      // Sportradar Red - primary
           dark: '#CC0000',         // Darker red

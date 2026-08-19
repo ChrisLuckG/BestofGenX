@@ -41,24 +41,70 @@ STYLE:
 - 4 options, exactly ONE correct
 - Surprise! Don't always use the same topics
 
-CRITICAL - AVOID AMBIGUOUS QUESTIONS:
-- ALWAYS include YEAR or specific EVENT in sports/awards questions!
-  BAD: "Who won the gold medal in basketball?"
-  GOOD: "Who won basketball gold at the 1992 Olympics?"
-- Questions must have ONE definitive correct answer!
+================================================================================
+CRITICAL - QUESTION QUALITY RULES (READ CAREFULLY!)
+================================================================================
+
+Every question MUST be SELF-CONTAINED and UNAMBIGUOUS. A reader with NO context
+must be able to understand exactly what is being asked.
+
+RULE 1: ALWAYS SPECIFY CONTEXT
+- BAD: "Who scored the winning goal in the final?" (WHICH final?? WHICH year??)
+- GOOD: "Who scored the winning goal in the 1986 World Cup Final?"
+- BAD: "Who won the championship?" (WHICH championship?? WHICH sport?? WHICH year??)
+- GOOD: "Who won the 1996 NBA Finals?"
+- BAD: "What was the hit song from the movie?" (WHICH movie??)
+- GOOD: "What was the hit song from 'Dirty Dancing' (1987)?"
+
+RULE 2: INCLUDE YEAR FOR ALL SPORTS/AWARDS/EVENTS
+- BAD: "Who won the gold medal in basketball?"
+- GOOD: "Who won basketball gold at the 1992 Barcelona Olympics?"
+- BAD: "Who was named MVP?"
+- GOOD: "Who was named NBA MVP in 1991?"
+
+RULE 3: NAME THE SPECIFIC WORK/PERSON/EVENT
+- BAD: "Which actor played the villain?" (IN WHAT??)
+- GOOD: "Which actor played the Joker in 'Batman' (1989)?"
+- BAD: "What was their biggest hit?" (WHOSE hit??)
+- GOOD: "What was Nirvana's biggest hit single?"
+
+RULE 4: AVOID PRONOUNS WITHOUT ANTECEDENTS
+- BAD: "What did he win in 1988?" (WHO is "he"??)
+- GOOD: "What did Mike Tyson win in 1988?"
+- BAD: "Where was it filmed?" (WHAT is "it"??)
+- GOOD: "Where was 'The Shining' (1980) filmed?"
+
+RULE 5: ONE DEFINITIVE ANSWER ONLY
+- The correct answer must be factually verifiable
+- No opinion-based questions ("What was the best...?")
+- No questions where multiple answers could be correct
+
+SELF-CHECK: Before finalizing, ask yourself:
+"If I showed this question to someone with NO context, would they know
+EXACTLY what I'm asking about?" If not, ADD MORE SPECIFICS!
+
+================================================================================
+OFFICIAL CATEGORIES (5 ONLY - NO OTHERS!)
+================================================================================
+
+theme MUST be one of these 5:
+- MUSIC
+- SPORTS
+- MOVIES (includes TV Shows & Cinema)
+- GAMING
+- POLITIK
 
 SUBCATEGORY IS MANDATORY:
 Every question MUST have a specific subCategory! Never leave it empty or use "-".
 - SPORTS: Basketball, Soccer, Tennis, Boxing, Football, Baseball, Golf, Olympics, Wrestling, F1
 - MUSIC: Rock, Pop, Hip-Hop, R&B, Metal, Punk, Grunge, Electronic, Country, Soul
-- MOVIES: Action, Comedy, Horror, Sci-Fi, Drama, Thriller, Animation, Romance
-- TV SHOWS: Sitcom, Drama, Sci-Fi, Animation, Crime, Reality, Talk Show
+- MOVIES: Action, Comedy, Horror, Sci-Fi, Drama, Thriller, Animation, Romance, TV Sitcom, TV Drama, TV Sci-Fi
 - GAMING: Console, Arcade, PC, RPG, Fighting, Racing, Platformer, Sports
-- FASHION: Streetwear, Designer, Shoes, Accessories, Denim, Sportswear
+- POLITIK: US Politics, World Politics, Elections, Presidents, Cold War, Historical Events
 
 FORMAT:
 {
-  "theme": "MUSIC|SPORTS|MOVIES|TV SHOWS|GAMING",
+  "theme": "MUSIC|SPORTS|MOVIES|GAMING|POLITIK",
   "subCategory": "Specific subcategory (REQUIRED - never empty!)",
   "easy": { "question": "...", "options": [...], "correctAnswer": "...", "highlightWords": [...] },
   "medium": { "question": "...", "options": [...], "correctAnswer": "...", "highlightWords": [...] },
@@ -83,15 +129,12 @@ FAIRNESS IS EVERYTHING:
 - Not too hard (otherwise both just guess)
 - The golden middle: "I think I know it... yes, that's it!"
 
-CRITICAL - AVOID AMBIGUOUS QUESTIONS:
-- NEVER ask "Who won the gold medal in X?" without specifying the YEAR and EVENT!
-  BAD: "Which country won the gold medal in basketball?"
-  GOOD: "Which country won basketball gold at the 1992 Barcelona Olympics?"
-- NEVER ask "Who won the championship?" without specifying WHICH YEAR!
-  BAD: "Who won the NBA championship?"
-  GOOD: "Who won the 1996 NBA Finals?"
-- ALWAYS include the YEAR or specific EVENT in sports/awards questions!
-- Questions must have ONE definitive correct answer that cannot change over time!
+APPLY THE SAME QUALITY RULES AS ABOVE:
+- Every question must be SELF-CONTAINED (no missing context!)
+- ALWAYS include YEAR for sports/awards/events
+- ALWAYS name the specific movie/song/person/team
+- NO pronouns without clear antecedents ("he", "it", "they" = FORBIDDEN)
+- ONE definitive, verifiable answer only
 
 VARIATION:
 - Vary even within a topic

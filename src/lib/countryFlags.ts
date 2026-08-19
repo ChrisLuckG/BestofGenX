@@ -84,9 +84,37 @@ const CODE_ALIASES: Record<string, string> = {
   ni: 'gb-nir',
 };
 
+// Nationalities/demonyms - AI reporters often write "Finnish singer" or answer
+// COUNTRY: Finnish instead of Finland.
+const DEMONYM_TO_CODE: Record<string, string> = {
+  american: 'US', british: 'GB', english: 'gb-eng', scottish: 'gb-sct', welsh: 'gb-wls',
+  'northern irish': 'gb-nir', irish: 'IE', german: 'DE', austrian: 'AT', swiss: 'CH',
+  french: 'FR', italian: 'IT', spanish: 'ES', portuguese: 'PT', dutch: 'NL', belgian: 'BE',
+  swedish: 'SE', norwegian: 'NO', danish: 'DK', finnish: 'FI', icelandic: 'IS',
+  polish: 'PL', czech: 'CZ', hungarian: 'HU', romanian: 'RO', greek: 'GR', turkish: 'TR',
+  russian: 'RU', ukrainian: 'UA', croatian: 'HR', serbian: 'RS',
+  canadian: 'CA', mexican: 'MX', brazilian: 'BR', argentinian: 'AR', argentine: 'AR',
+  colombian: 'CO', chilean: 'CL', peruvian: 'PE', venezuelan: 'VE', cuban: 'CU', jamaican: 'JM',
+  japanese: 'JP', chinese: 'CN', korean: 'KR', 'south korean': 'KR', indian: 'IN',
+  thai: 'TH', vietnamese: 'VN', filipino: 'PH', indonesian: 'ID', malaysian: 'MY',
+  singaporean: 'SG', taiwanese: 'TW', pakistani: 'PK', bangladeshi: 'BD',
+  australian: 'AU', 'new zealander': 'NZ',
+  'south african': 'ZA', nigerian: 'NG', ghanaian: 'GH', senegalese: 'SN', cameroonian: 'CM',
+  egyptian: 'EG', moroccan: 'MA', algerian: 'DZ', tunisian: 'TN', libyan: 'LY',
+  israeli: 'IL', iranian: 'IR', iraqi: 'IQ', saudi: 'SA',
+};
+
+// Case-insensitive lookup table, built once from the canonical map above.
+const LOWER_COUNTRY_TO_CODE: Record<string, string> = Object.fromEntries(
+  Object.entries(COUNTRY_TO_CODE).map(([name, code]) => [name.toLowerCase(), code])
+);
+
 export function countryNameToCode(name?: string | null): string {
   if (!name) return '';
-  return COUNTRY_TO_CODE[name.trim()] || '';
+  // Tolerate casing, whitespace and trailing punctuation from AI output
+  const key = name.trim().replace(/[.,;:!?]+$/, '').toLowerCase();
+  if (!key) return '';
+  return LOWER_COUNTRY_TO_CODE[key] || DEMONYM_TO_CODE[key] || '';
 }
 
 /**

@@ -5,171 +5,8 @@ import User from '@/models/User';
 import GameResult from '@/models/GameResult';
 import Notification from '@/models/Notification';
 import { sendPushNotification } from '@/lib/webpush';
-import { sendEmail, createBaseEmailTemplate } from '@/lib/email';
+// Email imports removed - only push/in-app notifications for battles
 import { compareBattleResults } from '@/utils/battleWinner';
-
-// Helper: Create battle challenge email - Premium design
-function createBattleChallengeEmail(
-  challengerName: string, 
-  topic: string, 
-  wager: number,
-  challengerAvatar?: string,
-  challengerLevel?: number,
-  challengerWins?: number,
-  challengerLosses?: number,
-  expiresAt?: Date
-) {
-  // Format expiry time
-  const expiryTime = expiresAt 
-    ? new Date(expiresAt).toLocaleString('de-DE', { 
-        timeZone: 'Europe/Berlin',
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
-    : '24 hours';
-
-  // Topic icons mapping
-  const topicIcons: Record<string, string> = {
-    'sport': '⚽',
-    'music': '🎵',
-    'movies': '🎬',
-    'tv': '📺',
-    'games': '🎮',
-    'celebrities': '⭐',
-    'history': '📜',
-    'all': '🎯',
-  };
-  const topicIcon = topicIcons[topic.toLowerCase()] || '🎯';
-
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="margin: 0; padding: 0; background-color: #1a1a1a; font-family: 'Helvetica Neue', Arial, sans-serif;">
-  <div style="max-width: 600px; margin: 0 auto;">
-
-    <!-- Header with Logo -->
-    <div style="background-color: #1a1a1a; padding: 24px; text-align: center;">
-      <img src="https://bestofgenx.com/images/genxlogo1.png" alt="BOGX" style="height: 40px;" />
-    </div>
-
-    <!-- Hero Section - Dark with diagonal accents -->
-    <div style="background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%); padding: 40px 24px; text-align: center; position: relative;">
-      <!-- Title -->
-      <h1 style="font-family: 'Impact', 'Arial Black', sans-serif; font-size: 42px; color: #ffffff; margin: 0 0 4px 0; letter-spacing: 2px; text-transform: uppercase;">
-        A CHALLENGER
-      </h1>
-      <h2 style="font-family: 'Brush Script MT', cursive; font-size: 36px; color: #E36B11; margin: 0 0 16px 0; font-style: italic;">
-        Appears
-      </h2>
-      <p style="color: #cccccc; font-size: 16px; margin: 0;">
-        ${challengerName} is calling you out.
-      </p>
-
-      <!-- Challenger Avatar & Info -->
-      <div style="margin-top: 32px;">
-        <div style="width: 100px; height: 100px; margin: 0 auto 16px; border-radius: 50%; border: 4px solid #E36B11; overflow: hidden; background: #333;">
-          ${challengerAvatar 
-            ? `<img src="${challengerAvatar}" alt="${challengerName}" style="width: 100%; height: 100%; object-fit: cover;" />`
-            : `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 40px;">🐼</div>`
-          }
-        </div>
-        ${challengerLevel ? `<div style="background: #E36B11; color: #1a1a1a; font-size: 11px; font-weight: bold; padding: 4px 12px; border-radius: 12px; display: inline-block; margin-bottom: 8px;">${challengerLevel} LEVEL</div>` : ''}
-        <p style="color: #ffffff; font-size: 20px; font-weight: bold; margin: 8px 0 4px;">${challengerName}</p>
-        <p style="color: #E36B11; font-size: 12px; font-weight: bold; letter-spacing: 1px; margin: 0;">GENX WARRIOR</p>
-        
-        <!-- Stats -->
-        <div style="display: flex; justify-content: center; gap: 32px; margin-top: 16px;">
-          <div style="text-align: center;">
-            <span style="color: #E36B11; font-size: 10px;">🏆</span>
-            <span style="color: #ffffff; font-size: 18px; font-weight: bold; margin-left: 4px;">${challengerWins || 0}</span>
-            <span style="color: #888; font-size: 11px; display: block;">WINS</span>
-          </div>
-          <div style="text-align: center;">
-            <span style="color: #888; font-size: 10px;">💔</span>
-            <span style="color: #ffffff; font-size: 18px; font-weight: bold; margin-left: 4px;">${challengerLosses || 0}</span>
-            <span style="color: #888; font-size: 11px; display: block;">LOSSES</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Battle Details Card -->
-    <div style="background: #F5F0E8; margin: 0; padding: 32px 24px;">
-      <div style="text-align: center; margin-bottom: 24px;">
-        <span style="color: #E36B11; font-size: 12px; font-weight: bold; letter-spacing: 2px;">⚔️ BATTLE DETAILS ⚔️</span>
-      </div>
-
-      <div style="display: flex; justify-content: space-between; gap: 16px;">
-        <!-- Topic -->
-        <div style="flex: 1; background: #ffffff; border-radius: 16px; padding: 20px; text-align: center; border: 1px solid #E8E4DC;">
-          <p style="color: #888; font-size: 10px; letter-spacing: 1px; margin: 0 0 8px;">TOPIC</p>
-          <p style="font-size: 28px; margin: 0 0 8px;">${topicIcon}</p>
-          <p style="color: #1a1a1a; font-size: 18px; font-weight: bold; text-transform: uppercase; margin: 0;">${topic}</p>
-          <p style="color: #888; font-size: 10px; margin: 8px 0 0;">
-            <span style="margin-right: 8px;">❓ 10 QUESTIONS</span>
-          </p>
-          <p style="color: #888; font-size: 10px; margin: 4px 0 0;">
-            <span>⏱️ 90 SECONDS</span>
-          </p>
-        </div>
-
-        <!-- Pot -->
-        <div style="flex: 1; background: #ffffff; border-radius: 16px; padding: 20px; text-align: center; border: 1px solid #E8E4DC;">
-          <p style="color: #888; font-size: 10px; letter-spacing: 1px; margin: 0 0 8px;">POT</p>
-          <img src="https://bestofgenx.com/images/bogx-coins.png" alt="BOGX" style="width: 48px; height: 48px; margin: 0 auto 8px;" onerror="this.style.display='none'" />
-          <p style="color: #E36B11; font-size: 24px; font-weight: bold; margin: 0;">${(wager * 2).toFixed(2)} BOGX</p>
-          <p style="color: #888; font-size: 10px; margin: 8px 0 0;">WINNER TAKES ALL</p>
-        </div>
-
-        <!-- Expires -->
-        <div style="flex: 1; background: #ffffff; border-radius: 16px; padding: 20px; text-align: center; border: 1px solid #E8E4DC;">
-          <p style="color: #888; font-size: 10px; letter-spacing: 1px; margin: 0 0 8px;">CHALLENGE EXPIRES</p>
-          <p style="color: #1a1a1a; font-size: 24px; font-weight: bold; margin: 8px 0;">${expiryTime}</p>
-          <p style="color: #888; font-size: 10px; margin: 0;">CET</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- CTA Button -->
-    <div style="background: #F5F0E8; padding: 0 24px 32px; text-align: center;">
-      <a href="https://bestofgenx.com/mobile?tab=notifications" style="display: inline-block; background: linear-gradient(135deg, #A855F7 0%, #7C3AED 100%); color: #ffffff; font-size: 18px; font-weight: bold; text-decoration: none; padding: 18px 64px; border-radius: 16px; letter-spacing: 2px; text-transform: uppercase;">
-        ⚡ ENTER BATTLE ⚡
-      </a>
-    </div>
-
-    <!-- Tagline -->
-    <div style="background: #F5F0E8; padding: 0 24px 32px; text-align: center;">
-      <p style="color: #1a1a1a; font-size: 14px; margin: 0; font-weight: 500;">
-        ONLY ONE OF YOU REMEMBERS THE 90S BETTER.
-      </p>
-      <p style="color: #E36B11; font-size: 14px; margin: 4px 0 0; font-weight: bold;">
-        LET'S SETTLE THIS.
-      </p>
-    </div>
-
-    <!-- Footer -->
-    <div style="background: #1a1a1a; padding: 24px; text-align: center;">
-      <img src="https://bestofgenx.com/images/genxlogo1.png" alt="BOGX" style="height: 24px; margin-bottom: 12px;" />
-      <p style="color: #888; font-size: 11px; margin: 0; letter-spacing: 1px;">KNOWLEDGE. COMPETITION. REWARDS.</p>
-      <div style="margin-top: 16px;">
-        <a href="https://twitter.com/bestofgenx" style="color: #888; text-decoration: none; margin: 0 8px;">𝕏</a>
-        <a href="https://instagram.com/bestofgenx" style="color: #888; text-decoration: none; margin: 0 8px;">📷</a>
-        <a href="https://discord.gg/bestofgenx" style="color: #888; text-decoration: none; margin: 0 8px;">💬</a>
-      </div>
-    </div>
-
-  </div>
-</body>
-</html>
-  `;
-}
 
 // Helper: save battle result for ranking system
 async function saveBattleGameResult(userId: string, opponentName: string, pointsChange: number, won: boolean) {
@@ -278,7 +115,7 @@ export async function POST(
           await Notification.create({
             userId: battle.creator,
             type: 'battle_result',
-            title: '🏆 You Won!',
+            title: 'You Won!',
             message: `You beat ${opponentUser.username}! +${(wager * 2).toFixed(2)} BOGX`,
             avatar: opponentUser.avatar,
             data: { battleId: battle._id.toString(), url: '/battles' }
@@ -300,7 +137,7 @@ export async function POST(
 
         if (creator?.pushSubscription && creator?.notifyBattleResult !== false) {
           sendPushNotification(creator.pushSubscription, {
-            title: isTie ? '🤝 Battle Tie!' : (creatorWon ? '🏆 You Won the Battle!' : '😔 You Lost the Battle'),
+            title: isTie ? 'Battle Tie!' : (creatorWon ? 'You Won the Battle!' : 'You Lost the Battle'),
             body: isTie
               ? `You and ${opponentUser.username} tied! Wager returned.`
               : creatorWon
@@ -327,57 +164,44 @@ export async function POST(
           const creator = await User.findById(battle.creator);
           const creatorName = creator?.username || 'Someone';
           
-          // 1. Create In-App Notification (ALWAYS)
-          await Notification.create({
+          // Check if notification already exists for this battle (prevent duplicates)
+          const existingNotification = await Notification.findOne({
             userId: battle.challengedUser,
             type: 'battle_challenge',
-            title: '⚔️ Battle Challenge!',
-            message: `${creatorName} challenges you to a ${battle.topic.toUpperCase()} battle for ${battle.wager.toFixed(2)} BOGX!`,
-            avatar: creator?.avatar,
-            data: { battleId: battle._id.toString(), url: '/battles' }
+            'data.battleId': battle._id.toString()
           });
-          console.log(`Challenge in-app notification created for ${challengedUser?.username}`);
           
-          // 2. Send Push Notification (if subscribed)
-          if (challengedUser?.pushSubscription) {
-            await sendPushNotification(challengedUser.pushSubscription, {
+          if (!existingNotification) {
+            // 1. Create In-App Notification (ALWAYS)
+            await Notification.create({
+              userId: battle.challengedUser,
+              type: 'battle_challenge',
               title: '⚔️ Battle Challenge!',
-              body: `${creatorName} challenges you to a ${battle.topic.toUpperCase()} battle for ${battle.wager.toFixed(2)} BOGX!`,
-              tag: `battle-challenge-${battle._id}`,
-              // Deep-link straight to the battle so the opponent can start it immediately
-              url: `/mobile?battle=${battle._id.toString()}`,
-              icon: 'https://bestofgenx.com/images/genxlogo1.png',
-              badge: 'https://bestofgenx.com/images/bogxcoin.png',
-              type: 'challenge'
+              message: `${creatorName} challenges you to a ${battle.topic.toUpperCase()} battle for ${battle.wager.toFixed(2)} BOGX!`,
+              avatar: creator?.avatar,
+              data: { battleId: battle._id.toString(), url: '/battles' }
             });
-            console.log(`Challenge push sent to ${challengedUser.username}`);
-          }
+            console.log(`Challenge in-app notification created for ${challengedUser?.username}`);
           
-          // 3. Send Email (if user has email and hasn't disabled battle notifications)
-          if (challengedUser?.email && challengedUser?.notifyBattleChallenge !== false) {
-            // Calculate expiry time (24 hours from now)
-            const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-            
-            // Calculate wins/losses from user stats
-            const creatorWins = creator?.battleWins || creator?.wins || 0;
-            const creatorLosses = (creator?.gamesPlayed || 0) - creatorWins;
-            
-            const emailHtml = createBattleChallengeEmail(
-              creatorName, 
-              battle.topic, 
-              battle.wager,
-              creator?.avatar,
-              creator?.level,
-              creatorWins,
-              creatorLosses,
-              expiresAt
-            );
-            await sendEmail(
-              challengedUser.email,
-              `⚔️ ${creatorName} challenged you to a QuizzBattle!`,
-              emailHtml
-            );
-            console.log(`Challenge email sent to ${challengedUser.email}`);
+            // 2. Send Push Notification (if subscribed)
+            if (challengedUser?.pushSubscription) {
+              await sendPushNotification(challengedUser.pushSubscription, {
+                title: '⚔️ Battle Challenge!',
+                body: `${creatorName} challenges you to a ${battle.topic.toUpperCase()} battle for ${battle.wager.toFixed(2)} BOGX!`,
+                tag: `battle-challenge-${battle._id}`,
+                // Deep-link straight to the battle so the opponent can start it immediately
+                url: `/mobile?battle=${battle._id.toString()}`,
+                icon: 'https://bestofgenx.com/images/genxlogo1.png',
+                badge: 'https://bestofgenx.com/images/bogxcoin.png',
+                type: 'challenge'
+              });
+              console.log(`Challenge push sent to ${challengedUser.username}`);
+            }
+          
+            // Email notifications disabled - only push/in-app notifications
+            // (Emails are only sent for login/verification)
+          } else {
+            console.log(`Challenge notification already exists for battle ${battle._id}, skipping`);
           }
         } catch (notifyError: any) {
           console.error('Challenge notification failed:', notifyError.message);
@@ -413,6 +237,12 @@ export async function POST(
       // If tie (equal correct AND equal time), no winner set
       
       await battle.save();
+      
+      // The challenge invite is stale now - the result notification replaces it
+      await Notification.deleteMany({
+        type: 'battle_challenge',
+        'data.battleId': battle._id.toString()
+      });
       
       // Update points - wagers were already deducted when creating/accepting
       const wager = battle.wager;
@@ -462,7 +292,7 @@ export async function POST(
           }).catch(console.error);
         } else {
           sendPushNotification(creator.pushSubscription, {
-            title: creatorWon ? '🏆 You Won the Battle!' : '😢 You Lost the Battle',
+            title: creatorWon ? 'You Won the Battle!' : 'You Lost the Battle',
             body: creatorWon 
               ? `You beat ${opponent?.username}! +${wager.toFixed(2)} BOGX earned.`
               : `${opponent?.username} beat you. -${wager.toFixed(2)} BOGX lost.`,
@@ -473,10 +303,15 @@ export async function POST(
         }
       }
       
+      // Get the opponent's (current player's) new balance to update UI immediately
+      const currentPlayer = await User.findById(playerId).select('bogxCoins').lean();
+      const newBalance = currentPlayer?.bogxCoins || 0;
+      
       return NextResponse.json({ 
         success: true, 
         message: 'Battle completed!',
-        battle 
+        battle,
+        newBalance // Return new balance so UI can update immediately
       });
     }
   } catch (error: any) {

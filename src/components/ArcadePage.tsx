@@ -46,8 +46,11 @@ export default function ArcadePage({ onSelectGame, onShowRankings, onShowBattles
       .catch(() => {});
   };
 
+  // Fetch on mount + poll every 10 seconds
   useEffect(() => {
     refreshBattleCount();
+    const interval = setInterval(refreshBattleCount, 10000);
+    return () => clearInterval(interval);
   }, [userId]);
 
   return (
@@ -85,6 +88,7 @@ export default function ArcadePage({ onSelectGame, onShowRankings, onShowBattles
           onPlayBattle={(battleId) => { setShowOpenBattles(false); onPlaySpecificBattle?.(battleId) || onSelectGame('quizzbattle'); }}
           onCoinsChange={onCoinsChange}
           accentColor="purple"
+          onCountChange={setLiveBattleCount}
         />
       )}
 
@@ -150,7 +154,7 @@ export default function ArcadePage({ onSelectGame, onShowRankings, onShowBattles
             <div className="flex items-center gap-2 mt-2">
               <span className="text-white/60 text-[8px] uppercase font-semibold">Wagers:</span>
               <div className="flex items-center gap-1">
-                {[0.10, 0.25, 0.50, 0.75, 1.00].map((w) => (
+                {[0.25, 0.50, 0.75, 1.00, 2.50, 5.00].map((w) => (
                   <span key={w} className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-[#A855F7]/30 text-white border border-[#A855F7]/50">
                     {w.toFixed(2)}
                   </span>

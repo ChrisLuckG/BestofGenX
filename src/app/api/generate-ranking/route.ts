@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { combinePrompts } from '@/lib/loadPrompt';
+import { searchYouTubeVideo, PREFER_LONG_THEN_ANY } from '@/lib/youtubeSearch';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -21,6 +22,26 @@ async function getTenorGif(searchTerm: string): Promise<string | null> {
       return data.results[0] || null;
     }
   } catch { /* silent */ }
+  return null;
+}
+
+// Fetch YouTube video thumbnail for a search term (returns thumbnail URL that RankingItemImage recognizes as video)
+async function getYouTubeVideoThumbnail(searchTerm: string): Promise<string | null> {
+  try {
+    const result = await searchYouTubeVideo({
+      query: searchTerm,
+      tiers: PREFER_LONG_THEN_ANY, // Allow any duration for ranking items
+      maxResults: 5,
+    });
+    
+    if (result?.videoId) {
+      // Return YouTube thumbnail URL (RankingItemImage will detect this and enable inline playback)
+      console.log(`YouTube: "${searchTerm}" -> video ${result.videoId}`);
+      return `https://img.youtube.com/vi/${result.videoId}/hqdefault.jpg`;
+    }
+  } catch (error) {
+    console.error('YouTube search error for', searchTerm, ':', error);
+  }
   return null;
 }
 
@@ -103,20 +124,44 @@ Include as many items as genuinely make sense — between 5 and 20. Do not pad w
       firstItem: ranking.items?.[0]
     });
 
-    // Fetch images for all items: Tenor GIF first, fallback Wikipedia, fallback topic GIF
+    // Determine if this is a video-worthy topic (sports highlights, fights, plays, performances, etc.)
+    // Be generous - most ranking topics benefit from video clips
+    const videoKeywords = /knockout|fight|match|play|goal|dunk|touchdown|performance|concert|live|highlight|scene|moment|episode|run|catch|shot|save|tackle|header|kick|punch|slam|drive|race|lap|win|victory|defeat|game|best|top|greatest|iconic|legendary|jaw.?dropping|mind.?blowing|amazing|incredible/i;
+    const isVideoTopic = videoKeywords.test(topic) || videoKeywords.test(ranking.title || '') || videoKeywords.test(ranking.subtitle || '');
+    console.log(`Topic "${topic}" isVideoTopic: ${isVideoTopic}`);
+
+    // Fetch images/videos for all items
     if (ranking.items && Array.isArray(ranking.items)) {
       const imagePromises = ranking.items.map(async (item: any) => {
         const searchTerm = item.wikiSearch || item.title || topic;
+        let image: string | null = null;
 
-        // 1. Try Tenor for the specific item
-        let image = await getTenorGif(searchTerm);
-
-        // 2. Try Wikipedia
-        if (!image && item.wikiSearch) {
-          image = await getWikipediaImage(item.wikiSearch);
+        // For video-worthy topics, try YouTube first
+        if (isVideoTopic) {
+          // Search YouTube with context (e.g. "Mike Tyson vs Michael Spinks knockout")
+          const videoSearch = `${topic} ${item.title}`;
+          image = await getYouTubeVideoThumbnail(videoSearch);
+          if (image) {
+            console.log(`Using YouTube video for "${item.title}"`);
+          }
         }
 
-        // 3. Fall back to Tenor with the main topic (e.g. "Brad Pitt")
+        // 1. Wikimedia/Wikipedia for the specific item - real photos beat memes
+        if (!image) {
+          image = await getWikipediaImage(item.wikiSearch || searchTerm);
+        }
+
+        // 2. Wikimedia with the main topic (e.g. "Brad Pitt")
+        if (!image) {
+          image = await getWikipediaImage(topic);
+        }
+
+        // 3. Tenor GIF as last resort for the specific item
+        if (!image) {
+          image = await getTenorGif(searchTerm);
+        }
+
+        // 4. Tenor GIF with the main topic
         if (!image) {
           image = await getTenorGif(topic);
         }

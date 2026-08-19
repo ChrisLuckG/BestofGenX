@@ -180,6 +180,10 @@ interface Person {
   image?: string;
   social?: Record<string, string>;
   savedNews?: any[];
+  // Article tracking
+  hasArticle?: boolean;
+  articleId?: string;
+  articleCreatedAt?: string;
 }
 
 interface AlmanacItem {
@@ -217,6 +221,13 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
   const [generateProgress, setGenerateProgress] = useState<string[]>([]);
   const [generateAmount, setGenerateAmount] = useState(10);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [fixStats, setFixStats] = useState<{ count: number; breakdown: { noCountry: number; invalidDate: number; duplicates: number }; duplicateExamples?: string[] } | null>(null);
+  const [fixing, setFixing] = useState(false);
+  const [fixProgress, setFixProgress] = useState<string[]>([]);
+  const [linkStats, setLinkStats] = useState<{ unlinked: number } | null>(null);
+  const [linking, setLinking] = useState(false);
+  const [cleanupStats, setCleanupStats] = useState<{ count: number; breakdown: { notAPerson: number; noCountry: number; invalidDate: number; missingName: number }; notAPersonExamples?: string[] } | null>(null);
+  const [cleaningUp, setCleaningUp] = useState(false);
   
   // Modals
   const [imageModal, setImageModal] = useState<{ id: string; type: 'people' | 'items'; currentUrl?: string; searchTerm?: string } | null>(null);
@@ -320,6 +331,8 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
   const fmtDate = (d?: string) => {
     if (!d) return '—';
     const date = new Date(d);
+    // Check if date is valid
+    if (isNaN(date.getTime())) return '—';
     return date.toLocaleDateString('de-DE');
   };
 
@@ -471,6 +484,158 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
   };
 
   const currentCat = CATEGORIES.find(c => c.id === activeCategory);
+
+  // Check for entries that need fixing
+  const checkFixNeeded = async () => {
+    try {
+      const res = await fetch('/api/almanac/fix?action=count');
+      const data = await res.json();
+      if (data.success) {
+        setFixStats(data);
+      }
+    } catch (e) {
+      console.error('Fix check error:', e);
+    }
+  };
+
+  // Run AI fix on entries
+  const runFix = async (mode: 'all' | 'noCountry' | 'invalidDate' | 'duplicates') => {
+    const modeLabels: Record<string, string> = {
+      all: 'alle Probleme (Duplikate + fehlende Daten)',
+      noCountry: 'Einträge ohne Land',
+      invalidDate: 'Einträge mit ungültigem Datum',
+      duplicates: 'Duplikate'
+    };
+    
+    const confirmMsg = mode === 'duplicates' 
+      ? 'Duplikate entfernen? Der beste Eintrag wird behalten.'
+      : `${modeLabels[mode]} reparieren? Das kann etwas dauern.`;
+    
+    if (!confirm(confirmMsg)) return;
+    
+    setFixing(true);
+    setFixProgress([`🔄 Starte: ${modeLabels[mode]}...`]);
+    
+    try {
+      const res = await fetch(`/api/almanac/fix?mode=${mode}&limit=50`, { method: 'POST' });
+      const data = await res.json();
+      
+      if (data.success) {
+        setFixProgress(prev => [
+          ...prev,
+          `✅ ${data.fixed} Einträge bearbeitet`,
+          ...data.results.slice(0, 10).map((r: any) => 
+            r.status === 'fixed' || r.status === 'removed' || r.status === 'removed duplicate'
+              ? `✅ ${r.name}`
+              : `⏭️ ${r.name}: ${r.status}`
+          )
+        ]);
+        fetchData();
+        checkFixNeeded();
+      } else {
+        setFixProgress(prev => [...prev, `❌ Fehler: ${data.error}`]);
+      }
+    } catch (e) {
+      console.error('Fix error:', e);
+      setFixProgress(prev => [...prev, `❌ Netzwerkfehler`]);
+    } finally {
+      setFixing(false);
+    }
+  };
+
+  // Check for unlinked articles
+  const checkUnlinkedArticles = async () => {
+    try {
+      const res = await fetch('/api/almanac/link-articles');
+      const data = await res.json();
+      if (data.success) {
+        setLinkStats({ unlinked: data.unlinked });
+      }
+    } catch (e) {
+      console.error('Link check error:', e);
+    }
+  };
+
+  // Link articles to people
+  const linkArticles = async () => {
+    setLinking(true);
+    try {
+      const res = await fetch('/api/almanac/link-articles', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        alert(`✅ ${data.linked} Artikel verknüpft`);
+        fetchData();
+        checkUnlinkedArticles();
+      } else {
+        alert('❌ Fehler: ' + data.error);
+      }
+    } catch (e) {
+      console.error('Link error:', e);
+    } finally {
+      setLinking(false);
+    }
+  };
+
+  // Check for entries to cleanup (delete)
+  const checkCleanup = async () => {
+    try {
+      const res = await fetch('/api/almanac/cleanup?action=count');
+      const data = await res.json();
+      if (data.success) {
+        setCleanupStats(data);
+      }
+    } catch (e) {
+      console.error('Cleanup check error:', e);
+    }
+  };
+
+  // Run cleanup (delete invalid entries)
+  const runCleanup = async () => {
+    if (!cleanupStats) return;
+    
+    const details = [
+      cleanupStats.breakdown.notAPerson > 0 ? `${cleanupStats.breakdown.notAPerson} keine Personen (Events/Dinge)` : '',
+      cleanupStats.breakdown.missingName > 0 ? `${cleanupStats.breakdown.missingName} fehlende Namen` : '',
+    ].filter(Boolean).join(', ');
+    
+    if (!confirm(`${cleanupStats.count} ungültige Einträge löschen?\n\n${details}\n\nDiese Einträge können nicht repariert werden.`)) return;
+    
+    setCleaningUp(true);
+    try {
+      // Only delete notAPerson and missingName - the others can be fixed
+      let deleted = 0;
+      
+      if (cleanupStats.breakdown.notAPerson > 0) {
+        const res = await fetch('/api/almanac/cleanup?mode=notAPerson', { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) deleted += data.deleted;
+      }
+      
+      if (cleanupStats.breakdown.missingName > 0) {
+        const res = await fetch('/api/almanac/cleanup?mode=missingName', { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) deleted += data.deleted;
+      }
+      
+      alert(`✅ ${deleted} Einträge gelöscht`);
+      fetchData();
+      checkCleanup();
+      checkFixNeeded();
+    } catch (e) {
+      console.error('Cleanup error:', e);
+    } finally {
+      setCleaningUp(false);
+    }
+  };
+
+  // Check stats on mount for people category
+  useEffect(() => {
+    if (activeCategory === 'people') {
+      checkFixNeeded();
+      checkUnlinkedArticles();
+      checkCleanup();
+    }
+  }, [activeCategory]);
 
   // Open image modal
   const openImageModal = (id: string, type: 'people' | 'items', currentUrl?: string, searchTerm?: string) => {
@@ -944,6 +1109,174 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                 </button>
               </>
             )}
+            
+            {/* Fix button for people with missing data */}
+            {activeCategory === 'people' && fixStats && fixStats.count > 0 && (
+              <div className="relative">
+                <button
+                  onClick={() => runFix('all')}
+                  disabled={fixing}
+                  className={`flex items-center gap-1 px-2 py-1 text-white text-xs font-bold rounded disabled:opacity-50 ${
+                    fixing 
+                      ? 'bg-blue-500 animate-pulse' 
+                      : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
+                  title={`${fixStats.count} unvollständige Einträge mit AI reparieren`}
+                >
+                  {fixing ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <span>Fixing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>🔧</span>
+                      <span>AI Fix ({fixStats.count})</span>
+                    </>
+                  )}
+                </button>
+                
+                {/* Dropdown with breakdown - only show when not fixing */}
+                {!fixing && (
+                  <div className="absolute right-0 top-full mt-1 w-64 bg-gray-800 border border-gray-700 rounded shadow-lg z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible hover:opacity-100 hover:visible transition-all">
+                    <div className="p-2 text-xs text-gray-300 space-y-1">
+                      <div className="font-bold text-white mb-2">🤖 Reparieren & Bereinigen:</div>
+                      <button 
+                        onClick={() => runFix('duplicates')}
+                        disabled={fixing}
+                        className="w-full text-left px-2 py-1 hover:bg-gray-700 rounded flex justify-between disabled:opacity-50"
+                      >
+                        <span>👥 Duplikate entfernen</span>
+                        <span className="text-blue-400">{fixStats.breakdown.duplicates}</span>
+                      </button>
+                      <button 
+                        onClick={() => runFix('noCountry')}
+                        disabled={fixing}
+                        className="w-full text-left px-2 py-1 hover:bg-gray-700 rounded flex justify-between disabled:opacity-50"
+                      >
+                        <span>🌍 Fehlendes Land</span>
+                        <span className="text-blue-400">{fixStats.breakdown.noCountry}</span>
+                      </button>
+                      <button 
+                        onClick={() => runFix('invalidDate')}
+                        disabled={fixing}
+                        className="w-full text-left px-2 py-1 hover:bg-gray-700 rounded flex justify-between disabled:opacity-50"
+                      >
+                        <span>📅 Ungültiges Datum</span>
+                        <span className="text-blue-400">{fixStats.breakdown.invalidDate}</span>
+                      </button>
+                      <div className="border-t border-gray-600 mt-2 pt-2">
+                        <button 
+                          onClick={() => runFix('all')}
+                          disabled={fixing}
+                          className="w-full text-left px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-white font-bold disabled:opacity-50"
+                        >
+                          Alles reparieren ({fixStats.count})
+                        </button>
+                      </div>
+                      {fixStats.duplicateExamples && fixStats.duplicateExamples.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-gray-600">
+                          <div className="text-gray-500 text-[10px] mb-1">Duplikate z.B.:</div>
+                          {fixStats.duplicateExamples.slice(0, 3).map((name, i) => (
+                            <div key={i} className="text-gray-400 text-[10px]">• {name}</div>
+                          ))}
+                        </div>
+                      )}
+                      <p className="text-[10px] text-gray-500 mt-2">
+                        Entfernt Duplikate und nutzt AI für fehlende Daten.
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Progress popup - show when fixing or has progress */}
+                {(fixing || fixProgress.length > 0) && (
+                  <div className="absolute right-0 top-full mt-1 w-96 bg-gray-900 border border-blue-500 rounded-lg shadow-xl z-50 p-3">
+                    <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-700">
+                      <Loader2 className={`w-4 h-4 text-blue-400 ${fixing ? 'animate-spin' : ''}`} />
+                      <span className="text-sm font-bold text-white">
+                        {fixing ? 'AI repariert Einträge...' : 'Fertig!'}
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-300 space-y-1 max-h-48 overflow-y-auto">
+                      {fixProgress.length === 0 && fixing && (
+                        <div className="text-blue-400 animate-pulse">🔄 Starte AI-Reparatur...</div>
+                      )}
+                      {fixProgress.map((msg, i) => (
+                        <div key={i} className={
+                          msg.startsWith('✅') ? 'text-green-400' : 
+                          msg.startsWith('⏭️') ? 'text-yellow-400' : 
+                          msg.startsWith('❌') ? 'text-red-400' : 
+                          msg.startsWith('🔄') ? 'text-blue-400 animate-pulse' : ''
+                        }>
+                          {msg}
+                        </div>
+                      ))}
+                    </div>
+                    {!fixing && fixProgress.length > 0 && (
+                      <button 
+                        onClick={() => setFixProgress([])}
+                        className="mt-2 w-full py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs text-gray-300"
+                      >
+                        Schließen
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Link Articles button */}
+            {activeCategory === 'people' && linkStats && linkStats.unlinked > 0 && (
+              <button
+                onClick={linkArticles}
+                disabled={linking}
+                className="flex items-center gap-1 px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded disabled:opacity-50"
+                title="Verknüpfe bestehende Artikel mit Personen"
+              >
+                {linking ? <Loader2 className="w-3 h-3 animate-spin" /> : '🔗'}
+                Link Articles ({linkStats.unlinked})
+              </button>
+            )}
+            
+            {/* Cleanup button - delete invalid entries that can't be fixed */}
+            {activeCategory === 'people' && cleanupStats && (cleanupStats.breakdown.notAPerson > 0 || cleanupStats.breakdown.missingName > 0) && (
+              <div className="relative group">
+                <button
+                  onClick={runCleanup}
+                  disabled={cleaningUp}
+                  className="flex items-center gap-1 px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded disabled:opacity-50"
+                  title="Lösche ungültige Einträge (Events, fehlende Namen)"
+                >
+                  {cleaningUp ? <Loader2 className="w-3 h-3 animate-spin" /> : '🗑️'}
+                  Cleanup ({cleanupStats.breakdown.notAPerson + cleanupStats.breakdown.missingName})
+                </button>
+                {/* Tooltip with details */}
+                <div className="absolute right-0 top-full mt-1 w-64 bg-gray-800 border border-gray-700 rounded shadow-lg z-50 p-2 text-xs hidden group-hover:block">
+                  <div className="font-bold text-white mb-2">Zu löschende Einträge:</div>
+                  {cleanupStats.breakdown.notAPerson > 0 && (
+                    <div className="flex justify-between text-gray-300 mb-1">
+                      <span>🚫 Keine Personen (Events)</span>
+                      <span className="text-red-400">{cleanupStats.breakdown.notAPerson}</span>
+                    </div>
+                  )}
+                  {cleanupStats.breakdown.missingName > 0 && (
+                    <div className="flex justify-between text-gray-300 mb-1">
+                      <span>❓ Fehlende Namen</span>
+                      <span className="text-red-400">{cleanupStats.breakdown.missingName}</span>
+                    </div>
+                  )}
+                  {cleanupStats.notAPersonExamples && cleanupStats.notAPersonExamples.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-gray-600">
+                      <div className="text-gray-500 text-[10px] mb-1">Beispiele:</div>
+                      {cleanupStats.notAPersonExamples.map((name, i) => (
+                        <div key={i} className="text-gray-400 text-[10px]">• {name}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1096,7 +1429,14 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                     <td className="px-2 py-1 text-gray-400">{p.causeOfDeath || '—'}</td>
                     <td className="px-2 py-1 text-gray-400">{p.countryDied || '—'}</td>
                     <td className="px-2 py-1">
-                      {personArticles[p._id] ? (
+                      {p.hasArticle ? (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-green-400 text-[10px] font-bold">✅ Yes</span>
+                          {p.articleCreatedAt && (
+                            <span className="text-gray-500 text-[9px]">{new Date(p.articleCreatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
+                          )}
+                        </div>
+                      ) : personArticles[p._id] ? (
                         <div className="flex flex-col gap-0.5">
                           <span className="text-green-400 text-[10px] font-bold">✅ Yes</span>
                           <span className="text-gray-500 text-[9px]">{new Date(personArticles[p._id].createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>

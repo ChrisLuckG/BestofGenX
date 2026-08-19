@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Trash2, Loader2, Sparkles, ChevronUp, ChevronDown, Wand2 } from "lucide-react";
 import ImagePickerModal from "./ImagePickerModal";
 import PredictionsTab from "./PredictionsTab";
+import QuestionsTab from "./QuestionsTab";
 
 interface QuestionVariant {
   _id?: string; // Unique question ID
@@ -53,33 +54,28 @@ const emptyDifficultyCard: DifficultyCard = {
   highlightWords: [], difficulty: 1, difficultyText: "Easy", maxReward: 0.05,
 };
 
-const THEMES = ['MUSIC','MOVIES','TV SHOWS','SPORTS','GAMING','FASHION','TECHNOLOGY','CELEBRITIES'];
+// Official 5 categories only
+const THEMES = ['MUSIC', 'SPORTS', 'MOVIES', 'GAMING', 'POLITIK'];
 
 // SubCategories per Theme for dropdown
 const SUBCATEGORIES: Record<string, string[]> = {
-  'SPORTS': ['Basketball', 'Soccer', 'American Football', 'Rugby', 'Tennis', 'Table Tennis', 'Boxing', 'Golf', 'Hockey', 'Baseball', 'Wrestling', 'Olympics', 'Racing', 'Cycling', 'Swimming', 'X-Games'],
+  'SPORTS': ['Basketball', 'Soccer', 'American Football', 'Rugby', 'Tennis', 'Table Tennis', 'Boxing', 'Golf', 'Hockey', 'Baseball', 'Wrestling', 'Olympics', 'Racing', 'Cycling', 'Swimming', 'X-Games', 'F1'],
   'MUSIC': ['Rock', 'Pop', 'Hip Hop', 'R&B', 'Electronic', 'Metal', 'Punk', 'Alternative', 'Country', 'Soul', 'Grunge'],
-  'MOVIES': ['Action', 'Comedy', 'Horror', 'Sci-Fi', 'Drama', 'Thriller', 'Animation', 'Romance'],
-  'TV SHOWS': ['Sitcom', 'Drama', 'Sci-Fi', 'Animation', 'Reality', 'Talk Show', 'Crime'],
-  'GAMING': ['Nintendo', 'PlayStation', 'Sega', 'PC Gaming', 'Fighting', 'RPG', 'Arcade', 'Sports'],
-  'FASHION': ['Streetwear', 'Designer', 'Shoes', 'Accessories', 'Denim', 'Sportswear', 'Vintage'],
-  'TECHNOLOGY': ['Computers', 'Internet', 'Gaming', 'Audio', 'Mobile', 'Software', 'Hardware'],
-  'CELEBRITIES': ['Actors', 'Musicians', 'Athletes', 'TV Stars', 'Models', 'Directors'],
+  'MOVIES': ['Action', 'Comedy', 'Horror', 'Sci-Fi', 'Drama', 'Thriller', 'Animation', 'Romance', 'TV Sitcom', 'TV Drama', 'TV Sci-Fi', 'TV Animation', 'TV Reality'],
+  'GAMING': ['Nintendo', 'PlayStation', 'Sega', 'PC Gaming', 'Fighting', 'RPG', 'Arcade', 'Sports', 'Technology', 'Internet'],
+  'POLITIK': ['US Politics', 'World Politics', 'Elections', 'Presidents', 'Cold War', 'Historical Events', 'Leaders'],
 };
 
 const topicPools: Record<string, string[]> = {
   'MUSIC': ['Nirvana','Oasis','Radiohead','Red Hot Chili Peppers','Green Day','Blink-182','Foo Fighters','Pearl Jam','Spice Girls','Backstreet Boys','NSYNC','Britney Spears','Eminem','Dr. Dre','Daft Punk','U2','Depeche Mode','The Cure'],
-  'MOVIES': ['Titanic','The Matrix','Pulp Fiction','Forrest Gump','Jurassic Park','The Lion King','Fight Club','The Shawshank Redemption','Gladiator','The Sixth Sense','Terminator 2','Independence Day','Speed','Die Hard'],
-  'TV SHOWS': ['Friends','Seinfeld','The Fresh Prince','The X-Files','ER','Frasier','The Simpsons','South Park','Buffy the Vampire Slayer','Beverly Hills 90210','Twin Peaks','Sex and the City','Saved by the Bell'],
+  'MOVIES': ['Titanic','The Matrix','Pulp Fiction','Forrest Gump','Jurassic Park','The Lion King','Fight Club','The Shawshank Redemption','Gladiator','The Sixth Sense','Terminator 2','Independence Day','Speed','Die Hard','Friends','Seinfeld','The X-Files','The Simpsons','South Park'],
   'SPORTS': ['Michael Jordan','Magic Johnson','Shaquille O\'Neal','Kobe Bryant','Diego Maradona','Ronaldo','David Beckham','Mike Tyson','Wayne Gretzky','Joe Montana','Barry Sanders'],
-  'GAMING': ['Super Mario','Sonic','The Legend of Zelda','Pokemon','Street Fighter','Mortal Kombat','Resident Evil','Metal Gear Solid','Tomb Raider','GoldenEye 007','Doom','Half-Life'],
-  'FASHION': ['Calvin Klein','Tommy Hilfiger','Versace','Gucci','Nike','Adidas','Levi\'s','Gap'],
-  'TECHNOLOGY': ['Windows 95','Netscape','AOL','ICQ','Napster','Palm Pilot','Nokia 3310','Sony Walkman','VHS','DVD','PlayStation','Nintendo 64'],
-  'CELEBRITIES': ['Madonna','Michael Jackson','Arnold Schwarzenegger','Tom Cruise','Julia Roberts','Will Smith'],
+  'GAMING': ['Super Mario','Sonic','The Legend of Zelda','Pokemon','Street Fighter','Mortal Kombat','Resident Evil','Metal Gear Solid','Tomb Raider','GoldenEye 007','Doom','Half-Life','Windows 95','Netscape','AOL','Nintendo 64'],
+  'POLITIK': ['Ronald Reagan','George H.W. Bush','Bill Clinton','Margaret Thatcher','Mikhail Gorbachev','Fall of Berlin Wall','Gulf War','Cold War End','Nelson Mandela'],
 };
 
 // Arcade subtabs
-type ArcadeSubTab = 'quizbattle' | 'trivia' | 'othergames' | 'predictions' | 'questions';
+type ArcadeSubTab = 'quizbattle' | 'trivia' | 'othergames' | 'predictions' | 'questions' | 'questions-legacy';
 
 export default function ArcadeTab() {
   const [activeSubTab, setActiveSubTab] = useState<ArcadeSubTab>('questions');
@@ -398,7 +394,7 @@ export default function ArcadeTab() {
   };
 
   const handleBulkGenerate = async (forTheme?: string) => {
-    const allThemes = THEMES.filter(t => t !== 'CELEBRITIES');
+    const allThemes = THEMES;
     const count = bulkConfig.count;
     const difficulty = bulkConfig.difficulty;
     const difficultyNum = difficulty === 'Easy' ? 1 : difficulty === 'Medium' ? 3 : 5;
@@ -873,8 +869,13 @@ export default function ArcadeTab() {
         <PredictionsTab />
       )}
 
-      {/* Questions Content (former Cards) */}
+      {/* Questions Content - New simplified component */}
       {activeSubTab === 'questions' && (
+        <QuestionsTab />
+      )}
+
+      {/* Legacy Questions Content - hidden, kept for reference */}
+      {activeSubTab === 'questions-legacy' && (
       <>
       {/* Stats Bar */}
       <div className="bg-gray-800 rounded-lg px-3 py-2 mb-3 border border-gray-700">
@@ -913,7 +914,7 @@ export default function ArcadeTab() {
         </div>
         
         {/* SubCategory Stats - only for themes that need it */}
-        {themeFilter && ['SPORTS', 'MUSIC', 'MOVIES', 'TV SHOWS', 'GAMING'].includes(themeFilter) && (() => {
+        {themeFilter && THEMES.includes(themeFilter) && (() => {
           const themeCards = cards.filter(c => c.theme === themeFilter);
           const subCatStats: Record<string, { total: number; easy: number; medium: number; hard: number }> = {};
           
@@ -1010,23 +1011,6 @@ export default function ArcadeTab() {
                 <option value="Drama">Drama</option>
                 <option value="Thriller">Thriller</option>
                 <option value="Animation">Animation</option>
-              </select>
-            )}
-            {/* SubCategory dropdown for TV SHOWS */}
-            {themeFilter === 'TV SHOWS' && (
-              <select 
-                value={bulkConfig.subCategory} 
-                onChange={e => setBulkConfig({...bulkConfig, subCategory: e.target.value})}
-                className="px-2 py-1 bg-gray-700 rounded text-xs text-cyan-400"
-              >
-                <option value="">All Genres</option>
-                <option value="Sitcom">Sitcom</option>
-                <option value="Drama">Drama</option>
-                <option value="Sci-Fi">Sci-Fi/Fantasy</option>
-                <option value="Animation">Animation</option>
-                <option value="Reality">Reality</option>
-                <option value="Talk Show">Talk Show</option>
-                <option value="Crime">Crime</option>
               </select>
             )}
             {/* SubCategory dropdown for GAMING */}

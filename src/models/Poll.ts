@@ -14,6 +14,7 @@ export interface IRankingItem {
   title: string;
   description?: string;
   image?: string;
+  videoUrl?: string; // YouTube video URL for inline playback
   upvotes: number;
   downvotes: number;
   score: number; // upvotes - downvotes, used for sorting
@@ -98,6 +99,7 @@ const RankingItemSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String },
   image: { type: String },
+  videoUrl: { type: String }, // YouTube video URL for inline playback
   upvotes: { type: Number, default: 0 },
   downvotes: { type: Number, default: 0 },
   score: { type: Number, default: 0 }, // upvotes - downvotes

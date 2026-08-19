@@ -41,60 +41,10 @@ export default function CoinAnimation({ amount, variant, onComplete, isDesktop =
     };
   }, [onComplete]);
 
-  // Hold = wager parked: GOLD coins gently settle (no alarm, not "lost")
+  // Hold variant removed - wager animation is now in the DesktopRankWidget
   if (isHold) {
-    return (
-      <div className="fixed inset-0 pointer-events-none z-[9999] overflow-hidden">
-        {/* Soft gold glow */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background: 'radial-gradient(circle at top center, rgba(212,135,58,0.25) 0%, rgba(212,135,58,0.08) 50%, transparent 70%)',
-            animation: 'goldGlow 1s ease-out forwards',
-          }}
-        />
-        {/* BOGX coins gently parking */}
-        {coins.map((coin) => (
-          <div
-            key={coin.id}
-            className="absolute left-1/2 top-12"
-            style={{
-              animation: 'coinPark 1.1s ease-out forwards',
-              animationDelay: `${coin.delay}s`,
-              marginLeft: `${coin.x}px`,
-            }}
-          >
-            <img 
-              src="/images/bogxcoin.png" 
-              alt="" 
-              className="w-8 h-8"
-              style={{ 
-                filter: 'drop-shadow(0 0 8px rgba(212,135,58,0.6))',
-              }}
-            />
-          </div>
-        ))}
-        {/* "On hold" label */}
-        <div
-          className="absolute left-1/2 -translate-x-1/2 top-28 px-3 py-1 rounded-full bg-[#E36B11]/90 text-white text-xs font-bold tracking-wide"
-          style={{ animation: 'goldGlow 1.4s ease-out forwards' }}
-        >
-          {Math.abs(amount)} {getCurrencySymbol()} on hold
-        </div>
-        <style>{`
-          @keyframes coinPark {
-            0% { transform: translateY(0) scale(1.1); opacity: 0; }
-            30% { opacity: 1; }
-            100% { transform: translateY(70px) scale(0.95); opacity: 0.9; }
-          }
-          @keyframes goldGlow {
-            0% { opacity: 0; }
-            30% { opacity: 1; }
-            100% { opacity: 0; }
-          }
-        `}</style>
-      </div>
-    );
+    // Just call onComplete and return nothing
+    return null;
   }
 
   // Negative amount = BOGX coins flying DOWN from header with RED glow

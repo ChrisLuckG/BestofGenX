@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { Play, FileText, Brain, Vote, ShoppingBag, Trophy, Tv, Radio, Bell, User, Users, X, ChevronLeft, ChevronRight, Gift, Clock } from "lucide-react";
+import { Play, FileText, Brain, Vote, ShoppingBag, Trophy, Tv, Radio, Bell, User, Users, X, ChevronLeft, ChevronRight, Gift, Clock, Trash2, Swords } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useBogxCoins } from "@/hooks/useBogxCoins";
 import { usePendingWager } from "@/hooks/usePendingWager";
@@ -36,12 +36,15 @@ import CoinAnimation from "@/components/CoinAnimation";
 import DesktopRewardsPage from "@/components/desktop/DesktopRewardsPage";
 import DesktopContentWrapper from "@/components/desktop/DesktopContentWrapper";
 import DesktopBattlesPage from "@/components/desktop/DesktopBattlesPage";
+import BattleResultScreen from "@/components/battles/BattleResultScreen";
 import DesktopRankWidget from "@/components/desktop/DesktopRankWidget";
+import OpenBattlesModal from "@/components/OpenBattlesModal";
 import CommunitySoundPage from "@/components/CommunitySoundPage";
 import WelcomeBackModal, { WelcomeBackRankChange } from "@/components/WelcomeBackModal";
 import CheckoutSuccessModal from "@/components/CheckoutSuccessModal";
 import StaticPageInline from "@/components/StaticPageInline";
 import PlayerCard from "@/components/PlayerCard";
+import { useLiveRankings } from "@/hooks/useLiveRankings";
 
 // Navigation tabs
 const navTabs = [
@@ -49,7 +52,6 @@ const navTabs = [
   { id: "arcade" as NavTab, label: "Trivia", icon: Brain },
   { id: "articles" as NavTab, label: "Articles", icon: FileText },
   { id: "voting" as NavTab, label: "Rankroll", icon: Vote },
-  { id: "shop" as NavTab, label: "Shop", icon: ShoppingBag },
 ];
 
 export default function DesktopPage() {
@@ -64,6 +66,7 @@ export default function DesktopPage() {
   const [previousTab, setPreviousTab] = useState<NavTab>("feed");
   const [tabRestored, setTabRestored] = useState(false);
   const [articlesCategoryFilter, setArticlesCategoryFilter] = useState<string>('all');
+  const [openNotificationSettings, setOpenNotificationSettings] = useState(false);
   
   // Preload arcade banner images early so they're ready when user visits Trivia
   useEffect(() => {
@@ -95,6 +98,7 @@ export default function DesktopPage() {
   
   const [arcadeGame, setArcadeGame] = useState<string | null>(null);
   const [showLoginPage, setShowLoginPage] = useState(false);
+  const [showOpenBattlesModal, setShowOpenBattlesModal] = useState(false);
   const [openArticleId, setOpenArticleId] = useState<string | null>(null);
   const [showCommunitySound, setShowCommunitySound] = useState(false);
   const [openRankrollId, setOpenRankrollId] = useState<string | null>(null);
@@ -128,15 +132,19 @@ export default function DesktopPage() {
   const [userRank, setUserRank] = useState<number | null>(null);
   const [isBattleActive, setIsBattleActive] = useState(false);
   // Pending wager indicator - global source of truth (same on mobile & desktop)
-  const { hasPendingWager } = usePendingWager(user?.id);
+  const { hasPendingWager, pendingAmount } = usePendingWager(user?.id);
   const [showCheckoutSuccess, setShowCheckoutSuccess] = useState(false);
   const [checkoutSessionId, setCheckoutSessionId] = useState<string | null>(null);
   const [pendingBattleId, setPendingBattleId] = useState<string | null>(null);
+  const [showBattleResultId, setShowBattleResultId] = useState<string | null>(null); // Battle result to show in content area
+  const [showChallenge, setShowChallenge] = useState<{ battleId: string; notificationId?: string } | null>(null); // Challenge to show in content area
+  const [challengeTarget, setChallengeTarget] = useState<{ id: string; username: string } | null>(null); // Pre-selected player to challenge
   const [radioStations, setRadioStations] = useState<{_id: string; name: string; description: string; playlistId: string}[]>([]);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [leaderboardCountdown, setLeaderboardCountdown] = useState('');
   const [isBreakTime, setIsBreakTime] = useState(false);
   const [breakCountdown, setBreakCountdown] = useState('');
+  const [countdownMs, setCountdownMs] = useState(0); // Centiseconds for sub-1-hour display
   const [readArticles, setReadArticles] = useState<Set<string>>(new Set());
   const contentRef = useRef<HTMLDivElement>(null);
   
@@ -181,13 +189,24 @@ export default function DesktopPage() {
       } catch { /* silently fail */ }
     };
     fetchBattleCounts();
-    const interval = setInterval(fetchBattleCounts, 60000);
-    return () => clearInterval(interval);
-  }, [isLoggedIn, user?.id]);
+    // Poll frequently so the badge clears as soon as a battle is finished
+    const interval = setInterval(fetchBattleCounts, 10000);
+    // Also refresh when the tab regains focus
+    window.addEventListener('focus', fetchBattleCounts);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', fetchBattleCounts);
+    };
+    // arcadeGame/activeTab in deps: refetch when a game view is opened or closed
+  }, [isLoggedIn, user?.id, arcadeGame, activeTab]);
 
   // Sidebar data with loading states
   const [rankings, setRankings] = useState<any[]>([]);
   const [rankingsLoading, setRankingsLoading] = useState(true);
+  const [rankingsLimit, setRankingsLimit] = useState(20); // Start with 20, load more on scroll
+  const [rankingsHasMore, setRankingsHasMore] = useState(true); // Whether there are more rankings to load
+  const [rankingsLoadingMore, setRankingsLoadingMore] = useState(false); // Loading more indicator
+  const leaderboardScrollRef = useRef<HTMLDivElement>(null);
   const [leaderboardDayOffset, setLeaderboardDayOffset] = useState(0); // 0 = today, -1 = yesterday, etc.
   const [scrubProgress, setScrubProgress] = useState<number | null>(null); // null = live, 0-100 = scrubbing
   const [isDraggingTimeline, setIsDraggingTimeline] = useState(false);
@@ -203,12 +222,24 @@ export default function DesktopPage() {
     return {};
   });
   const prevRankingsRef = useRef<any[]>([]);
-    const [shopProducts, setShopProducts] = useState<any[]>([]);
+  const [shopProducts, setShopProducts] = useState<any[]>([]);
   const [tvVideos, setTvVideos] = useState<any[]>([]);
   const [tvLoading, setTvLoading] = useState(true);
   
-  // Unread notifications count for badge
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  // Live rankings for the widget - uses the same hook as the leaderboard for consistent change arrows
+  const { currentUserEntry: dailyUserEntry } = useLiveRankings({ period: 'day', selectedDate: new Date(), userId: user?.id });
+  const { currentUserEntry: monthlyUserEntry } = useLiveRankings({ period: 'month', selectedDate: new Date(), userId: user?.id });
+  const { currentUserEntry: yearlyUserEntry } = useLiveRankings({ period: 'year', selectedDate: new Date(), userId: user?.id });
+  
+  const scoreRankPositions = {
+    dailyRank: dailyUserEntry?.rank || 0,
+    monthlyRank: monthlyUserEntry?.rank || 0,
+    yearlyRank: yearlyUserEntry?.rank || 0,
+    dailyChange: dailyUserEntry?.change,
+    monthlyChange: monthlyUserEntry?.change,
+    yearlyChange: yearlyUserEntry?.change,
+  };
+  
 
   // Pre-compute equalizer bar values once to avoid Math.random() in render
   const eqBarsSidebar = useMemo(() =>
@@ -218,54 +249,10 @@ export default function DesktopPage() {
       height: `${Math.floor(30 + Math.random() * 70)}%`,
     })), []);
 
-  // Fetch unread notifications count using the dedicated count API
-  const fetchUnreadCount = async () => {
-    if (!user?.id) return;
-    try {
-      const res = await fetch(`/api/notifications/count?userId=${user.id}`);
-      const data = await res.json();
-      if (data.success) {
-        setUnreadNotifications(data.count || 0);
-      }
-    } catch (e) {
-      console.error('Failed to fetch unread notifications:', e);
-    }
-  };
-
-  // Mark all notifications as read
-  const markAllAsRead = async () => {
-    if (!user?.id) return;
-    try {
-      await fetch('/api/notifications/mark-read', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id })
-      });
-      setUnreadNotifications(0);
-    } catch (e) {
-      console.error('Failed to mark notifications as read:', e);
-    }
-  };
-
   useEffect(() => {
     setMounted(true);
     loadAllData();
   }, []);
-  
-  // Poll for unread notifications every 30 seconds
-  useEffect(() => {
-    if (!user?.id) return;
-    fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 30000);
-    return () => clearInterval(interval);
-  }, [user?.id]);
-  
-  // Mark as read when viewing notifications tab
-  useEffect(() => {
-    if (activeTab === 'notifications' && user?.id) {
-      markAllAsRead();
-    }
-  }, [activeTab, user?.id]);
 
   // Check for checkout success/cancelled URL params
   useEffect(() => {
@@ -314,6 +301,7 @@ export default function DesktopPage() {
       
       // Refresh rank + leaderboard instantly when BOGX changes (no page refresh needed)
       // Use silent mode to avoid showing loading spinner during gameplay
+      // Note: scoreRankPositions now comes from useLiveRankings which auto-refreshes
       const onBogxUpdate = () => {
         loadUserRank();
         loadLeaderboard(leaderboardDayOffset, true); // silent=true for smooth updates
@@ -399,13 +387,16 @@ export default function DesktopPage() {
   // Load leaderboard data - supports day navigation and timeline scrubbing
   // silent=true means no loading spinner (for live score updates during gameplay)
   // untilTime: 0-100 progress percentage for timeline scrubbing (null = live)
-  const loadLeaderboard = async (dayOffset: number = 0, silent: boolean = false, untilTime: number | null = null) => {
+  // limit: how many rankings to fetch (default 20, increases on scroll)
+  const loadLeaderboard = async (dayOffset: number = 0, silent: boolean = false, untilTime: number | null = null, limit: number = 20) => {
     if (!silent) setRankingsLoading(true);
     try {
       const now = new Date();
       const berlinTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
       const berlinHour = berlinTime.getHours();
-      const inBreak = berlinHour === 9;
+      const berlinMinute = berlinTime.getMinutes();
+      // Break is now only 5 minutes: 9:55-10:00
+      const inBreak = berlinHour === 9 && berlinMinute >= 55;
       
       // Calculate target date based on offset
       const targetDate = new Date(berlinTime);
@@ -416,10 +407,10 @@ export default function DesktopPage() {
       const effectiveDate = new Date(berlinTime);
       effectiveDate.setDate(effectiveDate.getDate() + effectiveOffset);
       
-      let url = '/api/rankings/snapshot?period=day';
+      let url = `/api/rankings/snapshot?period=day&limit=${limit}`;
       if (effectiveOffset !== 0 || inBreak) {
         const dateStr = effectiveDate.toISOString().split('T')[0];
-        url = `/api/rankings/snapshot?period=day&date=${dateStr}`;
+        url = `/api/rankings/snapshot?period=day&date=${dateStr}&limit=${limit}`;
       }
       
       // Add untilTime parameter for timeline scrubbing
@@ -430,20 +421,23 @@ export default function DesktopPage() {
       const res = await fetch(url);
       const data = await res.json();
       if (data.rankings) {
-        const newRankings = data.rankings.slice(0, 10);
+        const newRankings = data.rankings.slice(0, limit);
+        
+        // Check if there are more rankings to load
+        setRankingsHasMore(data.rankings.length >= limit);
         
         // Calculate point and rank changes for animations (only for live updates, not scrubbing)
         if (silent && prevRankingsRef.current.length > 0 && scrubProgress === null) {
           const pointDiffs: Record<string, number> = {};
           const rankDiffs: Record<string, number> = {};
           
-          newRankings.forEach((r: any, newIndex: number) => {
+          newRankings.slice(0, 20).forEach((r: any, newIndex: number) => {
             const prevIndex = prevRankingsRef.current.findIndex((p: any) => p._id === r._id);
             const prev = prevIndex !== -1 ? prevRankingsRef.current[prevIndex] : null;
             
             if (prev) {
               // Point change
-              const pointDiff = (r.bogxCoins || r.points || 0) - (prev.bogxCoins || prev.points || 0);
+              const pointDiff = (r.bogxCoins ?? r.points ?? 0) - (prev.bogxCoins ?? prev.points ?? 0);
               if (pointDiff !== 0) {
                 pointDiffs[r._id] = pointDiff;
               }
@@ -453,7 +447,7 @@ export default function DesktopPage() {
                 rankDiffs[r._id] = prevIndex - newIndex; // e.g., was #3, now #1 = 3-1 = +2 (moved up 2)
               }
             } else {
-              // New entry in top 10
+              // New entry in top 20
               rankDiffs[r._id] = 99; // Special value for "new"
             }
           });
@@ -480,8 +474,18 @@ export default function DesktopPage() {
       console.error('Error loading leaderboard:', error);
     } finally {
       if (!silent) setRankingsLoading(false);
+      setRankingsLoadingMore(false);
     }
   };
+  
+  // Load more rankings when scrolling
+  const loadMoreRankings = useCallback(() => {
+    if (rankingsLoadingMore || !rankingsHasMore) return;
+    setRankingsLoadingMore(true);
+    const newLimit = rankingsLimit + 20;
+    setRankingsLimit(newLimit);
+    loadLeaderboard(leaderboardDayOffset, true, null, newLimit);
+  }, [rankingsLoadingMore, rankingsHasMore, rankingsLimit, leaderboardDayOffset]);
   
   // Reload leaderboard when day offset changes or break time status changes
   useEffect(() => {
@@ -489,17 +493,20 @@ export default function DesktopPage() {
     if (!isBreakTime && leaderboardDayOffset === 0) {
       setRankings([]);
     }
-    loadLeaderboard(leaderboardDayOffset);
+    // Reset limit when changing days
+    setRankingsLimit(20);
+    setRankingsHasMore(true);
+    loadLeaderboard(leaderboardDayOffset, false, null, 20);
   }, [leaderboardDayOffset, isBreakTime]);
   
   // Poll leaderboard every 5 seconds for live updates
   useEffect(() => {
     if (isBreakTime || leaderboardDayOffset !== 0) return; // Only poll for today's live leaderboard
     const interval = setInterval(() => {
-      loadLeaderboard(0, true); // silent=true for smooth updates
+      loadLeaderboard(0, true, null, rankingsLimit); // silent=true for smooth updates, use current limit
     }, 5000); // Every 5 seconds for smooth live updates
     return () => clearInterval(interval);
-  }, [isBreakTime, leaderboardDayOffset]);
+  }, [isBreakTime, leaderboardDayOffset, rankingsLimit]);
   
   // Countdown logic - handles both game time and break time
   useEffect(() => {
@@ -510,24 +517,28 @@ export default function DesktopPage() {
       const berlinMinute = berlinTime.getMinutes();
       const berlinSecond = berlinTime.getSeconds();
       
-      // Check if we're in break time (9:00 - 10:00)
-      const inBreak = berlinHour === 9;
+      // Check if we're in break time (9:55 - 10:00, only 5 minutes)
+      const inBreak = berlinHour === 9 && berlinMinute >= 55;
       setIsBreakTime(inBreak);
       
       if (inBreak) {
-        // Countdown to 10:00 (game start) - always use HH:MM:SS format
+        // Countdown to 10:00 (game start) - only 5 minutes max
         const totalSeconds = (59 - berlinMinute) * 60 + (60 - berlinSecond);
         const hours = Math.floor(totalSeconds / 3600);
         const minutes = Math.floor((totalSeconds % 3600) / 60);
         const seconds = totalSeconds % 60;
         setBreakCountdown(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
       } else if (rankings.length > 0) {
-        // Countdown to 9:00 (game end)
+        // Countdown to 9:55 (game end / break start)
         let totalSeconds;
-        if (berlinHour < 9) {
-          totalSeconds = (9 - berlinHour - 1) * 3600 + (60 - berlinMinute - 1) * 60 + (60 - berlinSecond);
+        if (berlinHour < 9 || (berlinHour === 9 && berlinMinute < 55)) {
+          // Before 9:55
+          const targetMinutes = 9 * 60 + 55; // 9:55 in minutes
+          const currentMinutes = berlinHour * 60 + berlinMinute;
+          totalSeconds = (targetMinutes - currentMinutes - 1) * 60 + (60 - berlinSecond);
         } else {
-          totalSeconds = (24 - berlinHour + 8) * 3600 + (60 - berlinMinute - 1) * 60 + (60 - berlinSecond);
+          // After 10:00, countdown to next day 9:55
+          totalSeconds = (24 - berlinHour + 9) * 3600 + (55 - berlinMinute - 1) * 60 + (60 - berlinSecond);
         }
         
         const hours = Math.floor(totalSeconds / 3600);
@@ -541,6 +552,22 @@ export default function DesktopPage() {
     const interval = setInterval(updateCountdown, 1000);
     return () => clearInterval(interval);
   }, [rankings.length]);
+  
+  // Fast timer for centiseconds when under 1 hour remaining
+  useEffect(() => {
+    const cd = isBreakTime ? breakCountdown : leaderboardCountdown;
+    if (!cd) return;
+    const [h] = cd.split(':').map(v => parseInt(v, 10) || 0);
+    
+    // Only run fast timer when under 1 hour
+    if (h > 0) return;
+    
+    const fastInterval = setInterval(() => {
+      setCountdownMs(Math.floor((Date.now() % 1000) / 10));
+    }, 50); // Update every 50ms for smooth animation
+    
+    return () => clearInterval(fastInterval);
+  }, [leaderboardCountdown, breakCountdown, isBreakTime]);
 
   const loadAllData = async () => {
     // Load each widget independently so they can show their own loading states
@@ -632,7 +659,33 @@ export default function DesktopPage() {
     setShowCommunitySound(false);
     setStaticPageSlug(null); // Close static page when changing tabs
     setSelectedPlayerId(null); // Close player profile when changing tabs
+    setShowBattleResultId(null); // Close battle result when changing tabs
+    setShowChallenge(null); // Close challenge when changing tabs
+    window.dispatchEvent(new CustomEvent('notification-view-closed')); // Drop news highlight
     scrollViewToTop();
+  };
+
+  // Where the user was before opening a notification detail view, so BACK can
+  // restore the exact same view instead of falling back to the default tab.
+  const notificationOriginRef = useRef<{ tab: NavTab; arcadeGame: string | null; articleId: string | null } | null>(null);
+
+  const openNotificationView = (open: () => void) => {
+    notificationOriginRef.current = { tab: activeTab, arcadeGame, articleId: openArticleId };
+    open();
+  };
+
+  const closeNotificationView = () => {
+    setShowBattleResultId(null);
+    setShowChallenge(null);
+    // Let the news widget / notification page drop the highlighted item
+    window.dispatchEvent(new CustomEvent('notification-view-closed'));
+    const origin = notificationOriginRef.current;
+    if (origin) {
+      setActiveTab(origin.tab);
+      setArcadeGame(origin.arcadeGame);
+      setOpenArticleId(origin.articleId);
+      notificationOriginRef.current = null;
+    }
   };
 
   // Logout redirect: if on profile tab and logged out → go to feed
@@ -784,44 +837,30 @@ export default function DesktopPage() {
                 })}
               </nav>
               
-              {/* Rank & Coins Widget – directly after nav, in flow */}
-              <div className="ml-12">
+              {/* Rank & Coins Widget – slightly more to center */}
+              <div className="ml-16">
                 <DesktopRankWidget 
                   rank={userRank} 
                   coins={coins} 
                   isActive={activeTab === 'rankings'}
                   hasPendingWager={hasPendingWager}
+                  pendingAmount={pendingAmount}
+                  dailyRank={scoreRankPositions.dailyRank}
+                  monthlyRank={scoreRankPositions.monthlyRank}
+                  yearlyRank={scoreRankPositions.yearlyRank}
+                  dailyChange={scoreRankPositions.dailyChange}
+                  monthlyChange={scoreRankPositions.monthlyChange}
+                  yearlyChange={scoreRankPositions.yearlyChange}
                   onClick={() => handleTabChange('rankings')}
+                  onWagerClick={() => setShowOpenBattlesModal(true)}
+                  animateDelta={coinAnimation.show ? coinAnimation.amount : undefined}
+                  animateKey={coinAnimKey}
                 />
               </div>
             </div>
 
-            {/* RIGHT – Actions (same width as right sidebar ~240px) - z-30 so they overlay score button */}
+            {/* RIGHT – Profile only (TV, Radio, News moved to right sidebar widgets) */}
             <div className="w-60 flex-shrink-0 flex items-center justify-end gap-0 relative z-30">
-              {[
-                { key: 'tv', icon: Tv, label: 'TV', onClick: () => handleTabChange('tv'), active: activeTab === 'tv', badge: 0 },
-                { key: 'radio', icon: Radio, label: 'RADIO', onClick: () => handleTabChange('radio'), active: activeTab === 'radio', badge: 0 },
-                { key: 'news', icon: Bell, label: 'NEWS', onClick: () => handleTabChange('notifications'), active: activeTab === 'notifications', badge: unreadNotifications },
-              ].map((item, i) => {
-                const Icon = item.icon;
-                return (
-                  <div key={item.key} className="flex items-center">
-                    {i > 0 && <div className="w-px h-8 bg-warm mx-1" />}
-                    <button onClick={item.onClick} className={`flex flex-col items-center px-2.5 py-2.5 rounded-xl transition-all group hover:bg-[#E36B11]/5 relative`}>
-                      <div className="relative">
-                        <Icon className={`w-6 h-6 transition-colors ${item.active ? 'text-[#E36B11]' : 'text-gray-900 group-hover:text-[#E36B11]'}`} />
-                        {item.badge > 0 && (
-                          <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
-                            {item.badge > 9 ? '9+' : item.badge}
-                          </span>
-                        )}
-                      </div>
-                      <span className={`font-display text-[11px] tracking-widest leading-none mt-1.5 transition-colors ${item.active ? 'text-[#E36B11]' : 'text-gray-900 group-hover:text-[#E36B11]'}`}>{item.label}</span>
-                    </button>
-                  </div>
-                );
-              })}
-              <div className="w-px h-8 bg-warm mx-1" />
               <button
                 onClick={() => isLoggedIn ? handleTabChange('profile') : (() => { setPreviousTab(activeTab); setActiveTab('profile'); setShowLoginPage(true); })()}
                 className={`flex flex-col items-center px-2.5 py-2.5 rounded-xl transition-all group ${activeTab === 'profile' ? 'bg-[#E36B11]/10' : 'hover:bg-[#E36B11]/5'}`}
@@ -882,9 +921,6 @@ export default function DesktopPage() {
                         })()}
                       </span>
                     </div>
-                    {rankingsLoading && (
-                      <div className="w-3 h-3 border-2 border-[#E36B11]/30 border-t-[#E36B11] rounded-full animate-spin" />
-                    )}
                   </div>
                   
                   {/* Right arrow - go to next day (disabled if already at today) */}
@@ -904,8 +940,8 @@ export default function DesktopPage() {
                 if (!cd || (!isBreakTime && rankings.length === 0)) return null;
                 const [h, m, s] = cd.split(':').map((v) => parseInt(v, 10) || 0);
                 const remaining = h * 3600 + m * 60 + s;
-                // Break time: 1 hour total (9:00-10:00), otherwise 24 hours
-                const total = isBreakTime ? 3600 : 24 * 3600;
+                // Break time: 5 minutes (9:55-10:00), otherwise ~24 hours (until 9:55)
+                const total = isBreakTime ? 300 : 24 * 3600;
                 const progress = Math.min(100, Math.max(0, (1 - remaining / total) * 100));
                 
                 // Calculate display time based on scrub position
@@ -914,9 +950,18 @@ export default function DesktopPage() {
                 const elapsedHours = Math.floor(elapsedSeconds / 3600);
                 const elapsedMinutes = Math.floor((elapsedSeconds % 3600) / 60);
                 const elapsedSecs = elapsedSeconds % 60;
+                
+                // When less than 1 hour remaining, switch to MIN:SEC:MS format
+                const isUnderOneHour = h === 0 && !scrubProgress;
+                
                 const displayTime = scrubProgress !== null 
                   ? `${elapsedHours.toString().padStart(2, '0')}:${elapsedMinutes.toString().padStart(2, '0')}:${elapsedSecs.toString().padStart(2, '0')}`
-                  : cd;
+                  : isUnderOneHour
+                    ? `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}:${(99 - countdownMs).toString().padStart(2, '0')}`
+                    : cd;
+                
+                const timeLabels = isUnderOneHour ? ['MIN', 'SEC', 'MS'] : ['HRS', 'MIN', 'SEC'];
+                
                 const isScrubbing = scrubProgress !== null;
                 // Color scheme: orange for normal, amber for break, purple for scrubbing
                 const accentColor = isScrubbing ? 'text-purple-500' : isBreakTime ? 'text-amber-500' : 'text-[#E36B11]';
@@ -938,7 +983,7 @@ export default function DesktopPage() {
                           <div key={idx} className="flex items-center">
                             <div className="flex flex-col items-center">
                               <span className={`font-display text-2xl font-bold leading-none tabular-nums ${accentColor}`}>{part}</span>
-                              <span className="font-display text-[6px] leading-none text-gray-500 uppercase tracking-wide mt-0.5">{['HRS', 'MIN', 'SEC'][idx]}</span>
+                              <span className="font-display text-[6px] leading-none text-gray-500 uppercase tracking-wide mt-0.5">{timeLabels[idx]}</span>
                             </div>
                             {idx < 2 && <span className={`font-display text-2xl font-bold leading-none mx-0.5 self-start ${accentColor}`}>:</span>}
                           </div>
@@ -1022,7 +1067,7 @@ export default function DesktopPage() {
                       <span className="text-base grayscale opacity-70">☕</span>
                       <h3 className="font-display text-sm font-bold text-gray-900 uppercase tracking-wide">Daily Reset</h3>
                     </div>
-                    <p className="text-[10px] text-gray-500 mb-3">9:00 – 10:00 Berlin Time</p>
+                    <p className="text-[10px] text-gray-500 mb-3">9:55 – 10:00 Berlin Time</p>
                     
                     {/* Info cards */}
                     <div className="w-full space-y-2 text-center">
@@ -1043,63 +1088,69 @@ export default function DesktopPage() {
                   </div>
                 </div>
               ) : (
-              /* Rankings list */
-              <div className="relative divide-y divide-warm/50">
-                                {
-                  // Always show all 10 slots immediately (layout never collapses to a spinner).
-                  // While loading, every slot shows a pulsing skeleton instead of real data.
-                  Array.from({ length: 10 }).map((_, i) => {
-                    if (rankingsLoading) {
-                      return (
-                        <div key={`skeleton-${i}`} className="w-full flex items-center gap-3 px-4 py-2.5 animate-pulse">
-                          <span className="text-sm font-bold tabular-nums w-4 text-center text-[#E36B11]/40">{i + 1}</span>
-                          <div className="w-8 h-8 rounded-full bg-warm" />
-                          <div className="flex-1 h-3 rounded bg-warm" />
-                          <div className="w-8 h-3 rounded bg-warm" />
-                        </div>
-                      );
-                    }
-                    const r = rankings[i];
-                    if (r) {
-                      return (
-                        <button key={r._id} onClick={() => setSelectedPlayerId(r._id)} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/70 transition-all duration-300">
+              /* Rankings list - full height, no scroll limit */
+              <div 
+                ref={leaderboardScrollRef}
+                className="relative divide-y divide-warm/50"
+              >
+                {/* Loading spinner overlay for initial load or day change */}
+                {rankingsLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+                    <div className="w-6 h-6 border-2 border-[#E36B11]/30 border-t-[#E36B11] rounded-full animate-spin" />
+                  </div>
+                )}
+                {
+                  // Show 20 skeleton slots while loading, then show actual rankings
+                  rankingsLoading ? (
+                    Array.from({ length: 20 }).map((_, i) => (
+                      <div key={`skeleton-${i}`} className="w-full flex items-center gap-3 px-4 py-2.5 animate-pulse">
+                        <span className="text-sm font-bold tabular-nums w-4 text-center text-[#E36B11]/40">{i + 1}</span>
+                        <div className="w-8 h-8 rounded-full bg-warm" />
+                        <div className="flex-1 h-3 rounded bg-warm" />
+                        <div className="w-8 h-3 rounded bg-warm" />
+                      </div>
+                    ))
+                  ) : (
+                    <>
+                      {rankings.map((r, i) => (
+                        <button key={r._id} onClick={() => setSelectedPlayerId(r._id)} className="group w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#E36B11] transition-all duration-200 rounded-lg">
                           {/* Rank number with change indicator */}
                           <div className="flex items-center gap-0.5 w-6">
-                            <span className={`text-sm font-bold tabular-nums text-center ${
+                            <span className={`text-sm font-bold tabular-nums text-center transition-colors group-hover:text-white ${
                               i === 0 ? 'text-gray-900' :
                               i < 3 ? 'text-gray-700' :
                               'text-gray-400'
                             }`}>{i + 1}</span>
                             {/* Rank change arrow - always visible */}
                             {rankChanges[r._id] > 0 && (
-                              <span className="text-[9px] font-semibold text-green-600">↑</span>
+                              <span className="text-[9px] font-semibold text-green-600 group-hover:text-green-200">↑</span>
                             )}
                             {rankChanges[r._id] < 0 && (
-                              <span className="text-[9px] font-semibold text-red-500">↓</span>
+                              <span className="text-[9px] font-semibold text-red-500 group-hover:text-red-200">↓</span>
                             )}
                             {!rankChanges[r._id] && (
-                              <span className="text-[9px] text-gray-300">—</span>
+                              <span className="text-[9px] text-gray-300 group-hover:text-white/50">—</span>
                             )}
                           </div>
                           {/* Avatar with country flag */}
                           <div className="relative flex-shrink-0">
-                            <div className={`w-8 h-8 rounded-full overflow-hidden border ${i === 0 ? 'border-gray-900' : 'border-warm'}`}>
+                            <div className={`w-8 h-8 rounded-full overflow-hidden border transition-colors ${i === 0 ? 'border-gray-900 group-hover:border-white' : 'border-warm group-hover:border-white'}`}>
                               {r.avatar ? (
                                 <img src={r.avatar} alt="" className="w-full h-full object-cover" />
                               ) : (
-                                <div className="w-full h-full bg-skeleton-light flex items-center justify-center">
-                                  <span className="text-sm font-semibold text-gray-500">{r.username?.[0]?.toUpperCase() || '?'}</span>
+                                <div className="w-full h-full bg-skeleton-light flex items-center justify-center group-hover:bg-white/20">
+                                  <span className="text-sm font-semibold text-gray-500 group-hover:text-white">{r.username?.[0]?.toUpperCase() || '?'}</span>
                                 </div>
                               )}
                             </div>
                             <CountryFlag flag={r.countryFlag} className="absolute -bottom-1 -right-1 w-4 h-3 rounded-[2px] border border-cream object-cover shadow-sm" />
                           </div>
                           {/* Username */}
-                          <span className="flex-1 text-left font-display text-[13px] tracking-wide font-normal text-gray-800 truncate">{r.username}</span>
+                          <span className="flex-1 text-left font-display text-[13px] tracking-wide font-normal text-gray-800 truncate transition-colors group-hover:text-white">{r.username}</span>
                           {/* BOGX Coins - with transition for smooth score updates */}
                           <div className="flex items-center gap-1 transition-all duration-300 relative">
-                            <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
-                            <span className="font-display text-[13px] tracking-wide font-normal tabular-nums text-gray-900 transition-all duration-300">{formatCurrency(r.bogxCoins || r.points)}</span>
+                            <img src="/images/bogxcoin.png" alt="" className="w-4 h-4 group-hover:brightness-125" />
+                            <span className="font-display text-[13px] tracking-wide font-normal tabular-nums text-gray-900 transition-colors group-hover:text-white">{formatCurrency(r.points)}</span>
                             {/* Point change animation */}
                             {pointChanges[r._id] && (
                               <span 
@@ -1113,23 +1164,21 @@ export default function DesktopPage() {
                             )}
                           </div>
                         </button>
-                      );
-                    }
-                    // Placeholder for empty slot
-                    return (
-                      <div key={`empty-${i}`} className="w-full flex items-center gap-3 px-4 py-2.5">
-                        <span className="text-sm font-bold tabular-nums w-4 text-center text-gray-500">{i + 1}</span>
-                        <div className="w-8 h-8 rounded-full bg-warm border border-warm flex items-center justify-center">
-                          <span className="text-sm font-semibold text-gray-500">?</span>
+                      ))}
+                      {/* Loading more indicator */}
+                      {rankingsLoadingMore && (
+                        <div className="w-full flex items-center justify-center py-3">
+                          <div className="w-5 h-5 border-2 border-[#E36B11]/30 border-t-[#E36B11] rounded-full animate-spin" />
                         </div>
-                        <span className="flex-1 text-left font-display text-[13px] tracking-wide text-gray-800">—</span>
-                        <div className="flex items-center gap-1">
-                          <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
-                          <span className="font-display text-[13px] tracking-wide font-normal text-gray-500">—</span>
+                      )}
+                      {/* End of list indicator */}
+                      {!rankingsHasMore && rankings.length > 0 && (
+                        <div className="w-full text-center py-2 text-[10px] text-gray-400">
+                          End of leaderboard
                         </div>
-                      </div>
-                    );
-                  })
+                      )}
+                    </>
+                  )
                 }
               </div>
               )}
@@ -1143,7 +1192,144 @@ export default function DesktopPage() {
               </button>
             </div>
 
-            {/* GenX TV */}
+          </aside>
+
+          {/* MAIN CONTENT */}
+          <main className="flex-1 min-w-0 relative z-0">
+            <div 
+              ref={contentRef}
+              data-content-scroll
+              className="relative rounded-xl border border-warm overflow-y-auto shadow-sm min-h-[calc(100vh-108px)] scrollbar-hide bg-[#F5F0E8] isolate"
+            >
+              {/* Static Page View */}
+              {staticPageSlug && <StaticPageInline slug={staticPageSlug} defaultTitle={staticPageSlug} onClose={() => { setStaticPageSlug(null); contentRef.current?.scrollTo(0, 0); }} />}
+              {/* Battle Result inline view - exclusive, replaces all tab content */}
+              {!staticPageSlug && !selectedPlayerId && showBattleResultId && (
+                <DesktopContentWrapper>
+                  <BattleResultInline battleId={showBattleResultId} userId={user?.id} userAvatar={user?.avatar} onBack={closeNotificationView} />
+                </DesktopContentWrapper>
+              )}
+              {/* Battle Challenge inline view - exclusive, replaces all tab content */}
+              {!staticPageSlug && !selectedPlayerId && !showBattleResultId && showChallenge && (
+                <DesktopContentWrapper>
+                  <BattleChallengeInline
+                    battleId={showChallenge.battleId}
+                    notificationId={showChallenge.notificationId}
+                    userId={user?.id}
+                    onAccept={(id) => { setShowChallenge(null); notificationOriginRef.current = null; handleTabChange('arcade'); setArcadeGame('quizzbattle'); setPendingBattleId(id); }}
+                    onDeclined={() => { setPendingChallengeCount(prev => Math.max(0, prev - 1)); closeNotificationView(); }}
+                    onBack={closeNotificationView}
+                    onAlreadyPlayed={(id) => { setShowChallenge(null); setShowBattleResultId(id); }}
+                  />
+                </DesktopContentWrapper>
+              )}
+              {/* Content Tabs */}
+              {!showBattleResultId && !showChallenge && <>
+              {!staticPageSlug && !selectedPlayerId && activeTab === "feed" && !openArticleId && !showCommunitySound && <WelcomeReel onOpenArticle={handleOpenArticle} readArticles={readArticles} isDesktop={true} onShowLogin={handleShowLogin} onOpenCommunitySound={handleOpenCommunitySound} onCoinAnimation={triggerCoinGain} />}
+              {!staticPageSlug && !selectedPlayerId && showCommunitySound && <CommunitySoundPage isDesktop={true} onBack={() => setShowCommunitySound(false)} onOpenRadio={() => { setShowCommunitySound(false); handleTabChange('radio'); }} />}
+              {!staticPageSlug && !selectedPlayerId && openArticleId && <ArticlePage articleId={openArticleId} onBack={() => {
+                setOpenArticleId(null);
+                // Clear article from URL
+                window.history.pushState({}, '', '/desktop');
+                // Refresh read articles from DB after viewing
+                if (user?.id) {
+                  fetch(`/api/user/read-article?userId=${user.id}`)
+                    .then(res => res.json())
+                    .then(data => {
+                      const dbRead: string[] = data.readArticles || [];
+                      setReadArticles(new Set<string>(dbRead));
+                    })
+                    .catch(() => {});
+                }
+              }} onShowLogin={() => setShowLoginPage(true)} isDesktop={true} readArticles={readArticles} onOpenRadio={() => handleTabChange('radio')} onOpenArticle={(id: string) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onCoinAnimation={(amount) => {
+                // Mark article as read immediately in UI
+                setReadArticles(prev => { const next = new Set(Array.from(prev)); next.add(openArticleId); return next; });
+                // Show animation + animate coins counting up
+                setCoinAnimKey(k => k + 1);
+                setCoinAnimation({ show: true, amount, variant: 'gain' });
+                animateCoins(amount);
+              }} />}
+              {!staticPageSlug && !selectedPlayerId && activeTab === "arcade" && (
+                arcadeGame === 'quizzbattle' ? (
+                  <DesktopBattlesPage coins={coins} setCoins={setCoins} onCoinAnimation={(amount, variant) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount, variant }); }} onShowLogin={() => setShowLoginPage(true)} onBattleActiveChange={setIsBattleActive} pendingBattleId={pendingBattleId} onPendingBattleHandled={() => setPendingBattleId(null)} onBack={() => setArcadeGame(null)} challengeTarget={challengeTarget} onChallengeTargetHandled={() => setChallengeTarget(null)} />
+                ) : arcadeGame === 'genxmen' ? (
+                  <GenXManGame onBack={() => setArcadeGame(null)} onScoreUpdate={() => {}} />
+                ) : arcadeGame === 'prediction' ? (
+                  <DesktopContentWrapper><PredictionsGame onBack={() => setArcadeGame(null)} onShowLogin={() => setShowLoginPage(true)} embedded={true} /></DesktopContentWrapper>
+                ) : arcadeGame === 'trivia' ? (
+                  <div className="h-full min-h-full flex flex-col bg-[#F5F0E8]">
+                    <SoloTriviaGame onBack={() => setArcadeGame(null)} onCoinsChange={(amount) => animateCoins(amount)} onCoinAnimation={(amount) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} embedded={true} />
+                  </div>
+                ) : arcadeGame === 'bogxinvaders' ? (
+                  <div className="h-[calc(100vh-108px)] flex flex-col">
+                    <BogxInvadersGame onBack={() => setArcadeGame(null)} onCoinsChange={(amount) => animateCoins(amount)} isLoggedIn={isLoggedIn} userId={user?.id} onShowLogin={() => setShowLoginPage(true)} />
+                  </div>
+                ) : (
+                  <DesktopContentWrapper><DesktopArcadePage onSelectGame={(game) => setArcadeGame(game)} onShowRankings={() => handleTabChange('rankings')} userId={user?.id} onCoinsChange={(amount) => animateCoins(amount)} onShowLogin={() => setShowLoginPage(true)} onPlaySpecificBattle={(battleId) => { setPendingBattleId(battleId); setArcadeGame('quizzbattle'); }} /></DesktopContentWrapper>
+                )
+              )}
+              {/* Opening an article unmounts this list, so the category filter is
+                  cleared here too - otherwise initialCategory would restore the
+                  old category on the way back instead of "All Categories". */}
+              {!staticPageSlug && !selectedPlayerId && activeTab === "articles" && !openArticleId && <DesktopArticlesPage onOpenArticle={(id: string) => { setOpenArticleId(id); setArticlesCategoryFilter('all'); contentRef.current?.scrollTo(0, 0); }} onShowLogin={() => setShowLoginPage(true)} onCoinAnimation={(amount) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount, variant: 'gain' }); }} initialCategory={articlesCategoryFilter} />}
+              {!staticPageSlug && !selectedPlayerId && activeTab === "voting" && !openArticleId && !openRankrollData && <DesktopRankrollPage onOpenArticle={(id: string) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onOpenRankroll={(poll: any) => { setOpenRankrollData(poll); contentRef.current?.scrollTo(0, 0); }} onShowLogin={() => setShowLoginPage(true)} onCoinAnimation={(amount) => { animateCoins(amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} />}
+              {!staticPageSlug && !selectedPlayerId && activeTab === "voting" && openRankrollData && <DesktopRankingDetailPage poll={openRankrollData} onBack={() => setOpenRankrollData(null)} onOpenArticle={(id: string) => { setOpenArticleId(id); }} onShowLogin={() => setShowLoginPage(true)} onCoinAnimation={(amount) => { animateCoins(amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} />}
+              {!staticPageSlug && !selectedPlayerId && activeTab === "shop" && <DesktopContentWrapper><ShopPage coins={coins} onCoinsUsed={(amount) => { setCoins(prev => prev - amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount: -amount }); }} /></DesktopContentWrapper>}
+              {!staticPageSlug && !selectedPlayerId && activeTab === "tv" && <DesktopContentWrapper><TVPage /></DesktopContentWrapper>}
+              {!staticPageSlug && !selectedPlayerId && activeTab === "radio" && <DesktopContentWrapper transparent><CommunitySoundPage isDesktop={true} onBack={() => handleTabChange('feed')} /></DesktopContentWrapper>}
+              {!staticPageSlug && !selectedPlayerId && activeTab === "notifications" && !showBattleResultId && <DesktopContentWrapper transparent><NotificationPage onGoToProfile={() => handleTabChange('profile')} onGoToBattle={(id) => { handleTabChange('arcade'); setArcadeGame('quizzbattle'); setPendingBattleId(id); }} onShowBattleResult={(id) => openNotificationView(() => setShowBattleResultId(id))} onShowChallenge={(battleId, notificationId) => openNotificationView(() => setShowChallenge({ battleId, notificationId }))} onOpenArticle={(id) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onPointsAwarded={(amount) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} onChallengeDeclined={() => setPendingChallengeCount(prev => Math.max(0, prev - 1))} autoOpenSettings={openNotificationSettings} onSettingsClosed={() => setOpenNotificationSettings(false)} /></DesktopContentWrapper>}
+              {!staticPageSlug && !selectedPlayerId && activeTab === "profile" && (isLoggedIn ? <DesktopContentWrapper><ProfilePage coins={coins} /></DesktopContentWrapper> : <DesktopLoginPage onClose={() => handleTabChange("feed")} onSuccess={() => {}} showBack={true} />)}
+              {!staticPageSlug && activeTab === "rankings" && !selectedPlayerId && <DesktopRankingsPage currentUserScore={coins} onBack={() => handleTabChange('home')} onShowSignup={() => setShowLoginPage(true)} onShowRewards={() => handleTabChange('rewards')} selectedPlayerId={null} onPlayerClose={() => {}} />}
+              {/* Player Profile - renders in content area, back returns to current tab */}
+              {!staticPageSlug && selectedPlayerId && (
+                <PlayerCard
+                  isOpen={true}
+                  playerId={selectedPlayerId}
+                  onClose={() => setSelectedPlayerId(null)}
+                  isDesktop={true}
+                  currentUserId={user?.id}
+                  onChallenge={(playerId, username) => {
+                    setSelectedPlayerId(null);
+                    handleTabChange('arcade');
+                    setArcadeGame('quizzbattle');
+                    // Store the challenged player so BattlesPage can pre-select them
+                    setChallengeTarget({ id: playerId, username });
+                  }}
+                />
+              )}
+              {!staticPageSlug && !selectedPlayerId && activeTab === "rewards" && <DesktopRewardsPage coins={coins} onClose={() => handleTabChange('rankings')} onRedeem={(rewardId: string, cost: number) => { const change = -cost; setCoins(prev => prev + change); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount: change }); }} />}
+              </>}
+            </div>
+          </main>
+
+          {/* RIGHT SIDEBAR */}
+          <aside className="w-60 flex-shrink-0 hidden xl:block space-y-5">
+            {/* 1. News Widget - compact version of NotificationPage */}
+            <NotificationPage 
+              compact={true} 
+              onViewAll={() => { setShowBattleResultId(null); setShowChallenge(null); handleTabChange('notifications'); }}
+              onOpenSettings={() => { setShowBattleResultId(null); setShowChallenge(null); setOpenNotificationSettings(true); handleTabChange('notifications'); }}
+              onGoToBattle={(id) => { setShowBattleResultId(null); setShowChallenge(null); handleTabChange('arcade'); setArcadeGame('quizzbattle'); setPendingBattleId(id); }}
+              onShowBattleResult={(id) => openNotificationView(() => { setShowChallenge(null); setShowBattleResultId(id); })}
+              onShowChallenge={(battleId, notificationId) => openNotificationView(() => { setShowBattleResultId(null); setShowChallenge({ battleId, notificationId }); })}
+              onOpenArticle={(id) => { setShowBattleResultId(null); setShowChallenge(null); setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }}
+              onGoToProfile={() => { setShowBattleResultId(null); setShowChallenge(null); handleTabChange('profile'); }}
+              onChallengeDeclined={() => setPendingChallengeCount(prev => Math.max(0, prev - 1))}
+            />
+
+            {/* 2. Radio Banner */}
+            <button
+              onClick={() => handleTabChange('radio')}
+              className="w-full rounded-xl border border-warm overflow-hidden shadow-sm hover:brightness-105 transition-all"
+            >
+              <img 
+                src="/images/Banner/radio.png" 
+                alt="Radio" 
+                className="w-full h-auto object-cover"
+              />
+            </button>
+
+            {/* 3. GenX TV */}
             <div className="bg-[#F5F0E8] rounded-xl border border-warm overflow-hidden shadow-sm">
               <div className="flex items-center justify-between px-4 py-3 border-b border-warm">
                 <div className="flex items-center gap-2">
@@ -1208,168 +1394,8 @@ export default function DesktopPage() {
                 ))}
               </div>
             </div>
-          </aside>
 
-          {/* MAIN CONTENT */}
-          <main className="flex-1 min-w-0 relative z-0">
-            <div 
-              ref={contentRef}
-              data-content-scroll
-              className="relative rounded-xl border border-warm overflow-y-auto shadow-sm min-h-[calc(100vh-108px)] scrollbar-hide bg-[#F5F0E8] isolate"
-            >
-              {/* Static Page View */}
-              {staticPageSlug && <StaticPageInline slug={staticPageSlug} defaultTitle={staticPageSlug} onClose={() => { setStaticPageSlug(null); contentRef.current?.scrollTo(0, 0); }} />}
-              {/* Content Tabs */}
-              {!staticPageSlug && !selectedPlayerId && activeTab === "feed" && !openArticleId && !showCommunitySound && <WelcomeReel onOpenArticle={handleOpenArticle} readArticles={readArticles} isDesktop={true} onShowLogin={handleShowLogin} onOpenCommunitySound={handleOpenCommunitySound} onCoinAnimation={triggerCoinGain} />}
-              {!staticPageSlug && !selectedPlayerId && showCommunitySound && <CommunitySoundPage isDesktop={true} onBack={() => setShowCommunitySound(false)} onOpenRadio={() => { setShowCommunitySound(false); handleTabChange('radio'); }} />}
-              {!staticPageSlug && !selectedPlayerId && openArticleId && <ArticlePage articleId={openArticleId} onBack={() => {
-                setOpenArticleId(null);
-                // Clear article from URL
-                window.history.pushState({}, '', '/desktop');
-                // Refresh read articles from DB after viewing
-                if (user?.id) {
-                  fetch(`/api/user/read-article?userId=${user.id}`)
-                    .then(res => res.json())
-                    .then(data => {
-                      const dbRead: string[] = data.readArticles || [];
-                      setReadArticles(new Set<string>(dbRead));
-                    })
-                    .catch(() => {});
-                }
-              }} onShowLogin={() => setShowLoginPage(true)} isDesktop={true} readArticles={readArticles} onOpenRadio={() => handleTabChange('radio')} onOpenArticle={(id: string) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onCoinAnimation={(amount) => {
-                // Mark article as read immediately in UI
-                setReadArticles(prev => { const next = new Set(Array.from(prev)); next.add(openArticleId); return next; });
-                // Show animation + animate coins counting up
-                setCoinAnimKey(k => k + 1);
-                setCoinAnimation({ show: true, amount, variant: 'gain' });
-                animateCoins(amount);
-              }} />}
-              {!staticPageSlug && !selectedPlayerId && activeTab === "arcade" && (
-                arcadeGame === 'quizzbattle' ? (
-                  <DesktopBattlesPage coins={coins} setCoins={setCoins} onCoinAnimation={(amount, variant) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount, variant }); }} onShowLogin={() => setShowLoginPage(true)} onBattleActiveChange={setIsBattleActive} pendingBattleId={pendingBattleId} onPendingBattleHandled={() => setPendingBattleId(null)} onBack={() => setArcadeGame(null)} />
-                ) : arcadeGame === 'genxmen' ? (
-                  <GenXManGame onBack={() => setArcadeGame(null)} onScoreUpdate={() => {}} />
-                ) : arcadeGame === 'prediction' ? (
-                  <DesktopContentWrapper><PredictionsGame onBack={() => setArcadeGame(null)} onShowLogin={() => setShowLoginPage(true)} embedded={true} /></DesktopContentWrapper>
-                ) : arcadeGame === 'trivia' ? (
-                  <div className="h-full min-h-full flex flex-col bg-[#F5F0E8]">
-                    <SoloTriviaGame onBack={() => setArcadeGame(null)} onCoinsChange={(amount) => animateCoins(amount)} onCoinAnimation={(amount) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} embedded={true} />
-                  </div>
-                ) : arcadeGame === 'bogxinvaders' ? (
-                  <div className="h-[calc(100vh-108px)] flex flex-col">
-                    <BogxInvadersGame onBack={() => setArcadeGame(null)} onCoinsChange={(amount) => animateCoins(amount)} isLoggedIn={isLoggedIn} userId={user?.id} onShowLogin={() => setShowLoginPage(true)} />
-                  </div>
-                ) : (
-                  <DesktopContentWrapper><DesktopArcadePage onSelectGame={(game) => setArcadeGame(game)} onShowRankings={() => handleTabChange('rankings')} userId={user?.id} onCoinsChange={(amount) => animateCoins(amount)} onShowLogin={() => setShowLoginPage(true)} onPlaySpecificBattle={(battleId) => { setPendingBattleId(battleId); setArcadeGame('quizzbattle'); }} /></DesktopContentWrapper>
-                )
-              )}
-              {/* Opening an article unmounts this list, so the category filter is
-                  cleared here too - otherwise initialCategory would restore the
-                  old category on the way back instead of "All Categories". */}
-              {!staticPageSlug && !selectedPlayerId && activeTab === "articles" && !openArticleId && <DesktopArticlesPage onOpenArticle={(id: string) => { setOpenArticleId(id); setArticlesCategoryFilter('all'); contentRef.current?.scrollTo(0, 0); }} onShowLogin={() => setShowLoginPage(true)} onCoinAnimation={(amount) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount, variant: 'gain' }); }} initialCategory={articlesCategoryFilter} />}
-              {!staticPageSlug && !selectedPlayerId && activeTab === "voting" && !openArticleId && !openRankrollData && <DesktopRankrollPage onOpenArticle={(id: string) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onOpenRankroll={(poll: any) => { setOpenRankrollData(poll); contentRef.current?.scrollTo(0, 0); }} onShowLogin={() => setShowLoginPage(true)} onCoinAnimation={(amount) => { animateCoins(amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} />}
-              {!staticPageSlug && !selectedPlayerId && activeTab === "voting" && openRankrollData && <DesktopRankingDetailPage poll={openRankrollData} onBack={() => setOpenRankrollData(null)} onOpenArticle={(id: string) => { setOpenArticleId(id); }} onShowLogin={() => setShowLoginPage(true)} onCoinAnimation={(amount) => { animateCoins(amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} />}
-              {!staticPageSlug && !selectedPlayerId && activeTab === "shop" && <DesktopContentWrapper><ShopPage coins={coins} onCoinsUsed={(amount) => { setCoins(prev => prev - amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount: -amount }); }} /></DesktopContentWrapper>}
-              {!staticPageSlug && !selectedPlayerId && activeTab === "tv" && <DesktopContentWrapper><TVPage /></DesktopContentWrapper>}
-              {!staticPageSlug && !selectedPlayerId && activeTab === "radio" && <DesktopContentWrapper transparent><CommunitySoundPage isDesktop={true} onBack={() => handleTabChange('feed')} /></DesktopContentWrapper>}
-              {!staticPageSlug && !selectedPlayerId && activeTab === "notifications" && <DesktopContentWrapper transparent><NotificationPage onGoToProfile={() => handleTabChange('profile')} onGoToBattle={(id) => { handleTabChange('arcade'); setArcadeGame('quizzbattle'); setPendingBattleId(id); }} onPointsAwarded={(amount) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} /></DesktopContentWrapper>}
-              {!staticPageSlug && !selectedPlayerId && activeTab === "profile" && (isLoggedIn ? <DesktopContentWrapper><ProfilePage coins={coins} /></DesktopContentWrapper> : <DesktopLoginPage onClose={() => handleTabChange("feed")} onSuccess={() => {}} showBack={true} />)}
-              {!staticPageSlug && activeTab === "rankings" && !selectedPlayerId && <DesktopRankingsPage currentUserScore={coins} onBack={() => handleTabChange('home')} onShowSignup={() => setShowLoginPage(true)} onShowRewards={() => handleTabChange('rewards')} selectedPlayerId={null} onPlayerClose={() => {}} />}
-              {/* Player Profile - renders in content area, back returns to current tab */}
-              {!staticPageSlug && selectedPlayerId && (
-                <PlayerCard
-                  isOpen={true}
-                  playerId={selectedPlayerId}
-                  onClose={() => setSelectedPlayerId(null)}
-                  isDesktop={true}
-                />
-              )}
-              {!staticPageSlug && !selectedPlayerId && activeTab === "rewards" && <DesktopRewardsPage coins={coins} onClose={() => handleTabChange('rankings')} onRedeem={(rewardId: string, cost: number) => { const change = -cost; setCoins(prev => prev + change); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount: change }); }} />}
-            </div>
-          </main>
-
-          {/* RIGHT SIDEBAR */}
-          <aside className="w-60 flex-shrink-0 hidden xl:block space-y-5">
-            {/* Radio - with background image and equalizer */}
-            <div className="rounded-xl border border-warm overflow-hidden shadow-sm relative bg-cover bg-center bg-no-repeat" style={{ backgroundImage: 'url(/images/radio.png)' }}>
-              <div className="relative">
-                {/* Header with Equalizer */}
-                <div className="px-4 pt-4 pb-3 border-b border-white/20">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <Radio className="w-4 h-4 text-[#E36B11]" />
-                      <span className="font-display text-sm tracking-wider uppercase text-gray-800">Radio</span>
-                    </div>
-                    <button onClick={() => handleTabChange('radio')} className="text-[10px] font-semibold text-[#E36B11] hover:underline uppercase">View All</button>
-                  </div>
-                  {/* Mini Equalizer */}
-                  <div className="flex items-end justify-between w-full h-6 gap-[2px]">
-                    {eqBarsSidebar.map((bar, i) => (
-                      <div
-                        key={i}
-                        className="bg-gradient-to-t from-[#E36B11]/50 to-[#E5A55A]/30 rounded-t-sm flex-1"
-                        style={{
-                          animation: `eqSidebar ${bar.duration} ease-in-out ${bar.delay} infinite alternate`,
-                          height: bar.height,
-                        }}
-                      />
-                    ))}
-                  </div>
-                  <style>{`
-                    @keyframes eqSidebar {
-                      0% { height: 20%; }
-                      100% { height: 100%; }
-                    }
-                  `}</style>
-                </div>
-                <div className="py-1">
-                  {radioStations.map((station) => (
-                    <button
-                      key={station._id}
-                      onClick={() => window.open(`https://open.spotify.com/playlist/${station.playlistId}`, '_blank')}
-                      className="w-full flex items-center gap-3 py-2 px-4 hover:bg-white/40 transition-colors text-left group"
-                    >
-                      <div className="w-6 h-6 rounded-full bg-[#E36B11]/80 flex items-center justify-center flex-shrink-0">
-                        <Play className="w-3 h-3 text-white fill-white ml-0.5" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-display text-[15px] tracking-wider text-gray-800 truncate leading-tight">{station.name}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Shop */}
-            <div className="bg-[#F5F0E8] rounded-xl border border-warm overflow-hidden shadow-sm">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-warm">
-                <div className="flex items-center gap-2">
-                  <ShoppingBag className="w-4 h-4 text-[#E36B11]" />
-                  <span className="font-display text-sm tracking-wider uppercase text-gray-900">Shop</span>
-                </div>
-                <button onClick={() => handleTabChange('shop')} className="text-[10px] font-semibold text-[#E36B11] hover:underline uppercase">View All</button>
-              </div>
-              <div className="p-3 space-y-2">
-                {shopProducts.map((product) => (
-                  <button
-                    key={product.id}
-                    onClick={() => handleTabChange('shop')}
-                    className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-white/70 transition-colors text-left group"
-                  >
-                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-white border border-warm flex-shrink-0">
-                      <img src={product.image} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-gray-800 truncate leading-tight">{product.name}</p>
-                      <p className="text-sm font-semibold text-[#E36B11]">{product.price}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Rewards */}
+            {/* 4. Rewards */}
             <button
               onClick={() => handleTabChange('rewards')}
               className="w-full rounded-xl border border-warm overflow-hidden text-left group hover:brightness-105 transition-all shadow-sm relative bg-cover bg-center bg-no-repeat"
@@ -1405,6 +1431,30 @@ export default function DesktopPage() {
                   PLAY NOW <ChevronRight className="w-3 h-3" />
                 </span>
               </div>
+            </button>
+
+            {/* Shop Widget */}
+            <button
+              onClick={() => handleTabChange('shop')}
+              className="w-full rounded-xl border border-warm bg-gradient-to-b from-[#FFFDF9] to-[#FDF8F0] p-4 text-left group hover:border-[#E36B11]/30 transition-all shadow-sm"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <ShoppingBag className="w-5 h-5 text-[#E36B11]" />
+                <span className="font-display text-sm tracking-wider uppercase text-gray-900">Shop</span>
+              </div>
+              <p className="text-[11px] text-gray-600 mb-3">Exclusive GenX merchandise & collectibles.</p>
+              {shopProducts.length > 0 ? (
+                <div className="flex gap-2 mb-2">
+                  {shopProducts.slice(0, 3).map((product: any, i: number) => (
+                    <div key={i} className="w-12 h-12 rounded-lg bg-white border border-warm overflow-hidden">
+                      <img src={product.thumbnail || product.image} alt="" className="w-full h-full object-cover" />
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-white bg-[#E36B11] px-2.5 py-1 rounded-md group-hover:bg-[#C4772A] transition-colors">
+                BROWSE SHOP <ChevronRight className="w-3 h-3" />
+              </span>
             </button>
           </aside>
         </div>
@@ -1470,6 +1520,8 @@ export default function DesktopPage() {
       {/* Coin Animation - Desktop mode for bigger, more impactful animation */}
       {coinAnimation.show && <CoinAnimation key={coinAnimKey} amount={coinAnimation.amount} variant={coinAnimation.variant} isDesktop={true} onComplete={() => setCoinAnimation({ show: false, amount: 0 })} />}
 
+
+
       {/* Welcome Back Modal */}
       {showWelcomeBack && (
         <WelcomeBackModal
@@ -1511,6 +1563,25 @@ export default function DesktopPage() {
         sessionId={checkoutSessionId || undefined}
       />
 
+      {/* Open Battles Modal - triggered by clicking wager in header */}
+      <OpenBattlesModal
+        isOpen={showOpenBattlesModal}
+        onClose={() => setShowOpenBattlesModal(false)}
+        userId={user?.id || ''}
+        onPlayBattle={(battleId) => {
+          setShowOpenBattlesModal(false);
+          setPendingBattleId(battleId);
+          handleTabChange('battles');
+        }}
+        onCoinsChange={(amount) => {
+          setCoins(prev => prev + amount);
+          setCoinAnimKey(k => k + 1);
+          setCoinAnimation({ show: true, amount, variant: amount > 0 ? 'gain' : 'loss' });
+        }}
+        onShowLogin={() => setShowLoginPage(true)}
+        accentColor="purple"
+      />
+
     </div>
   );
 }
@@ -1537,6 +1608,308 @@ function CountryFlag({ flag, className }: { flag?: string; className?: string })
       srcSet={`https://flagcdn.com/48x36/${code}.png 2x`}
       alt=""
       className={className}
+    />
+  );
+}
+
+// Inline Battle Challenge component for desktop content area (no modal)
+function BattleChallengeInline({ battleId, notificationId, userId, onAccept, onDeclined, onBack, onAlreadyPlayed }: {
+  battleId: string;
+  notificationId?: string;
+  userId?: string;
+  onAccept: (battleId: string) => void;
+  onDeclined: () => void;
+  onBack: () => void;
+  onAlreadyPlayed: (battleId: string) => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [battle, setBattle] = useState<any>(null);
+  const [declining, setDeclining] = useState(false);
+
+  useEffect(() => {
+    if (!battleId) return;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/battles/${battleId}`);
+        const data = await res.json();
+        if (data.success && data.battle) {
+          // Challenge already played out (stale notification) - show the result instead
+          if (data.battle.status === 'completed') {
+            onAlreadyPlayed(battleId);
+            return;
+          }
+          setBattle(data.battle);
+        }
+      } catch {
+        setBattle(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [battleId]);
+
+  const handleDecline = async () => {
+    if (!userId || declining) return;
+    setDeclining(true);
+    try {
+      const res = await fetch(`/api/battles/${battleId}/decline`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oderId: userId })
+      });
+      const data = await res.json();
+      if (data.success && notificationId) {
+        const mongoId = notificationId.startsWith('notif-') ? notificationId.replace('notif-', '') : notificationId;
+        await fetch(`/api/notifications/${mongoId}`, { method: 'DELETE' });
+      }
+      onDeclined();
+    } catch {
+      // Network error - keep the view open so the user can retry
+    } finally {
+      setDeclining(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="p-6 space-y-5 animate-pulse">
+        <div className="h-8 w-40 bg-skeleton rounded-lg" />
+        <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-warm">
+          <div className="w-14 h-14 rounded-full bg-skeleton" />
+          <div className="space-y-2">
+            <div className="h-4 w-32 bg-skeleton rounded" />
+            <div className="h-3 w-24 bg-skeleton-light rounded" />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <div className="h-10 bg-skeleton rounded-lg" />
+          <div className="h-10 bg-skeleton rounded-lg" />
+          <div className="h-10 bg-skeleton rounded-lg" />
+        </div>
+        <div className="h-12 bg-skeleton rounded-xl" />
+      </div>
+    );
+  }
+
+  if (!battle) {
+    return (
+      <div className="text-center py-20">
+        <p className="text-gray-500">Challenge not found</p>
+        <button onClick={onBack} className="mt-4 text-[#E36B11] font-semibold">← Back</button>
+      </div>
+    );
+  }
+
+  const challenger = battle.creator || {};
+  const isStale = battle.status === 'cancelled' || battle.status === 'expired';
+  const inProgress = battle.status === 'active';
+
+  return (
+    <div className="p-6">
+      <button onClick={onBack} className="mb-4 text-sm font-display tracking-wide text-gray-500 hover:text-[#E36B11] transition-colors">
+        ‹ BACK
+      </button>
+
+      <div className="text-center mb-6">
+        <Swords className="w-10 h-10 text-[#E36B11] mx-auto mb-2" />
+        <h2 className="font-display text-2xl tracking-wider text-gray-900">BATTLE CHALLENGE</h2>
+        {inProgress && <p className="text-sm text-gray-500 mt-1">You already accepted this - finish it to see the result</p>}
+        {isStale && <p className="text-sm text-red-500 mt-1">This challenge is no longer available</p>}
+      </div>
+
+      {/* Challenger */}
+      <div className="flex items-center gap-4 mb-5 p-4 bg-white rounded-xl border border-warm">
+        {challenger.avatar ? (
+          <img src={challenger.avatar} alt="" className="w-14 h-14 rounded-full border-2 border-[#E36B11]" />
+        ) : (
+          <div className="w-14 h-14 rounded-full bg-[#E36B11]/10 flex items-center justify-center border-2 border-[#E36B11] font-bold text-[#E36B11]">
+            {(challenger.username || '?').charAt(0).toUpperCase()}
+          </div>
+        )}
+        <div>
+          <p className="text-gray-900 font-bold text-lg">{challenger.username || 'Unknown'}</p>
+          <p className="text-gray-500 text-sm">Rank #{challenger.rank ?? '?'}</p>
+          <p className="text-gray-400 text-xs">{challenger.wins || 0} wins • {challenger.gamesPlayed || 0} games</p>
+        </div>
+      </div>
+
+      {/* Details */}
+      <div className="bg-white rounded-xl border border-warm px-4 mb-5 text-sm">
+        <div className="flex justify-between items-center py-2.5 border-b border-warm">
+          <span className="text-gray-500">Topic</span>
+          <span className="text-gray-900 font-semibold uppercase">{battle.topic}</span>
+        </div>
+        <div className="flex justify-between items-center py-2.5 border-b border-warm">
+          <span className="text-gray-500">Rounds</span>
+          <span className="text-gray-900 font-semibold">{battle.rounds || 3}</span>
+        </div>
+        <div className="flex justify-between items-center py-2.5">
+          <span className="text-gray-500">Wager</span>
+          <span className="text-[#E36B11] font-bold text-lg flex items-center gap-1">
+            {Number(battle.wager).toFixed(2)}
+            <img src="/images/bogxcoin.png" alt="BOGX" className="w-4 h-4" />
+          </span>
+        </div>
+      </div>
+
+      {isStale ? (
+        <button
+          onClick={onBack}
+          className="w-full py-3.5 bg-white border border-warm text-gray-700 font-display tracking-wider rounded-xl hover:bg-[#F5F0E8] transition-colors"
+        >
+          BACK
+        </button>
+      ) : (
+        <>
+          <button
+            onClick={() => onAccept(battleId)}
+            className="w-full py-3.5 bg-[#E36B11] text-white font-display tracking-wider rounded-xl hover:bg-[#C4772A] transition-colors"
+          >
+            {inProgress ? 'CONTINUE BATTLE' : 'ACCEPT & PLAY NOW'}
+          </button>
+          {!inProgress && (
+            <button
+              onClick={handleDecline}
+              disabled={declining}
+              className="w-full py-3 mt-2 text-red-500 hover:text-red-600 font-semibold text-sm transition-colors disabled:opacity-50"
+            >
+              {declining ? 'Declining...' : 'Decline Challenge'}
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// Inline Battle Result component for desktop content area
+function BattleResultInline({ battleId, userId, userAvatar, onBack }: { battleId: string; userId?: string; userAvatar?: string; onBack: () => void }) {
+  const [loading, setLoading] = useState(true);
+  const [battle, setBattle] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!battleId || !userId) return;
+    
+    const loadBattle = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/battles/${battleId}`);
+        const data = await res.json();
+        if (data.success && data.battle) {
+          setBattle(data.battle);
+        } else {
+          setError('Battle not found');
+        }
+      } catch (e) {
+        setError('Failed to load battle');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadBattle();
+  }, [battleId, userId]);
+
+  if (loading) {
+    return (
+      <div className="p-6 space-y-6 animate-pulse">
+        {/* Header skeleton */}
+        <div className="flex items-center justify-between">
+          <div className="h-8 w-24 bg-skeleton rounded-lg" />
+          <div className="h-6 w-32 bg-skeleton rounded" />
+        </div>
+        
+        {/* Result banner skeleton */}
+        <div className="h-20 bg-skeleton rounded-2xl" />
+        
+        {/* Players section skeleton */}
+        <div className="bg-white rounded-xl p-4 border border-warm">
+          <div className="flex items-center justify-between">
+            {/* Player 1 */}
+            <div className="flex items-center gap-3">
+              <div className="w-14 h-14 rounded-full bg-skeleton" />
+              <div className="space-y-2">
+                <div className="h-4 w-20 bg-skeleton rounded" />
+                <div className="h-3 w-16 bg-skeleton-light rounded" />
+              </div>
+            </div>
+            {/* VS */}
+            <div className="h-8 w-16 bg-skeleton rounded" />
+            {/* Player 2 */}
+            <div className="flex items-center gap-3">
+              <div className="space-y-2 text-right">
+                <div className="h-4 w-20 bg-skeleton rounded ml-auto" />
+                <div className="h-3 w-16 bg-skeleton-light rounded ml-auto" />
+              </div>
+              <div className="w-14 h-14 rounded-full bg-skeleton" />
+            </div>
+          </div>
+        </div>
+        
+        {/* Round by round skeleton */}
+        <div className="space-y-3">
+          <div className="h-5 w-32 bg-skeleton rounded" />
+          <div className="grid grid-cols-6 gap-2">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div key={i} className="h-12 bg-skeleton rounded-lg" />
+            ))}
+          </div>
+        </div>
+        
+        {/* Buttons skeleton */}
+        <div className="flex gap-3 pt-4">
+          <div className="h-12 flex-1 bg-skeleton rounded-xl" />
+          <div className="h-12 flex-1 bg-skeleton rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !battle) {
+    return (
+      <div className="text-center py-20">
+        <p className="text-gray-500">{error || 'Battle not found'}</p>
+        <button onClick={onBack} className="mt-4 text-[#E36B11] font-semibold">← Back</button>
+      </div>
+    );
+  }
+
+  const isCreator = battle.creator._id === userId || battle.creator === userId;
+  const opponent = isCreator ? battle.opponent : battle.creator;
+  const myResults = (isCreator ? battle.creatorResults : battle.opponentResults) || [];
+  const oppResults = (isCreator ? battle.opponentResults : battle.creatorResults) || [];
+  const myPoints = myResults.reduce((sum: number, r: any) => sum + (r.points || 0), 0);
+  const oppPoints = oppResults.reduce((sum: number, r: any) => sum + (r.points || 0), 0);
+
+  return (
+    <BattleResultScreen
+      battle={{
+        _id: battle._id,
+        topic: battle.topic,
+        wager: battle.wager,
+        rounds: battle.rounds || 3,
+        status: battle.status,
+        creator: battle.creator,
+        opponent: battle.opponent,
+        questions: battle.questions || [],
+        creatorResults: battle.creatorResults || [],
+        opponentResults: battle.opponentResults || [],
+        creatorTotalPoints: battle.creatorTotalPoints || 0,
+        opponentTotalPoints: battle.opponentTotalPoints || 0,
+      }}
+      myResults={myResults}
+      opponentResults={oppResults}
+      myTotalPoints={myPoints}
+      opponentTotalPoints={oppPoints}
+      isCreator={isCreator}
+      userAvatar={userAvatar}
+      onBackToPool={onBack}
+      onRematch={() => {}}
+      onContinue={onBack}
     />
   );
 }

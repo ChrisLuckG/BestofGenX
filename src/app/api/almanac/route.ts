@@ -25,10 +25,27 @@ export async function GET(request: NextRequest) {
         query.born = { $regex: `-${mm}-${dd}$` };
       }
       if (search) {
-        query.$or = [
-          { firstname: { $regex: search, $options: 'i' } },
-          { lastname: { $regex: search, $options: 'i' } },
-        ];
+        // Split search into words to match both firstname and lastname
+        const searchWords = search.trim().split(/\s+/);
+        if (searchWords.length >= 2) {
+          // Multi-word search: try firstname + lastname combination
+          query.$or = [
+            // Match first word in firstname AND second word in lastname
+            { 
+              firstname: { $regex: searchWords[0], $options: 'i' },
+              lastname: { $regex: searchWords.slice(1).join(' '), $options: 'i' }
+            },
+            // Also try matching the full search in either field
+            { firstname: { $regex: search, $options: 'i' } },
+            { lastname: { $regex: search, $options: 'i' } },
+          ];
+        } else {
+          // Single word: search in both fields
+          query.$or = [
+            { firstname: { $regex: search, $options: 'i' } },
+            { lastname: { $regex: search, $options: 'i' } },
+          ];
+        }
       }
       if (filter && filterValue) {
         query[filter] = { $regex: `^${filterValue}$`, $options: 'i' };
@@ -110,17 +127,22 @@ export async function POST(request: NextRequest) {
     const { type, ...data } = body;
     
     if (type === 'people') {
+      // Calculate birth year and GenX status
+      let birthYear: number | undefined;
+      let isGenX = true;
+      
       if (data.born) {
-        const year = parseInt(data.born.substring(0, 4));
-        if (year < 1960 || year > 1981) {
-          return NextResponse.json({ success: false, error: `GenX only! Birthday must be 1960-1981 (got ${year})` }, { status: 400 });
+        birthYear = parseInt(data.born.substring(0, 4));
+        if (birthYear < 1960 || birthYear > 1981) {
+          return NextResponse.json({ success: false, error: `GenX only! Birthday must be 1960-1981 (got ${birthYear})` }, { status: 400 });
         }
+        isGenX = birthYear >= 1965 && birthYear <= 1980;
       }
       
-      // Check for duplicates by firstname + lastname
+      // Check for duplicates by firstname + lastname (case-insensitive)
       const existing = await Person.findOne({ 
-        firstname: data.firstname, 
-        lastname: data.lastname 
+        firstname: { $regex: new RegExp(`^${data.firstname}$`, 'i') },
+        lastname: { $regex: new RegExp(`^${data.lastname}$`, 'i') }
       });
       if (existing) {
         return NextResponse.json({ 
@@ -131,7 +153,15 @@ export async function POST(request: NextRequest) {
         });
       }
       
-      const person = await Person.create(data);
+      // Add computed fields
+      const personData = {
+        ...data,
+        birthYear,
+        isGenX,
+        discoveredAt: new Date(),
+      };
+      
+      const person = await Person.create(personData);
       return NextResponse.json({ success: true, data: person });
     }
     

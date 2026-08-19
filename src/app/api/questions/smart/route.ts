@@ -1,88 +1,97 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
-import { getQuestionsForUser, recordQuestionAnswer } from '@/lib/questionService';
+import Question from '@/models/Question';
+import UserQuestionHistory from '@/models/UserQuestionHistory';
+import mongoose from 'mongoose';
 
-/**
- * GET - Get smart questions for a user (avoiding recently seen)
- */
+const QUESTION_COOLDOWN_DAYS = 180;
+
 export async function GET(request: NextRequest) {
   try {
     await dbConnect();
     
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
-    const theme = searchParams.get('theme') || undefined;
-    const count = parseInt(searchParams.get('count') || '10');
-    const context = (searchParams.get('context') || 'game') as 'game' | 'battle';
-    const date = searchParams.get('date'); // For daily cards
+    const count = parseInt(searchParams.get('count') || '5');
+    const theme = searchParams.get('theme');
     
-    if (!userId) {
-      return NextResponse.json(
-        { success: false, error: 'userId is required' },
-        { status: 400 }
-      );
+    // Build query
+    const query: any = { active: true };
+    
+    if (theme && theme !== 'ALL') {
+      // Map frontend categories to DB themes
+      const themeMap: Record<string, string> = {
+        'MUSIC': 'MUSIC',
+        'SPORTS': 'SPORTS',
+        'TV & MOVIES': 'TV & MOVIES',
+        'TV': 'TV & MOVIES',
+        'MOVIES': 'TV & MOVIES',
+        'GAMING': 'GAMING',
+        'POLITIK': 'POLITIK',
+      };
+      query.theme = themeMap[theme.toUpperCase()] || theme;
+    }
+
+    // Get questions user has seen recently
+    let excludeIds: mongoose.Types.ObjectId[] = [];
+    
+    if (userId && userId !== 'guest' && mongoose.Types.ObjectId.isValid(userId)) {
+      const cooldownDate = new Date();
+      cooldownDate.setDate(cooldownDate.getDate() - QUESTION_COOLDOWN_DAYS);
+      
+      const seenHistory = await UserQuestionHistory.find({
+        userId: new mongoose.Types.ObjectId(userId),
+        answeredAt: { $gte: cooldownDate }
+      }).select('questionId').lean();
+      
+      excludeIds = seenHistory
+        .filter(h => h.questionId)
+        .map(h => h.questionId!);
+    }
+
+    // Exclude seen questions
+    if (excludeIds.length > 0) {
+      query._id = { $nin: excludeIds };
     }
     
-    const questions = await getQuestionsForUser(userId, {
-      theme,
-      count,
-      context,
-    });
-    
-    // If date filter is provided, filter by gameDate
-    let filteredQuestions = questions;
-    if (date) {
-      filteredQuestions = questions.filter(q => q.gameDate === date);
+    // Get random questions
+    let questions = await Question.aggregate([
+      { $match: query },
+      { $sample: { size: count } }
+    ]);
+
+    // If not enough, include seen questions
+    if (questions.length < count && excludeIds.length > 0) {
+      delete query._id;
+      const moreQuestions = await Question.aggregate([
+        { $match: query },
+        { $sample: { size: count } }
+      ]);
+      questions = moreQuestions;
     }
-    
-    return NextResponse.json({
-      success: true,
-      questions: filteredQuestions,
-      total: filteredQuestions.length,
-      hasUnseen: filteredQuestions.some(q => !q._seenByUser),
+
+    // Transform to frontend format (compatible with old Card format)
+    const result = questions.map(q => ({
+      _id: q._id,
+      theme: q.theme,
+      topic: q.topic,
+      // Wrap in questions array for backwards compatibility
+      questions: [{
+        question: q.question,
+        options: q.options,
+        correctAnswer: q.correctAnswer,
+        difficulty: q.difficulty,
+      }],
+    }));
+
+    return NextResponse.json({ 
+      success: true, 
+      questions: result,
+      total: result.length,
     });
-    
+
   } catch (error: any) {
     console.error('Smart questions error:', error);
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
-  }
-}
-
-/**
- * POST - Record that a user answered a question
- */
-export async function POST(request: NextRequest) {
-  try {
-    await dbConnect();
-    
-    const { userId, cardId, questionText, correct, context, battleId } = await request.json();
-    
-    if (!userId || !cardId || !questionText || correct === undefined) {
-      return NextResponse.json(
-        { success: false, error: 'Missing required fields' },
-        { status: 400 }
-      );
-    }
-    
-    await recordQuestionAnswer(
-      userId,
-      cardId,
-      questionText,
-      correct,
-      context || 'game',
-      battleId
-    );
-    
-    return NextResponse.json({ success: true });
-    
-  } catch (error: any) {
-    console.error('Record answer error:', error);
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

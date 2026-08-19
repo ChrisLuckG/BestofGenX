@@ -2,17 +2,29 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import Poll from '@/models/Poll';
 import Article from '@/models/Article';
+import { cache, CACHE_TTL } from '@/lib/cache';
 
 // GET - List all polls
 export async function GET(request: NextRequest) {
   try {
-    await dbConnect();
-    
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || 'active';
     const articleId = searchParams.get('articleId');
     const featured = searchParams.get('featured');
     const type = searchParams.get('type'); // 'simple', 'quiz', 'ranking'
+    
+    // Create cache key based on query params
+    const cacheKey = `polls:${status}:${type || 'all'}:${articleId || 'none'}:${featured || 'none'}`;
+    
+    // Try cache first for simple queries (no articleId filter)
+    if (!articleId) {
+      const cached = cache.get<any[]>(cacheKey);
+      if (cached) {
+        return NextResponse.json({ success: true, polls: cached, cached: true });
+      }
+    }
+    
+    await dbConnect();
     
     const query: any = {};
     
@@ -37,23 +49,48 @@ export async function GET(request: NextRequest) {
       .limit(50)
       .lean();
     
-    // Enrich polls with article images
-    const enrichedPolls = await Promise.all(polls.map(async (poll: any) => {
-      // Try to find article that links TO this poll (article.linkedContentId = poll._id)
-      const articleByContent = await Article.findOne({ linkedContentId: poll._id.toString() }).select('coverImage').lean();
-      if (articleByContent?.coverImage) {
-        return { ...poll, articleImage: articleByContent.coverImage };
+    // Batch fetch all related articles in ONE query instead of N queries
+    const pollIds = polls.map((p: any) => p._id.toString());
+    const linkedArticleIds = polls.map((p: any) => p.linkedArticleId).filter(Boolean);
+    
+    // Fetch articles that link TO polls OR are linked FROM polls
+    const articles = await Article.find({
+      $or: [
+        { linkedContentId: { $in: pollIds } },
+        { _id: { $in: linkedArticleIds } }
+      ]
+    }).select('_id linkedContentId coverImage').lean();
+    
+    // Create lookup maps for O(1) access
+    const articleByContentId = new Map<string, string>();
+    const articleById = new Map<string, string>();
+    articles.forEach((a: any) => {
+      if (a.linkedContentId && a.coverImage) {
+        articleByContentId.set(a.linkedContentId, a.coverImage);
       }
-      
-      // Fallback: try poll.linkedArticleId (if poll links to article)
-      if (poll.linkedArticleId) {
-        const article = await Article.findById(poll.linkedArticleId).select('coverImage').lean();
-        if (article?.coverImage) {
-          return { ...poll, articleImage: article.coverImage };
-        }
+      if (a._id && a.coverImage) {
+        articleById.set(a._id.toString(), a.coverImage);
+      }
+    });
+    
+    // Enrich polls with article images (no DB calls, just map lookups)
+    const enrichedPolls = polls.map((poll: any) => {
+      const pollIdStr = poll._id.toString();
+      // Try article that links TO this poll first
+      if (articleByContentId.has(pollIdStr)) {
+        return { ...poll, articleImage: articleByContentId.get(pollIdStr) };
+      }
+      // Fallback: poll links to article
+      if (poll.linkedArticleId && articleById.has(poll.linkedArticleId)) {
+        return { ...poll, articleImage: articleById.get(poll.linkedArticleId) };
       }
       return poll;
-    }));
+    });
+    
+    // Cache the result (2 minutes for polls)
+    if (!articleId) {
+      cache.set(cacheKey, enrichedPolls, CACHE_TTL.MEDIUM);
+    }
     
     return NextResponse.json({ success: true, polls: enrichedPolls });
   } catch (error: any) {

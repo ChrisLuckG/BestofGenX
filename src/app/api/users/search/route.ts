@@ -17,9 +17,13 @@ export async function GET(request: NextRequest) {
     }
     
     // Search by username (case-insensitive)
+    // Exclude bots and reporters (both isReporter and isAIReporter)
     const users = await User.find({
       username: { $regex: query, $options: 'i' },
-      isBot: { $ne: true } // Exclude bots
+      isBot: { $ne: true },
+      isReporter: { $ne: true },
+      isAIReporter: { $ne: true },
+      isDeleted: { $ne: true }
     })
       .select('_id username avatar country countryFlag bogxCoins')
       .limit(limit)

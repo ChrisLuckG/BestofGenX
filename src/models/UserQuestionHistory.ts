@@ -3,12 +3,13 @@ import mongoose from 'mongoose';
 export interface IUserQuestionHistory {
   _id?: string;
   userId: mongoose.Types.ObjectId;
-  cardId: mongoose.Types.ObjectId;
-  questionHash: string; // Hash of the question text for quick lookup
+  questionId: mongoose.Types.ObjectId;  // Reference to Question
+  cardId?: mongoose.Types.ObjectId;     // Legacy - kept for backwards compatibility
+  questionHash: string;
   answeredAt: Date;
   correct: boolean;
-  context: 'game' | 'battle'; // Where the question was answered
-  battleId?: mongoose.Types.ObjectId; // If answered in a battle
+  context: 'game' | 'battle';
+  battleId?: mongoose.Types.ObjectId;
 }
 
 const UserQuestionHistorySchema = new mongoose.Schema({
@@ -18,10 +19,15 @@ const UserQuestionHistorySchema = new mongoose.Schema({
     required: true,
     index: true,
   },
+  questionId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Question',
+    index: true,
+  },
   cardId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Card',
-    required: true,
+    // Not required anymore - legacy field
   },
   questionHash: {
     type: String,
@@ -49,9 +55,10 @@ const UserQuestionHistorySchema = new mongoose.Schema({
   timestamps: true,
 });
 
-// Compound index for efficient queries
-UserQuestionHistorySchema.index({ userId: 1, cardId: 1 });
+// Compound indexes
+UserQuestionHistorySchema.index({ userId: 1, questionId: 1 });
 UserQuestionHistorySchema.index({ userId: 1, questionHash: 1 });
+UserQuestionHistorySchema.index({ userId: 1, answeredAt: -1 });
 
 // Delete cached model to force reload
 if (mongoose.models.UserQuestionHistory) {

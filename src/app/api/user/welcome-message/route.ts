@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import User from '@/models/User';
 import GameResult from '@/models/GameResult';
+import Battle from '@/models/Battle';
 import { getUserLevel, getLevelIndex, getLevelProgress, LEVELS } from '@/utils/levels';
+import { cache, CACHE_TTL } from '@/lib/cache';
 
 // GET - Personalized welcome data for the welcome-back screen.
 // Returns ranking, points, streak, and "while you were away" events.
@@ -73,10 +75,59 @@ export async function GET(request: NextRequest) {
     // Streak (days in a row)
     const streak = user.streak || 0;
 
-    // "While you were away" events - always show interesting info
+    // "While you were away" events - use cached global stats
     const whileAwayEvents: any[] = [];
     
-    // 1. Find users who overtook this user since last visit
+    // Get cached global stats (shared across all users)
+    const globalStats = await cache.getOrFetch('welcome:globalStats', async () => {
+      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const yesterdayStart = new Date(yesterday);
+      yesterdayStart.setHours(0, 0, 0, 0);
+      const yesterdayEnd = new Date(yesterday);
+      yesterdayEnd.setHours(23, 59, 59, 999);
+      
+      // Run all global queries in parallel
+      const [totalPlayers, newPlayersCount, battlesLast24h, topYesterday, topBattler] = await Promise.all([
+        User.countDocuments({}),
+        User.countDocuments({ createdAt: { $gte: yesterday } }),
+        Battle.countDocuments({ createdAt: { $gte: yesterday }, status: 'completed' }),
+        GameResult.aggregate([
+          { $match: { createdAt: { $gte: yesterdayStart, $lte: yesterdayEnd } } },
+          { $group: { _id: '$userId', points: { $sum: '$pointsChange' } } },
+          { $sort: { points: -1 } },
+          { $limit: 1 },
+        ]),
+        Battle.aggregate([
+          { $match: { completedAt: { $gte: yesterdayStart, $lte: yesterdayEnd }, status: 'completed' } },
+          { $group: { _id: '$winner', wins: { $sum: 1 } } },
+          { $sort: { wins: -1 } },
+          { $limit: 1 },
+        ]),
+      ]);
+      
+      // Fetch winner/battler user info if needed
+      let winnerUser = null;
+      let battlerUser = null;
+      
+      if (topYesterday.length > 0 && topYesterday[0].points > 0) {
+        winnerUser = await User.findById(topYesterday[0]._id).select('username avatar country').lean();
+      }
+      if (topBattler.length > 0 && topBattler[0].wins >= 2) {
+        battlerUser = await User.findById(topBattler[0]._id).select('username avatar country').lean();
+      }
+      
+      return {
+        totalPlayers,
+        newPlayersCount,
+        battlesLast24h,
+        topYesterday: topYesterday[0] || null,
+        winnerUser,
+        topBattler: topBattler[0] || null,
+        battlerUser,
+      };
+    }, CACHE_TTL.MEDIUM); // Cache for 2 minutes
+    
+    // 1. Find users who overtook this user since last visit (user-specific, not cached)
     if (user.lastSeenRankAt && previousRank && currentRank > previousRank) {
       const overtakers = await User.find({
         bogxCoins: { $gt: totalPoints },
@@ -98,114 +149,56 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 2. Yesterday's winner (from GameResult aggregation)
-    try {
-      const GameResult = (await import('@/models/GameResult')).default;
-      const yesterdayDate = new Date(now);
-      yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-      const yesterdayStart = new Date(yesterdayDate);
-      yesterdayStart.setHours(0, 0, 0, 0);
-      const yesterdayEnd = new Date(yesterdayDate);
-      yesterdayEnd.setHours(23, 59, 59, 999);
-      
-      const topYesterday = await GameResult.aggregate([
-        { $match: { createdAt: { $gte: yesterdayStart, $lte: yesterdayEnd } } },
-        { $group: { _id: '$userId', points: { $sum: '$pointsChange' } } },
-        { $sort: { points: -1 } },
-        { $limit: 1 },
-      ]);
-      
-      if (topYesterday.length > 0 && topYesterday[0].points > 0) {
-        const winnerId = topYesterday[0]._id;
-        const winnerUser = await User.findById(winnerId).select('username avatar country').lean();
-        if (winnerUser && (winnerUser as any).username !== user.username) {
-          const country = (winnerUser as any).country;
-          const countryText = country ? ` from ${country}` : '';
-          whileAwayEvents.push({
-            type: 'winner',
-            icon: '👑',
-            avatar: (winnerUser as any).avatar,
-            text: `${(winnerUser as any).username}${countryText} won yesterday`,
-            highlight: `+${topYesterday[0].points.toFixed(1)} BOGX`,
-          });
-        }
-      }
-    } catch (e) {
-      // Skip if aggregation fails
+    // 2. Yesterday's winner (from cached stats)
+    if (globalStats.winnerUser && (globalStats.winnerUser as any).username !== user.username) {
+      const country = (globalStats.winnerUser as any).country;
+      const countryText = country ? ` from ${country}` : '';
+      whileAwayEvents.push({
+        type: 'winner',
+        icon: '👑',
+        avatar: (globalStats.winnerUser as any).avatar,
+        text: `${(globalStats.winnerUser as any).username}${countryText} won yesterday`,
+        highlight: `+${globalStats.topYesterday.points.toFixed(1)} BOGX`,
+      });
     }
 
     // 3. Total players in community
-    const totalPlayers = await User.countDocuments({});
-    if (totalPlayers > 10) {
+    if (globalStats.totalPlayers > 10) {
       whileAwayEvents.push({
         type: 'community',
         text: `You're #${currentRank} of`,
-        highlight: `${totalPlayers.toLocaleString()} players`,
+        highlight: `${globalStats.totalPlayers.toLocaleString()} players`,
       });
     }
 
     // 4. New players joined (last 24h)
-    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const newPlayersCount = await User.countDocuments({ createdAt: { $gte: yesterday } });
-    if (newPlayersCount > 0) {
+    if (globalStats.newPlayersCount > 0) {
       whileAwayEvents.push({
         type: 'newPlayers',
-        text: `${newPlayersCount} new player${newPlayersCount > 1 ? 's' : ''}`,
+        text: `${globalStats.newPlayersCount} new player${globalStats.newPlayersCount > 1 ? 's' : ''}`,
         highlight: 'joined today',
       });
     }
 
-    // 5. Battles played recently (if Battle model exists)
-    try {
-      const Battle = (await import('@/models/Battle')).default;
-      const battlesLast24h = await Battle.countDocuments({ 
-        createdAt: { $gte: yesterday },
-        status: 'completed'
+    // 5. Battles played recently
+    if (globalStats.battlesLast24h > 0) {
+      whileAwayEvents.push({
+        type: 'battles',
+        icon: '⚔️',
+        text: `${globalStats.battlesLast24h} battle${globalStats.battlesLast24h > 1 ? 's' : ''} played`,
+        highlight: 'in the last 24h',
       });
-      if (battlesLast24h > 0) {
-        whileAwayEvents.push({
-          type: 'battles',
-          icon: '⚔️',
-          text: `${battlesLast24h} battle${battlesLast24h > 1 ? 's' : ''} played`,
-          highlight: 'in the last 24h',
-        });
-      }
-    } catch (e) {
-      // Skip if Battle model doesn't exist
     }
 
-    // 6. Top battle winner (most BOGX won in battles yesterday)
-    try {
-      const Battle = (await import('@/models/Battle')).default;
-      const yesterdayDate = new Date(now);
-      yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-      const yesterdayStart = new Date(yesterdayDate);
-      yesterdayStart.setHours(0, 0, 0, 0);
-      const yesterdayEnd = new Date(yesterdayDate);
-      yesterdayEnd.setHours(23, 59, 59, 999);
-      
-      const topBattler = await Battle.aggregate([
-        { $match: { completedAt: { $gte: yesterdayStart, $lte: yesterdayEnd }, status: 'completed' } },
-        { $group: { _id: '$winner', wins: { $sum: 1 } } },
-        { $sort: { wins: -1 } },
-        { $limit: 1 },
-      ]);
-      
-      if (topBattler.length > 0 && topBattler[0].wins >= 2) {
-        const battlerId = topBattler[0]._id;
-        const battlerUser = await User.findById(battlerId).select('username avatar country').lean();
-        if (battlerUser && (battlerUser as any).username !== user.username) {
-          whileAwayEvents.push({
-            type: 'topBattler',
-            icon: '🏆',
-            avatar: (battlerUser as any).avatar,
-            text: `${(battlerUser as any).username} dominated battles`,
-            highlight: `${topBattler[0].wins} wins`,
-          });
-        }
-      }
-    } catch (e) {
-      // Skip if aggregation fails
+    // 6. Top battle winner
+    if (globalStats.battlerUser && (globalStats.battlerUser as any).username !== user.username) {
+      whileAwayEvents.push({
+        type: 'topBattler',
+        icon: '🏆',
+        avatar: (globalStats.battlerUser as any).avatar,
+        text: `${(globalStats.battlerUser as any).username} dominated battles`,
+        highlight: `${globalStats.topBattler.wins} wins`,
+      });
     }
 
     // 7. User's streak info

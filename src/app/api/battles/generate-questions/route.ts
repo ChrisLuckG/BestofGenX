@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongoose";
-import Card from "@/models/Card";
+import Question from "@/models/Question";
 import UserQuestionHistory from "@/models/UserQuestionHistory";
 import { themeForTopic } from "@/lib/battleTopics";
 import mongoose from "mongoose";
@@ -14,12 +14,9 @@ export async function POST(request: NextRequest) {
     
     const { topic, count = 3, player1Id, player2Id } = await request.json();
     
-    console.log(`Fetching ${count} battle questions from Card pool for topic: ${topic || 'random'}`);
+    console.log(`Fetching ${count} battle questions for topic: ${topic || 'random'}`);
 
-    // Build query - get active cards, optionally filter by theme.
-    // NOTE: topic.toUpperCase() was wrong - battle topics don't match the stored
-    // theme strings ('tv' -> 'TV' but the DB holds 'TV SHOWS', 'film' -> 'MOVIES').
-    // That silently matched nothing, or served questions from every category.
+    // Build query
     const query: Record<string, unknown> = { active: true };
     if (topic && topic !== 'random' && topic !== 'MIX') {
       const theme = themeForTopic(topic);
@@ -32,8 +29,8 @@ export async function POST(request: NextRequest) {
       query.theme = theme;
     }
 
-    // Get cards both players have seen in the last 6 months
-    const excludeCardIds: Set<string> = new Set();
+    // Get questions both players have seen
+    const excludeIds: Set<string> = new Set();
     const cooldownDate = new Date();
     cooldownDate.setDate(cooldownDate.getDate() - QUESTION_COOLDOWN_DAYS);
     
@@ -41,74 +38,61 @@ export async function POST(request: NextRequest) {
       const seenHistory = await UserQuestionHistory.find({
         userId: new mongoose.Types.ObjectId(playerId),
         answeredAt: { $gte: cooldownDate }
-      }).select('cardId').lean();
+      }).select('questionId').lean();
       
-      seenHistory.forEach(h => excludeCardIds.add(h.cardId.toString()));
+      seenHistory
+        .filter(h => h.questionId)
+        .forEach(h => excludeIds.add(h.questionId.toString()));
     }
     
-    if (excludeCardIds.size > 0) {
-      query._id = { $nin: Array.from(excludeCardIds).map(id => new mongoose.Types.ObjectId(id)) };
-      console.log(`Excluding ${excludeCardIds.size} recently seen cards`);
+    if (excludeIds.size > 0) {
+      query._id = { $nin: Array.from(excludeIds).map(id => new mongoose.Types.ObjectId(id)) };
+      console.log(`Excluding ${excludeIds.size} recently seen questions`);
     }
 
-    // Get all matching cards from the pool
-    const cards = await Card.find(query).lean();
-    
-    if (!cards || cards.length === 0) {
-      console.error('No cards found in pool');
-      return NextResponse.json({ success: false, error: "No cards in pool" }, { status: 500 });
-    }
+    // Get random questions
+    let questions = await Question.aggregate([
+      { $match: query },
+      { $sample: { size: count } }
+    ]);
 
-    // Flatten all questions from all cards
-    interface QuestionFromCard {
-      question: string;
-      options: (string | number)[];
-      correctAnswer: string | number;
-      difficulty: number;
-      difficultyText: string;
-      maxReward: number;
+    // If not enough, include seen questions
+    if (questions.length < count && excludeIds.size > 0) {
+      console.log(`Not enough unseen (${questions.length}), including all`);
+      delete query._id;
+      questions = await Question.aggregate([
+        { $match: query },
+        { $sample: { size: count } }
+      ]);
     }
     
-    const allQuestions: { card: typeof cards[0]; q: QuestionFromCard }[] = [];
-    for (const card of cards) {
-      if (card.questions && Array.isArray(card.questions)) {
-        for (const q of card.questions as QuestionFromCard[]) {
-          allQuestions.push({ card, q });
-        }
-      }
+    if (!questions || questions.length === 0) {
+      console.error('No questions found');
+      return NextResponse.json({ success: false, error: "No questions in pool" }, { status: 500 });
     }
-
-    if (allQuestions.length < count) {
-      console.error(`Not enough questions: have ${allQuestions.length}, need ${count}`);
-      return NextResponse.json({ success: false, error: "Not enough questions in pool" }, { status: 500 });
-    }
-
-    // Shuffle and pick random questions
-    const shuffled = allQuestions.sort(() => Math.random() - 0.5);
-    const selected = shuffled.slice(0, count);
 
     // Transform to battle format
-    const questions = selected.map(({ q }) => {
-      // Find correct answer index
-      const correctIndex = q.options.findIndex(opt => String(opt) === String(q.correctAnswer));
+    const result = questions.map(q => {
+      const correctIndex = q.options.findIndex((opt: string) => opt === q.correctAnswer);
       
-      // Calculate points based on difficulty
-      const points = q.difficulty === 1 ? 100 : q.difficulty === 3 ? 200 : 300;
+      // Points based on difficulty
+      const points = q.difficulty === 'Easy' ? 100 : q.difficulty === 'Medium' ? 200 : 300;
       
       return {
+        _id: q._id,
         question: q.question,
-        answers: q.options.map(String),
+        answers: q.options,
         correctIndex: correctIndex >= 0 ? correctIndex : 0,
-        difficulty: q.difficultyText?.toLowerCase() || "medium",
+        difficulty: q.difficulty?.toLowerCase() || "medium",
         points
       };
     });
 
-    console.log(`Successfully fetched ${questions.length} questions from Card pool`);
+    console.log(`Successfully fetched ${result.length} questions`);
 
     return NextResponse.json({
       success: true,
-      questions
+      questions: result
     });
 
   } catch (error: unknown) {

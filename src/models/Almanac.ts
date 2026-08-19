@@ -11,24 +11,44 @@ const SocialMediaSchema = new mongoose.Schema({
   website: String,
 }, { _id: false });
 
-// Person (Best of GenX)
+// Person (Best of GenX) - UNIFIED model (replaces old Menschen model)
 export interface IPerson {
   _id?: string;
+  // Name fields
   firstname: string;
   lastname: string;
+  
+  // Dates (YYYY-MM-DD format)
   born?: string;
   died?: string;
   causeOfDeath?: string;
-  profession: string;
-  subcat?: string;
+  
+  // Classification
+  profession: string; // Music, Actor, Sport, Politik, Art, Tech, Comedy, Model, Other
+  subcat?: string; // More specific: "Rock Singer", "Boxer", etc.
+  category?: string; // sports, music, movies-tv, politics, gaming, lifestyle, culture
+  
+  // Description
   knownfor?: string;
+  description?: string;
+  shortBio?: string;
+  
+  // Location
   countryBorn?: string;
   cityBorn?: string;
   countryDied?: string;
   nationality?: string;
+  countryCode?: string; // ISO code for flag
+  
+  // Family
   parents?: string;
   siblings?: number;
+  
+  // Media
   image?: string;
+  wikiUrl?: string;
+  
+  // Social media
   social?: {
     twitter?: string;
     instagram?: string;
@@ -38,6 +58,8 @@ export interface IPerson {
     facebook?: string;
     website?: string;
   };
+  
+  // Saved news clippings
   savedNews?: {
     headline: string;
     body: string;
@@ -45,33 +67,72 @@ export interface IPerson {
     category: string;
     savedAt: string;
   }[];
+  
+  // GenX status
+  isGenX?: boolean; // born 1965-1980
+  birthYear?: number;
+  
   // Article tracking
   hasArticle?: boolean;
   articleId?: string;
   articleCreatedAt?: Date;
-  // Discovery tracking
+  articleCreatedBy?: string;
+  
+  // Discovery tracking (from Editorial Conference)
   discoveredBy?: string;
   discoveredByName?: string;
   discoveredFor?: 'birthday' | 'rip';
+  discoveredAt?: Date;
+  
+  // Verification status
+  isVerified?: boolean;
+  isRejected?: boolean;
+  rejectionReason?: string;
+  
+  // Timestamps
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 const PersonSchema = new mongoose.Schema({
-  firstname: { type: String, required: true },
-  lastname: { type: String, required: true },
-  born: String,
+  // Name
+  firstname: { type: String, required: true, index: true },
+  lastname: { type: String, required: true, index: true },
+  
+  // Dates (YYYY-MM-DD format)
+  born: { type: String, index: true },
   died: String,
   causeOfDeath: String,
+  
+  // Classification
   profession: { type: String, required: true, enum: ['Music', 'Actor', 'Sport', 'Politik', 'Art', 'Tech', 'Comedy', 'Model', 'Other'] },
   subcat: String,
+  category: { type: String, enum: ['sports', 'music', 'movies-tv', 'politics', 'gaming', 'lifestyle', 'culture', 'authors', 'unknown'] },
+  
+  // Description
   knownfor: String,
+  description: String,
+  shortBio: String,
+  
+  // Location
   countryBorn: String,
   cityBorn: String,
   countryDied: String,
   nationality: String,
+  countryCode: String,
+  
+  // Family
   parents: String,
   siblings: Number,
+  
+  // Media
   image: String,
+  wikiUrl: String,
+  
+  // Social media
   social: SocialMediaSchema,
+  
+  // Saved news
   savedNews: [{
     headline: String,
     body: String,
@@ -79,15 +140,31 @@ const PersonSchema = new mongoose.Schema({
     category: String,
     savedAt: String,
   }],
+  
+  // GenX status
+  isGenX: { type: Boolean, default: true },
+  birthYear: Number,
+  
   // Article tracking
-  hasArticle: { type: Boolean, default: false },
+  hasArticle: { type: Boolean, default: false, index: true },
   articleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article' },
   articleCreatedAt: Date,
+  articleCreatedBy: String,
+  
   // Discovery tracking (from Editorial Conference)
   discoveredBy: String,
   discoveredByName: String,
   discoveredFor: { type: String, enum: ['birthday', 'rip'] },
+  discoveredAt: { type: Date, default: Date.now },
+  
+  // Verification status
+  isVerified: { type: Boolean, default: false },
+  isRejected: { type: Boolean, default: false },
+  rejectionReason: String,
 }, { timestamps: true });
+
+// Compound index for finding duplicates
+PersonSchema.index({ firstname: 1, lastname: 1 }, { unique: true });
 
 // Generic item for other categories
 export interface IAlmanacItem {

@@ -11,6 +11,8 @@ interface DesktopBattlesPageProps {
   pendingBattleId?: string | null;
   onPendingBattleHandled?: () => void;
   onBack?: () => void;
+  challengeTarget?: { id: string; username: string } | null;
+  onChallengeTargetHandled?: () => void;
 }
 
 export default function DesktopBattlesPage(props: DesktopBattlesPageProps) {

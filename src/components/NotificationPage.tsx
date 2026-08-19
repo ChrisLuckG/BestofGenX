@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Bell, BellOff, Check, Trophy, Settings, Swords, Trash2, Target, Music, X, ThumbsUp } from "lucide-react";
+import { Bell, BellOff, Check, Trophy, Settings, Swords, Trash2, Target, Music, X, ThumbsUp, Newspaper } from "lucide-react";
 import { sounds } from "@/utils/sounds";
 import { useAuth } from "@/context/AuthContext";
 import LogoLoader from "./LogoLoader";
 import BackButton from "./BackButton";
-import BattleResultCard from "./BattleResultCard";
+import { BattleResultScreen } from "./battles";
 import PredictionResultModal, { PredictionResultData } from "./PredictionResultModal";
 import { NewsSkeleton } from "@/components/desktop/DesktopSkeletons";
 import CoinAnimation from "./CoinAnimation";
@@ -24,6 +24,7 @@ interface Notification {
   message: string;
   avatar?: string;
   battleId?: string;
+  articleId?: string;
   wager?: number;
   topic?: string;
   createdAt: string;
@@ -58,9 +59,12 @@ interface BattleResult {
   myAvatar?: string;
   opponentAvatar?: string;
   opponentUsername: string;
-  myResults: { correct: boolean; points: number; answerIndex?: number }[];
-  opponentResults: { correct: boolean; points: number }[];
+  myResults: { correct: boolean; points: number; timeMs?: number; answerIndex?: number }[];
+  opponentResults: { correct: boolean; points: number; timeMs?: number }[];
   questions?: BattleQuestion[];
+  // Full battle object for BattleResultScreen
+  battle?: any;
+  isCreator?: boolean;
 }
 
 interface NotificationPageProps {
@@ -68,10 +72,17 @@ interface NotificationPageProps {
   onClose?: () => void; // Optional - not needed for standalone page
   onGoToProfile?: () => void;
   onGoToBattle?: (battleId: string) => void; // Navigate to battle and start it
+  onOpenArticle?: (articleId: string) => void; // Open the article a comment belongs to
+  onShowChallenge?: (battleId: string, notificationId?: string) => void; // Show challenge in content area (desktop)
+  onShowBattleResult?: (battleId: string) => void; // Show battle result in content area (desktop)
   autoEnable?: 'email' | 'sms' | null;
   onPointsAwarded?: (amount: number) => void; // Trigger coin animation
   autoOpenSettings?: boolean; // Open settings view directly
   onSettingsClosed?: () => void; // Called when settings view is closed
+  onChallengeDeclined?: (notificationId?: string) => void; // Called when a battle challenge is declined, with notification ID
+  compact?: boolean; // Compact mode for sidebar widget - shows only first 5 notifications
+  onViewAll?: () => void; // Called when "View All" is clicked in compact mode
+  onOpenSettings?: () => void; // Called when bell icon is clicked in compact mode to open notification settings
 }
 
 // Simple Notification Item with X button
@@ -80,14 +91,67 @@ function NotificationItem({
   onDismiss, 
   onClick, 
   timeAgo, 
-  isUnread 
+  isUnread,
+  compact = false,
+  isActive = false
 }: { 
   notif: Notification; 
   onDismiss: () => void; 
   onClick: () => void;
   timeAgo: (date: string) => string;
   isUnread: boolean;
+  compact?: boolean;
+  isActive?: boolean;
 }) {
+  // Compact mode: two-line layout for sidebar widget
+  // Row 1: avatar | title | date | trash
+  // Row 2: message text
+  if (compact) {
+    return (
+      <div 
+        className={`relative p-2 rounded-lg border transition-all duration-200 cursor-pointer group ${
+          isActive
+            ? 'bg-[#E36B11] border-[#E36B11]'
+            : isUnread 
+              ? 'bg-[#E36B11]/10 border-[#E36B11]/30 hover:bg-[#E36B11] hover:border-[#E36B11]' 
+              : 'bg-cream border-warm hover:bg-[#E36B11] hover:border-[#E36B11]'
+        }`}
+        onClick={onClick}
+      >
+        {/* Row 1: avatar | title | date | trash */}
+        <div className="flex items-center gap-2">
+          {/* Small avatar with orange border */}
+          {notif.avatar ? (
+            <img src={notif.avatar} alt="" className={`w-5 h-5 rounded-full flex-shrink-0 border transition-colors ${isActive ? 'border-white' : 'border-[#E36B11] group-hover:border-white'}`} />
+          ) : (
+            <div className={`w-5 h-5 rounded-full flex-shrink-0 border transition-colors ${isActive ? 'border-white bg-white/20' : 'bg-gray-200 border-[#E36B11] group-hover:border-white group-hover:bg-white/20'}`} />
+          )}
+          
+          {/* Title */}
+          <span className={`font-display text-sm tracking-wide truncate flex-1 transition-colors ${isActive ? 'text-white' : 'text-gray-900 group-hover:text-white'}`}>{notif.title}</span>
+          
+          {/* Date */}
+          <span className={`font-display text-[10px] tracking-wide flex-shrink-0 transition-colors ${isActive ? 'text-white/70' : 'text-gray-400 group-hover:text-white/70'}`}>{timeAgo(notif.createdAt)}</span>
+          
+          {/* Trash Button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDismiss();
+            }}
+            className={`w-5 h-5 flex items-center justify-center rounded transition-colors flex-shrink-0 ${isActive ? 'text-white/70 hover:text-white hover:bg-white/20' : 'text-gray-400 hover:text-red-400 hover:bg-red-50 group-hover:text-white/70 group-hover:hover:text-white group-hover:hover:bg-white/20'}`}
+          >
+            <Trash2 className="w-3 h-3" />
+          </button>
+        </div>
+        
+        {/* Row 2: message text - starts at same position as avatar */}
+        <p className={`font-display text-[11px] tracking-wide truncate mt-0.5 transition-colors ${isActive ? 'text-white/80' : 'text-gray-500 group-hover:text-white/80'}`}>{notif.message}</p>
+      </div>
+    );
+  }
+
+  // Full mode: original layout
   return (
     <div className={`relative flex items-start gap-3 p-3 rounded-xl border transition-colors ${
       isUnread 
@@ -174,19 +238,22 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray;
 }
 
-export default function NotificationPage({ isOpen = true, onClose, onGoToProfile, onGoToBattle, autoEnable, onNewNotification, onPointsAwarded, autoOpenSettings, onSettingsClosed }: NotificationPageProps & { onNewNotification?: () => void }) {
+export default function NotificationPage({ isOpen = true, onClose, onGoToProfile, onGoToBattle, onShowBattleResult, onOpenArticle, onShowChallenge, autoEnable, onNewNotification, onPointsAwarded, autoOpenSettings, onSettingsClosed, onChallengeDeclined, compact = false, onViewAll, onOpenSettings }: NotificationPageProps & { onNewNotification?: () => void }) {
   const { user, isLoggedIn } = useAuth();
   const [showSettings, setShowSettings] = useState(false);
   
-  // Update showSettings when autoOpenSettings prop changes or on mount
+  // Reset showSettings when component mounts (unless autoOpenSettings is true)
   useEffect(() => {
     if (autoOpenSettings) {
       // Small delay to ensure component is fully mounted
       setTimeout(() => setShowSettings(true), 100);
+    } else {
+      // Reset to notifications view when opening
+      setShowSettings(false);
     }
   }, [autoOpenSettings]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loadingNotifications, setLoadingNotifications] = useState(true); // Only true on first load
+  const [loadingNotifications, setLoadingNotifications] = useState(false); // Start false, set true when loading
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [selectedBattle, setSelectedBattle] = useState<BattleResult | null>(null);
   const [selectedChallenge, setSelectedChallenge] = useState<any | null>(null);
@@ -195,6 +262,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
   const [decliningChallenge, setDecliningChallenge] = useState(false);
   const [dismissedNotifications, setDismissedNotifications] = useState<Set<string>>(new Set());
   const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set());
+  const [activeNotificationId, setActiveNotificationId] = useState<string | null>(null);
   const [testPushLoading, setTestPushLoading] = useState(false);
   
   // Send test push notification
@@ -257,8 +325,35 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
       }, 10000);
       
       return () => clearInterval(interval);
+    } else if (!isLoggedIn) {
+      // Not logged in - stop loading spinner
+      setLoadingNotifications(false);
     }
   }, [isOpen, isLoggedIn, user?.id, showSettings]);
+
+  // Listen for notification-read events from other instances (widget <-> full page sync)
+  useEffect(() => {
+    const handleNotificationRead = (e: CustomEvent) => {
+      const { notificationId } = e.detail;
+      if (notificationId) {
+        setReadNotifications(prev => {
+          const newSet = new Set(prev);
+          newSet.add(notificationId);
+          return newSet;
+        });
+      }
+    };
+    
+    window.addEventListener('notification-read', handleNotificationRead as EventListener);
+    return () => window.removeEventListener('notification-read', handleNotificationRead as EventListener);
+  }, []);
+
+  // The parent closed a notification detail view (BACK) - drop the highlight
+  useEffect(() => {
+    const clearActive = () => setActiveNotificationId(null);
+    window.addEventListener('notification-view-closed', clearActive);
+    return () => window.removeEventListener('notification-view-closed', clearActive);
+  }, []);
 
   const loadNotifications = async (silent: boolean = false) => {
     if (!user?.id) return;
@@ -303,9 +398,16 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
     return `${Math.floor(diff / 86400)}d ago`;
   };
 
-  // Load battle details for modal
+  // Load battle details for modal (or navigate to content area on desktop)
   const loadBattleDetails = async (battleId: string) => {
     if (!user?.id) return;
+    
+    // If onShowBattleResult callback is provided (desktop), use it instead of modal
+    if (onShowBattleResult) {
+      onShowBattleResult(battleId);
+      return;
+    }
+    
     setLoadingBattle(true);
     try {
       const res = await fetch(`/api/battles/${battleId}`);
@@ -323,6 +425,34 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
         const myPoints = myResults.reduce((sum: number, r: any) => sum + (r.points || 0), 0);
         const oppPoints = oppResults.reduce((sum: number, r: any) => sum + (r.points || 0), 0);
         
+        // Build a Battle object for BattleResultScreen
+        // Ensure creator and opponent have proper avatar/username data
+        // The API populates these fields, but we need fallbacks
+        const creatorData = battle.creator?._id 
+          ? battle.creator 
+          : { _id: battle.creator, username: 'Player 1', avatar: '/images/default-avatar.png' };
+        
+        const opponentData = battle.opponent?._id 
+          ? battle.opponent 
+          : battle.opponent 
+            ? { _id: battle.opponent, username: 'Player 2', avatar: '/images/default-avatar.png' }
+            : { _id: 'unknown', username: 'Opponent', avatar: '/images/default-avatar.png' };
+        
+        const battleObj = {
+          _id: battle._id,
+          creator: creatorData,
+          opponent: opponentData,
+          topic: battle.topic,
+          wager: battle.wager,
+          rounds: battle.rounds || 3,
+          status: battle.status,
+          questions: battle.questions || [],
+          creatorResults: battle.creatorResults || [],
+          opponentResults: battle.opponentResults || [],
+          creatorTotalPoints: battle.creatorTotalPoints || 0,
+          opponentTotalPoints: battle.opponentTotalPoints || 0,
+        };
+        
         setSelectedBattle({
           id: battle._id,
           topic: battle.topic,
@@ -336,6 +466,8 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
           myResults,
           opponentResults: oppResults,
           questions: battle.questions || [],
+          battle: battleObj,
+          isCreator,
         });
       }
     } catch (error) {
@@ -346,7 +478,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
   };
 
   // Load challenge details for modal
-  const loadChallengeDetails = async (battleId: string) => {
+  const loadChallengeDetails = async (battleId: string, notificationId?: string) => {
     if (!user?.id) return;
     setLoadingBattle(true);
     try {
@@ -358,6 +490,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
         
         setSelectedChallenge({
           id: battle._id,
+          notificationId, // Store notification ID for deletion after decline
           topic: battle.topic,
           wager: battle.wager,
           rounds: battle.rounds || 3,
@@ -376,7 +509,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
     }
   };
 
-  // Decline a battle challenge - refunds the creator
+  // Decline a battle challenge - refunds the creator and deletes notification
   const handleDeclineChallenge = async () => {
     if (!selectedChallenge || !user?.id || decliningChallenge) return;
     setDecliningChallenge(true);
@@ -388,7 +521,19 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
       });
       const data = await res.json();
       if (data.success) {
+        // Also delete the notification
+        if (selectedChallenge.notificationId) {
+          // Extract MongoDB ID (remove 'notif-' prefix if present)
+          const mongoId = selectedChallenge.notificationId.startsWith('notif-') 
+            ? selectedChallenge.notificationId.replace('notif-', '') 
+            : selectedChallenge.notificationId;
+          await fetch(`/api/notifications/${mongoId}`, { method: 'DELETE' });
+          // Remove from local list
+          setNotifications(prev => prev.filter(n => n.id !== selectedChallenge.notificationId));
+        }
         setSelectedChallenge(null);
+        // Notify parent to update pending challenge count (Trivia badge) and refresh sidebar
+        onChallengeDeclined?.(selectedChallenge.notificationId);
       } else {
         console.error('Failed to decline challenge:', data.error);
       }
@@ -591,6 +736,187 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
     }
   };
 
+  // Shared dismiss handler for both compact and full mode
+  // Deletes the notification from the database permanently
+  const handleDismissNotification = async (notif: Notification) => {
+    if (!user?.id) return;
+    
+    // Optimistically remove from local state first
+    setNotifications(prev => prev.filter(n => n.id !== notif.id));
+    
+    try {
+      // Delete notification - pass userId for virtual notifications (battle-result, prediction-result)
+      // The API will handle both DB notifications and virtual ones
+      const res = await fetch(`/api/notifications/${encodeURIComponent(notif.id)}?userId=${user.id}`, { 
+        method: 'DELETE' 
+      });
+      const data = await res.json();
+      
+      if (!data.success) {
+        console.error('[Notification] Failed to delete:', data.error);
+      }
+    } catch (error) {
+      console.error('[Notification] Delete error:', error);
+    }
+  };
+
+  // COMPACT MODE - Sidebar widget version (uses same NotificationItem component)
+  if (compact) {
+    const visibleNotifications = notifications.filter(n => !dismissedNotifications.has(n.id)).slice(0, 5);
+    const unreadCount = notifications.filter(n => !n.read && !dismissedNotifications.has(n.id)).length;
+    
+    return (
+      <div className="bg-[#F5F0E8] rounded-xl border border-warm overflow-hidden shadow-sm">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-warm">
+          <div className="flex items-center gap-2">
+            <Newspaper className="w-4 h-4 text-[#E36B11]" />
+            <span className="font-display text-sm tracking-wider uppercase text-gray-900">News</span>
+            {unreadCount > 0 && (
+              <span className="min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </div>
+          <button 
+            onClick={onOpenSettings} 
+            className={`p-1.5 rounded-full transition-colors ${pushEnabled ? 'bg-[#E36B11]/20' : 'hover:bg-[#E36B11]/10'}`}
+          >
+            <Bell className={`w-4 h-4 ${pushEnabled ? 'text-[#E36B11] fill-[#E36B11]' : 'text-[#E36B11]'}`} />
+          </button>
+        </div>
+        {/* Notifications list - max 5 visible, then scroll (hidden scrollbar) */}
+        <div className="px-2 py-2 space-y-2 max-h-[320px] overflow-y-auto scrollbar-hide">
+          {loadingNotifications ? (
+            <div className="flex items-center justify-center py-4">
+              <div className="w-5 h-5 border-2 border-[#E36B11]/30 border-t-[#E36B11] rounded-full animate-spin" />
+            </div>
+          ) : visibleNotifications.length === 0 ? (
+            <div className="py-8 px-4 text-center">
+              <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-[#E36B11]/10 flex items-center justify-center">
+                <Bell className="w-6 h-6 text-[#E36B11]/40" />
+              </div>
+              <p className="text-sm font-medium text-gray-600">All caught up!</p>
+              <p className="text-xs text-gray-400 mt-1">No new notifications</p>
+            </div>
+          ) : (
+            visibleNotifications.map((notif) => (
+              <NotificationItem
+                key={notif.id}
+                notif={notif}
+                isUnread={!notif.read && !readNotifications.has(notif.id)}
+                isActive={activeNotificationId === notif.id}
+                onDismiss={() => handleDismissNotification(notif)}
+                onClick={() => {
+                  // Set as active notification
+                  setActiveNotificationId(notif.id);
+                  
+                  // Mark as read locally
+                  setReadNotifications(prev => {
+                    const newSet = new Set(prev);
+                    newSet.add(notif.id);
+                    return newSet;
+                  });
+                  
+                  // Dispatch event so other instances (widget/full page) sync
+                  window.dispatchEvent(new CustomEvent('notification-read', { detail: { notificationId: notif.id } }));
+                  
+                  // Mark as read on server
+                  if (user?.id) {
+                    fetch('/api/notifications/mark-single-read', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ userId: user.id, notificationId: notif.id })
+                    }).catch(() => {});
+                  }
+                  
+                  // Convert battleId to string if it's an ObjectId
+                  const battleIdStr = notif.battleId ? String(notif.battleId) : null;
+                  
+                  if (battleIdStr && notif.type === 'battle_challenge') {
+                    // Prefer showing it inline in the content area (desktop)
+                    if (onShowChallenge) {
+                      onShowChallenge(battleIdStr, notif.id);
+                    } else {
+                      setActiveNotificationId(null);
+                      loadChallengeDetails(battleIdStr, notif.id);
+                    }
+                  } else if (battleIdStr && notif.type === 'battle_result') {
+                    // Show battle result directly
+                    onShowBattleResult?.(battleIdStr);
+                  } else if (notif.type === 'comment_like') {
+                    // Open the article the comment belongs to
+                    if (notif.articleId) {
+                      onOpenArticle?.(String(notif.articleId));
+                    } else {
+                      setActiveNotificationId(null);
+                      onViewAll?.();
+                    }
+                  } else {
+                    // Default: open full notifications page
+                    setActiveNotificationId(null); // Clear active when navigating away
+                    onViewAll?.();
+                  }
+                }}
+                timeAgo={timeAgo}
+                compact={true}
+              />
+            ))
+          )}
+        </div>
+        {/* Footer with View All */}
+        <button 
+          onClick={onViewAll}
+          className="w-full flex items-center justify-center py-2.5 border-t border-warm hover:bg-[#E36B11]/5 transition-colors"
+        >
+          <span className="text-xs font-semibold text-[#E36B11] uppercase">View All</span>
+        </button>
+        
+        {/* Battle Challenge Modal - same as full version */}
+        {selectedChallenge && (
+          <div 
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+            onClick={() => setSelectedChallenge(null)}
+          >
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+            <div 
+              className="relative bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-center mb-4">
+                <Swords className="w-10 h-10 text-[#E36B11] mx-auto mb-2" />
+                <h3 className="font-bold text-gray-900 text-lg">Battle Challenge!</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  <strong>{selectedChallenge.challengerUsername}</strong> challenges you to a {selectedChallenge.topic.toUpperCase()} battle for <strong>{selectedChallenge.wager.toFixed(2)} BOGX</strong>
+                </p>
+              </div>
+              <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    const battleId = selectedChallenge.id;
+                    setSelectedChallenge(null);
+                    if (onGoToBattle) onGoToBattle(battleId);
+                  }}
+                  className="w-full py-2.5 bg-[#E36B11] text-white font-semibold rounded-lg hover:bg-[#C4772A] transition-colors"
+                >
+                  Accept & Play Now!
+                </button>
+                <button
+                  onClick={handleDeclineChallenge}
+                  disabled={decliningChallenge}
+                  className="w-full py-2.5 text-red-500 hover:text-red-600 font-semibold text-sm transition-colors disabled:opacity-50"
+                >
+                  {decliningChallenge ? 'Declining...' : 'Decline Challenge'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // FULL MODE - Regular notification page
   return (
     <div 
       className={`flex flex-col h-full overflow-hidden ${isOpen ? '' : 'hidden'}`}
@@ -642,8 +968,34 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto" style={{ backgroundColor: '#F5F0E8' }}>
       
+      {/* BATTLE RESULT VIEW - shown inline when a battle is selected */}
+      {!showSettings && selectedBattle && selectedBattle.battle && !loadingBattle && (
+        <div className="h-full">
+          <BattleResultScreen
+            battle={selectedBattle.battle}
+            myResults={selectedBattle.myResults.map(r => ({ ...r, timeMs: r.timeMs || 0 }))}
+            opponentResults={selectedBattle.opponentResults.map(r => ({ ...r, timeMs: r.timeMs || 0 }))}
+            myTotalPoints={selectedBattle.myPoints}
+            opponentTotalPoints={selectedBattle.opponentPoints}
+            isCreator={selectedBattle.isCreator || false}
+            userAvatar={selectedBattle.myAvatar}
+            onBackToPool={() => setSelectedBattle(null)}
+            onRematch={() => setSelectedBattle(null)}
+            onContinue={() => setSelectedBattle(null)}
+            isMobile={true}
+          />
+        </div>
+      )}
+      
+      {/* LOADING BATTLE */}
+      {!showSettings && loadingBattle && (
+        <div className="flex items-center justify-center h-full min-h-[300px]">
+          <LogoLoader size="md" text="Loading battle..." />
+        </div>
+      )}
+      
       {/* NOTIFICATION LIST VIEW */}
-      {!showSettings && (
+      {!showSettings && !selectedBattle && !loadingBattle && (
         <div className="px-4 py-3 space-y-2">
           {/* Guest - Full page message */}
           {!isLoggedIn && (
@@ -811,27 +1163,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
               key={notif.id}
               notif={notif}
               isUnread={!notif.read && !readNotifications.has(notif.id)}
-              onDismiss={() => {
-                // Update local state - also mark as read
-                setDismissedNotifications(prev => {
-                  const newSet = new Set(prev);
-                  newSet.add(notif.id);
-                  return newSet;
-                });
-                setReadNotifications(prev => {
-                  const newSet = new Set(prev);
-                  newSet.add(notif.id);
-                  return newSet;
-                });
-                // Persist to database
-                if (user?.id) {
-                  fetch('/api/notifications/dismiss', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: user.id, notificationId: notif.id })
-                  }).catch(() => {});
-                }
-              }}
+              onDismiss={() => handleDismissNotification(notif)}
               onClick={() => {
                 // Mark as read locally (removes highlight but keeps message)
                 setReadNotifications(prev => {
@@ -839,6 +1171,9 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
                   newSet.add(notif.id);
                   return newSet;
                 });
+                
+                // Dispatch event so other instances (widget/full page) sync
+                window.dispatchEvent(new CustomEvent('notification-read', { detail: { notificationId: notif.id } }));
                 
                 // Mark as read on server (NOT dismiss - just mark read)
                 if (user?.id) {
@@ -864,11 +1199,15 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
                     resolvedAt: notif.resolvedAt,
                     won: !!notif.won,
                   });
+                } else if (notif.type === 'comment_like' && notif.articleId) {
+                  onOpenArticle?.(String(notif.articleId));
                 } else if (notif.battleId) {
                   if (notif.type === 'battle_result') {
-                    loadBattleDetails(notif.battleId);
+                    if (onShowBattleResult) onShowBattleResult(String(notif.battleId));
+                    else loadBattleDetails(notif.battleId);
                   } else if (notif.type === 'battle_challenge') {
-                    loadChallengeDetails(notif.battleId);
+                    if (onShowChallenge) onShowChallenge(String(notif.battleId), notif.id);
+                    else loadChallengeDetails(notif.battleId, notif.id);
                   } else if (notif.type === 'battle_accepted') {
                     loadBattleDetails(notif.battleId);
                   }
@@ -997,56 +1336,24 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
         onPointsAwarded={onPointsAwarded}
       />
 
-      {/* Battle Result / Challenge Modals - rendered via portal so they always
+      {/* Challenge Modal - rendered via portal so they always
           escape any ancestor stacking context (e.g. Desktop's <main> is capped
           at z-0, which would otherwise trap a nested "fixed z-50" modal behind
-          the sticky header and make it invisible/unclickable). */}
+          the sticky header and make it invisible/unclickable). 
+          NOTE: Battle results are now shown inline, not as a modal. */}
       {typeof document !== 'undefined' && createPortal(
         <>
-      {/* Battle Result / Challenge Modal wrapper */}
-      {(selectedBattle || selectedChallenge || loadingBattle) && (
+      {/* Challenge Modal wrapper */}
+      {selectedChallenge && (
         <div 
           className="fixed inset-0 z-[200] flex items-center justify-center p-4"
-          onClick={() => !loadingBattle && (setSelectedBattle(null), setSelectedChallenge(null))}
+          onClick={() => setSelectedChallenge(null)}
         >
           {/* Blurry background - light theme */}
           <div className="absolute inset-0 bg-cream/90 backdrop-blur-md" />
           
-          {/* Loading */}
-          {loadingBattle && (
-            <div className="relative z-10">
-              <LogoLoader size="md" text="Loading..." />
-            </div>
-          )}
-          
-          {/* Result Card - using same component as BattlesPage */}
-          {selectedBattle && !loadingBattle && (
-            <div 
-              className="relative z-10 w-full max-w-sm mx-4 my-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <BattleResultCard
-                topic={selectedBattle.topic}
-                wager={selectedBattle.wager}
-                rounds={selectedBattle.rounds}
-                myResults={selectedBattle.myResults}
-                opponentResults={selectedBattle.opponentResults}
-                myTotalPoints={selectedBattle.myPoints}
-                opponentTotalPoints={selectedBattle.opponentPoints}
-                myAvatar={selectedBattle.myAvatar}
-                myUsername="You"
-                opponentAvatar={selectedBattle.opponentAvatar}
-                opponentUsername={selectedBattle.opponentUsername}
-                onClose={() => setSelectedBattle(null)}
-                showButtons={true}
-                forceComplete={true}
-                questions={selectedBattle.questions}
-              />
-            </div>
-          )}
-          
           {/* Challenge Details Card */}
-          {selectedChallenge && !loadingBattle && (
+          {selectedChallenge && (
             <div 
               className="relative z-10 w-full max-w-sm mx-4"
               onClick={(e) => e.stopPropagation()}

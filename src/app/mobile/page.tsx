@@ -522,9 +522,9 @@ export default function MobilePage() {
       const now = new Date();
       const germanTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
       const germanHour = germanTime.getHours();
-      // Game is LIVE from 10:00 to 09:00 next day (23 hours)
-      // Pause from 09:00 to 10:00 (1 hour)
-      const isLive = germanHour >= 10 || germanHour < 9;
+      const germanMinute = germanTime.getMinutes();
+      // Game is LIVE except during 5-minute break (9:55-10:00)
+      const isLive = !(germanHour === 9 && germanMinute >= 55);
       setIsGameLive(isLive);
       
       // Reset hasJoinedChallenge when game goes offline
@@ -646,21 +646,23 @@ export default function MobilePage() {
     
     const fetchUserRank = async () => {
       try {
-        // Use same endpoint as RankingsPage for consistency
+        // Same logic as desktop - use day rankings first
         const res = await fetch(`/api/rankings/snapshot?period=day`);
         const data = await res.json();
         if (data.rankings && Array.isArray(data.rankings)) {
-          // Find user in rankings - compare as strings
-          const myRankIndex = data.rankings.findIndex((r: any) => {
-            return user.id === r._id;
-          });
+          const myRankIndex = data.rankings.findIndex((r: any) => r._id === user.id);
           if (myRankIndex !== -1) {
-            // Use rank from data if available, otherwise use index + 1
             const rankData = data.rankings[myRankIndex];
             setUserRank(rankData.rank || myRankIndex + 1);
-          } else {
-            setUserRank(undefined); // Not in rankings yet
+            return;
           }
+        }
+        
+        // Fallback: get global rank by bogxCoins
+        const globalRes = await fetch(`/api/user/rank`);
+        const globalData = await globalRes.json();
+        if (globalData.rank) {
+          setUserRank(globalData.rank);
         }
       } catch (e) {
         console.error('Failed to fetch user rank:', e);
@@ -927,9 +929,15 @@ export default function MobilePage() {
       }
     };
     fetchBattleCounts();
-    const interval = setInterval(fetchBattleCounts, 60000);
-    return () => clearInterval(interval);
-  }, [isLoggedIn, user?.id]);
+    // Poll frequently so the badge clears as soon as a battle is finished
+    const interval = setInterval(fetchBattleCounts, 10000);
+    window.addEventListener('focus', fetchBattleCounts);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', fetchBattleCounts);
+    };
+    // arcadeGame/activeTab in deps: refetch when a game view is opened or closed
+  }, [isLoggedIn, user?.id, arcadeGame, activeTab]);
 
   // Fetch unread notification count on login and periodically
   useEffect(() => {

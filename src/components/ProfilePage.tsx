@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Camera, Edit2, Trophy, Coins, Target, LogOut, Lock, ChevronRight, User, Eye, EyeOff, X, Globe, FileText, Shield, HelpCircle, Phone, Check, Mail, Building, Bell, Share2, Upload } from "lucide-react";
+import { Camera, Edit2, Trophy, Coins, Target, LogOut, Lock, ChevronRight, User, Eye, EyeOff, X, Globe, FileText, Shield, HelpCircle, Phone, Check, Mail, Building, Bell, Share2, Upload, ArrowUp } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import PushNotifications from "./PushNotifications";
 import InviteModal from "./InviteModal";
@@ -56,21 +56,8 @@ function useAnimatedCounter(target: number, duration: number = 1000, decimals: n
 // Country options - imported from central list
 const countries = COUNTRIES;
 
-// Avatar options - 90s/00s themed
-const avatarOptions = [
-  "https://i.pravatar.cc/150?img=1",
-  "https://i.pravatar.cc/150?img=2",
-  "https://i.pravatar.cc/150?img=3",
-  "https://i.pravatar.cc/150?img=4",
-  "https://i.pravatar.cc/150?img=5",
-  "https://i.pravatar.cc/150?img=8",
-  "https://i.pravatar.cc/150?img=11",
-  "https://i.pravatar.cc/150?img=12",
-  "https://i.pravatar.cc/150?img=13",
-  "https://i.pravatar.cc/150?img=14",
-  "https://i.pravatar.cc/150?img=15",
-  "https://i.pravatar.cc/150?img=16",
-];
+// Avatar options are loaded from /public/images/Profil via /api/avatars,
+// so dropping a new image into that folder makes it available automatically.
 
 interface ProfilePageProps {
   coins: number;
@@ -104,6 +91,16 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
+  // Avatar options from /public/images/Profil (auto-updates when new files are added)
+  const [avatarOptions, setAvatarOptions] = useState<string[]>([]);
+  useEffect(() => {
+    if (!showAvatarPicker || avatarOptions.length > 0) return;
+    fetch('/api/avatars')
+      .then(res => res.json())
+      .then(data => { if (data.success) setAvatarOptions(data.avatars || []); })
+      .catch(() => {});
+  }, [showAvatarPicker, avatarOptions.length]);
+
   // Logout "See you soon" modal
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
@@ -132,7 +129,33 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
   const animatedWinRate = useAnimatedCounter(winRate, 1200);
   const animatedStreak = useAnimatedCounter(streak, 600);
 
+  // User's rank positions (daily/monthly/annually)
+  const [userRank, setUserRank] = useState<number | null>(null);
+  const [dailyRank, setDailyRank] = useState<number | null>(null);
+  const [dailyPoints, setDailyPoints] = useState(0);
+  const [monthlyRank, setMonthlyRank] = useState<number | null>(null);
+  const [monthlyPoints, setMonthlyPoints] = useState(0);
+  const [annuallyRank, setAnnuallyRank] = useState<number | null>(null);
+  const [annuallyPoints, setAnnuallyPoints] = useState(0);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    fetch(`/api/users/${user.id}/stats`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.rank) setUserRank(data.rank);
+        if (data.dailyRank) setDailyRank(data.dailyRank);
+        if (data.dailyPoints) setDailyPoints(data.dailyPoints);
+        if (data.monthlyRank) setMonthlyRank(data.monthlyRank);
+        if (data.monthlyPoints) setMonthlyPoints(data.monthlyPoints);
+        if (data.annuallyRank) setAnnuallyRank(data.annuallyRank);
+        if (data.annuallyPoints) setAnnuallyPoints(data.annuallyPoints);
+      })
+      .catch(() => {});
+  }, [user?.id]);
+
   // How the user earned their BOGX, derived server-side from the GameResult ledger
+  const [earningsExpanded, setEarningsExpanded] = useState(false);
   const [earnings, setEarnings] = useState<{
     breakdown: { key: string; label: string; icon: string; count: number; earned: number; lost: number; total: number }[];
     totalEarned: number;
@@ -160,6 +183,23 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
       .catch(() => {});
     return () => { cancelled = true; };
   }, [user?.id]);
+
+  // Category strengths - loaded from API
+  const [categoryStrengths, setCategoryStrengths] = useState<{ name: string; key: string; correct: number; total: number; pct: number }[]>([]);
+  const [categoryStrengthsLoading, setCategoryStrengthsLoading] = useState(false);
+  const [categoryStrengthsExpanded, setCategoryStrengthsExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id || !categoryStrengthsExpanded || categoryStrengths.length > 0) return;
+    setCategoryStrengthsLoading(true);
+    fetch(`/api/user/category-strengths?userId=${user.id}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) setCategoryStrengths(data.strengths || []);
+      })
+      .catch(() => {})
+      .finally(() => setCategoryStrengthsLoading(false));
+  }, [user?.id, categoryStrengthsExpanded, categoryStrengths.length]);
 
   if (!isLoggedIn || !user) {
     // This should never show - user gets redirected to home when logged out
@@ -301,233 +341,254 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
   // Member since date (placeholder - would come from user data)
   const memberSince = 'March 2026';
 
-  // Category strengths (placeholder - would come from API)
-  const categoryStrengths = [
-    { name: 'Music', pct: 70 },
-    { name: 'Sport', pct: 60 },
-    { name: 'Film', pct: 45 },
-    { name: 'Culture', pct: 30 },
-  ];
-
   return (
     <div className="w-full h-full min-h-full flex flex-col bg-cream overflow-hidden">
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
         
-        {/* Hero Card - Profile Header */}
+        {/* Hero Card - Profile Header - Compact */}
         <div className="mx-4 mt-4 bg-cream rounded-2xl shadow-sm border border-warm overflow-hidden">
           {/* Background gradient header */}
-          <div className="h-16 bg-gradient-to-br from-[#E36B11]/20 via-[#E36B11]/10 to-transparent" />
+          <div className="h-14 bg-gradient-to-br from-[#E36B11]/25 via-[#E36B11]/10 to-transparent" />
           
-          <div className="px-5 pb-5 -mt-10 relative">
-            {/* Edit Button */}
-            <button 
-              onClick={() => setIsEditing(true)}
-              className="absolute top-3 right-3 w-8 h-8 bg-cream border border-warm rounded-full flex items-center justify-center text-gray-500 hover:text-gray-700 shadow-sm"
-            >
-              <Edit2 className="w-4 h-4" />
-            </button>
-            
-            {/* Avatar */}
-            <button 
-              onClick={() => setShowAvatarPicker(true)}
-              className="relative mb-3"
-            >
-              <div className="w-[80px] h-[80px] rounded-full overflow-hidden border-4 border-white shadow-md">
-                <img src={user.avatar || "https://i.pravatar.cc/150?img=33"} alt="" className="w-full h-full object-cover" />
-              </div>
-            </button>
-            
-            {/* Name */}
-            {isEditing ? (
-              <div className="flex items-center gap-2 mb-1">
-                <input
-                  type="text"
-                  value={newUsername}
-                  onChange={(e) => setNewUsername(e.target.value)}
-                  className="bg-cream border border-[#E36B11]/30 rounded-lg px-2 py-1 text-gray-900 text-lg font-display w-40"
-                  autoFocus
-                />
-                <button onClick={handleUsernameUpdate} className="px-2 py-1 bg-[#E36B11] rounded text-white text-xs font-bold">Save</button>
-                <button onClick={() => setIsEditing(false)} className="px-2 py-1 bg-cream rounded text-gray-600 text-xs">Cancel</button>
-              </div>
-            ) : (
-              <div className="font-display text-[26px] tracking-wide text-gray-900 leading-tight mb-1 flex items-center gap-2">
-                <CountryFlag flag={user.countryFlag || 'DE'} className="w-6 h-5 rounded-sm" />
-                <span>{user.username}</span>
-              </div>
-            )}
-            
-            {/* Meta - badges style */}
-            <div className="flex flex-wrap items-center gap-1.5 mt-2">
-              <span className="px-2.5 py-1 bg-[#E36B11] text-white text-[10px] font-bold rounded-lg shadow-sm">
-                Rank #22
-              </span>
-              <span className="px-2 py-0.5 bg-cream text-gray-700 text-[10px] font-semibold rounded-md border border-warm">
-                {user.country || 'World'}
-              </span>
-              <span className="px-2 py-0.5 bg-cream text-gray-700 text-[10px] font-bold rounded-md border border-warm flex items-center gap-1">
-                <Target className="w-3 h-3 text-gray-900" /> {animatedStreak} day streak
-              </span>
-            </div>
-            <div className="text-[10px] text-gray-400 mt-2">
-              Member since {memberSince}
-            </div>
-          </div>
-        </div>
+          <div className="px-4 pb-4 -mt-8 relative">
 
-        {/* Stats Card */}
-        <div className="mx-4 mt-3 bg-cream rounded-2xl shadow-sm border border-warm overflow-hidden">
-          <div className={`grid ${(user?.isAuthor || user?.isAdmin) ? 'grid-cols-5' : 'grid-cols-4'} divide-x divide-warm`}>
-            <div className="p-3 text-center">
-              <div className="flex items-center justify-center gap-1">
-                <img src="/images/bogxcoin.png" alt="BOGX" className="w-5 h-5" />
-                <span className="font-display text-xl text-gray-900">{formatCurrency(animatedCoins)}</span>
-              </div>
-              <span className="text-[8px] font-semibold tracking-widest uppercase text-gray-500 mt-0.5 block">BOGX</span>
-            </div>
-            {(user?.isAuthor || user?.isAdmin) && (
-              <div className="p-3 text-center">
-                <div className="flex items-center justify-center gap-1">
-                  <FileText className="w-4 h-4 text-gray-900" />
-                  <span className="font-display text-xl text-gray-900">{formatCurrency(user.authorEarnings || 0)}</span>
+            
+            {/* Top row: Avatar + Name + Score */}
+            <div className="flex items-end gap-3">
+              {/* Avatar with rank badge */}
+              <button 
+                onClick={() => setShowAvatarPicker(true)}
+                className="relative flex-shrink-0"
+              >
+                <div className="w-[72px] h-[72px] rounded-full p-0.5 bg-gradient-to-br from-[#E36B11] to-[#E36B11]/70 shadow-md">
+                  <div className="w-full h-full rounded-full overflow-hidden border-2 border-white bg-white">
+                    <img src={user.avatar || "https://i.pravatar.cc/150?img=33"} alt="" className="w-full h-full object-cover" />
+                  </div>
                 </div>
-                <span className="text-[8px] font-semibold tracking-widest uppercase text-gray-500 mt-0.5 block">Author</span>
+                {/* Rank Badge */}
+                {userRank && (
+                  <div className={`absolute -top-0.5 -right-0.5 w-7 h-7 rounded-full flex items-center justify-center shadow-sm border-2 border-white ${
+                    userRank === 1 ? 'bg-gradient-to-br from-yellow-400 to-amber-600' :
+                    userRank === 2 ? 'bg-gradient-to-br from-gray-300 to-gray-500' :
+                    userRank === 3 ? 'bg-gradient-to-br from-amber-600 to-amber-800' :
+                    'bg-[#E36B11]'
+                  }`}>
+                    <span className="text-[10px] font-black text-white">#{userRank}</span>
+                  </div>
+                )}
+              </button>
+              
+              {/* Name & Country */}
+              <div className="pb-0.5 flex-1 min-w-0">
+                {isEditing ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={newUsername}
+                      onChange={(e) => setNewUsername(e.target.value)}
+                      className="bg-cream border border-[#E36B11]/30 rounded-lg px-2 py-0.5 text-gray-900 text-base font-display w-32"
+                      autoFocus
+                    />
+                    <button onClick={handleUsernameUpdate} className="px-2 py-0.5 bg-[#E36B11] rounded text-white text-xs font-bold">Save</button>
+                    <button onClick={() => setIsEditing(false)} className="px-2 py-0.5 bg-cream rounded text-gray-600 text-xs">Cancel</button>
+                  </div>
+                ) : (
+                  <h2 className="text-lg font-black text-gray-900 truncate">{user.username}</h2>
+                )}
+                <div className="flex items-center gap-1 mt-0.5">
+                  <CountryFlag flag={user.countryFlag || 'DE'} className="w-4 h-3 rounded-[2px]" />
+                  <span className="text-xs text-gray-500">{user.country || 'World'}</span>
+                </div>
               </div>
-            )}
-            <div className="p-3 text-center">
-              <span className="font-display text-xl text-gray-900 block">{animatedWins}</span>
-              <span className="text-[8px] font-semibold tracking-widest uppercase text-gray-500 mt-0.5 block">Wins</span>
+              
+              {/* BOGX Balance - prominent on right */}
+              <div className="flex items-center gap-1.5 pb-0.5">
+                <img src="/images/bogxcoin.png" alt="" className="w-6 h-6" />
+                <div className="text-right">
+                  <span className="text-xl font-black text-[#E36B11]">{formatCurrency(animatedCoins)}</span>
+                  <div className="text-[8px] font-bold tracking-widest uppercase text-gray-400">BOGX</div>
+                </div>
+              </div>
             </div>
-            <div className="p-3 text-center">
-              <span className="font-display text-xl text-gray-900 block">{animatedWinRate}%</span>
-              <span className="text-[8px] font-semibold tracking-widest uppercase text-gray-500 mt-0.5 block">Accuracy</span>
-            </div>
-            <div className="p-3 text-center">
-              <span className="font-display text-xl text-gray-900 block">{animatedGames}</span>
-              <span className="text-[8px] font-semibold tracking-widest uppercase text-gray-500 mt-0.5 block">Games</span>
+
+            {/* Rankings Row - Daily / Monthly / Annually - Compact */}
+            <div className="grid grid-cols-3 gap-1 mt-3 pt-3 border-t border-warm/50">
+              <div className="text-center">
+                <div className="text-[8px] font-bold tracking-widest uppercase text-gray-400">Daily</div>
+                <div className="flex items-center justify-center gap-0.5">
+                  {dailyRank && <ArrowUp className="w-3 h-3 text-green-500" />}
+                  <span className="text-base font-black text-gray-900 leading-tight">
+                    {dailyRank ? `#${dailyRank}` : '—'}
+                  </span>
+                </div>
+                {dailyPoints > 0 && (
+                  <div className="text-[9px] text-green-600 font-semibold">+{formatCurrency(dailyPoints)}</div>
+                )}
+              </div>
+              <div className="text-center border-x border-warm/50">
+                <div className="text-[8px] font-bold tracking-widest uppercase text-gray-400">Monthly</div>
+                <div className="flex items-center justify-center gap-0.5">
+                  {monthlyRank && <ArrowUp className="w-3 h-3 text-green-500" />}
+                  <span className="text-base font-black text-gray-900 leading-tight">
+                    {monthlyRank ? `#${monthlyRank}` : '—'}
+                  </span>
+                </div>
+                {monthlyPoints > 0 && (
+                  <div className="text-[9px] text-green-600 font-semibold">+{formatCurrency(monthlyPoints)}</div>
+                )}
+              </div>
+              <div className="text-center">
+                <div className="text-[8px] font-bold tracking-widest uppercase text-gray-400">Annually</div>
+                <div className="flex items-center justify-center gap-0.5">
+                  {annuallyRank && <ArrowUp className="w-3 h-3 text-green-500" />}
+                  <span className="text-base font-black text-gray-900 leading-tight">
+                    {annuallyRank ? `#${annuallyRank}` : '—'}
+                  </span>
+                </div>
+                {annuallyPoints > 0 && (
+                  <div className="text-[9px] text-green-600 font-semibold">+{formatCurrency(annuallyPoints)}</div>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Winner Badges Card - REMOVED per user request */}
+        {/* Author Earnings - only for authors/admins */}
+        {(user?.isAuthor || user?.isAdmin) && (
+          <div className="mx-4 mt-3 bg-cream rounded-2xl shadow-sm border border-warm p-3">
+            <div className="flex items-center justify-center gap-2">
+              <FileText className="w-4 h-4 text-gray-900" />
+              <span className="font-display text-xl text-gray-900">{formatCurrency(user.authorEarnings || 0)}</span>
+              <span className="text-[8px] font-semibold tracking-widest uppercase text-gray-500">Author Earnings</span>
+            </div>
+          </div>
+        )}
 
-        {/* BOGX Breakdown Card - how the user earned their coins.
+        {/* BOGX Breakdown Card - collapsible, how the user earned their coins.
             The card is ALWAYS rendered so the layout never jumps: while loading it
             shows placeholder rows of the same height as the real ones. */}
         <div className="mx-4 mt-3 bg-cream rounded-2xl shadow-sm border border-warm p-4">
-          <div className="text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-3 flex items-center gap-1.5">
-            <img src="/images/bogxcoin.png" alt="BOGX" className="w-4 h-4" /> How You Earned Your BOGX
-          </div>
+          <button
+            onClick={() => setEarningsExpanded(prev => !prev)}
+            className="w-full flex items-center justify-between text-left"
+          >
+            <div className="text-[10px] font-bold tracking-widest uppercase text-gray-500 flex items-center gap-1.5">
+              <img src="/images/bogxcoin.png" alt="BOGX" className="w-4 h-4" /> How You Earned Your BOGX
+            </div>
+            <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${earningsExpanded ? 'rotate-90' : ''}`} />
+          </button>
 
-          {!earnings ? (
-            /* Loading: same row structure and height as the real list */
-            <div>
-              <div className="divide-y divide-warm/60">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="flex items-center gap-3 py-2.5 animate-pulse">
-                    <div className="w-5 h-5 rounded-full bg-skeleton flex-shrink-0" />
-                    <div className="flex-1 min-w-0 space-y-1.5">
-                      <div className="h-3 bg-skeleton rounded" style={{ width: `${45 + ((i * 13) % 30)}%` }} />
-                      <div className="h-2 w-7 bg-skeleton-light rounded" />
-                    </div>
-                    <div className="h-3.5 w-16 bg-skeleton rounded flex-shrink-0" />
-                  </div>
-                ))}
-              </div>
-              <div className="mt-3 pt-3 border-t border-warm space-y-2 animate-pulse">
-                <div className="h-3 bg-skeleton-light rounded w-full" />
-                <div className="h-3 bg-skeleton-light rounded w-full" />
-                <div className="h-4 bg-skeleton rounded w-full" />
-              </div>
+          {earningsExpanded && !earnings ? (
+            /* Loading skeleton - compact */
+            <div className="mt-2 space-y-1 animate-pulse">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-2 py-1">
+                  <div className="w-4 h-4 rounded bg-skeleton flex-shrink-0" />
+                  <div className="h-3 bg-skeleton rounded flex-1" style={{ maxWidth: `${60 + ((i * 17) % 30)}%` }} />
+                  <div className="h-3 w-12 bg-skeleton rounded flex-shrink-0" />
+                </div>
+              ))}
             </div>
-          ) : earnings.breakdown.length === 0 ? (
-            <div className="py-8 text-center animate-lv-fade-up">
-              <div className="text-2xl mb-2">🪙</div>
-              <div className="text-xs text-gray-400">
-                No BOGX earned yet. Read an article or play a game to get started.
-              </div>
+          ) : earningsExpanded && earnings && earnings.breakdown.length === 0 ? (
+            <div className="py-4 text-center animate-lv-fade-up mt-2">
+              <div className="text-xs text-gray-400">No BOGX earned yet</div>
             </div>
-          ) : (
-          <div className="animate-lv-fade-up">
-            <div className="divide-y divide-warm/60">
+          ) : earningsExpanded && earnings ? (
+          <div className="animate-lv-fade-up mt-2">
+            {/* Compact breakdown list */}
+            <div className="space-y-0.5">
               {earnings.breakdown.map(item => (
-                <div key={item.key} className="flex items-center gap-3 py-2.5">
-                  <span className="text-base leading-none w-5 text-center">{item.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-gray-900 truncate">{item.label}</div>
-                    <div className="text-[10px] text-gray-400 tabular-nums">{item.count}x</div>
-                  </div>
-                  <div className="text-right">
-                    <div className={`text-sm font-bold tabular-nums ${item.total < 0 ? 'text-red-500' : 'text-green-600'}`}>
-                      {item.total > 0 ? '+' : ''}{formatCurrency(item.total)} {getCurrencySymbol()}
-                    </div>
-                    {/* Only worth showing when the net figure hides an actual loss */}
-                    {item.lost > 0 && (
-                      <div className="text-[10px] tabular-nums">
-                        <span className="text-green-600">+{formatCurrency(item.earned)}</span>
-                        <span className="text-gray-300 mx-1">/</span>
-                        <span className="text-red-500">-{formatCurrency(item.lost)}</span>
-                      </div>
-                    )}
-                  </div>
+                <div key={item.key} className="flex items-center gap-2 py-1">
+                  <span className="text-sm leading-none w-4 text-center">{item.icon}</span>
+                  <span className="text-xs text-gray-700 flex-1 truncate">{item.label}</span>
+                  <span className="text-[10px] text-gray-400 tabular-nums">{item.count}x</span>
+                  <span className={`text-xs font-bold tabular-nums min-w-[50px] text-right ${item.total < 0 ? 'text-red-500' : 'text-green-600'}`}>
+                    {item.total > 0 ? '+' : ''}{formatCurrency(item.total)}
+                  </span>
                 </div>
               ))}
             </div>
 
-            <div className="mt-3 pt-3 border-t border-warm space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold tracking-widest uppercase text-gray-500">Total Earned</span>
-                <span className="text-sm font-bold text-green-600 tabular-nums">
-                  +{formatCurrency(earnings.totalEarned)} {getCurrencySymbol()}
-                </span>
+            {/* Summary row - compact */}
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-warm/50">
+              <div className="flex items-center gap-3 text-[10px] tabular-nums">
+                <span className="text-green-600 font-semibold">+{formatCurrency(earnings.totalEarned)}</span>
+                {earnings.totalSpent > 0 && (
+                  <span className="text-red-500 font-semibold">-{formatCurrency(earnings.totalSpent)}</span>
+                )}
               </div>
-              {earnings.totalSpent > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold tracking-widest uppercase text-gray-500">Total Lost</span>
-                  <span className="text-sm font-bold text-red-500 tabular-nums">
-                    -{formatCurrency(earnings.totalSpent)} {getCurrencySymbol()}
-                  </span>
-                </div>
-              )}
-              <div className="flex items-center justify-between pt-1.5 border-t border-warm/60">
-                <span className="text-[10px] font-bold tracking-widest uppercase text-gray-700">Balance</span>
-                <span className="text-base font-bold text-gray-900 tabular-nums">
-                  {formatCurrency(earnings.wallet)} {getCurrencySymbol()}
-                </span>
-              </div>
-              {/* The wallet must equal the ledger. A difference means some action changed
-                  the balance without a ledger entry, so it is missing from the rankings. */}
-              {Math.abs(earnings.drift) >= 0.01 && (
-                <div className="flex items-start gap-1.5 pt-1.5 text-[10px] text-gray-400">
-                  <span>ⓘ</span>
-                  <span>
-                    {formatCurrency(Math.abs(earnings.drift))} {getCurrencySymbol()}{' '}
-                    {earnings.drift > 0 ? 'not itemised above' : 'more listed than in your balance'}
-                  </span>
-                </div>
-              )}
+              <span className="text-sm font-bold text-gray-900 tabular-nums">
+                {formatCurrency(earnings.wallet)} {getCurrencySymbol()}
+              </span>
             </div>
           </div>
-          )}
+          ) : null}
         </div>
 
-        {/* Category Strengths Card */}
+        {/* Stats Card - collapsible, combines Wins/Accuracy/Games + Category Strengths */}
         <div className="mx-4 mt-3 bg-cream rounded-2xl shadow-sm border border-warm p-4">
-          <div className="text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-3 flex items-center gap-1.5">
-            <Target className="w-3 h-3" /> Category Strengths
-          </div>
-          <div className="space-y-3">
-            {categoryStrengths.map(cat => (
-              <div key={cat.name} className="flex items-center gap-3">
-                <span className="text-xs font-semibold tracking-wide uppercase text-gray-700 min-w-[64px]">{cat.name}</span>
-                <div className="flex-1 h-[6px] bg-cream rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-[#E36B11] to-[#FFB800] rounded-full transition-all duration-700" style={{ width: `${cat.pct}%` }} />
+          <button
+            onClick={() => setCategoryStrengthsExpanded(prev => !prev)}
+            className="w-full flex items-center justify-between text-left"
+          >
+            <div className="text-[10px] font-bold tracking-widest uppercase text-gray-500 flex items-center gap-1.5">
+              <Target className="w-3 h-3" /> Stats
+            </div>
+            <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${categoryStrengthsExpanded ? 'rotate-90' : ''}`} />
+          </button>
+
+          {categoryStrengthsExpanded && (
+            <div className="mt-3 animate-lv-fade-up">
+              {/* Quick Stats Row */}
+              <div className="grid grid-cols-3 gap-2 pb-3 mb-3 border-b border-warm/50">
+                <div className="text-center">
+                  <span className="font-display text-lg text-gray-900 block">{animatedWins}</span>
+                  <span className="text-[8px] font-semibold tracking-widest uppercase text-gray-500">Wins</span>
                 </div>
-                <span className="text-[11px] font-bold text-gray-700 min-w-[36px] text-right">{cat.pct}%</span>
+                <div className="text-center border-x border-warm/50">
+                  <span className="font-display text-lg text-gray-900 block">{animatedWinRate}%</span>
+                  <span className="text-[8px] font-semibold tracking-widest uppercase text-gray-500">Accuracy</span>
+                </div>
+                <div className="text-center">
+                  <span className="font-display text-lg text-gray-900 block">{animatedGames}</span>
+                  <span className="text-[8px] font-semibold tracking-widest uppercase text-gray-500">Games</span>
+                </div>
               </div>
-            ))}
-          </div>
+
+              {/* Category Strengths */}
+              <div className="space-y-2.5">
+                {categoryStrengthsLoading ? (
+                  <>
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} className="flex items-center gap-3 animate-pulse">
+                        <div className="h-3 w-16 bg-skeleton rounded" />
+                        <div className="flex-1 h-[6px] bg-skeleton rounded-full" />
+                        <div className="h-3 w-8 bg-skeleton rounded" />
+                      </div>
+                    ))}
+                  </>
+                ) : categoryStrengths.length === 0 ? (
+                  <div className="py-4 text-center">
+                    <div className="text-xs text-gray-400">
+                      Play more trivia to see category strengths
+                    </div>
+                  </div>
+                ) : (
+                  categoryStrengths.map(cat => (
+                    <div key={cat.key} className="flex items-center gap-3">
+                      <span className="text-xs font-semibold tracking-wide uppercase text-gray-700 min-w-[64px]">{cat.name}</span>
+                      <div className="flex-1 h-[6px] bg-cream rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-[#E36B11] to-[#FFB800] rounded-full transition-all duration-700" style={{ width: `${cat.pct}%` }} />
+                      </div>
+                      <span className="text-[11px] font-bold text-gray-700 min-w-[36px] text-right">{cat.pct}%</span>
+                      <span className="text-[9px] text-gray-400 min-w-[40px] text-right">{cat.correct}/{cat.total}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Settings Card */}
@@ -707,10 +768,10 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
         document.body
       )}
 
-      {/* Avatar Picker Modal */}
-      {showAvatarPicker && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-2xl p-6 max-w-sm w-full shadow-xl border border-gray-700">
+      {/* Avatar Picker Modal - rendered via portal to escape stacking contexts */}
+      {showAvatarPicker && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-md flex items-center justify-center z-[9999] p-4">
+          <div className="bg-gray-800 rounded-2xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-xl border border-gray-700">
             <h2 className="text-xl font-bold text-white mb-4 text-center">Choose Avatar</h2>
             
             {/* Upload your own */}
@@ -738,7 +799,10 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
 
             <p className="text-center text-gray-400 text-xs mb-3">Or choose from below</p>
 
-            <div className="grid grid-cols-4 gap-3 mb-4">
+            <div className="grid grid-cols-5 gap-3 mb-4 justify-items-center">
+              {avatarOptions.length === 0 && (
+                <p className="col-span-5 text-center text-gray-400 text-xs py-4">Loading avatars...</p>
+              )}
               {avatarOptions.map((avatar, index) => (
                 <button
                   key={index}
@@ -759,12 +823,13 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
               Cancel
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* Country Picker Modal */}
-      {showCountryPicker && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      {/* Country Picker Modal - portal so it covers header/sidebars */}
+      {showCountryPicker && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
           <div className="bg-cream rounded-2xl p-6 max-w-sm w-full shadow-xl">
             <h2 className="text-xl font-bold text-gray-900 mb-4 text-center">Select Country</h2>
             
@@ -792,12 +857,13 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
               Cancel
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* Password Change Modal */}
-      {showPasswordModal && (
-        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-start justify-center z-50 p-4 pt-16 overflow-y-auto">
+      {/* Password Change Modal - portal so it covers header/sidebars */}
+      {showPasswordModal && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start justify-center z-[9999] p-4 pt-16 overflow-y-auto">
           <div className="bg-cream rounded-2xl p-6 max-w-sm w-full shadow-xl mb-8">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-900">Change Password</h2>
@@ -869,12 +935,13 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
               Update Password
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       
-      {/* Phone Number Modal */}
-      {showPhoneModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      {/* Phone Number Modal - portal so it covers header/sidebars */}
+      {showPhoneModal && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-cream rounded-2xl shadow-xl p-5 w-full max-w-[340px]">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900">Phone Number</h2>
@@ -938,7 +1005,8 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
               {phoneSaving ? 'Saving...' : 'Save Phone Number'}
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       
       {/* Notification Settings Modal */}

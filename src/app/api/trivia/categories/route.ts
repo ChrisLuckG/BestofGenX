@@ -1,34 +1,28 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
-import Card from '@/models/Card';
+import Question from '@/models/Question';
 
 export async function GET() {
   try {
     await dbConnect();
     
-    // Get distinct themes from active cards
-    const themes = await Card.distinct('theme', { active: true });
-    
-    // Count actual questions per theme (each card has multiple question variants)
-    const counts = await Card.aggregate([
+    // Get counts per theme
+    const counts = await Question.aggregate([
       { $match: { active: true } },
-      { 
-        $group: { 
-          _id: '$theme', 
-          cardCount: { $sum: 1 },
-          // Count total questions across all cards (sum of questions array length)
-          questionCount: { $sum: { $size: { $ifNull: ['$questions', []] } } }
-        } 
-      }
+      { $group: { _id: '$theme', count: { $sum: 1 } } }
     ]);
     
-    // Return question counts (not card counts)
-    const countMap = new Map(counts.map((c: any) => [c._id, c.questionCount]));
+    const countMap = Object.fromEntries(counts.map((c: any) => [c._id, c.count]));
+    const themes = counts.map((c: any) => c._id).filter(Boolean);
+    
+    // Total count
+    const total = counts.reduce((sum, c) => sum + c.count, 0);
     
     return NextResponse.json({ 
       success: true, 
-      themes: themes.filter(Boolean),
-      counts: Object.fromEntries(countMap)
+      themes,
+      counts: countMap,
+      total,
     });
 
   } catch (error: any) {

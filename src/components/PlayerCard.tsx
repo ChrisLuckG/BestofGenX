@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Trophy, Clock, Target, TrendingUp, Award, Calendar, Swords, User } from "lucide-react";
+import { Trophy, Clock, Target, TrendingUp, Award, Calendar, Swords, User, ArrowUp } from "lucide-react";
 import { ProfileSkeleton } from "@/components/desktop/DesktopSkeletons";
 import BackButton from "./BackButton";
 import CountryFlag from "./CountryFlag";
@@ -26,6 +26,13 @@ interface PlayerStats {
   currentStreak?: number;
   bestStreak?: number;
   rank?: number;
+  // Period rankings
+  dailyRank?: number | null;
+  dailyPoints?: number;
+  monthlyRank?: number | null;
+  monthlyPoints?: number;
+  annuallyRank?: number | null;
+  annuallyPoints?: number;
 }
 
 interface PlayerCardProps {
@@ -92,16 +99,8 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
             Player Profile
           </span>
         </div>
-        {/* Rank & Score Badge */}
-        {player && (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-[#E36B11]/10 border border-[#E36B11]/30 rounded-lg">
-            <span className="text-sm font-bold text-[#E36B11]">#{player.rank || '—'}</span>
-            <div className="w-px h-4 bg-[#E36B11]/30" />
-            <img src="/images/bogxcoin.png" alt="" className="w-5 h-5" />
-            <span className="text-sm font-bold text-[#E36B11]">{player.points.toFixed(2)}</span>
-          </div>
-        )}
-        {!player && <div className="w-14" />}
+        {/* Spacer for symmetry */}
+        <div className="w-14" />
       </div>
 
       {/* Content */}
@@ -147,6 +146,53 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
                       <CountryFlag flag={player.countryFlag} className="w-5 h-4 rounded-[2px]" />
                       <span className="text-sm text-gray-500">{player.country || 'World'}</span>
                     </div>
+                  </div>
+                  {/* BOGX Balance - prominent on right */}
+                  <div className="flex flex-col items-end justify-center">
+                    <div className="flex items-center gap-2">
+                      <img src="/images/bogxcoin.png" alt="" className="w-8 h-8" />
+                      <div className="text-right">
+                        <span className="text-2xl font-black text-[#E36B11]">{formatCurrency(player.points)}</span>
+                        <div className="text-[9px] font-bold tracking-widest uppercase text-gray-400">BOGX</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Rankings Row - Daily / Monthly / Annually */}
+                <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-warm/50">
+                  <div className="text-center">
+                    <div className="text-[9px] font-bold tracking-widest uppercase text-gray-400 mb-1">Day</div>
+                    <div className="flex items-center justify-center gap-0.5">
+                      <span className="text-lg font-black text-gray-900">
+                        {player.dailyRank ? `${player.dailyRank}` : '—'}
+                      </span>
+                    </div>
+                    {player.dailyPoints !== undefined && player.dailyPoints > 0 && (
+                      <div className="text-[10px] text-green-600 font-semibold">+{formatCurrency(player.dailyPoints)}</div>
+                    )}
+                  </div>
+                  <div className="text-center border-x border-warm/50">
+                    <div className="text-[9px] font-bold tracking-widest uppercase text-gray-400 mb-1">Month</div>
+                    <div className="flex items-center justify-center gap-0.5">
+                      <span className="text-lg font-black text-gray-900">
+                        {player.monthlyRank ? `${player.monthlyRank}` : '—'}
+                      </span>
+                    </div>
+                    {player.monthlyPoints !== undefined && player.monthlyPoints > 0 && (
+                      <div className="text-[10px] text-green-600 font-semibold">+{formatCurrency(player.monthlyPoints)}</div>
+                    )}
+                  </div>
+                  <div className="text-center">
+                    <div className="text-[9px] font-bold tracking-widest uppercase text-gray-400 mb-1">Year</div>
+                    <div className="flex items-center justify-center gap-0.5">
+                      <span className="text-lg font-black text-gray-900">
+                        {player.annuallyRank ? `${player.annuallyRank}` : '—'}
+                      </span>
+                    </div>
+                    {player.annuallyPoints !== undefined && player.annuallyPoints > 0 && (
+                      <div className="text-[10px] text-green-600 font-semibold">+{formatCurrency(player.annuallyPoints)}</div>
+                    )}
                   </div>
                 </div>
               </div>

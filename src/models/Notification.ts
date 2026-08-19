@@ -10,6 +10,7 @@ export interface INotification extends Document {
   data?: {
     battleId?: string;
     url?: string;
+    articleId?: string;
   };
   createdAt: Date;
 }
@@ -41,7 +42,8 @@ const NotificationSchema = new Schema<INotification>({
   },
   data: {
     battleId: String,
-    url: String
+    url: String,
+    articleId: String
   }
 }, {
   timestamps: true

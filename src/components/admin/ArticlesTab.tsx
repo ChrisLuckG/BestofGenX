@@ -2009,27 +2009,29 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
         </div>
       )}
 
-      {/* Preview Modal */}
+      {/* Preview Modal - Mobile-style like real ArticlePage */}
       {showPreview && editingArticle && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[60] p-4">
-          <div className="bg-cream rounded-xl w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-[60] p-4">
+          <div className="bg-black rounded-xl w-full max-w-[375px] max-h-[90vh] overflow-hidden flex flex-col shadow-2xl border border-gray-800">
             {/* Preview Header */}
-            <div className="px-4 py-3 border-b border-warm flex items-center justify-between bg-cream sticky top-0">
-              <span className="text-sm font-bold text-gray-900">Preview</span>
-              <button onClick={() => setShowPreview(false)} className="text-gray-500 hover:text-gray-900">
-                <X className="w-5 h-5" />
+            <div className="px-3 py-2 flex items-center justify-between bg-gray-900 border-b border-gray-800 shrink-0">
+              <span className="text-xs font-medium text-gray-400">Preview</span>
+              <button onClick={() => setShowPreview(false)} className="text-gray-500 hover:text-white">
+                <X className="w-4 h-4" />
               </button>
             </div>
             
-            {/* Preview Content */}
-            <div className="flex-1 overflow-y-auto">
-              {/* Cover Image */}
-              {editingArticle.coverImage && (
-                <div className="relative h-48 w-full">
-                  {isVideoUrl(editingArticle.coverImage) ? (
+            {/* Preview Content - Scrollable */}
+            <div className="flex-1 overflow-y-auto bg-cream">
+              {/* Hero Section with Cover Image */}
+              <div className="relative w-full" style={{ minHeight: editingArticle.coverImage ? '220px' : '120px' }}>
+                {/* Cover Image/Video */}
+                {editingArticle.coverImage && (
+                  isVideoUrl(editingArticle.coverImage) ? (
                     <video 
                       src={editingArticle.coverImage} 
-                      className="w-full h-full object-cover" 
+                      className="absolute inset-0 w-full h-full object-cover" 
+                      style={{ objectPosition: `${editingArticle.imagePosX ?? 50}% ${editingArticle.imagePosY ?? 50}%` }}
                       muted 
                       autoPlay 
                       loop 
@@ -2039,45 +2041,70 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                     <img 
                       src={editingArticle.coverImage} 
                       alt="" 
-                      className="w-full h-full object-cover"
+                      className="absolute inset-0 w-full h-full object-cover"
                       style={{ objectPosition: `${editingArticle.imagePosX ?? 50}% ${editingArticle.imagePosY ?? 50}%` }}
                     />
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                </div>
-              )}
-              
-              {/* Article Content */}
-              <div className="p-4">
-                <div className="text-[10px] font-bold text-[#E36B11] uppercase tracking-wider mb-1">
-                  {getCategoryLabel(editingArticle.category || '')}
-                </div>
-                <h1 
-                  className="text-xl font-bold text-gray-900 mb-2"
-                  style={{ color: editingArticle.titleColor || '#111827' }}
-                >
-                  {editingArticle.title || 'Untitled'}
-                </h1>
-                {editingArticle.subtitle && (
-                  <p className="text-sm text-gray-600 mb-4">{editingArticle.subtitle}</p>
+                  )
                 )}
                 
-                {/* Author & Meta */}
-                <div className="flex items-center gap-2 text-xs text-gray-500 mb-4 pb-4 border-b border-warm">
-                  <span>{editingArticle.authorName || 'BOGX Team'}</span>
-                  {editingArticle.commentsEnabled === false && (
-                    <>
-                      <span>·</span>
-                      <span className="text-gray-400">Comments off</span>
-                    </>
+                {/* Gradient Overlay */}
+                <div className="absolute inset-x-0 bottom-0 h-[50%] bg-gradient-to-t from-black via-black/70 to-transparent" />
+                
+                {/* Title & Category - Bottom of Hero */}
+                <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
+                  {/* Category Badge */}
+                  <span className="inline-block px-2 py-0.5 text-[10px] font-bold text-white uppercase tracking-wider rounded bg-[#E36B11] mb-2">
+                    {getCategoryLabel(editingArticle.category || '')}
+                  </span>
+                  
+                  {/* Title */}
+                  <h1 
+                    className="font-display text-xl font-bold text-white leading-tight tracking-wide uppercase"
+                    style={{ 
+                      color: editingArticle.titleColor || '#ffffff',
+                      textShadow: '0 2px 8px rgba(0,0,0,0.5)'
+                    }}
+                  >
+                    {editingArticle.title || 'Untitled'}
+                  </h1>
+                  
+                  {/* Subtitle */}
+                  {editingArticle.subtitle && (
+                    <p className="text-sm text-white/80 mt-1">{editingArticle.subtitle}</p>
                   )}
+                </div>
+              </div>
+              
+              {/* Article Body */}
+              <div className="bg-cream p-4">
+                {/* Author Row */}
+                <div className="flex items-center gap-3 mb-4 pb-3 border-b border-warm">
+                  <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden">
+                    <span className="text-gray-500 text-sm font-bold">
+                      {(editingArticle.authorName || 'B')[0].toUpperCase()}
+                    </span>
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-gray-900">{editingArticle.authorName || 'BOGX Team'}</div>
+                    <div className="text-[10px] text-gray-500">GenX Reporter</div>
+                  </div>
                 </div>
                 
                 {/* Content */}
                 <div 
-                  className="prose prose-sm max-w-none text-gray-800"
-                  style={{ color: editingArticle.contentColor || '#1f2937' }}
-                  dangerouslySetInnerHTML={{ __html: editingArticle.content || '<p class="text-gray-400 italic">No content yet...</p>' }}
+                  className="prose prose-sm max-w-none"
+                  style={{ 
+                    color: editingArticle.contentColor || '#1f2937',
+                    lineHeight: '1.7',
+                  }}
+                  dangerouslySetInnerHTML={{ 
+                    __html: editingArticle.content 
+                      ? editingArticle.content
+                          .replace(/<h1([^>]*)>/gi, '<h1$1 style="font-family:var(--font-display);font-size:20px;font-weight:bold;margin:24px 0 12px 0;text-transform:uppercase;letter-spacing:0.02em;">')
+                          .replace(/<h2([^>]*)>/gi, '<h2$1 style="font-family:var(--font-display);font-size:18px;font-weight:bold;margin:20px 0 10px 0;text-transform:uppercase;letter-spacing:0.02em;">')
+                          .replace(/<p([^>]*)>/gi, '<p$1 style="margin-bottom:1em;line-height:1.7;">')
+                      : '<p style="color:#9ca3af;font-style:italic;">No content yet...</p>' 
+                  }}
                 />
               </div>
             </div>

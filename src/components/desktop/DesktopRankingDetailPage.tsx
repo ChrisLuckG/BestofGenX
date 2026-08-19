@@ -11,6 +11,7 @@ interface RankingItem {
   title: string;
   description?: string;
   image?: string;
+  videoUrl?: string;
   upvotes: number;
   downvotes: number;
   score: number;
