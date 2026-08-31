@@ -8,6 +8,7 @@ import { sounds } from "@/utils/sounds";
 import { useAuth } from "@/context/AuthContext";
 import LogoLoader from "./LogoLoader";
 import BackButton from "./BackButton";
+import WelcomeNewsPanel from "./WelcomeNewsPanel";
 import { BattleResultScreen } from "./battles";
 import PredictionResultModal, { PredictionResultData } from "./PredictionResultModal";
 import { NewsSkeleton } from "@/components/desktop/DesktopSkeletons";
@@ -91,6 +92,11 @@ interface NotificationPageProps {
   // instead of skipping straight into an accepted, wagered battle.
   initialChallengeId?: string | null;
   onInitialChallengeHandled?: () => void;
+  /** Opens the sign-up flow from the welcome page's CTA (guests only). */
+  onShowSignup?: () => void;
+  /** Host renders the welcome page itself (desktop content area). Without it the
+   *  compact widget falls back to opening the News tab. */
+  onShowWelcome?: () => void;
 }
 
 // Simple Notification Item with X button
@@ -284,7 +290,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray;
 }
 
-export default function NotificationPage({ isOpen = true, onClose, onGoToProfile, onGoToBattle, onShowBattleResult, onOpenArticle, onShowChallenge, autoEnable, onNewNotification, onPointsAwarded, autoOpenSettings, onSettingsClosed, onChallengeDeclined, compact = false, onViewAll, onOpenSettings, initialChallengeId, onInitialChallengeHandled }: NotificationPageProps & { onNewNotification?: () => void }) {
+export default function NotificationPage({ isOpen = true, onClose, onGoToProfile, onGoToBattle, onShowBattleResult, onOpenArticle, onShowChallenge, autoEnable, onNewNotification, onPointsAwarded, autoOpenSettings, onSettingsClosed, onChallengeDeclined, compact = false, onViewAll, onOpenSettings, initialChallengeId, onInitialChallengeHandled, onShowSignup, onShowWelcome }: NotificationPageProps & { onNewNotification?: () => void }) {
   const { user, isLoggedIn } = useAuth();
   const [showSettings, setShowSettings] = useState(false);
   
@@ -990,12 +996,19 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
                       onViewAll?.();
                     }
                   } else if (notif.type === 'welcome') {
-                    // Open the full news page with the welcome message expanded.
-                    // The flag is read by the full-page instance on mount, because
-                    // it is not mounted yet when this click happens.
-                    setActiveNotificationId(null);
-                    try { sessionStorage.setItem(WELCOME_OPEN_FLAG, '1'); } catch {}
-                    onViewAll?.();
+                    // Show the welcome page directly in the content area, the same
+                    // way a battle result or a challenge opens - do NOT detour
+                    // through the News tab.
+                    if (onShowWelcome) {
+                      onShowWelcome();
+                    } else {
+                      // No host slot (e.g. mobile): fall back to the News page and
+                      // let its instance expand the welcome entry. The flag is read
+                      // there on mount, because that instance is not mounted yet.
+                      setActiveNotificationId(null);
+                      try { sessionStorage.setItem(WELCOME_OPEN_FLAG, '1'); } catch {}
+                      onViewAll?.();
+                    }
                   } else {
                     // Default: open full notifications page
                     setActiveNotificationId(null); // Clear active when navigating away
@@ -1136,6 +1149,19 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
         <div className="flex items-center justify-center h-full min-h-[300px]">
           <LogoLoader size="md" text="Loading battle..." />
         </div>
+      )}
+
+      {/* WELCOME PAGE.
+          `selectedWelcome` used to only HIDE the list below without rendering
+          anything, so clicking the welcome notification left the whole page
+          blank. */}
+      {!showSettings && selectedWelcome && !loadingBattle && (
+        <WelcomeNewsPanel
+          username={user?.username}
+          isLoggedIn={isLoggedIn}
+          onShowSignup={onShowSignup}
+          onBack={() => setSelectedWelcome(false)}
+        />
       )}
 
       {/* NOTIFICATION LIST VIEW */}

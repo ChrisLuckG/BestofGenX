@@ -25,6 +25,7 @@ import WelcomeReel from "@/components/games/WelcomeReel";
 import ShopPage from "@/components/ShopPage";
 import ProfilePage from "@/components/ProfilePage";
 import NotificationPage from "@/components/NotificationPage";
+import WelcomeNewsPanel from "@/components/WelcomeNewsPanel";
 import DesktopRankingsPage from "@/components/desktop/DesktopRankingsPage";
 import LoginPage from "@/components/LoginPage";
 import DesktopLoginPage from "@/components/desktop/DesktopLoginPage";
@@ -149,6 +150,7 @@ export default function DesktopPage() {
   const [pendingBattleId, setPendingBattleId] = useState<string | null>(null);
   const [showBattleResultId, setShowBattleResultId] = useState<string | null>(null); // Battle result to show in content area
   const [showChallenge, setShowChallenge] = useState<{ battleId: string; notificationId?: string } | null>(null); // Challenge to show in content area
+  const [showWelcomePage, setShowWelcomePage] = useState(false); // Welcome page to show in content area
   const [challengeTarget, setChallengeTarget] = useState<{ id: string; username: string } | null>(null); // Pre-selected player to challenge
   const [radioStations, setRadioStations] = useState<{_id: string; name: string; description: string; playlistId: string}[]>([]);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
@@ -676,6 +678,8 @@ export default function DesktopPage() {
     setSelectedPlayerId(null); // Close player profile when changing tabs
     setShowBattleResultId(null); // Close battle result when changing tabs
     setShowChallenge(null); // Close challenge when changing tabs
+    setShowWelcomePage(false); // Close welcome page when changing tabs
+    notificationOriginRef.current = null; // The tab click IS the new origin
     window.dispatchEvent(new CustomEvent('notification-view-closed')); // Drop news highlight
     scrollViewToTop();
   };
@@ -692,6 +696,7 @@ export default function DesktopPage() {
   const closeNotificationView = () => {
     setShowBattleResultId(null);
     setShowChallenge(null);
+    setShowWelcomePage(false);
     // Let the news widget / notification page drop the highlighted item
     window.dispatchEvent(new CustomEvent('notification-view-closed'));
     const origin = notificationOriginRef.current;
@@ -763,15 +768,6 @@ export default function DesktopPage() {
       window.removeEventListener('openRankroll', handleOpenRankroll);
     };
   }, []);
-
-  useEffect(() => {
-    if (!mounted) return;
-    const siteAccess = localStorage.getItem('bogx_site_access');
-    const sitePassword = process.env.NEXT_PUBLIC_SITE_PASSWORD || 'bogx2025';
-    if (siteAccess !== sitePassword) {
-      router.replace('/');
-    }
-  }, [mounted, isLoggedIn, router]);
 
   // Memoized callbacks to prevent re-renders
   const handleOpenArticle = useCallback((id: string) => {
@@ -1247,8 +1243,19 @@ export default function DesktopPage() {
                   />
                 </DesktopContentWrapper>
               )}
+              {/* Welcome page inline view - exclusive, replaces all tab content */}
+              {!staticPageSlug && !selectedPlayerId && !showBattleResultId && !showChallenge && showWelcomePage && (
+                <DesktopContentWrapper transparent>
+                  <WelcomeNewsPanel
+                    username={user?.username}
+                    isLoggedIn={isLoggedIn}
+                    onShowSignup={() => setShowLoginPage(true)}
+                    onBack={closeNotificationView}
+                  />
+                </DesktopContentWrapper>
+              )}
               {/* Content Tabs */}
-              {!showBattleResultId && !showChallenge && <>
+              {!showBattleResultId && !showChallenge && !showWelcomePage && <>
               {!staticPageSlug && !selectedPlayerId && activeTab === "feed" && !openArticleId && !showCommunitySound && <WelcomeReel onOpenArticle={handleOpenArticle} readArticles={readArticles} isDesktop={true} onShowLogin={handleShowLogin} onOpenCommunitySound={handleOpenCommunitySound} onCoinAnimation={triggerCoinGain} />}
               {!staticPageSlug && !selectedPlayerId && showCommunitySound && <CommunitySoundPage isDesktop={true} onBack={() => setShowCommunitySound(false)} onOpenRadio={() => { setShowCommunitySound(false); handleTabChange('radio'); }} />}
               {!staticPageSlug && !selectedPlayerId && openArticleId && <ArticlePage articleId={openArticleId} onBack={() => {
@@ -1334,8 +1341,9 @@ export default function DesktopPage() {
               onViewAll={() => { setShowBattleResultId(null); setShowChallenge(null); handleTabChange('notifications'); }}
               onOpenSettings={() => { setShowBattleResultId(null); setShowChallenge(null); setOpenNotificationSettings(true); setPreviousTabBeforeSettings(activeTab); handleTabChange('notifications'); }}
               onGoToBattle={(id) => { setShowBattleResultId(null); setShowChallenge(null); handleTabChange('arcade'); setArcadeGame('quizzbattle'); setPendingBattleId(id); }}
-              onShowBattleResult={(id) => openNotificationView(() => { setShowChallenge(null); setShowBattleResultId(id); })}
-              onShowChallenge={(battleId, notificationId) => openNotificationView(() => { setShowBattleResultId(null); setShowChallenge({ battleId, notificationId }); })}
+              onShowBattleResult={(id) => openNotificationView(() => { setShowChallenge(null); setShowWelcomePage(false); setShowBattleResultId(id); })}
+              onShowChallenge={(battleId, notificationId) => openNotificationView(() => { setShowBattleResultId(null); setShowWelcomePage(false); setShowChallenge({ battleId, notificationId }); })}
+              onShowWelcome={() => openNotificationView(() => { setShowBattleResultId(null); setShowChallenge(null); setShowWelcomePage(true); })}
               onOpenArticle={(id) => { setShowBattleResultId(null); setShowChallenge(null); setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }}
               onGoToProfile={() => { setShowBattleResultId(null); setShowChallenge(null); handleTabChange('profile'); }}
               onChallengeDeclined={() => setPendingChallengeCount(prev => Math.max(0, prev - 1))}

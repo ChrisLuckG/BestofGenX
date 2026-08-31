@@ -42,7 +42,6 @@ import SummaryCard from "@/components/games/SummaryCard";
 import CheckoutSuccessModal from "@/components/CheckoutSuccessModal";
 import OpenBattlesModal from "@/components/OpenBattlesModal";
 
-import DevLockScreen from "@/components/DevLockScreen";
 import StaticPageInline from "@/components/StaticPageInline";
 
 import ArticlePage from "@/components/ArticlePage";
@@ -1761,7 +1760,6 @@ export default function MobilePage() {
   const dailyBg = getDailyBackground();
 
   return (
-    <DevLockScreen>
     <div 
       className="fixed inset-0 flex flex-col overflow-hidden"
       style={{ 
@@ -2610,6 +2608,5 @@ export default function MobilePage() {
       })()}
 
     </div>
-    </DevLockScreen>
   );
 }
