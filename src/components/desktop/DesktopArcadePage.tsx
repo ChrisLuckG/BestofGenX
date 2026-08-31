@@ -9,7 +9,7 @@ interface DesktopArcadePageProps {
   onShowRankings?: () => void;
   userId?: string;
   battleAlertCount?: number;
-  onCoinsChange?: (delta: number) => void;
+  onCoinsChange?: (delta: number, variant?: 'gain' | 'loss' | 'hold') => void;
   onPlaySpecificBattle?: (battleId: string) => void;
   onShowLogin?: () => void;
 }
@@ -136,27 +136,31 @@ export default function DesktopArcadePage({ onSelectGame, userId, battleAlertCou
   return (
     <div className="w-full h-full flex flex-col overflow-hidden">
       {/* Header - same style as Feed/Articles */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
-        <div className="flex items-center gap-3">
+      <div className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
+        <div className="relative flex items-center gap-3">
           <Brain className="w-5 h-5 text-[#E36B11]" />
           <div>
             <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Trivia</span>
             <span className="text-[10px] text-gray-500 -mt-0.5 block">Test your GenX knowledge!</span>
           </div>
+          {/* Open Battles button - absolute so height never grows the header */}
+          <button
+            onClick={() => setShowOpenBattles(v => !v)}
+            className={`absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1.5 px-3 py-3 rounded-lg border transition-colors text-[10px] tracking-wider ${
+              showOpenBattles
+                ? 'border-[#A855F7] bg-[#A855F7] font-bold shadow-sm'
+                : 'border-[#A855F7]/40 bg-[#A855F7]/10 hover:bg-[#A855F7]/20 font-semibold'
+            }`}
+          >
+            <Swords className={`w-3.5 h-3.5 ${showOpenBattles ? 'text-white' : 'text-[#A855F7]'}`} />
+            <span className={showOpenBattles ? 'text-white' : 'text-[#A855F7]'}>OPEN BATTLES</span>
+            {liveBattleCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">
+                {liveBattleCount}
+              </span>
+            )}
+          </button>
         </div>
-        {/* Open Battles button */}
-        <button
-          onClick={() => setShowOpenBattles(true)}
-          className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#A855F7]/40 bg-[#A855F7]/10 hover:bg-[#A855F7]/20 transition-colors"
-        >
-          <Swords className="w-4 h-4 text-[#A855F7]" />
-          <span className="text-xs font-semibold text-[#A855F7]">Open Battles</span>
-          {liveBattleCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">
-              {liveBattleCount}
-            </span>
-          )}
-        </button>
       </div>
 
       {/* Open Battles Modal */}

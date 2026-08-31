@@ -40,11 +40,12 @@ async function saveBotBattleGameResult(userId: string, opponentName: string, poi
 
 // NOTE: culture, art, food removed - not enough DB questions for these themes yet
 const TOPICS = ['sport', 'music', 'film', 'fashion', 'games', 'tv'];
+// 3 rounds for ≤0.75 BOGX, 5 rounds for >0.75 BOGX
 const WAGERS = [
   { amount: 0.10, rounds: 3 },
   { amount: 0.25, rounds: 3 },
-  { amount: 0.50, rounds: 5 },
-  { amount: 0.75, rounds: 5 },
+  { amount: 0.50, rounds: 3 },
+  { amount: 0.75, rounds: 3 },
   { amount: 1.00, rounds: 5 },
 ];
 
@@ -215,12 +216,29 @@ export async function POST(request: NextRequest) {
         if (Math.random() > 0.7) continue;
         
         const bot = availableBots[Math.floor(Math.random() * availableBots.length)];
-        
-        // Accept the battle
+
+        // Claim the battle atomically on `status: 'open'`.
+        //
+        // These are bot-CREATED battles, which real users can and do accept from the
+        // pool. The previous read-modify-`save()` overwrote such an accept: the user's
+        // wager had already been deducted, but `opponent` was replaced by a bot, so the
+        // battle no longer belonged to them and every later call answered "You are not
+        // part of this battle" - with the wager gone and no way to reclaim it.
+        const claimed = await Battle.findOneAndUpdate(
+          { _id: battle._id, status: 'open' },
+          {
+            $set: {
+              opponent: bot._id,
+              status: 'active',
+              acceptedAt: new Date(),
+              acceptedVia: 'cron:bot-battles',
+            },
+          },
+          { new: true }
+        );
+        if (!claimed) continue; // A real user (or another bot) got there first.
         battle.opponent = bot._id;
         battle.status = 'active';
-        battle.acceptedAt = new Date();
-        battle.acceptedVia = 'cron:bot-battles';
         
         // Simulate bot playing (instant results for creator side if bot)
         const botSkillCreator = 0.5 + Math.random() * 0.4; // 50-90% accuracy

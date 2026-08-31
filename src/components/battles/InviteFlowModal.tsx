@@ -20,14 +20,14 @@ interface User {
 
 type PlayerFilter = 'all' | 'online' | 'country' | 'level';
 
-// BOGX wager amounts
+// BOGX wager amounts - 3 rounds for ≤0.75, 5 rounds for >0.75
 const WAGERS = [
   { amount: 0.25, rounds: 3 },
   { amount: 0.50, rounds: 3 },
-  { amount: 0.75, rounds: 5 },
+  { amount: 0.75, rounds: 3 },
   { amount: 1.00, rounds: 5 },
-  { amount: 2.50, rounds: 7 },
-  { amount: 5.00, rounds: 10 },
+  { amount: 2.50, rounds: 5 },
+  { amount: 5.00, rounds: 5 },
 ];
 
 const TOPICS: { id: string; label: string; icon: LucideIcon }[] = [

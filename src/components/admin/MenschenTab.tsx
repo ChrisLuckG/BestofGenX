@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { 
   Loader2, Plus, Trash2, Search, X, ChevronDown, ChevronRight,
   User, Gamepad2, Film, Music, Disc3, Tv, UtensilsCrossed, Car, 
-  Shirt, Smartphone, Package, MessageCircle, Image, Globe, FileText
+  Shirt, Smartphone, Package, MessageCircle, Image, Globe, FileText, Pencil
 } from "lucide-react";
 import ImagePickerModal from "./ImagePickerModal";
 import BlockEditor from "./BlockEditor";
+import { AUTHOR_STYLES, DEFAULT_AUTHOR_STYLE } from "@/config/authorStyles";
 
 // Category configuration
 const CATEGORIES = [
@@ -30,13 +31,28 @@ type CategoryId = typeof CATEGORIES[number]['id'];
 // Profession options for people
 const PROFESSIONS = ['Music', 'Actor', 'Sport', 'Politik', 'Art', 'Tech', 'Comedy', 'Model', 'Other'];
 
-// Country options for filtering
+// All countries of the world
 const COUNTRIES = [
-  'USA', 'UK', 'Germany', 'France', 'Canada', 'Australia', 'Japan', 'Italy', 
-  'Spain', 'Brazil', 'Mexico', 'Sweden', 'Netherlands', 'Belgium', 'Austria',
-  'Switzerland', 'Ireland', 'South Korea', 'India', 'Russia', 'Poland', 
-  'Denmark', 'Norway', 'Finland', 'New Zealand', 'South Africa', 'Argentina',
-  'Israel', 'Jamaica', 'Nigeria', 'China', 'Other'
+  'Afghanistan', 'Albania', 'Algeria', 'Andorra', 'Angola', 'Antigua and Barbuda', 'Argentina', 'Armenia', 'Australia', 'Austria',
+  'Azerbaijan', 'Bahamas', 'Bahrain', 'Bangladesh', 'Barbados', 'Belarus', 'Belgium', 'Belize', 'Benin', 'Bhutan',
+  'Bolivia', 'Bosnia and Herzegovina', 'Botswana', 'Brazil', 'Brunei', 'Bulgaria', 'Burkina Faso', 'Burundi', 'Cambodia', 'Cameroon',
+  'Canada', 'Cape Verde', 'Central African Republic', 'Chad', 'Chile', 'China', 'Colombia', 'Comoros', 'Congo', 'Costa Rica',
+  'Croatia', 'Cuba', 'Cyprus', 'Czech Republic', 'Denmark', 'Djibouti', 'Dominica', 'Dominican Republic', 'East Timor', 'Ecuador',
+  'Egypt', 'El Salvador', 'Equatorial Guinea', 'Eritrea', 'Estonia', 'Eswatini', 'Ethiopia', 'Fiji', 'Finland', 'France',
+  'Gabon', 'Gambia', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Grenada', 'Guatemala', 'Guinea', 'Guinea-Bissau',
+  'Guyana', 'Haiti', 'Honduras', 'Hungary', 'Iceland', 'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland',
+  'Israel', 'Italy', 'Ivory Coast', 'Jamaica', 'Japan', 'Jordan', 'Kazakhstan', 'Kenya', 'Kiribati', 'Kosovo',
+  'Kuwait', 'Kyrgyzstan', 'Laos', 'Latvia', 'Lebanon', 'Lesotho', 'Liberia', 'Libya', 'Liechtenstein', 'Lithuania',
+  'Luxembourg', 'Madagascar', 'Malawi', 'Malaysia', 'Maldives', 'Mali', 'Malta', 'Marshall Islands', 'Mauritania', 'Mauritius',
+  'Mexico', 'Micronesia', 'Moldova', 'Monaco', 'Mongolia', 'Montenegro', 'Morocco', 'Mozambique', 'Myanmar', 'Namibia',
+  'Nauru', 'Nepal', 'Netherlands', 'New Zealand', 'Nicaragua', 'Niger', 'Nigeria', 'North Korea', 'North Macedonia', 'Norway',
+  'Oman', 'Pakistan', 'Palau', 'Palestine', 'Panama', 'Papua New Guinea', 'Paraguay', 'Peru', 'Philippines', 'Poland',
+  'Portugal', 'Puerto Rico', 'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saint Kitts and Nevis', 'Saint Lucia', 'Saint Vincent', 'Samoa',
+  'San Marino', 'Saudi Arabia', 'Senegal', 'Serbia', 'Seychelles', 'Sierra Leone', 'Singapore', 'Slovakia', 'Slovenia', 'Solomon Islands',
+  'Somalia', 'South Africa', 'South Korea', 'South Sudan', 'Spain', 'Sri Lanka', 'Sudan', 'Suriname', 'Sweden', 'Switzerland',
+  'Syria', 'Taiwan', 'Tajikistan', 'Tanzania', 'Thailand', 'Togo', 'Tonga', 'Trinidad and Tobago', 'Tunisia', 'Turkey',
+  'Turkmenistan', 'Tuvalu', 'Uganda', 'UK', 'Ukraine', 'United Arab Emirates', 'Uruguay', 'USA', 'Uzbekistan', 'Vanuatu',
+  'Vatican City', 'Venezuela', 'Vietnam', 'Yemen', 'Zambia', 'Zimbabwe'
 ];
 
 // Profession badge colors
@@ -74,8 +90,8 @@ const CATEGORY_FIELDS: Record<string, { key: string; label: string; type?: strin
   ],
   bands: [
     { key: 'name', label: 'Name' },
-    { key: 'founded', label: 'Gegründet', type: 'number' },
-    { key: 'disbanded', label: 'Aufgelöst', type: 'number' },
+    { key: 'founded', label: 'Founded', type: 'number' },
+    { key: 'disbanded', label: 'Disbanded', type: 'number' },
     { key: 'genre', label: 'Genre' },
     { key: 'country', label: 'Land' },
     { key: 'members', label: 'Mitglieder' },
@@ -106,7 +122,7 @@ const CATEGORY_FIELDS: Record<string, { key: string; label: string; type?: strin
   ],
   food: [
     { key: 'name', label: 'Name' },
-    { key: 'category', label: 'Kategorie' },
+    { key: 'category', label: 'Category' },
     { key: 'origin', label: 'Herkunft' },
     { key: 'brand', label: 'Marke/Kette' },
     { key: 'decade', label: 'Dekade' },
@@ -126,7 +142,7 @@ const CATEGORY_FIELDS: Record<string, { key: string; label: string; type?: strin
   fashion: [
     { key: 'name', label: 'Name' },
     { key: 'brand', label: 'Marke' },
-    { key: 'category', label: 'Kategorie' },
+    { key: 'category', label: 'Category' },
     { key: 'country', label: 'Land' },
     { key: 'decade', label: 'Dekade' },
     { key: 'subculture', label: 'Subkultur' },
@@ -136,7 +152,7 @@ const CATEGORY_FIELDS: Record<string, { key: string; label: string; type?: strin
     { key: 'name', label: 'Name' },
     { key: 'brand', label: 'Marke' },
     { key: 'year', label: 'Jahr', type: 'number' },
-    { key: 'category', label: 'Kategorie' },
+    { key: 'category', label: 'Category' },
     { key: 'country', label: 'Land' },
     { key: 'price', label: 'Preis (UVP)' },
     { key: 'notes', label: 'Notizen' },
@@ -145,7 +161,7 @@ const CATEGORY_FIELDS: Record<string, { key: string; label: string; type?: strin
     { key: 'name', label: 'Name' },
     { key: 'brand', label: 'Marke' },
     { key: 'year', label: 'Jahr', type: 'number' },
-    { key: 'category', label: 'Kategorie' },
+    { key: 'category', label: 'Category' },
     { key: 'country', label: 'Land' },
     { key: 'tv', label: 'TV-Serie' },
     { key: 'notes', label: 'Notizen' },
@@ -153,7 +169,7 @@ const CATEGORY_FIELDS: Record<string, { key: string; label: string; type?: strin
   slang: [
     { key: 'term', label: 'Begriff' },
     { key: 'meaning', label: 'Bedeutung' },
-    { key: 'category', label: 'Kategorie' },
+    { key: 'category', label: 'Category' },
     { key: 'origin', label: 'Herkunft' },
     { key: 'decade', label: 'Dekade' },
     { key: 'example', label: 'Beispiel' },
@@ -174,6 +190,7 @@ interface Person {
   countryBorn?: string;
   cityBorn?: string;
   countryDied?: string;
+  cityDied?: string;
   nationality?: string;
   parents?: string;
   siblings?: number;
@@ -207,6 +224,8 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
   const [countryFilter, setCountryFilter] = useState('');
   const [sortBy, setSortBy] = useState<'birthday' | 'name' | 'age' | 'country' | 'profession'>('birthday');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [viewMode, setViewMode] = useState<'table' | 'byDate'>('table');
+  const [monthFilter, setMonthFilter] = useState<number>(new Date().getMonth() + 1); // 1-12, default current month
   
   // Data
   const [people, setPeople] = useState<Person[]>([]);
@@ -221,13 +240,8 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
   const [generateProgress, setGenerateProgress] = useState<string[]>([]);
   const [generateAmount, setGenerateAmount] = useState(10);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [fixStats, setFixStats] = useState<{ count: number; breakdown: { noCountry: number; invalidDate: number; duplicates: number }; duplicateExamples?: string[] } | null>(null);
-  const [fixing, setFixing] = useState(false);
-  const [fixProgress, setFixProgress] = useState<string[]>([]);
-  const [linkStats, setLinkStats] = useState<{ unlinked: number } | null>(null);
-  const [linking, setLinking] = useState(false);
-  const [cleanupStats, setCleanupStats] = useState<{ count: number; breakdown: { notAPerson: number; noCountry: number; invalidDate: number; missingName: number }; notAPersonExamples?: string[] } | null>(null);
-  const [cleaningUp, setCleaningUp] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [updateProgress, setUpdateProgress] = useState<string[]>([]);
   
   // Modals
   const [imageModal, setImageModal] = useState<{ id: string; type: 'people' | 'items'; currentUrl?: string; searchTerm?: string } | null>(null);
@@ -254,6 +268,25 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
   });
   const [socialModal, setSocialModal] = useState<Person | null>(null);
   const [socialData, setSocialData] = useState<Record<string, string>>({});
+  const [editModal, setEditModal] = useState<Person | null>(null);
+  const [editData, setEditData] = useState<Partial<Person>>({});
+
+  // Calculate country counts from loaded people
+  const countryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    people.forEach(p => {
+      const country = p.countryBorn || 'Unknown';
+      counts[country] = (counts[country] || 0) + 1;
+    });
+    return counts;
+  }, [people]);
+
+  // Get countries sorted by count (descending), only those with people
+  const countriesWithCounts = useMemo(() => {
+    return Object.entries(countryCounts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([country, count]) => ({ country, count }));
+  }, [countryCounts]);
 
   // Fetch data
   const fetchData = async () => {
@@ -270,6 +303,9 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
       }
       if (activeCategory === 'people' && aliveFilter) {
         params.set('aliveStatus', aliveFilter);
+      }
+      if (activeCategory === 'people' && monthFilter > 0) {
+        params.set('birthMonth', monthFilter.toString());
       }
       
       const res = await fetch(`/api/almanac?${params}`);
@@ -291,7 +327,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
 
   useEffect(() => {
     fetchData();
-  }, [activeCategory, professionFilter, countryFilter, aliveFilter]);
+  }, [activeCategory, professionFilter, countryFilter, aliveFilter, monthFilter]);
 
   // Fetch article refs for people
   useEffect(() => {
@@ -485,157 +521,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
 
   const currentCat = CATEGORIES.find(c => c.id === activeCategory);
 
-  // Check for entries that need fixing
-  const checkFixNeeded = async () => {
-    try {
-      const res = await fetch('/api/almanac/fix?action=count');
-      const data = await res.json();
-      if (data.success) {
-        setFixStats(data);
-      }
-    } catch (e) {
-      console.error('Fix check error:', e);
-    }
-  };
-
-  // Run AI fix on entries
-  const runFix = async (mode: 'all' | 'noCountry' | 'invalidDate' | 'duplicates') => {
-    const modeLabels: Record<string, string> = {
-      all: 'alle Probleme (Duplikate + fehlende Daten)',
-      noCountry: 'Einträge ohne Land',
-      invalidDate: 'Einträge mit ungültigem Datum',
-      duplicates: 'Duplikate'
-    };
-    
-    const confirmMsg = mode === 'duplicates' 
-      ? 'Duplikate entfernen? Der beste Eintrag wird behalten.'
-      : `${modeLabels[mode]} reparieren? Das kann etwas dauern.`;
-    
-    if (!confirm(confirmMsg)) return;
-    
-    setFixing(true);
-    setFixProgress([`🔄 Starte: ${modeLabels[mode]}...`]);
-    
-    try {
-      const res = await fetch(`/api/almanac/fix?mode=${mode}&limit=50`, { method: 'POST' });
-      const data = await res.json();
-      
-      if (data.success) {
-        setFixProgress(prev => [
-          ...prev,
-          `✅ ${data.fixed} Einträge bearbeitet`,
-          ...data.results.slice(0, 10).map((r: any) => 
-            r.status === 'fixed' || r.status === 'removed' || r.status === 'removed duplicate'
-              ? `✅ ${r.name}`
-              : `⏭️ ${r.name}: ${r.status}`
-          )
-        ]);
-        fetchData();
-        checkFixNeeded();
-      } else {
-        setFixProgress(prev => [...prev, `❌ Fehler: ${data.error}`]);
-      }
-    } catch (e) {
-      console.error('Fix error:', e);
-      setFixProgress(prev => [...prev, `❌ Netzwerkfehler`]);
-    } finally {
-      setFixing(false);
-    }
-  };
-
-  // Check for unlinked articles
-  const checkUnlinkedArticles = async () => {
-    try {
-      const res = await fetch('/api/almanac/link-articles');
-      const data = await res.json();
-      if (data.success) {
-        setLinkStats({ unlinked: data.unlinked });
-      }
-    } catch (e) {
-      console.error('Link check error:', e);
-    }
-  };
-
-  // Link articles to people
-  const linkArticles = async () => {
-    setLinking(true);
-    try {
-      const res = await fetch('/api/almanac/link-articles', { method: 'POST' });
-      const data = await res.json();
-      if (data.success) {
-        alert(`✅ ${data.linked} Artikel verknüpft`);
-        fetchData();
-        checkUnlinkedArticles();
-      } else {
-        alert('❌ Fehler: ' + data.error);
-      }
-    } catch (e) {
-      console.error('Link error:', e);
-    } finally {
-      setLinking(false);
-    }
-  };
-
-  // Check for entries to cleanup (delete)
-  const checkCleanup = async () => {
-    try {
-      const res = await fetch('/api/almanac/cleanup?action=count');
-      const data = await res.json();
-      if (data.success) {
-        setCleanupStats(data);
-      }
-    } catch (e) {
-      console.error('Cleanup check error:', e);
-    }
-  };
-
-  // Run cleanup (delete invalid entries)
-  const runCleanup = async () => {
-    if (!cleanupStats) return;
-    
-    const details = [
-      cleanupStats.breakdown.notAPerson > 0 ? `${cleanupStats.breakdown.notAPerson} keine Personen (Events/Dinge)` : '',
-      cleanupStats.breakdown.missingName > 0 ? `${cleanupStats.breakdown.missingName} fehlende Namen` : '',
-    ].filter(Boolean).join(', ');
-    
-    if (!confirm(`${cleanupStats.count} ungültige Einträge löschen?\n\n${details}\n\nDiese Einträge können nicht repariert werden.`)) return;
-    
-    setCleaningUp(true);
-    try {
-      // Only delete notAPerson and missingName - the others can be fixed
-      let deleted = 0;
-      
-      if (cleanupStats.breakdown.notAPerson > 0) {
-        const res = await fetch('/api/almanac/cleanup?mode=notAPerson', { method: 'DELETE' });
-        const data = await res.json();
-        if (data.success) deleted += data.deleted;
-      }
-      
-      if (cleanupStats.breakdown.missingName > 0) {
-        const res = await fetch('/api/almanac/cleanup?mode=missingName', { method: 'DELETE' });
-        const data = await res.json();
-        if (data.success) deleted += data.deleted;
-      }
-      
-      alert(`✅ ${deleted} Einträge gelöscht`);
-      fetchData();
-      checkCleanup();
-      checkFixNeeded();
-    } catch (e) {
-      console.error('Cleanup error:', e);
-    } finally {
-      setCleaningUp(false);
-    }
-  };
-
-  // Check stats on mount for people category
-  useEffect(() => {
-    if (activeCategory === 'people') {
-      checkFixNeeded();
-      checkUnlinkedArticles();
-      checkCleanup();
-    }
-  }, [activeCategory]);
+  
 
   // Open image modal
   const openImageModal = (id: string, type: 'people' | 'items', currentUrl?: string, searchTerm?: string) => {
@@ -864,6 +750,118 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
     }
   };
 
+  // Open edit modal
+  const openEditModal = (person: Person) => {
+    setEditModal(person);
+    setEditData({
+      firstname: person.firstname,
+      lastname: person.lastname,
+      born: person.born,
+      died: person.died || '',
+      causeOfDeath: person.causeOfDeath || '',
+      profession: person.profession,
+      countryBorn: person.countryBorn || '',
+      cityBorn: person.cityBorn || '',
+      countryDied: person.countryDied || '',
+      cityDied: person.cityDied || '',
+      knownfor: person.knownfor || '',
+    });
+  };
+
+  // Save edit
+  const saveEdit = async () => {
+    if (!editModal) return;
+    try {
+      await fetch('/api/almanac', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'people',
+          id: editModal._id,
+          ...editData,
+        }),
+      });
+      setEditModal(null);
+      fetchData();
+    } catch (e) {
+      console.error('Save edit error:', e);
+    }
+  };
+
+  // Update from Wikidata - fetch missing data for next 50 people (streaming)
+  const runWikidataUpdate = async () => {
+    setUpdating(true);
+    setUpdateProgress([]);
+    
+    try {
+      const res = await fetch('/api/almanac/update-from-wikidata', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ limit: 50, month: monthFilter || undefined }),
+      });
+      
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      
+      if (!reader) {
+        setUpdateProgress(['❌ No response']);
+        setUpdating(false);
+        return;
+      }
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const text = decoder.decode(value);
+        const lines = text.split('\n').filter(l => l.startsWith('data: '));
+        
+        for (const line of lines) {
+          try {
+            const data = JSON.parse(line.substring(6));
+            
+            if (data.type === 'processing') {
+              setUpdateProgress(prev => {
+                const filtered = prev.filter(p => !p.startsWith('🔄'));
+                return [...filtered, `🔄 [${data.index}/${data.total}] ${data.name}...`];
+              });
+            } else if (data.type === 'updated') {
+              setUpdateProgress(prev => {
+                const filtered = prev.filter(p => !p.startsWith('🔄'));
+                return [...filtered, `✅ ${data.name}: ${data.fields.join(', ')}`];
+              });
+            } else if (data.type === 'not_found_marked') {
+              setUpdateProgress(prev => {
+                const filtered = prev.filter(p => !p.startsWith('🔄'));
+                return [...filtered, `⚠️ ${data.name}: Unknown`];
+              });
+            } else if (data.type === 'marked_unknown') {
+              setUpdateProgress(prev => {
+                const filtered = prev.filter(p => !p.startsWith('🔄'));
+                return [...filtered, `⚠️ ${data.name}: Unknown (no city)`];
+              });
+            } else if (data.type === 'image_only') {
+              setUpdateProgress(prev => {
+                const filtered = prev.filter(p => !p.startsWith('🔄'));
+                return [...filtered, `📷 ${data.name}: image found`];
+              });
+            } else if (data.type === 'done') {
+              setUpdateProgress(prev => [...prev, `\n📊 Done! Updated: ${data.updated}/${data.total}`]);
+              fetchData();
+            }
+          } catch (e) {
+            // Ignore parse errors
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Wikidata update error:', e);
+      setUpdateProgress(prev => [...prev, `❌ Error: ${(e as Error).message}`]);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   // AI Generate 10 entries with live progress
   const handleGenerate = async (categoryToGenerate: string, skipDuplicateCheck = false) => {
     const cat = CATEGORIES.find(c => c.id === categoryToGenerate);
@@ -1007,7 +1005,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                   onChange={e => setProfessionFilter(e.target.value)}
                   className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white"
                 >
-                  <option value="">Alle Professionen</option>
+                  <option value="">All Professions</option>
                   {PROFESSIONS.map(p => (
                     <option key={p} value={p}>{p}</option>
                   ))}
@@ -1017,20 +1015,55 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                   onChange={e => setAliveFilter(e.target.value)}
                   className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white"
                 >
-                  <option value="">Alle</option>
-                  <option value="alive">Lebend</option>
-                  <option value="deceased">Verstorben</option>
+                  <option value="">All</option>
+                  <option value="alive">Alive</option>
+                  <option value="deceased">Deceased</option>
                 </select>
                 <select
                   value={countryFilter}
                   onChange={e => setCountryFilter(e.target.value)}
-                  className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white"
+                  className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white min-w-[180px]"
                 >
-                  <option value="">Alle Länder</option>
-                  {COUNTRIES.map(c => (
-                    <option key={c} value={c}>{c}</option>
+                  <option value="">All Countries ({people.length})</option>
+                  {countriesWithCounts.map(({ country, count }) => (
+                    <option key={country} value={country}>{country} ({count})</option>
                   ))}
                 </select>
+                <select
+                  value={monthFilter}
+                  onChange={e => setMonthFilter(parseInt(e.target.value))}
+                  className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white"
+                >
+                  <option value={0}>All Months</option>
+                  <option value={1}>January</option>
+                  <option value={2}>February</option>
+                  <option value={3}>March</option>
+                  <option value={4}>April</option>
+                  <option value={5}>May</option>
+                  <option value={6}>June</option>
+                  <option value={7}>July</option>
+                  <option value={8}>August</option>
+                  <option value={9}>September</option>
+                  <option value={10}>October</option>
+                  <option value={11}>November</option>
+                  <option value={12}>December</option>
+                </select>
+                
+                {/* View Mode Toggle */}
+                <div className="flex items-center bg-gray-700 rounded overflow-hidden border border-gray-600">
+                  <button
+                    onClick={() => setViewMode('table')}
+                    className={`px-2 py-1 text-xs font-medium ${viewMode === 'table' ? 'bg-[#E36B11] text-white' : 'text-gray-300 hover:bg-gray-600'}`}
+                  >
+                    📋 Table
+                  </button>
+                  <button
+                    onClick={() => setViewMode('byDate')}
+                    className={`px-2 py-1 text-xs font-medium ${viewMode === 'byDate' ? 'bg-[#E36B11] text-white' : 'text-gray-300 hover:bg-gray-600'}`}
+                  >
+                    📅 By Date
+                  </button>
+                </div>
               </>
             )}
             
@@ -1040,172 +1073,69 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
               className="flex items-center gap-1 px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded"
             >
               <Plus className="w-3 h-3" />
-              Hinzufügen
+              Add
             </button>
-            
-            {/* AI Generate buttons */}
-            <div className="flex items-center relative">
-              <select
-                value={generateAmount}
-                onChange={e => setGenerateAmount(Number(e.target.value))}
-                disabled={generating}
-                className="px-2 py-1 bg-gray-700 border border-gray-600 rounded-l text-xs text-white disabled:opacity-50"
-              >
-                {[10, 20, 30, 40, 50].map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
-              <button
-                onClick={() => handleGenerate(activeCategory)}
-                disabled={generating}
-                className="flex items-center gap-1 px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold disabled:opacity-50"
-                title="Generate new entries (skips duplicates)"
-              >
-                {generating ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                ) : (
-                  <span>🤖</span>
-                )}
-                {generating ? 'Generating...' : `AI +${generateAmount}`}
-              </button>
-              <button
-                onClick={() => handleGenerate(activeCategory, true)}
-                disabled={generating}
-                className="px-1.5 py-1 bg-purple-700 hover:bg-purple-800 text-white text-xs rounded-r border-l border-purple-500 disabled:opacity-50"
-                title="Force: Ignores duplicate check"
-              >
-                ⚡
-              </button>
-              
-              {/* Live Progress Popup */}
-              {generating && generateProgress.length > 0 && (
-                <div className="absolute top-full left-0 mt-1 w-80 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-50 p-3">
-                  <div className="text-xs text-gray-300 space-y-1 max-h-48 overflow-y-auto">
-                    {generateProgress.slice(-8).map((msg, i) => (
-                      <div key={i} className={msg.startsWith('✅') ? 'text-green-400' : msg.startsWith('⏭️') ? 'text-yellow-400' : msg.startsWith('❌') ? 'text-red-400' : ''}>
-                        {msg}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
             
             {/* Bulk actions */}
             {selectedIds.size > 0 && (
               <>
                 <div className="w-px h-5 bg-gray-600 mx-1" />
-                <span className="text-xs text-gray-400">{selectedIds.size} ausgewählt</span>
+                <span className="text-xs text-gray-400">{selectedIds.size} selected</span>
                 <button
                   onClick={deselectAll}
                   className="px-2 py-1 bg-gray-600 hover:bg-gray-500 text-white text-xs rounded"
                 >
-                  Abwählen
+                  Deselect
                 </button>
                 <button
                   onClick={handleDeleteSelected}
                   className="flex items-center gap-1 px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded"
                 >
                   <Trash2 className="w-3 h-3" />
-                  Löschen
+                  Delete
                 </button>
               </>
             )}
             
-            {/* Fix button for people with missing data */}
-            {activeCategory === 'people' && fixStats && fixStats.count > 0 && (
+            {/* Update button - fetch missing data from Wikidata */}
+            {activeCategory === 'people' && (
               <div className="relative">
                 <button
-                  onClick={() => runFix('all')}
-                  disabled={fixing}
+                  onClick={runWikidataUpdate}
+                  disabled={updating}
                   className={`flex items-center gap-1 px-2 py-1 text-white text-xs font-bold rounded disabled:opacity-50 ${
-                    fixing 
+                    updating 
                       ? 'bg-blue-500 animate-pulse' 
                       : 'bg-blue-600 hover:bg-blue-700'
                   }`}
-                  title={`${fixStats.count} unvollständige Einträge mit AI reparieren`}
+                  title="Update next 50 people with missing data from Wikidata"
                 >
-                  {fixing ? (
+                  {updating ? (
                     <>
                       <Loader2 className="w-3 h-3 animate-spin" />
-                      <span>Fixing...</span>
+                      <span>Updating...</span>
                     </>
                   ) : (
                     <>
-                      <span>🔧</span>
-                      <span>AI Fix ({fixStats.count})</span>
+                      <span>�</span>
+                      <span>Update 50</span>
                     </>
                   )}
                 </button>
                 
-                {/* Dropdown with breakdown - only show when not fixing */}
-                {!fixing && (
-                  <div className="absolute right-0 top-full mt-1 w-64 bg-gray-800 border border-gray-700 rounded shadow-lg z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible hover:opacity-100 hover:visible transition-all">
-                    <div className="p-2 text-xs text-gray-300 space-y-1">
-                      <div className="font-bold text-white mb-2">🤖 Reparieren & Bereinigen:</div>
-                      <button 
-                        onClick={() => runFix('duplicates')}
-                        disabled={fixing}
-                        className="w-full text-left px-2 py-1 hover:bg-gray-700 rounded flex justify-between disabled:opacity-50"
-                      >
-                        <span>👥 Duplikate entfernen</span>
-                        <span className="text-blue-400">{fixStats.breakdown.duplicates}</span>
-                      </button>
-                      <button 
-                        onClick={() => runFix('noCountry')}
-                        disabled={fixing}
-                        className="w-full text-left px-2 py-1 hover:bg-gray-700 rounded flex justify-between disabled:opacity-50"
-                      >
-                        <span>🌍 Fehlendes Land</span>
-                        <span className="text-blue-400">{fixStats.breakdown.noCountry}</span>
-                      </button>
-                      <button 
-                        onClick={() => runFix('invalidDate')}
-                        disabled={fixing}
-                        className="w-full text-left px-2 py-1 hover:bg-gray-700 rounded flex justify-between disabled:opacity-50"
-                      >
-                        <span>📅 Ungültiges Datum</span>
-                        <span className="text-blue-400">{fixStats.breakdown.invalidDate}</span>
-                      </button>
-                      <div className="border-t border-gray-600 mt-2 pt-2">
-                        <button 
-                          onClick={() => runFix('all')}
-                          disabled={fixing}
-                          className="w-full text-left px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-white font-bold disabled:opacity-50"
-                        >
-                          Alles reparieren ({fixStats.count})
-                        </button>
-                      </div>
-                      {fixStats.duplicateExamples && fixStats.duplicateExamples.length > 0 && (
-                        <div className="mt-2 pt-2 border-t border-gray-600">
-                          <div className="text-gray-500 text-[10px] mb-1">Duplikate z.B.:</div>
-                          {fixStats.duplicateExamples.slice(0, 3).map((name, i) => (
-                            <div key={i} className="text-gray-400 text-[10px]">• {name}</div>
-                          ))}
-                        </div>
-                      )}
-                      <p className="text-[10px] text-gray-500 mt-2">
-                        Entfernt Duplikate und nutzt AI für fehlende Daten.
-                      </p>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Progress popup - show when fixing or has progress */}
-                {(fixing || fixProgress.length > 0) && (
+                {/* Progress popup */}
+                {(updating || updateProgress.length > 0) && (
                   <div className="absolute right-0 top-full mt-1 w-96 bg-gray-900 border border-blue-500 rounded-lg shadow-xl z-50 p-3">
                     <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-700">
-                      <Loader2 className={`w-4 h-4 text-blue-400 ${fixing ? 'animate-spin' : ''}`} />
+                      <Loader2 className={`w-4 h-4 text-blue-400 ${updating ? 'animate-spin' : ''}`} />
                       <span className="text-sm font-bold text-white">
-                        {fixing ? 'AI repariert Einträge...' : 'Fertig!'}
+                        {updating ? 'Fetching from Wikidata...' : 'Done!'}
                       </span>
                     </div>
                     <div className="text-xs text-gray-300 space-y-1 max-h-48 overflow-y-auto">
-                      {fixProgress.length === 0 && fixing && (
-                        <div className="text-blue-400 animate-pulse">🔄 Starte AI-Reparatur...</div>
-                      )}
-                      {fixProgress.map((msg, i) => (
+                      {updateProgress.map((msg, i) => (
                         <div key={i} className={
                           msg.startsWith('✅') ? 'text-green-400' : 
-                          msg.startsWith('⏭️') ? 'text-yellow-400' : 
                           msg.startsWith('❌') ? 'text-red-400' : 
                           msg.startsWith('🔄') ? 'text-blue-400 animate-pulse' : ''
                         }>
@@ -1213,121 +1143,45 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                         </div>
                       ))}
                     </div>
-                    {!fixing && fixProgress.length > 0 && (
+                    {!updating && updateProgress.length > 0 && (
                       <button 
-                        onClick={() => setFixProgress([])}
+                        onClick={() => setUpdateProgress([])}
                         className="mt-2 w-full py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs text-gray-300"
                       >
-                        Schließen
+                        Close
                       </button>
                     )}
                   </div>
                 )}
               </div>
             )}
-            
-            {/* Link Articles button */}
-            {activeCategory === 'people' && linkStats && linkStats.unlinked > 0 && (
-              <button
-                onClick={linkArticles}
-                disabled={linking}
-                className="flex items-center gap-1 px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded disabled:opacity-50"
-                title="Verknüpfe bestehende Artikel mit Personen"
-              >
-                {linking ? <Loader2 className="w-3 h-3 animate-spin" /> : '🔗'}
-                Link Articles ({linkStats.unlinked})
-              </button>
-            )}
-            
-            {/* Cleanup button - delete invalid entries that can't be fixed */}
-            {activeCategory === 'people' && cleanupStats && (cleanupStats.breakdown.notAPerson > 0 || cleanupStats.breakdown.missingName > 0) && (
-              <div className="relative group">
-                <button
-                  onClick={runCleanup}
-                  disabled={cleaningUp}
-                  className="flex items-center gap-1 px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded disabled:opacity-50"
-                  title="Lösche ungültige Einträge (Events, fehlende Namen)"
-                >
-                  {cleaningUp ? <Loader2 className="w-3 h-3 animate-spin" /> : '🗑️'}
-                  Cleanup ({cleanupStats.breakdown.notAPerson + cleanupStats.breakdown.missingName})
-                </button>
-                {/* Tooltip with details */}
-                <div className="absolute right-0 top-full mt-1 w-64 bg-gray-800 border border-gray-700 rounded shadow-lg z-50 p-2 text-xs hidden group-hover:block">
-                  <div className="font-bold text-white mb-2">Zu löschende Einträge:</div>
-                  {cleanupStats.breakdown.notAPerson > 0 && (
-                    <div className="flex justify-between text-gray-300 mb-1">
-                      <span>🚫 Keine Personen (Events)</span>
-                      <span className="text-red-400">{cleanupStats.breakdown.notAPerson}</span>
-                    </div>
-                  )}
-                  {cleanupStats.breakdown.missingName > 0 && (
-                    <div className="flex justify-between text-gray-300 mb-1">
-                      <span>❓ Fehlende Namen</span>
-                      <span className="text-red-400">{cleanupStats.breakdown.missingName}</span>
-                    </div>
-                  )}
-                  {cleanupStats.notAPersonExamples && cleanupStats.notAPersonExamples.length > 0 && (
-                    <div className="mt-2 pt-2 border-t border-gray-600">
-                      <div className="text-gray-500 text-[10px] mb-1">Beispiele:</div>
-                      {cleanupStats.notAPersonExamples.map((name, i) => (
-                        <div key={i} className="text-gray-400 text-[10px]">• {name}</div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
-        {/* Country stats bar - People only */}
-        {activeCategory === 'people' && people.length > 0 && (() => {
-          const counts: Record<string, number> = {};
-          people.forEach(p => { const c = p.countryBorn || 'Unknown'; counts[c] = (counts[c] || 0) + 1; });
-          const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-          return (
-            <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-800/60 border-b border-gray-700 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-              <span className="text-[9px] text-gray-500 whitespace-nowrap flex-shrink-0">🌍</span>
-              {sorted.map(([country, count]) => (
-                <button
-                  key={country}
-                  onClick={() => setCountryFilter(countryFilter === country ? '' : country)}
-                  className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] whitespace-nowrap flex-shrink-0 transition-colors ${
-                    countryFilter === country
-                      ? 'bg-[#E36B11] text-white'
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  }`}
-                >
-                  <span>{country}</span>
-                  <span className={`font-bold ${countryFilter === country ? 'text-white' : 'text-[#E36B11]'}`}>{count}</span>
-                </button>
-              ))}
-            </div>
-          );
-        })()}
+
 
         {/* Add form */}
         {showAddForm && (
           <div className="px-4 py-3 bg-gray-750 border-b border-gray-700">
-            <h3 className="text-xs font-bold text-white mb-2">Neuen Eintrag hinzufügen</h3>
+            <h3 className="text-xs font-bold text-white mb-2">Add New Entry</h3>
             
             {activeCategory === 'people' ? (
               <div className="grid grid-cols-7 gap-2">
-                <input placeholder="Vorname *" value={formData.firstname || ''} onChange={e => setFormData({...formData, firstname: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white" />
-                <input placeholder="Nachname *" value={formData.lastname || ''} onChange={e => setFormData({...formData, lastname: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white" />
-                                <input type="date" placeholder="Geburtstag" min="1960-01-01" max="1981-12-31" value={formData.born || ''} onChange={e => setFormData({...formData, born: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white" />
-                <input type="date" placeholder="Todestag" value={formData.died || ''} onChange={e => setFormData({...formData, died: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white" />
-                <input placeholder="Todesursache" value={formData.causeOfDeath || ''} onChange={e => setFormData({...formData, causeOfDeath: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white" />
+                <input placeholder="First Name *" value={formData.firstname || ''} onChange={e => setFormData({...formData, firstname: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white" />
+                <input placeholder="Last Name *" value={formData.lastname || ''} onChange={e => setFormData({...formData, lastname: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white" />
+                <input type="date" placeholder="Birthday" min="1960-01-01" max="1981-12-31" value={formData.born || ''} onChange={e => setFormData({...formData, born: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white" />
+                <input type="date" placeholder="Death Date" value={formData.died || ''} onChange={e => setFormData({...formData, died: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white" />
+                <input placeholder="Cause of Death" value={formData.causeOfDeath || ''} onChange={e => setFormData({...formData, causeOfDeath: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white" />
                 <select value={formData.profession || ''} onChange={e => setFormData({...formData, profession: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white">
                   <option value="">Profession *</option>
                   {PROFESSIONS.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
                 <input placeholder="Subkategorie" value={formData.subcat || ''} onChange={e => setFormData({...formData, subcat: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white" />
-                <input placeholder="Bekannt für" value={formData.knownfor || ''} onChange={e => setFormData({...formData, knownfor: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white" />
-                <input placeholder="Geburtsland" value={formData.countryBorn || ''} onChange={e => setFormData({...formData, countryBorn: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white" />
-                <input placeholder="Geburtsort" value={formData.cityBorn || ''} onChange={e => setFormData({...formData, cityBorn: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white" />
-                <input placeholder="Todesland" value={formData.countryDied || ''} onChange={e => setFormData({...formData, countryDied: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white" />
-                <input placeholder="Nationalität" value={formData.nationality || ''} onChange={e => setFormData({...formData, nationality: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white" />
+                <input placeholder="Known For" value={formData.knownfor || ''} onChange={e => setFormData({...formData, knownfor: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white" />
+                <input placeholder="Birth Country" value={formData.countryBorn || ''} onChange={e => setFormData({...formData, countryBorn: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white" />
+                <input placeholder="Birth City" value={formData.cityBorn || ''} onChange={e => setFormData({...formData, cityBorn: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white" />
+                <input placeholder="Death Country" value={formData.countryDied || ''} onChange={e => setFormData({...formData, countryDied: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white" />
+                <input placeholder="Nationality" value={formData.nationality || ''} onChange={e => setFormData({...formData, nationality: e.target.value})} className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white" />
               </div>
             ) : (
               <div className="grid grid-cols-6 gap-2">
@@ -1346,22 +1200,126 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
             
             <div className="flex gap-2 mt-2">
               <button onClick={handleAdd} disabled={saving} className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded disabled:opacity-50">
-                {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Speichern'}
+                {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
               </button>
               <button onClick={() => { setShowAddForm(false); setFormData({}); }} className="px-3 py-1 bg-gray-600 hover:bg-gray-500 text-white text-xs rounded">
-                Abbrechen
+                Cancel
               </button>
             </div>
           </div>
         )}
 
-        {/* Table */}
+        {/* Table or By Date View */}
         <div className="flex-1 overflow-auto">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 text-[#E36B11] animate-spin" />
             </div>
+          ) : activeCategory === 'people' && viewMode === 'byDate' ? (
+            /* BY DATE VIEW */
+            <div className="p-4 space-y-4">
+              {(() => {
+                // Group people by birthday (MM-DD)
+                const grouped: Record<string, Person[]> = {};
+                people.forEach(p => {
+                  if (!p.born) return;
+                  const mmdd = p.born.substring(5); // "MM-DD"
+                  if (!grouped[mmdd]) grouped[mmdd] = [];
+                  grouped[mmdd].push(p);
+                });
+                
+                // Sort dates - today first, then descending (most recent first)
+                const today = new Date();
+                const todayMMDD = `${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                
+                const sortedDates = Object.keys(grouped).sort((a, b) => {
+                  // Today always first
+                  if (a === todayMMDD) return -1;
+                  if (b === todayMMDD) return 1;
+                  // Then sort descending by date (31, 30, 29...)
+                  return b.localeCompare(a);
+                });
+                
+                return sortedDates.map(mmdd => {
+                  const [mm, dd] = mmdd.split('-');
+                  const dateLabel = `${dd}.${mm}.`;
+                  const isToday = mmdd === todayMMDD;
+                  const peopleThatDay = grouped[mmdd].sort((a, b) => 
+                    `${a.lastname} ${a.firstname}`.localeCompare(`${b.lastname} ${b.firstname}`)
+                  );
+                  
+                  return (
+                    <div key={mmdd} className={`rounded-lg border ${isToday ? 'border-[#E36B11] bg-[#E36B11]/10' : 'border-gray-700 bg-gray-800/50'}`}>
+                      <div className={`px-4 py-2 font-bold text-sm flex items-center gap-2 ${isToday ? 'text-[#E36B11]' : 'text-white'}`}>
+                        <span className="text-lg">{isToday ? '🎂' : '📅'}</span>
+                        <span>{dateLabel}</span>
+                        <span className="text-xs font-normal text-gray-400">({peopleThatDay.length} {peopleThatDay.length === 1 ? 'person' : 'people'})</span>
+                        {isToday && <span className="ml-2 px-2 py-0.5 bg-[#E36B11] text-white text-[10px] rounded-full">TODAY</span>}
+                      </div>
+                      <div className="px-4 pb-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+                        {peopleThatDay.map(p => {
+                          const hasArticleNow = p.hasArticle || personArticles[p._id];
+                          const year = p.born ? parseInt(p.born.substring(0, 4)) : null;
+                          
+                          return (
+                            <div 
+                              key={p._id} 
+                              className={`flex items-center gap-2 p-2 rounded-lg border ${hasArticleNow ? 'border-green-600/50 bg-green-900/20' : 'border-gray-600 bg-gray-700/50'} ${p.died ? 'opacity-60' : ''}`}
+                            >
+                              {/* Image */}
+                              <div 
+                                onClick={() => openImageModal(p._id, 'people', p.image, `${p.firstname} ${p.lastname}`)}
+                                className="cursor-pointer hover:opacity-80 flex-shrink-0"
+                              >
+                                {p.image ? (
+                                  <img src={p.image} alt="" className="w-10 h-10 rounded-full object-cover border border-gray-500" />
+                                ) : (
+                                  <div className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center text-gray-400 text-xs border border-dashed border-gray-500">
+                                    ?
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* Info */}
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-white text-sm truncate">
+                                  {p.firstname} {p.lastname}
+                                </div>
+                                <div className="flex items-center gap-2 text-[10px] text-gray-400">
+                                  {year && <span>{year}</span>}
+                                  <span className={`px-1 py-0.5 rounded ${PROF_COLORS[p.profession] || PROF_COLORS.Other}`}>
+                                    {p.profession}
+                                  </span>
+                                  {p.cityBorn && <span className="text-blue-300">{p.cityBorn}</span>}
+                                  {p.countryBorn && <span>{p.countryBorn}</span>}
+                                </div>
+                              </div>
+                              
+                              {/* Article Button */}
+                              <div className="flex-shrink-0">
+                                {hasArticleNow ? (
+                                  <span className="text-green-400 text-lg" title="Article exists">✅</span>
+                                ) : (
+                                  <button 
+                                    onClick={() => openArticleModal(p)}
+                                    className="px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white text-[10px] font-bold rounded"
+                                    title="Write article"
+                                  >
+                                    ✏️ Write
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
           ) : activeCategory === 'people' ? (
+            /* TABLE VIEW */
             <table className="w-full text-xs">
               <thead className="bg-gray-700 sticky top-0">
                 <tr>
@@ -1374,16 +1332,16 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                     />
                   </th>
                   <th className="px-2 py-2 text-left text-gray-300 w-8">#</th>
-                  <th className="px-2 py-2 text-left text-gray-300 w-10">Bild</th>
+                  <th className="px-2 py-2 text-left text-gray-300 w-10">Image</th>
                   <SortHeader column="name">Name</SortHeader>
-                  <SortHeader column="birthday">Geburtstag</SortHeader>
-                  <SortHeader column="age">Alter</SortHeader>
-                  <SortHeader column="country">Land</SortHeader>
-                  <th className="px-2 py-2 text-left text-gray-300">Ort</th>
+                  <SortHeader column="birthday">Birthday</SortHeader>
+                  <SortHeader column="age">Age</SortHeader>
+                  <SortHeader column="country">Country</SortHeader>
+                  <th className="px-2 py-2 text-left text-gray-300">City</th>
                   <SortHeader column="profession">Profession</SortHeader>
-                  <th className="px-2 py-2 text-left text-gray-300">Todestag</th>
-                  <th className="px-2 py-2 text-left text-gray-300">Todesursache</th>
-                  <th className="px-2 py-2 text-left text-gray-300">Todesland</th>
+                  <th className="px-2 py-2 text-left text-gray-300">Death Date</th>
+                  <th className="px-2 py-2 text-left text-gray-300">Cause of Death</th>
+                  <th className="px-2 py-2 text-left text-gray-300">Death Country</th>
                   <th className="px-2 py-2 text-left text-gray-300">Article</th>
                   <th className="px-2 py-2 text-left text-gray-300 w-20">Actions</th>
                 </tr>
@@ -1404,7 +1362,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                       <div 
                         onClick={() => openImageModal(p._id, 'people', p.image, `${p.firstname} ${p.lastname}`)}
                         className="cursor-pointer hover:opacity-80"
-                        title="Bild ändern"
+                        title="Change image"
                       >
                         {p.image ? (
                           <img src={p.image} alt="" className="w-8 h-8 rounded object-cover border border-gray-600" />
@@ -1442,21 +1400,25 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                           <span className="text-gray-500 text-[9px]">{new Date(personArticles[p._id].createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
                         </div>
                       ) : (
-                        <span className="text-gray-600 text-[10px]">—</span>
+                        <button 
+                          onClick={() => openArticleModal(p)}
+                          className="px-2 py-0.5 bg-purple-600 hover:bg-purple-700 text-white text-[10px] font-bold rounded flex items-center gap-1"
+                          title="Create article"
+                        >
+                          <FileText className="w-3 h-3" />
+                          Write
+                        </button>
                       )}
                     </td>
                     <td className="px-2 py-1">
                       <div className="flex gap-1">
-                        <button onClick={() => openArticleModal(p)} className="p-1 bg-purple-600 hover:bg-purple-700 rounded" title="Artikel generieren">
-                          <FileText className="w-3 h-3 text-white" />
+                        <button onClick={() => openEditModal(p)} className="p-1 bg-yellow-600 hover:bg-yellow-700 rounded" title="Edit">
+                          <Pencil className="w-3 h-3 text-white" />
                         </button>
                         <button onClick={() => openSocialModal(p)} className="p-1 bg-blue-600 hover:bg-blue-700 rounded" title="Social Media">
                           <Globe className="w-3 h-3 text-white" />
                         </button>
-                        <button onClick={() => openImageModal(p._id, 'people', p.image, `${p.firstname} ${p.lastname}`)} className="p-1 bg-orange-600 hover:bg-orange-700 rounded" title="Bild">
-                          <Image className="w-3 h-3 text-white" />
-                        </button>
-                        <button onClick={() => handleDelete(p._id)} className="p-1 bg-red-600 hover:bg-red-700 rounded" title="Löschen">
+                        <button onClick={() => handleDelete(p._id)} className="p-1 bg-red-600 hover:bg-red-700 rounded" title="Delete">
                           <Trash2 className="w-3 h-3 text-white" />
                         </button>
                       </div>
@@ -1478,7 +1440,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                     />
                   </th>
                   <th className="px-2 py-2 text-left text-gray-300 w-8">#</th>
-                  <th className="px-2 py-2 text-left text-gray-300 w-10">Bild</th>
+                  <th className="px-2 py-2 text-left text-gray-300 w-10">Image</th>
                   {CATEGORY_FIELDS[activeCategory]?.map(field => (
                     <th key={field.key} className="px-2 py-2 text-left text-gray-300">{field.label}</th>
                   ))}
@@ -1511,10 +1473,10 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                     ))}
                     <td className="px-2 py-1">
                       <div className="flex gap-1">
-                        <button onClick={() => openItemArticleModal(item)} className="p-1 bg-purple-600 hover:bg-purple-700 rounded" title="Artikel generieren">
+                        <button onClick={() => openItemArticleModal(item)} className="p-1 bg-purple-600 hover:bg-purple-700 rounded" title="Generate article">
                           <FileText className="w-3 h-3 text-white" />
                         </button>
-                        <button onClick={() => openImageModal(item._id, 'items', item.image, item.data?.title || item.data?.name || '')} className="p-1 bg-orange-600 hover:bg-orange-700 rounded" title="Bild">
+                        <button onClick={() => openImageModal(item._id, 'items', item.image, item.data?.title || item.data?.name || '')} className="p-1 bg-orange-600 hover:bg-orange-700 rounded" title="Image">
                           <Image className="w-3 h-3 text-white" />
                         </button>
                         <button onClick={() => handleDelete(item._id)} className="p-1 bg-red-600 hover:bg-red-700 rounded">
@@ -1532,9 +1494,9 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
           {!loading && ((activeCategory === 'people' && people.length === 0) || (activeCategory !== 'people' && items.length === 0)) && (
             <div className="flex flex-col items-center justify-center py-12 text-gray-500">
               <span className="text-4xl mb-2">{currentCat?.emoji}</span>
-              <p className="text-sm">Keine Einträge gefunden</p>
+              <p className="text-sm">No entries found</p>
               <button onClick={() => setShowAddForm(true)} className="mt-2 text-xs text-[#E36B11] hover:underline">
-                + Ersten Eintrag hinzufügen
+                + Add first entry
               </button>
             </div>
           )}
@@ -1559,7 +1521,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
               <div>
-                <h3 className="text-sm font-bold text-white">✍ Artikel erstellen</h3>
+                <h3 className="text-sm font-bold text-white">✍ Create Article</h3>
                 <p className="text-xs text-gray-400">{articleModal.firstname} {articleModal.lastname} · {articleModal.profession}</p>
               </div>
               <button onClick={() => setArticleModal(null)} className="p-1 hover:bg-gray-700 rounded">
@@ -1571,51 +1533,47 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {/* AI Generation Options */}
               <div className="bg-purple-900/20 border border-purple-500/30 rounded-lg p-3">
-                <h4 className="text-xs font-bold text-purple-300 mb-2">🤖 AI Generierung</h4>
+                <h4 className="text-xs font-bold text-purple-300 mb-2">🤖 AI Generation</h4>
                 <div className="grid grid-cols-5 gap-2 mb-2">
                   <div>
-                    <label className="text-[10px] text-gray-400">Fokus</label>
+                    <label className="text-[10px] text-gray-400">Focus</label>
                     <input
                       value={articleOptions.topic}
                       onChange={e => setArticleOptions({...articleOptions, topic: e.target.value})}
-                      placeholder="Karriere..."
+                      placeholder="Career..."
                       className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white"
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] text-gray-400">Zeitraum</label>
+                    <label className="text-[10px] text-gray-400">Timeframe</label>
                     <select value={articleOptions.timeframe} onChange={e => setArticleOptions({...articleOptions, timeframe: e.target.value})} className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white">
                       <option value="week">Letzte Woche</option>
                       <option value="month">Letzter Monat</option>
                       <option value="year">Letztes Jahr</option>
-                      <option value="alltime">Alles</option>
+                      <option value="alltime">All Time</option>
                     </select>
                   </div>
                   <div>
-                    <label className="text-[10px] text-gray-400">Sprache</label>
+                    <label className="text-[10px] text-gray-400">Language</label>
                     <select value={articleOptions.language} onChange={e => setArticleOptions({...articleOptions, language: e.target.value})} className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white">
                       <option>English</option>
                       <option>Deutsch</option>
                     </select>
                   </div>
                   <div>
-                    <label className="text-[10px] text-gray-400">Länge</label>
+                    <label className="text-[10px] text-gray-400">Length</label>
                     <select value={articleOptions.length} onChange={e => setArticleOptions({...articleOptions, length: e.target.value})} className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white">
-                      <option value="short (~150 words)">Kurz</option>
-                      <option value="medium (~300 words)">Mittel</option>
-                      <option value="long (~600 words)">Lang</option>
+                      <option value="short (~150 words)">Short</option>
+                      <option value="medium (~300 words)">Medium</option>
+                      <option value="long (~600 words)">Long</option>
                     </select>
                   </div>
                   <div>
-                    <label className="text-[10px] text-gray-400">Stil</label>
+                    <label className="text-[10px] text-gray-400">Style</label>
                     <select value={articleOptions.tone} onChange={e => setArticleOptions({...articleOptions, tone: e.target.value})} className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white">
-                      <option value="informative">Sachlich</option>
-                      <option value="irvine-welsh">Irvine Welsh</option>
-                      <option value="charles-bukowski">Charles Bukowski</option>
-                      <option value="benjamin-stuckrad-barre">Benjamin v. Stuckrad-Barré</option>
-                      <option value="hunter-thompson">Hunter S. Thompson</option>
-                      <option value="nick-hornby">Nick Hornby</option>
-                      <option value="bret-easton-ellis">Bret Easton Ellis</option>
+                      {AUTHOR_STYLES.map(style => (
+                        <option key={style.id} value={style.id}>{style.emoji} {style.label}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -1623,7 +1581,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                   <input
                     value={articleOptions.extra}
                     onChange={e => setArticleOptions({...articleOptions, extra: e.target.value})}
-                    placeholder="Extra Anweisungen..."
+                    placeholder="Extra instructions..."
                     className="flex-1 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white"
                   />
                   <button
@@ -1632,7 +1590,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                     className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded disabled:opacity-50 flex items-center gap-1"
                   >
                     {articleGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : '⚡'}
-                    {articleGenerating ? 'Generiere...' : 'Generieren'}
+                    {articleGenerating ? 'Generating...' : 'Generate'}
                   </button>
                 </div>
               </div>
@@ -1655,7 +1613,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                     <input
                       value={articleData.title}
                       onChange={e => setArticleData({...articleData, title: e.target.value})}
-                      placeholder="Artikel Titel..."
+                      placeholder="Article title..."
                       className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-sm text-white font-medium"
                     />
                   </div>
@@ -1664,7 +1622,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                     <input
                       value={articleData.subtitle}
                       onChange={e => setArticleData({...articleData, subtitle: e.target.value})}
-                      placeholder="Untertitel..."
+                      placeholder="Subtitle..."
                       className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white"
                     />
                   </div>
@@ -1673,7 +1631,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
 
               {/* Content - Block Editor */}
               <div>
-                <label className="text-[10px] text-gray-400 mb-1 block">Inhalt (Block Editor)</label>
+                <label className="text-[10px] text-gray-400 mb-1 block">Content (Block Editor)</label>
                 <div className="bg-gray-900 rounded border border-gray-600 overflow-hidden">
                   <BlockEditor
                     value={articleData.content}
@@ -1685,7 +1643,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
               {/* Tags & Category */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] text-gray-400">Tags (kommagetrennt)</label>
+                  <label className="text-[10px] text-gray-400">Tags (comma-separated)</label>
                   <input
                     value={articleData.tags.join(', ')}
                     onChange={e => setArticleData({...articleData, tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean)})}
@@ -1694,7 +1652,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] text-gray-400">Kategorie</label>
+                  <label className="text-[10px] text-gray-400">Category</label>
                   <select
                     value={articleData.category}
                     onChange={e => setArticleData({...articleData, category: e.target.value})}
@@ -1719,11 +1677,11 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
             {/* Footer */}
             <div className="flex items-center justify-between px-4 py-3 border-t border-gray-700 bg-gray-850">
               <div className="text-xs text-gray-500">
-                {articleData.content ? `${articleData.content.split(' ').length} Wörter` : 'Noch kein Inhalt'}
+                {articleData.content ? `${articleData.content.split(' ').length} words` : 'No content yet'}
               </div>
               <div className="flex gap-2">
                 <button onClick={() => setArticleModal(null)} className="px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-xs rounded">
-                  Abbrechen
+                  Cancel
                 </button>
                 <button
                   onClick={saveArticle}
@@ -1731,9 +1689,137 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                   className="px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded disabled:opacity-50 flex items-center gap-1"
                 >
                   {articleSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : '💾'}
-                  {articleSaving ? 'Speichere...' : 'Als Artikel speichern'}
+                  {articleSaving ? 'Saving...' : 'Save as Article'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT MODAL */}
+      {editModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setEditModal(null)}>
+          <div className="bg-gray-800 rounded-lg p-4 w-[500px] max-w-[95vw] max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <h3 className="text-sm font-bold text-white mb-3">✏️ Edit Person</h3>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-gray-400">First Name</label>
+                <input
+                  value={editData.firstname || ''}
+                  onChange={e => setEditData({...editData, firstname: e.target.value})}
+                  className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400">Last Name</label>
+                <input
+                  value={editData.lastname || ''}
+                  onChange={e => setEditData({...editData, lastname: e.target.value})}
+                  className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400">Born (YYYY-MM-DD)</label>
+                <input
+                  value={editData.born || ''}
+                  onChange={e => setEditData({...editData, born: e.target.value})}
+                  placeholder="1975-08-21"
+                  className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400">Profession</label>
+                <select
+                  value={editData.profession || ''}
+                  onChange={e => setEditData({...editData, profession: e.target.value})}
+                  className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white"
+                >
+                  <option value="">Select...</option>
+                  {PROFESSIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-400">City of Birth</label>
+                <input
+                  value={editData.cityBorn || ''}
+                  onChange={e => setEditData({...editData, cityBorn: e.target.value})}
+                  className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400">Country of Birth</label>
+                <select
+                  value={editData.countryBorn || ''}
+                  onChange={e => setEditData({...editData, countryBorn: e.target.value})}
+                  className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white"
+                >
+                  <option value="">Select...</option>
+                  {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            </div>
+            
+            <div className="mt-3">
+              <label className="text-xs text-gray-400">Known For</label>
+              <input
+                value={editData.knownfor || ''}
+                onChange={e => setEditData({...editData, knownfor: e.target.value})}
+                className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white"
+              />
+            </div>
+            
+            <div className="border-t border-gray-600 mt-4 pt-3">
+              <p className="text-xs text-gray-500 mb-2">Death Info (leave empty if alive)</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-400">Died (YYYY-MM-DD)</label>
+                  <input
+                    value={editData.died || ''}
+                    onChange={e => setEditData({...editData, died: e.target.value})}
+                    placeholder="2020-01-15"
+                    className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400">Cause of Death</label>
+                  <input
+                    value={editData.causeOfDeath || ''}
+                    onChange={e => setEditData({...editData, causeOfDeath: e.target.value})}
+                    placeholder="Cancer, Heart attack, etc."
+                    className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400">City of Death</label>
+                  <input
+                    value={editData.cityDied || ''}
+                    onChange={e => setEditData({...editData, cityDied: e.target.value})}
+                    className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400">Country of Death</label>
+                  <select
+                    value={editData.countryDied || ''}
+                    onChange={e => setEditData({...editData, countryDied: e.target.value})}
+                    className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white"
+                  >
+                    <option value="">Select...</option>
+                    {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex gap-2 mt-4">
+              <button onClick={saveEdit} className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded">
+                💾 Save
+              </button>
+              <button onClick={() => setEditModal(null)} className="px-3 py-1 bg-gray-600 hover:bg-gray-500 text-white text-xs rounded">
+                Cancel
+              </button>
             </div>
           </div>
         </div>
@@ -1771,10 +1857,10 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
             
             <div className="flex gap-2 mt-3">
               <button onClick={saveSocial} className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded">
-                💾 Speichern
+                💾 Save
               </button>
               <button onClick={() => setSocialModal(null)} className="px-3 py-1 bg-gray-600 hover:bg-gray-500 text-white text-xs rounded">
-                Schließen
+                Close
               </button>
             </div>
           </div>

@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Bell, BellOff, Check, Trophy, Settings, Swords, Trash2, Target, Music, X, ThumbsUp, Newspaper } from "lucide-react";
+import { Bell, BellOff, Check, Trophy, Settings, Swords, Trash2, Target, Music, X, ThumbsUp, Newspaper, Brain, Vote, ChevronLeft } from "lucide-react";
+import { WELCOME_NOTIFICATION_ID, WELCOME_GUEST_DISMISSED_KEY, WELCOME_TITLE, welcomeMessage } from "@/lib/welcomeNotification";
 import { sounds } from "@/utils/sounds";
 import { useAuth } from "@/context/AuthContext";
 import LogoLoader from "./LogoLoader";
@@ -19,7 +20,7 @@ interface PredictionOption {
 
 interface Notification {
   id: string;
-  type: 'battle_result' | 'battle_accepted' | 'battle_challenge' | 'ranking' | 'test' | 'system' | 'prediction_result' | 'song_approved' | 'song_rejected' | 'song_in_progress' | 'comment_like';
+  type: 'battle_result' | 'battle_accepted' | 'battle_challenge' | 'ranking' | 'test' | 'system' | 'prediction_result' | 'song_approved' | 'song_rejected' | 'song_in_progress' | 'comment_like' | 'welcome';
   title: string;
   message: string;
   avatar?: string;
@@ -83,6 +84,13 @@ interface NotificationPageProps {
   compact?: boolean; // Compact mode for sidebar widget - shows only first 5 notifications
   onViewAll?: () => void; // Called when "View All" is clicked in compact mode
   onOpenSettings?: () => void; // Called when bell icon is clicked in compact mode to open notification settings
+  // Opens the "Battle Challenge!" confirm modal for this battle as soon as the
+  // page mounts. Used for a deep link from a raw OS push notification, which has
+  // no notification-list item to click through - it must land on the SAME
+  // confirm-before-you-play step a manual click on the notification gets,
+  // instead of skipping straight into an accepted, wagered battle.
+  initialChallengeId?: string | null;
+  onInitialChallengeHandled?: () => void;
 }
 
 // Simple Notification Item with X button
@@ -103,6 +111,16 @@ function NotificationItem({
   compact?: boolean;
   isActive?: boolean;
 }) {
+  // Hover = orange row + cream text. `text-white` is cream by design here:
+  // tailwind.config.ts remaps `white` to #F5F0E8, and that is wanted - cream on
+  // orange, never pure white.
+  //
+  // The catch: cream text is invisible if the row does NOT turn orange, which is
+  // exactly how this broke. So the fill is applied twice on purpose - via
+  // `hover:bg-[#E36B11]` here and via `.news-item:hover` in globals.css. The row
+  // background also uses `bg-[#F5F0E8]` instead of `.bg-cream`, because that
+  // unlayered class kept beating the hover utility.
+
   // Compact mode: two-line layout for sidebar widget
   // Row 1: avatar | title | date | trash
   // Row 2: message text
@@ -112,9 +130,9 @@ function NotificationItem({
         className={`relative p-2 rounded-lg border transition-all duration-200 cursor-pointer group ${
           isActive
             ? 'bg-[#E36B11] border-[#E36B11]'
-            : isUnread 
-              ? 'bg-[#E36B11]/10 border-[#E36B11]/30 hover:bg-[#E36B11] hover:border-[#E36B11]' 
-              : 'bg-cream border-warm hover:bg-[#E36B11] hover:border-[#E36B11]'
+            : isUnread
+              ? 'news-item bg-[#E36B11]/10 border-[#E36B11]/30 hover:bg-[#E36B11] hover:border-[#E36B11]'
+              : 'news-item bg-[#F5F0E8] border-warm hover:bg-[#E36B11] hover:border-[#E36B11]'
         }`}
         onClick={onClick}
       >
@@ -146,25 +164,40 @@ function NotificationItem({
         </div>
         
         {/* Row 2: message text - starts at same position as avatar */}
-        <p className={`font-display text-[11px] tracking-wide truncate mt-0.5 transition-colors ${isActive ? 'text-white/80' : 'text-gray-500 group-hover:text-white/80'}`}>{notif.message}</p>
+        <p className={`font-display text-[11px] tracking-wide truncate mt-0.5 transition-colors flex items-center gap-0.5 ${isActive ? 'text-white/80' : 'text-gray-500 group-hover:text-white/80'}`}>
+          {notif.message.includes('BOGX') ? (
+            <>
+              {notif.message.split('BOGX')[0]}
+              <img src="/images/bogxcoin.png" alt="BOGX" className="w-3 h-3 inline-block" />
+              {notif.message.split('BOGX')[1]}
+            </>
+          ) : (
+            notif.message
+          )}
+        </p>
       </div>
     );
   }
 
-  // Full mode: original layout
+  // Full mode: original layout - same hover style as compact (sidebar)
   return (
-    <div className={`relative flex items-start gap-3 p-3 rounded-xl border transition-colors ${
-      isUnread 
-        ? 'bg-[#E36B11]/10 border-[#E36B11]/30 hover:bg-[#E36B11]/15' 
-        : 'bg-cream border-warm hover:bg-cream'
-    }`}>
+    <div 
+      className={`relative flex items-start gap-3 p-3 rounded-xl border transition-all duration-200 cursor-pointer group ${
+        isActive
+          ? 'bg-[#E36B11] border-[#E36B11]'
+          : isUnread
+            ? 'news-item bg-[#E36B11]/10 border-[#E36B11]/30 hover:bg-[#E36B11] hover:border-[#E36B11]'
+            : 'news-item bg-[#F5F0E8] border-warm hover:bg-[#E36B11] hover:border-[#E36B11]'
+      }`}
+      onClick={onClick}
+    >
       {/* Trash Button to dismiss */}
       <button
         onClick={(e) => {
           e.stopPropagation();
           onDismiss();
         }}
-        className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center text-gray-600 hover:text-red-400 hover:bg-red-50 rounded transition-colors"
+        className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center text-gray-600 hover:text-red-400 hover:bg-red-50 group-hover:text-white/80 rounded transition-colors"
       >
         <Trash2 className="w-4 h-4" />
       </button>
@@ -177,9 +210,9 @@ function NotificationItem({
         {/* Icon/Avatar */}
         <div className="flex-shrink-0">
           {notif.avatar ? (
-            <img src={notif.avatar} alt="" className="w-10 h-10 rounded-full" />
+            <img src={notif.avatar} alt="" className="w-10 h-10 rounded-full border-2 border-transparent transition-colors group-hover:border-white" />
           ) : (
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
               notif.type === 'battle_result' 
                 ? (notif.title.includes('Won') ? 'bg-green-500/20' : notif.title.includes('Lost') ? 'bg-red-500/20' : 'bg-yellow-500/20')
                 : notif.type === 'prediction_result'
@@ -193,21 +226,21 @@ function NotificationItem({
                         : 'bg-[#E36B11]/20'
             }`}>
               {notif.type === 'battle_result' ? (
-                <Trophy className={`w-5 h-5 ${
+                <Trophy className={`w-5 h-5 transition-colors group-hover:text-white ${
                   notif.title.includes('Won') ? 'text-green-400' : notif.title.includes('Lost') ? 'text-red-400' : 'text-yellow-400'
                 }`} />
               ) : notif.type === 'prediction_result' ? (
-                <Target className={`w-5 h-5 ${notif.won ? 'text-green-500' : 'text-red-500'}`} />
+                <Target className={`w-5 h-5 transition-colors group-hover:text-white ${notif.won ? 'text-green-500' : 'text-red-500'}`} />
               ) : notif.type === 'song_approved' ? (
-                <Music className="w-5 h-5 text-green-500" />
+                <Music className="w-5 h-5 text-green-500 transition-colors group-hover:text-white" />
               ) : notif.type === 'song_rejected' ? (
-                <Music className="w-5 h-5 text-red-500" />
+                <Music className="w-5 h-5 text-red-500 transition-colors group-hover:text-white" />
               ) : notif.type === 'song_in_progress' ? (
-                <Music className="w-5 h-5 text-blue-500" />
+                <Music className="w-5 h-5 text-blue-500 transition-colors group-hover:text-white" />
               ) : notif.type === 'comment_like' ? (
-                <ThumbsUp className="w-5 h-5 text-[#E36B11]" />
+                <ThumbsUp className="w-5 h-5 text-[#E36B11] transition-colors group-hover:text-white" />
               ) : (
-                <Swords className="w-5 h-5 text-[#E36B11]" />
+                <Swords className="w-5 h-5 text-[#E36B11] transition-colors group-hover:text-white" />
               )}
             </div>
           )}
@@ -216,15 +249,28 @@ function NotificationItem({
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
-            <span className="font-semibold text-sm text-gray-900">{notif.title}</span>
-            <span className="text-xs text-gray-600 flex-shrink-0">{timeAgo(notif.createdAt)}</span>
+            <span className="font-display text-base tracking-wide text-gray-900 transition-colors group-hover:text-white">{notif.title}</span>
+            <span className="font-display text-xs tracking-wide text-gray-600 flex-shrink-0 transition-colors group-hover:text-white/80">{timeAgo(notif.createdAt)}</span>
           </div>
-          <p className="text-xs text-gray-500 mt-0.5">{notif.message}</p>
+          <p className="font-display text-sm tracking-wide text-gray-500 mt-0.5 flex items-center gap-1 flex-wrap transition-colors group-hover:text-white/90">
+            {notif.message.includes('BOGX') ? (
+              <>
+                {notif.message.split('BOGX')[0]}
+                <img src="/images/bogxcoin.png" alt="BOGX" className="w-3.5 h-3.5 inline-block" />
+                {notif.message.split('BOGX')[1]}
+              </>
+            ) : (
+              notif.message
+            )}
+          </p>
         </div>
       </button>
     </div>
   );
 }
+
+// Set by the compact widget so the full page opens the welcome body on mount
+const WELCOME_OPEN_FLAG = 'bogx-open-welcome';
 
 // Helper: Convert base64 VAPID key to Uint8Array (required by iOS Safari)
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -238,7 +284,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray;
 }
 
-export default function NotificationPage({ isOpen = true, onClose, onGoToProfile, onGoToBattle, onShowBattleResult, onOpenArticle, onShowChallenge, autoEnable, onNewNotification, onPointsAwarded, autoOpenSettings, onSettingsClosed, onChallengeDeclined, compact = false, onViewAll, onOpenSettings }: NotificationPageProps & { onNewNotification?: () => void }) {
+export default function NotificationPage({ isOpen = true, onClose, onGoToProfile, onGoToBattle, onShowBattleResult, onOpenArticle, onShowChallenge, autoEnable, onNewNotification, onPointsAwarded, autoOpenSettings, onSettingsClosed, onChallengeDeclined, compact = false, onViewAll, onOpenSettings, initialChallengeId, onInitialChallengeHandled }: NotificationPageProps & { onNewNotification?: () => void }) {
   const { user, isLoggedIn } = useAuth();
   const [showSettings, setShowSettings] = useState(false);
   
@@ -258,12 +304,52 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
   const [selectedBattle, setSelectedBattle] = useState<BattleResult | null>(null);
   const [selectedChallenge, setSelectedChallenge] = useState<any | null>(null);
   const [selectedPredictionResult, setSelectedPredictionResult] = useState<PredictionResultData | null>(null);
+  const [selectedWelcome, setSelectedWelcome] = useState(false); // Show welcome message in body
+
+  // The widget sets a flag before navigating here, because this instance is not
+  // mounted yet at click time and a window event would arrive before the listener.
+  useEffect(() => {
+    if (compact) return;
+    try {
+      if (sessionStorage.getItem(WELCOME_OPEN_FLAG)) {
+        sessionStorage.removeItem(WELCOME_OPEN_FLAG);
+        setSelectedWelcome(true);
+      }
+    } catch { /* private mode */ }
+  }, [compact]);
   const [loadingBattle, setLoadingBattle] = useState(false);
   const [decliningChallenge, setDecliningChallenge] = useState(false);
   const [dismissedNotifications, setDismissedNotifications] = useState<Set<string>>(new Set());
   const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set());
   const [activeNotificationId, setActiveNotificationId] = useState<string | null>(null);
   const [testPushLoading, setTestPushLoading] = useState(false);
+
+  // Guests have no notifications row, so the welcome message is built client-side
+  // and its dismissal is remembered in localStorage instead of on the user.
+  const [guestWelcomeDismissed, setGuestWelcomeDismissed] = useState(true);
+  useEffect(() => {
+    if (isLoggedIn) return;
+    try {
+      setGuestWelcomeDismissed(!!localStorage.getItem(WELCOME_GUEST_DISMISSED_KEY));
+    } catch {
+      setGuestWelcomeDismissed(false); // private mode: show it, just don't persist
+    }
+  }, [isLoggedIn]);
+
+  // The list to render: server notifications for members, the local welcome for guests
+  const displayNotifications: Notification[] = isLoggedIn
+    ? notifications
+    : guestWelcomeDismissed
+      ? []
+      : [{
+          id: WELCOME_NOTIFICATION_ID,
+          type: 'welcome',
+          title: WELCOME_TITLE,
+          message: welcomeMessage(),
+          avatar: '/images/genxlogo1.png',
+          read: true,
+          createdAt: new Date().toISOString(),
+        }];
   
   // Send test push notification
   const sendTestPush = async () => {
@@ -350,9 +436,20 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
 
   // The parent closed a notification detail view (BACK) - drop the highlight
   useEffect(() => {
-    const clearActive = () => setActiveNotificationId(null);
+    const clearActive = () => { setActiveNotificationId(null); setSelectedWelcome(false); };
     window.addEventListener('notification-view-closed', clearActive);
     return () => window.removeEventListener('notification-view-closed', clearActive);
+  }, []);
+
+  // Push was toggled in another instance (settings page vs news widget) - the
+  // bell has to reflect it immediately instead of only after a page refresh.
+  useEffect(() => {
+    const onPushStatus = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (typeof detail?.enabled === 'boolean') setPushEnabled(detail.enabled);
+    };
+    window.addEventListener('push-status-changed', onPushStatus);
+    return () => window.removeEventListener('push-status-changed', onPushStatus);
   }, []);
 
   const loadNotifications = async (silent: boolean = false) => {
@@ -386,16 +483,33 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
     }
   };
 
-  // Format time ago
+  /**
+   * Timestamp for a notification.
+   *
+   * "40h ago" made the reader do arithmetic to work out which day something happened,
+   * so anything older than today shows the real date. Today keeps the clock time -
+   * the one case where the relative wording added nothing over it anyway.
+   */
   const timeAgo = (date: string) => {
-    const now = new Date();
     const then = new Date(date);
-    const diff = Math.floor((now.getTime() - then.getTime()) / 1000);
-    
-    if (diff < 60) return 'just now';
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-    return `${Math.floor(diff / 86400)}d ago`;
+    if (isNaN(then.getTime())) return '';
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfYesterday = new Date(startOfToday);
+    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+
+    const time = then.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+
+    if (then >= startOfToday) return time;
+    if (then >= startOfYesterday) return `Yesterday ${time}`;
+
+    const sameYear = then.getFullYear() === now.getFullYear();
+    return then.toLocaleDateString(undefined, {
+      day: '2-digit',
+      month: 'short',
+      ...(sameYear ? {} : { year: 'numeric' }),
+    });
   };
 
   // Load battle details for modal (or navigate to content area on desktop)
@@ -451,6 +565,9 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
           opponentResults: battle.opponentResults || [],
           creatorTotalPoints: battle.creatorTotalPoints || 0,
           opponentTotalPoints: battle.opponentTotalPoints || 0,
+          // Needed by BattleResultScreen to tell a forfeit apart from a 0:0 draw
+          winner: battle.winner,
+          forfeitedBy: battle.forfeitedBy,
         };
         
         setSelectedBattle({
@@ -508,6 +625,16 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
       setLoadingBattle(false);
     }
   };
+
+  // Deep link from a battle-challenge push notification: open the same confirm
+  // modal a manual click on the notification would, instead of skipping it.
+  useEffect(() => {
+    if (initialChallengeId && user?.id) {
+      loadChallengeDetails(initialChallengeId);
+      onInitialChallengeHandled?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialChallengeId, user?.id]);
 
   // Decline a battle challenge - refunds the creator and deletes notification
   const handleDeclineChallenge = async () => {
@@ -677,6 +804,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
         }
 
         setPushEnabled(true);
+        window.dispatchEvent(new CustomEvent('push-status-changed', { detail: { enabled: true } }));
         
         // Give reward if first time enabling (0.50 BOGX)
         if (!pushRewardClaimed) {
@@ -726,6 +854,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
         });
 
         setPushEnabled(false);
+        window.dispatchEvent(new CustomEvent('push-status-changed', { detail: { enabled: false } }));
       }
     } catch (error) {
       console.error('Push toggle error:', error);
@@ -739,6 +868,14 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
   // Shared dismiss handler for both compact and full mode
   // Deletes the notification from the database permanently
   const handleDismissNotification = async (notif: Notification) => {
+    // Guests only have the local welcome message - remember it and skip the API
+    if (!isLoggedIn) {
+      if (notif.id === WELCOME_NOTIFICATION_ID) {
+        setGuestWelcomeDismissed(true);
+        try { localStorage.setItem(WELCOME_GUEST_DISMISSED_KEY, '1'); } catch { /* private mode */ }
+      }
+      return;
+    }
     if (!user?.id) return;
     
     // Optimistically remove from local state first
@@ -762,8 +899,8 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
 
   // COMPACT MODE - Sidebar widget version (uses same NotificationItem component)
   if (compact) {
-    const visibleNotifications = notifications.filter(n => !dismissedNotifications.has(n.id)).slice(0, 5);
-    const unreadCount = notifications.filter(n => !n.read && !dismissedNotifications.has(n.id)).length;
+    const visibleNotifications = displayNotifications.filter(n => !dismissedNotifications.has(n.id)).slice(0, 5);
+    const unreadCount = displayNotifications.filter(n => !n.read && !dismissedNotifications.has(n.id)).length;
     
     return (
       <div className="bg-[#F5F0E8] rounded-xl border border-warm overflow-hidden shadow-sm">
@@ -852,6 +989,13 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
                       setActiveNotificationId(null);
                       onViewAll?.();
                     }
+                  } else if (notif.type === 'welcome') {
+                    // Open the full news page with the welcome message expanded.
+                    // The flag is read by the full-page instance on mount, because
+                    // it is not mounted yet when this click happens.
+                    setActiveNotificationId(null);
+                    try { sessionStorage.setItem(WELCOME_OPEN_FLAG, '1'); } catch {}
+                    onViewAll?.();
                   } else {
                     // Default: open full notifications page
                     setActiveNotificationId(null); // Clear active when navigating away
@@ -993,12 +1137,12 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
           <LogoLoader size="md" text="Loading battle..." />
         </div>
       )}
-      
+
       {/* NOTIFICATION LIST VIEW */}
-      {!showSettings && !selectedBattle && !loadingBattle && (
+      {!showSettings && !selectedBattle && !selectedWelcome && !loadingBattle && (
         <div className="px-4 py-3 space-y-2">
-          {/* Guest - Full page message */}
-          {!isLoggedIn && (
+          {/* Guest - Full page message, once the welcome message is dismissed */}
+          {!isLoggedIn && displayNotifications.length === 0 && (
             <div className="flex flex-col items-center justify-center py-4 px-4">
               <div className="flex items-center gap-2 mb-1">
                 <Bell className="w-6 h-6 text-[#E36B11]" />
@@ -1056,7 +1200,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
           )}
           
           {/* Empty State - Push NOT enabled */}
-          {!loadingNotifications && notifications.filter(n => !dismissedNotifications.has(n.id)).length === 0 && isLoggedIn && !pushEnabled && (
+          {!loadingNotifications && displayNotifications.filter(n => !dismissedNotifications.has(n.id)).length === 0 && isLoggedIn && !pushEnabled && (
             <div className="flex flex-col items-center justify-center py-4 px-4">
               <div className="flex items-center gap-2 mb-1">
                 <Bell className="w-6 h-6 text-[#E36B11]" />
@@ -1116,7 +1260,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
           )}
           
           {/* Empty State - Push enabled but no notifications */}
-          {!loadingNotifications && notifications.filter(n => !dismissedNotifications.has(n.id)).length === 0 && isLoggedIn && pushEnabled && (
+          {!loadingNotifications && displayNotifications.filter(n => !dismissedNotifications.has(n.id)).length === 0 && isLoggedIn && pushEnabled && (
             <div className="flex flex-col items-center justify-center py-4 px-4">
               <div className="flex items-center gap-2 mb-1">
                 <Check className="w-6 h-6 text-green-500" />
@@ -1158,11 +1302,12 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
           )}
           
           {/* Notification Items */}
-          {notifications.filter(n => !dismissedNotifications.has(n.id)).map((notif) => (
+          {displayNotifications.filter(n => !dismissedNotifications.has(n.id)).map((notif) => (
             <NotificationItem
               key={notif.id}
               notif={notif}
               isUnread={!notif.read && !readNotifications.has(notif.id)}
+              isActive={activeNotificationId === notif.id}
               onDismiss={() => handleDismissNotification(notif)}
               onClick={() => {
                 // Mark as read locally (removes highlight but keeps message)
@@ -1188,6 +1333,8 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
                 // Note: Points are awarded when notification is created, not on click
                 if (notif.type === 'song_approved') {
                   // Just show the notification - points already awarded on server
+                } else if (notif.type === 'welcome') {
+                  setSelectedWelcome(true);
                 } else if (notif.type === 'prediction_result' && notif.predictionQuestion && notif.predictionOptions) {
                   setSelectedPredictionResult({
                     question: notif.predictionQuestion,

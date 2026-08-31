@@ -23,6 +23,9 @@ interface Battle {
   acceptedAt?: string;
   creatorResults?: { round: number }[];
   opponentResults?: { round: number }[];
+  /** Set once that player pressed START - from then on backing out is a forfeit. */
+  creatorStartedAt?: string;
+  opponentStartedAt?: string;
 }
 
 interface Props {
@@ -30,13 +33,20 @@ interface Props {
   onClose: () => void;
   userId: string;
   onPlayBattle: (battleId: string) => void; // Navigate directly to that battle
-  onCoinsChange?: (amount: number) => void;
+  /**
+   * Balance delta plus how it should read in the header. A refund is NOT a win:
+   * it must use 'hold' (gold, gentle), otherwise cancelling a battle plays the
+   * same green "you earned coins" animation as actually winning one.
+   */
+  onCoinsChange?: (amount: number, variant?: 'gain' | 'loss' | 'hold') => void;
   onShowLogin?: () => void;
   accentColor?: 'orange' | 'purple'; // orange for Arcade, purple for BattlesPage
   /** Fires whenever the number of battles needing attention changes, so the
       parent's badge updates immediately (e.g. after Give Up) instead of only
       on the next refresh. */
   onCountChange?: (count: number) => void;
+  /** ID of the battle currently being played - shows "In Play" instead of Cancel */
+  currentlyPlayingBattleId?: string;
 }
 
 function timeAgo(iso: string) {
@@ -50,7 +60,7 @@ function timeAgo(iso: string) {
   return "just now";
 }
 
-export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle, onCoinsChange, onShowLogin, accentColor = 'orange', onCountChange }: Props) {
+export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle, onCoinsChange, onShowLogin, accentColor = 'orange', onCountChange, currentlyPlayingBattleId }: Props) {
   // Color classes based on accent
   const colors = accentColor === 'purple' 
     ? { bg: 'bg-[#A855F7]', bgLight: 'bg-[#A855F7]/10', border: 'border-[#A855F7]/40', text: 'text-[#A855F7]', gradient: 'from-[#A855F7]/5' }
@@ -143,7 +153,7 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
           checkAndCloseIfEmpty(newBattles, declinedBattles, incomingChallenges);
           return newBattles;
         });
-        if (data.refunded && onCoinsChange) onCoinsChange(data.refunded);
+        if (data.refunded && onCoinsChange) onCoinsChange(data.refunded, 'hold');
         window.dispatchEvent(new Event("bogx-updated"));
       } else {
         alert(data.error || "Could not cancel battle");
@@ -259,11 +269,14 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
       if (data.success) {
         setBattles(prev => prev.filter(b => b._id !== battle._id));
         window.dispatchEvent(new Event("bogx-updated"));
+        // Trust the server, don't assume: /forfeit only refunds when the caller
+        // hasn't played a round yet (`cancelled: true`). A real forfeit awards the
+        // pot to the opponent and leaves this balance untouched — crediting
+        // +wager there would show coins the user never got back.
         if (type === "cancelWaiting" && onCoinsChange) {
-          onCoinsChange(battle.wager);
-        } else if (type === "forfeit" && onCoinsChange) {
-          // YOUR TURN = not yet played → backend refunds wager (no loss)
-          onCoinsChange(battle.wager);
+          onCoinsChange(data.refunded ?? battle.wager, 'hold');
+        } else if (type === "forfeit" && onCoinsChange && data.cancelled) {
+          onCoinsChange(data.refunded ?? battle.wager, 'hold');
         }
       } else {
         alert(data.error || "Action failed");
@@ -474,18 +487,25 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
                           <p className="flex-1 min-w-0 text-gray-900 text-sm font-semibold truncate">
                             {battle.challengedUser ? `vs ${battle.challengedUser.username}` : (battle.topic || "Mixed")}
                           </p>
-                          <button
-                            onClick={() => handleCancel(battle)}
-                            disabled={cancelling === battle._id}
-                            className="flex items-center gap-1 px-2.5 py-1.5 bg-red-100 border border-red-200 text-red-600 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors disabled:opacity-50 flex-shrink-0"
-                          >
-                            {cancelling === battle._id ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <RotateCcw className="w-3 h-3" />
-                            )}
-                            {cancelling === battle._id ? "" : "Cancel"}
-                          </button>
+                          {currentlyPlayingBattleId === battle._id ? (
+                            <span className="flex items-center gap-1 px-2.5 py-1.5 bg-green-100 border border-green-200 text-green-600 rounded-lg text-xs font-bold flex-shrink-0">
+                              <Gamepad2 className="w-3 h-3" />
+                              In Play
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleCancel(battle)}
+                              disabled={cancelling === battle._id}
+                              className="flex items-center gap-1 px-2.5 py-1.5 bg-red-100 border border-red-200 text-red-600 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors disabled:opacity-50 flex-shrink-0"
+                            >
+                              {cancelling === battle._id ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <RotateCcw className="w-3 h-3" />
+                              )}
+                              {cancelling === battle._id ? "" : "Cancel"}
+                            </button>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 mt-2 flex-wrap pl-[52px]">
                           <span className={`${colors.text} text-xs font-bold`}>{formatCurrency(battle.wager)} wager</span>
@@ -603,9 +623,10 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
                                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-100 border border-gray-300 text-gray-700 rounded-lg text-xs font-bold hover:bg-gray-200 transition-colors disabled:opacity-50"
                                   >
                                     {cancelling === battle._id ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
-                                    {/* This triggers a FORFEIT (wager is lost), not a free cancel:
-                                        the opponent already played, so there is nothing to cancel. */}
-                                    Give Up
+                                    {/* "Not played yet" is not the same as "not started": once START
+                                        was pressed the wager is committed, so the label must not keep
+                                        promising a free cancel. */}
+                                    {(isCreator ? battle.creatorStartedAt : battle.opponentStartedAt) ? 'Give Up' : 'Cancel'}
                                   </button>
                                   <button
                                     onClick={() => { onClose(); onPlayBattle(battle._id); }}
@@ -683,9 +704,22 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
     if (!battle) return { title: "", message: "", confirmText: "", confirmColor: "red" as const };
     
     if (type === "forfeit") {
+      // A battle you already armed with START costs the wager, even with zero
+      // answers submitted - mirror /api/battles/[id]/forfeit instead of promising
+      // a refund the server will refuse.
+      const isCreator = battle.creator?._id === userId;
+      const armed = isCreator ? !!battle.creatorStartedAt : !!battle.opponentStartedAt;
+      if (armed) {
+        return {
+          title: "Give Up?",
+          message: `You already started this battle, so your opponent wins the full pot of ${formatCurrency(battle.wager * 2)}. This cannot be undone.`,
+          confirmText: "Give Up",
+          confirmColor: "red" as const,
+        };
+      }
       return {
         title: "Cancel Battle?",
-        message: `You haven't played yet, so both players get their ${formatCurrency(battle.wager)} wager back. Nobody loses.`,
+        message: `You haven't started yet, so both players get their ${formatCurrency(battle.wager)} wager back. Nobody loses.`,
         confirmText: "Cancel Battle",
         confirmColor: "red" as const,
       };

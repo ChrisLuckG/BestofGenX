@@ -10,7 +10,7 @@ interface ArcadePageProps {
   onShowBattles?: () => void;
   battleAlertCount?: number;
   userId?: string;
-  onCoinsChange?: (amount: number) => void;
+  onCoinsChange?: (amount: number, variant?: 'gain' | 'loss' | 'hold') => void;
   onPlaySpecificBattle?: (battleId: string) => void;
 }
 
@@ -57,19 +57,23 @@ export default function ArcadePage({ onSelectGame, onShowRankings, onShowBattles
     <div className="w-full h-full flex flex-col overflow-hidden bg-cream">
       {/* Header */}
       <div className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
-        <div className="flex items-center gap-3">
+        <div className="relative flex items-center gap-3">
           <Brain className="w-5 h-5 text-[#E36B11]" />
           <div>
             <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Trivia</span>
             <span className="text-[10px] text-gray-500 -mt-0.5 block">Test your GenX knowledge!</span>
           </div>
-          {/* Open battles button - right side */}
+          {/* Open battles button - absolute so height never grows the header */}
           <button
-            onClick={() => userId ? setShowOpenBattles(true) : onShowBattles?.()}
-            className="ml-auto relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#A855F7]/40 bg-[#A855F7]/10 hover:bg-[#A855F7]/20 transition-colors"
+            onClick={() => userId ? setShowOpenBattles(v => !v) : onShowBattles?.()}
+            className={`absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1.5 px-3 py-3 rounded-lg border transition-colors text-[10px] tracking-wider ${
+              showOpenBattles
+                ? 'border-[#A855F7] bg-[#A855F7] font-bold shadow-sm'
+                : 'border-[#A855F7]/40 bg-[#A855F7]/10 hover:bg-[#A855F7]/20 font-semibold'
+            }`}
           >
-            <Swords className="w-4 h-4 text-[#A855F7]" />
-            <span className="text-xs font-bold text-[#A855F7]">Open Battles</span>
+            <Swords className={`w-3.5 h-3.5 ${showOpenBattles ? 'text-white' : 'text-[#A855F7]'}`} />
+            <span className={showOpenBattles ? 'text-white' : 'text-[#A855F7]'}>OPEN BATTLES</span>
             {liveBattleCount > 0 && (
               <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 bg-red-500 rounded-full flex items-center justify-center text-white text-[9px] font-black shadow animate-pulse">
                 {liveBattleCount > 9 ? '9+' : liveBattleCount}

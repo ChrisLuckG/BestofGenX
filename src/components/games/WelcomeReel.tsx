@@ -8,7 +8,7 @@ import CardMoodReactions from "@/components/CardMoodReactions";
 import CategoryBadge from "@/components/CategoryBadge";
 import LazyImage from "@/components/LazyImage";
 import { useAuth } from "@/context/AuthContext";
-import { getAutoFillSlugs, getCategoryLabel as getSubCategoryLabel, TOP_AREA_EXCLUDED_SLUGS } from "@/lib/categories";
+import { getAutoFillSlugs, getCategoryLabel as getSubCategoryLabel, getCategoryColor, TOP_AREA_EXCLUDED_SLUGS } from "@/lib/categories";
 import { getFlagUrl as resolveFlagUrl } from "@/lib/countryFlags";
 
 interface Article {
@@ -191,9 +191,12 @@ const SliderCard = ({
       )}
       {/* Content - below image */}
       <div className="p-1.5">
-        <h3 className={`font-display text-[20px] tracking-wide leading-tight line-clamp-2 transition-colors ${hasColorTheme ? 'text-white group-hover:text-gray-900' : 'text-gray-900 group-hover:text-[#E36B11]'}`}>{article.title}</h3>
+        {/* Hover colour follows the theme: orange on a coloured container reads as
+            "same colour on same colour", so those cards highlight in cream
+            (#F5F0E8, the app's stand-in for white) instead. */}
+        <h3 className={`font-display text-[20px] tracking-wide leading-tight line-clamp-2 transition-colors text-gray-900 ${hasColorTheme ? 'group-hover:text-[#F5F0E8]' : 'group-hover:text-[#E36B11]'}`}>{article.title}</h3>
         {/* Likes & Comments */}
-        <div className={`flex items-center gap-2 mt-1 text-[8px] ${hasColorTheme ? 'text-gray-700' : 'text-gray-500'}`} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2 mt-1 text-[8px] text-gray-500" onClick={(e) => e.stopPropagation()}>
           <CardMoodReactions articleId={article._id} userId={userId} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="xs" useExternalData initialReactions={reactionData?.reactions} initialUserReaction={reactionData?.userReaction} initialRewarded={reactionData?.rewarded} onReactionChange={onReactionChange} />
           <span className="flex items-center gap-0.5">
             <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -408,7 +411,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
     containerTheme?: string,
     customColor?: string, // Custom hex color when containerTheme is 'custom'
     containerBlocks?: {
-      type: 'MAIN' | '2H' | 'FIXED' | 'SLIDER' | 'VERTICAL' | 'SOCIAL';
+      type: 'MAIN' | '2H' | 'FIXED' | 'SLIDER' | 'VERTICAL' | 'SOCIAL' | 'VIDEO';
       articleId?: string | null;
       articleId2?: string | null;
       articles?: string[];
@@ -418,6 +421,8 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       autoFill?: 'latest' | 'history' | 'category';
       autoFillCategory?: string;
       autoFillLimit?: number;
+      videoUrl?: string;
+      videoTitle?: string;
     }[]
   }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -809,13 +814,13 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       <div className="absolute bottom-0 left-0 right-0 z-10 p-4">
         {/* Date above title (birthday) */}
         {formatArticleDate(article.createdAt) && (
-          <div className="text-[14px] text-white/90 mb-1.5 font-semibold">{formatArticleDate(article.createdAt)}</div>
+          <div className={`text-[14px] mb-1.5 font-semibold ${article.category === 'rip' ? 'text-gray-700' : 'text-white/90'}`}>{formatArticleDate(article.createdAt)}</div>
         )}
         {/* Title */}
         <div className="flex items-start gap-2">
           <h2 className={`font-display text-[28px] lg:text-[32px] tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} group-hover:text-[#E36B11] leading-tight mb-1.5 line-clamp-2 transition-colors flex-1`}>{article.title}</h2>
         </div>
-        <div className="flex items-center justify-between gap-2 text-[11px] text-white/70">
+        <div className={`flex items-center justify-between gap-2 text-[11px] ${article.category === 'rip' ? 'text-gray-600' : 'text-white/70'}`}>
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-5 h-5 rounded-full overflow-hidden flex-shrink-0 border border-white/30">
               {article.authorAvatar ? (
@@ -1768,11 +1773,12 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                                 .filter(a => a.status === 'published' && a.contentType !== 'banner-page' && cats.includes(a.category?.toLowerCase() || ''))
                                 .sort(compareArticles)[0];
                           }
-                          // Prefer the dedicated banner image stored on the block. For the
-                          // Community-Sound feature, fall back to the article's coverImage
-                          // (the permanent music banner picture) when no block image is set.
+                          // Prefer the dedicated banner image stored on the block. Fall back to
+                          // the article's coverImage for music, banner-page, or arcade/gaming/trivia
+                          // (Daily Champions articles have nice trophy images).
                           const bannerLink = (block as any).bannerLink || '';
-                          const fixedImg = (block as any).bannerImage || ((autoCategory === 'music' || fixedArticle?.contentType === 'banner-page') ? (fixedArticle?.coverImage || '') : '');
+                          const useCoverImage = autoCategory === 'music' || fixedArticle?.contentType === 'banner-page' || DATE_BASED_AREAS.has(autoCategory);
+                          const fixedImg = (block as any).bannerImage || (useCoverImage ? (fixedArticle?.coverImage || '') : '');
                           // Render the banner if we have EITHER a backing article OR a dedicated
                           // banner image (e.g. an Eastercorn banner with a picture but no article yet).
                           if (!fixedArticle && !fixedImg) return null;
@@ -1896,12 +1902,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                             'tech': 'Tech', 'culture': 'Culture', 'news': 'News', 'lifestyle': 'Lifestyle',
                             'rip': 'RIP', 'eastercorn': 'Eastercorn'
                           };
-                          const catColor: Record<string, string> = {
-                            'music': '#22C55E', 'sports': '#E53935', 'history': '#E36B11',
-                            'movies-tv': '#F97316', 'gaming': '#7C3AED', 'lifestyle': '#EC4899',
-                            'culture': '#EC4899', 'rip': '#6B7280', 'eastercorn': '#1E3A8A',
-                          };
-                          const seeMoreColor = catColor[cat] || '#E36B11';
+                          const seeMoreColor = getCategoryColor(cat);
                           
                           return (
                             <div key={blockIdx} className="space-y-1.5">
@@ -1936,6 +1937,51 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                           if (!socialArticle) return null;
                           usedArticleIds.add(socialArticle._id);
                           return <div key={blockIdx}><MainSocial article={socialArticle} /></div>;
+                        }
+                        if (block.type === 'VIDEO') {
+                          // VIDEO block for livestreams - skip if no URL (don't show empty placeholder to users)
+                          if (!block.videoUrl) return null;
+                          
+                          // Extract video ID from YouTube/Twitch URL
+                          let embedUrl = '';
+                          const url = block.videoUrl;
+                          
+                          if (url.includes('youtube.com') || url.includes('youtu.be')) {
+                            // YouTube - handle watch, embed, live, and shorts URLs
+                            const match = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|live\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+                            if (match) embedUrl = `https://www.youtube.com/embed/${match[1]}?autoplay=0`;
+                          } else if (url.includes('twitch.tv')) {
+                            // Twitch
+                            const channelMatch = url.match(/twitch\.tv\/([a-zA-Z0-9_]+)/);
+                            if (channelMatch) embedUrl = `https://player.twitch.tv/?channel=${channelMatch[1]}&parent=${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}&autoplay=false`;
+                          }
+                          
+                          if (!embedUrl) return null;
+                          
+                          return (
+                            <div key={blockIdx} className="relative rounded-xl overflow-hidden bg-black">
+                              {/* Live indicator */}
+                              <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                                <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                                LIVE
+                              </div>
+                              {/* Title overlay */}
+                              {block.videoTitle && (
+                                <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/80 to-transparent p-3">
+                                  <div className="text-white text-sm font-bold">{block.videoTitle}</div>
+                                </div>
+                              )}
+                              {/* Video embed */}
+                              <div className="aspect-video">
+                                <iframe 
+                                  src={embedUrl}
+                                  className="w-full h-full"
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                  allowFullScreen
+                                />
+                              </div>
+                            </div>
+                          );
                         }
                         return null;
                       })}

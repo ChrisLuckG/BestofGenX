@@ -20,130 +20,9 @@ import { formatCurrency, getCurrencySymbol } from "@/utils/currency";
 import { sounds } from "@/utils/sounds";
 import { compareBattleResults } from "@/utils/battleWinner";
 import OpenBattlesModal from "@/components/OpenBattlesModal";
-
-// Preparing Screen Component - shows BOGX logo spinning, then transitions to ready
-function PreparingScreen({ opponent, wager, onReady, onStart }: { opponent: any; wager: number; onReady: () => void; onStart: () => void }) {
-  const [progress, setProgress] = useState(0);
-  const isComplete = progress >= 100;
-  
-  useEffect(() => {
-    // Animate progress from 0 to 100 over 5 seconds
-    const interval = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          onReady();
-          return 100;
-        }
-        return prev + 2; // 50 steps over 5 seconds (100ms each)
-      });
-    }, 100);
-    
-    return () => clearInterval(interval);
-  }, [onReady]);
-  
-  return (
-    <div className="flex flex-col items-center justify-center flex-1 py-8">
-      {/* BOGX Logo with spinning border */}
-      <div className="relative mb-6">
-        {/* Outer spinning ring */}
-        <div className="w-20 h-20 rounded-full border-2 border-[#E36B11]/20 flex items-center justify-center">
-          <svg className="absolute w-20 h-20 -rotate-90" viewBox="0 0 80 80">
-            <circle
-              cx="40"
-              cy="40"
-              r="38"
-              fill="none"
-              stroke="#E36B11"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeDasharray={`${progress * 2.39} 239`}
-              className="transition-all duration-100"
-            />
-          </svg>
-          {/* BOGX Logo */}
-          <img 
-            src="/images/bogxtranscreamgroß.png" 
-            alt="BOGX" 
-            className={`w-12 h-auto ${isComplete ? '' : 'animate-pulse'}`}
-          />
-        </div>
-        {/* Progress percentage */}
-        <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-display text-[#E36B11] tracking-wider">
-          {isComplete ? '✓' : `${progress}%`}
-        </div>
-      </div>
-
-      <h2 className="font-display text-xl tracking-wider text-gray-900 mb-1 mt-4">
-        {isComplete ? 'READY TO PLAY' : 'PREPARING QUESTIONS'}
-      </h2>
-      <p className="text-gray-500 text-sm mb-6 text-center px-4">
-        {isComplete 
-          ? `Your battle against ${opponent.username} is ready`
-          : `Setting up your battle against ${opponent.username}`
-        }
-      </p>
-
-      {/* Battle Info Card */}
-      <div className="w-full max-w-sm bg-cream border border-warm rounded-xl p-4 mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full overflow-hidden border border-warm">
-            {opponent.avatar ? (
-              <img src={opponent.avatar} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500 text-sm font-bold">
-                {opponent.username?.[0]?.toUpperCase()}
-              </div>
-            )}
-          </div>
-          <div className="flex-1">
-            <div className="font-display text-sm tracking-wide text-gray-900">{opponent.username}</div>
-            <div className="text-[10px] text-gray-400">will be notified after you play</div>
-          </div>
-          <div className="text-right">
-            <div className="flex items-center gap-1 justify-end">
-              <img src="/images/bogxcoin.png" alt="" className="w-3.5 h-3.5" />
-              <span className="font-display text-sm text-[#E36B11]">{(wager * 2).toFixed(2)}</span>
-            </div>
-            <div className="text-[9px] text-gray-400">Prize Pool</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Button - Ready? while loading, START when complete */}
-      <button
-        onClick={isComplete ? onStart : undefined}
-        disabled={!isComplete}
-        className={`w-full max-w-sm py-4 rounded-xl font-display text-lg tracking-wider transition-all shadow-md flex items-center justify-center gap-2 ${
-          isComplete 
-            ? 'text-white hover:scale-[1.02] active:scale-[0.98]' 
-            : 'text-gray-400 cursor-not-allowed'
-        }`}
-        style={{ 
-          background: isComplete 
-            ? 'linear-gradient(135deg, #E36B11 0%, #D35400 100%)' 
-            : '#E5E7EB'
-        }}
-      >
-        {isComplete ? (
-          <>
-            <Play className="w-5 h-5" />
-            START
-          </>
-        ) : (
-          <>
-            <Clock className="w-5 h-5" />
-            READY?
-          </>
-        )}
-      </button>
-
-      <p className="text-[10px] text-gray-400 mt-3 text-center max-w-xs">
-        Answer your questions first. {opponent.username} gets notified and has 24h to respond.
-      </p>
-    </div>
-  );
-}
+// Shared with Solo Trivia so both games start the same way.
+import PreparingScreen, { TOPIC_BACKGROUNDS } from "@/components/games/PreparingScreen";
+import { getTopicColor } from "@/lib/categories";
 
 // Types
 interface BattleUser {
@@ -188,22 +67,25 @@ interface RoundResult {
   answerIndex?: number;
 }
 
-// Topic config - 5 official categories only
+// Topic config - 5 official categories only.
+// Colours come from @/lib/categories (the single source of truth shared with the
+// Welcome Reel and the article cards) - do not inline hex values here, that is
+// how Music ended up green in the reel and purple in the battles.
 const TOPICS: { id: string; label: string; icon: LucideIcon; color: string }[] = [
-  { id: 'music', label: 'Music', icon: Music, color: '#8B5CF6' },       // Purple
-  { id: 'sport', label: 'Sport', icon: Dumbbell, color: '#22C55E' },    // Green
-  { id: 'film', label: 'Movies', icon: Film, color: '#3B82F6' },        // Blue (includes TV)
-  { id: 'games', label: 'Gaming', icon: Gamepad2, color: '#10B981' },   // Emerald
-  { id: 'politik', label: 'Politik', icon: Landmark, color: '#F59E0B' }, // Amber
+  { id: 'music', label: 'Music', icon: Music, color: getTopicColor('music') },
+  { id: 'sport', label: 'Sport', icon: Dumbbell, color: getTopicColor('sport') },
+  { id: 'film', label: 'Movies', icon: Film, color: getTopicColor('film') }, // includes TV
+  { id: 'games', label: 'Gaming', icon: Gamepad2, color: getTopicColor('games') },
+  { id: 'politik', label: 'Politik', icon: Landmark, color: getTopicColor('politik') },
 ];
 
 const WAGERS = [
   { amount: 0.25, rounds: 3 },
   { amount: 0.50, rounds: 3 },
-  { amount: 0.75, rounds: 5 },
+  { amount: 0.75, rounds: 3 },
   { amount: 1.00, rounds: 5 },
-  { amount: 2.50, rounds: 7 },
-  { amount: 5.00, rounds: 10 },
+  { amount: 2.50, rounds: 5 },
+  { amount: 5.00, rounds: 5 },
 ];
 
 const GAME_TYPES = [
@@ -213,7 +95,7 @@ const GAME_TYPES = [
   { id: 'dice', label: 'Dice Duel', icon: '🎲', available: false },
 ];
 
-type GameScreen = 'setup' | 'pool' | 'invite' | 'intro' | 'countdown' | 'quiz' | 'inter' | 'result' | 'invitation-sent';
+type GameScreen = 'setup' | 'pool' | 'invite' | 'intro' | 'preparing' | 'countdown' | 'quiz' | 'inter' | 'result' | 'invitation-sent';
 
 // Country code to flag emoji mapping
 const FLAG_MAP: Record<string, string> = {
@@ -407,6 +289,45 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     }
   }, [screen]);
 
+  // Give up (forfeit) an in-progress battle - opponent gets the full pot
+  const [showGiveUpConfirm, setShowGiveUpConfirm] = useState(false);
+  const [givingUp, setGivingUp] = useState(false);
+  /** True once START was pressed for the current battle - the wager is then committed. */
+  const [hasStartedBattle, setHasStartedBattle] = useState(false);
+
+  const handleGiveUp = async () => {
+    if (!currentBattle || !user?.id) return;
+    setGivingUp(true);
+    try {
+      const res = await fetch(`/api/battles/${currentBattle._id}/forfeit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oderId: user.id }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        showAlert('error', data.error || 'Could not give up this battle.');
+        return;
+      }
+      window.dispatchEvent(new CustomEvent('bogx-updated'));
+      showAlert(
+        'info',
+        data.cancelled
+          ? 'Battle cancelled — your wager was refunded.'
+          : `You gave up. ${data.winner || 'Your opponent'} receives the full pot.`,
+        { title: data.cancelled ? 'CANCELLED' : 'BATTLE FORFEITED' }
+      );
+      setCurrentBattle(null);
+      setScreen('pool');
+      loadBattles();
+    } catch {
+      showAlert('error', 'Connection error. Please try again.');
+    } finally {
+      setGivingUp(false);
+      setShowGiveUpConfirm(false);
+    }
+  };
+
   // Notify parent when battle is active (to block tab switching)
   const isBattleActive = screen === 'countdown' || screen === 'quiz' || screen === 'inter';
   useEffect(() => {
@@ -443,7 +364,12 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     }
   }, [viewBattleId, user?.id]);
 
-  // Handle pending battle from notification (Accept & Play)
+  // Handle pending battle set by a caller that already got explicit confirmation
+  // from the user (the "Accept & Play Now!" challenge modal, or "Play Now" on an
+  // open pool battle) - so going straight into gameplay here is the promise those
+  // buttons made, not a surprise. A raw push-notification tap must NOT set
+  // pendingBattleId directly for that reason; see mobile/page.tsx, which routes it
+  // through the same challenge-confirmation modal first.
   useEffect(() => {
     if (pendingBattleId && user?.id && isLoggedIn) {
       // Load and show the battle intro
@@ -455,13 +381,13 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
             const battle = data.battle;
             // Check if user has enough coins
             if (coins < toBOGX(battle.wager)) {
-              showAlert('coins', `You need ${formatCurrency(toBOGX(battle.wager))} coins to accept this challenge!`);
+              showAlert('coins', `You need ${formatCurrency(toBOGX(battle.wager))} coins to accept this challenge!`, { balance: coins, required: toBOGX(battle.wager) });
               onPendingBattleHandled?.();
               return;
             }
-            // "Play Now" is a single decisive action — accept (if needed) and
-            // start the battle immediately instead of showing a redundant
-            // intro/confirmation screen first.
+            // "Play Now" / "Accept & Play Now!" is a single decisive action the
+            // user already confirmed elsewhere — accept (if needed) and start the
+            // battle immediately instead of showing a redundant second confirmation.
             setCurrentBattle(battle);
             beginBattle(battle);
           }
@@ -569,14 +495,14 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         if (dbCoins < createWager) {
           setIsGenerating(false);
           setCoins(() => dbCoins); // Sync local coins with DB
-          showAlert('coins', `Not enough coins. You have ${dbCoins.toFixed(2)} BOGX.`);
+          showAlert('coins', `You need ${createWager.toFixed(2)} BOGX to open this battle.`, { balance: dbCoins, required: createWager });
           return;
         }
         // Update local coins to match DB
         setCoins(() => dbCoins);
       }
       
-      const rounds = createWager >= 0.15 ? 5 : 3;
+      const rounds = createWager >= 1.00 ? 5 : 3;
       const res = await fetch('/api/battles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -597,7 +523,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
       if (data.success && data.battle) {
         setShowCreate(false);
         // Wager already deducted on server - parked on hold (not lost)
-        // Don't show coin animation for wager - it's shown in the widget now
+        onCoinAnimation?.(-createWager, 'hold');
         // Sync coins + pending wager indicator instantly (mobile & desktop)
         window.dispatchEvent(new CustomEvent('bogx-updated'));
         
@@ -689,14 +615,14 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         if (dbCoins < effectiveWager) {
           setIsGenerating(false);
           setCoins(() => dbCoins); // Sync local coins with DB
-          showAlert('coins', `Not enough coins. You have ${dbCoins.toFixed(2)} BOGX.`);
+          showAlert('coins', `You need ${effectiveWager.toFixed(2)} BOGX for this challenge.`, { balance: dbCoins, required: effectiveWager });
           return;
         }
         // Update local coins to match DB
         setCoins(() => dbCoins);
       }
       
-      const rounds = effectiveWager >= 0.15 ? 5 : 3;
+      const rounds = effectiveWager >= 1.00 ? 5 : 3;
       const res = await fetch('/api/battles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -718,7 +644,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
       if (data.success && data.battle) {
         setShowCreate(false);
         // Wager already deducted on server - parked on hold (not lost)
-        // Don't show coin animation for wager - it's shown in the widget now
+        onCoinAnimation?.(-effectiveWager, 'hold');
         // Sync coins + pending wager indicator instantly (mobile & desktop)
         window.dispatchEvent(new CustomEvent('bogx-updated'));
         
@@ -762,7 +688,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     }
     
     if (coins < toBOGX(battle.wager)) {
-      showAlert('coins', `You need ${formatCurrency(toBOGX(battle.wager))} coins to join this battle!`);
+      showAlert('coins', `You need ${formatCurrency(toBOGX(battle.wager))} coins to join this battle!`, { balance: coins, required: toBOGX(battle.wager) });
       return;
     }
     
@@ -771,7 +697,15 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     const creatorField: any = battle.creator;
     const iAmCreator = creatorField?._id === user?.id || creatorField === user?.id;
     setIsCreator(iAmCreator);
-    setScreen('intro');
+    // Pass the battle explicitly. Calling startBattle() here read `currentBattle`
+    // from state one line after setCurrentBattle, i.e. still the PREVIOUS value:
+    //  - first click of a session (null) -> beginBattle bailed out silently, so no
+    //    accept happened at all. The preparing screen was already up, its ring
+    //    completed, and START offered a battle the user had never joined - no wager
+    //    deducted, no wager chip, and "You are not part of this battle" on give up.
+    //  - later clicks -> it accepted the PREVIOUSLY selected battle instead, which is
+    //    why a 0,75 wager got deducted while the screen showed a 0,25 battle.
+    beginBattle(battle);
   };
 
   // Accept battle (called when clicking ACCEPT THE CHALLENGE).
@@ -794,10 +728,14 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
       
       if (data.success) {
         setCurrentBattle(data.battle);
-        // Wager already deducted on server - update local coins and trigger animation
-        const wagerAmount = toBOGX(battle.wager);
-        setCoins(prev => prev - wagerAmount);
-        // Don't show coin animation for wager - it's shown in the widget now
+        // Wager already deducted on server. Show it going out with the 'hold' variant
+        // (parked, not lost) - the same signal the create/invite paths give, so joining
+        // a battle from the pool doesn't silently take coins.
+        //
+        // Deliberately no setCoins here: the animation writes the new display value and
+        // the 'bogx-updated' sync writes the authoritative one. Doing both made the
+        // counter deduct the wager twice before the next sync corrected it.
+        onCoinAnimation?.(-toBOGX(battle.wager), 'hold');
         // Sync coins + pending wager indicator instantly (mobile & desktop)
         window.dispatchEvent(new CustomEvent('bogx-updated'));
         return true;
@@ -805,22 +743,24 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         // Friendly error messages based on reason
         let alertType: 'error' | 'coins' = 'error';
         let message = 'This battle is no longer available.';
+        let alertOptions: { balance?: number; required?: number } | undefined;
         if (data.error === 'Battle is not open') {
           message = 'Oops! Someone was faster 🏃💨 This battle was already taken.';
         } else if (data.error === 'Cannot accept own battle') {
           message = "You can't battle yourself! 😅 Challenge someone else.";
         } else if (data.error === 'Not enough coins') {
           alertType = 'coins';
-          const available = data.details?.available ?? '?';
-          message = `You need ${formatCurrency(toBOGX(battle.wager))} coins but only have ${formatCurrency(available)} in your account. Try refreshing the page to sync your coins.`;
+          const available = data.details?.available;
+          message = `You need ${formatCurrency(toBOGX(battle.wager))} coins to join this battle!`;
+          alertOptions = { balance: available ?? coins, required: toBOGX(battle.wager) };
           // Force sync coins from server
-          if (data.details?.available !== undefined) {
-            setCoins(() => data.details.available);
+          if (available !== undefined) {
+            setCoins(() => available);
           }
         } else if (data.error) {
           message = data.error;
         }
-        showAlert(alertType, message);
+        showAlert(alertType, message, alertOptions);
         // Battle not available anymore - go back to pool and refresh
         setCurrentBattle(null);
         setScreen('pool');
@@ -851,6 +791,9 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
       const data = await res.json();
       
       if (data.success) {
+        // Declining releases the challenger's wager - resync so their WAGER chip
+        // and balance are correct without waiting for the next poll.
+        window.dispatchEvent(new CustomEvent('bogx-updated'));
         showAlert('success', 'Challenge declined. The challenger has been refunded.');
         setCurrentBattle(null);
         setScreen('pool');
@@ -875,15 +818,48 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   // closure) so it can be called immediately after loading a fresh battle,
   // without waiting for a state update to propagate.
   const beginBattle = async (battle: Battle) => {
-    if (!user) return;
+    // Guests have no account to deduct a wager from, so there is nothing to accept.
+    // Returning silently here left the preparing screen up: its ring completed, START
+    // appeared, and the player was offered a battle they had never joined - no wager,
+    // no wager chip, and "You are not part of this battle" on give up. Any early exit
+    // from this function must send the user back to the pool.
+    if (!user) {
+      console.error('beginBattle: no user');
+      showAlert('login', 'Please login to play battles!', {
+        buttonText: 'LOGIN',
+        onButtonClick: onShowLogin,
+      });
+      setCurrentBattle(null);
+      setScreen('pool');
+      return;
+    }
     const alreadyActive = battle.status === 'active';
     // Defensive check: creator may be a populated object OR a raw ID string
     // depending on the code path that loaded this battle.
     const creatorField: any = battle.creator;
     const iAmCreator = creatorField?._id === user.id || creatorField === user.id;
 
+    // An already-active battle is only playable if YOU are one of the two players.
+    // Skipping the accept call for every active battle meant a battle between two
+    // OTHER players (stale pendingBattleId, a bot battle, or an open battle someone
+    // else grabbed first) dropped you straight into playing it. Nothing complained
+    // until submit/forfeit, where the server correctly answered
+    // "You are not part of this battle" — after the rounds had been played.
+    if (alreadyActive) {
+      const opponentField: any = battle.opponent;
+      const iAmOpponent = opponentField?._id === user.id || opponentField === user.id;
+      if (!iAmCreator && !iAmOpponent) {
+        showAlert('info', 'This battle is already being played by two other players.');
+        setCurrentBattle(null);
+        setScreen('pool');
+        loadBattles();
+        return;
+      }
+    }
+
     if (!alreadyActive) {
-      // Show accepting modal
+      // Show preparing screen while accepting
+      setScreen('preparing');
       setIsAccepting(true);
 
       // First accept the battle via API
@@ -891,18 +867,22 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
 
       if (!accepted) {
         setIsAccepting(false);
+        setScreen('pool');
         return;
       }
 
-      // Small delay for visual feedback
-      await new Promise(r => setTimeout(r, 800));
+      // Battle accepted - preparing screen will show START button after ring completes
       setIsAccepting(false);
+    } else {
+      // Already active - still show preparing screen for consistency
+      setScreen('preparing');
     }
 
     // Determine role correctly instead of assuming opponent
     setIsCreator(iAmCreator);
     setCurrentRound(0);
     setMyResults([]);
+    setHasStartedBattle(false);
     // Load the OTHER player's existing results (if any) as "opponent" progress
     // Normalize old points (>1) to BOGX (<1) - legacy data had points like 100, 150
     const otherResults = iAmCreator ? battle.opponentResults : battle.creatorResults;
@@ -921,19 +901,91 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
       setOpponentTotalPoints(0);
     }
     setMyTotalPoints(0);
+    // Don't start countdown here - wait for user to click START on preparing screen
+  };
+  
+  /**
+   * Arm the current battle: from here on, backing out is a forfeit rather than a
+   * free cancel. Recorded on the server (see /api/battles/[id]/start) so a reload
+   * or a direct /forfeit call can't pretend the battle was never started.
+   */
+  const markBattleStarted = () => {
+    if (hasStartedBattle || !currentBattle || !user?.id) return;
+    setHasStartedBattle(true);
+    // Fire-and-forget: the countdown must not wait on the network. If the call fails
+    // the player simply stays in the pre-start state, which errs in their favour.
+    fetch(`/api/battles/${currentBattle._id}/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id }),
+    }).catch(err => console.error('Failed to mark battle as started:', err));
+  };
+
+  /**
+   * Back out of the preparing screen.
+   *
+   * The wager was already deducted by the accept/create call, so plain
+   * `setScreen('pool')` left it locked in a battle the player had walked away from -
+   * the coins were simply gone from their spendable balance with only the WAGER chip
+   * hinting at it. Since the battle is not armed yet (no START), /forfeit takes its
+   * CANCEL path and refunds both players.
+   */
+  const leavePreparing = async () => {
+    if (!currentBattle || !user?.id || hasStartedBattle) {
+      setScreen('pool');
+      return;
+    }
+    setGivingUp(true);
+    try {
+      const res = await fetch(`/api/battles/${currentBattle._id}/forfeit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oderId: user.id }),
+      });
+      const data = await res.json();
+      // Only animate what the server actually gave back. On the (unexpected) forfeit
+      // path nothing is refunded, so showing a credit would be a lie.
+      if (data.success && data.cancelled) {
+        onCoinAnimation?.(data.refunded ?? toBOGX(currentBattle.wager), 'hold');
+      }
+    } catch (error) {
+      console.error('Failed to cancel battle on leaving preparing screen:', error);
+    } finally {
+      setGivingUp(false);
+      window.dispatchEvent(new CustomEvent('bogx-updated'));
+      setCurrentBattle(null);
+      setScreen('pool');
+      loadBattles();
+    }
+  };
+
+  // Called when user clicks START on the preparing screen.
+  const startFromPreparing = () => {
     setScreen('countdown');
+    setCountdown(3);
     runCountdown();
   };
 
   // Called from the intro screen's "START BATTLE" button (browsing the open
   // pool and previewing before committing).
   const startBattle = async () => {
-    if (!currentBattle) return;
+    if (!currentBattle) {
+      // Only reachable from screens that already have a battle loaded. Bailing out
+      // silently here is what hid the showBattleIntro bug for so long.
+      console.error('startBattle called without a currentBattle');
+      return;
+    }
     await beginBattle(currentBattle);
   };
 
   // Countdown
+  //
+  // This is the single choke point every "the game is now live" path goes through
+  // (preparing screen START, invite flow, auto-start on accept), so the wager is
+  // committed here rather than in one specific button handler - otherwise a path
+  // that skips the preparing screen would leave the battle refundable.
   const runCountdown = () => {
+    markBattleStarted();
     setCountdown(3);
     const interval = setInterval(() => {
       setCountdown(prev => {
@@ -1209,11 +1261,16 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         
         // Wager was already deducted when accepting.
         // Winner gets both wagers (2x), tie gets wager back, loser gets nothing.
-        // Server handles the actual point changes - just trigger animation.
-        const wagerChange = isTie ? toBOGX(currentBattle.wager) : (won ? toBOGX(currentBattle.wager) * 2 : 0);
-        
-        if (wagerChange > 0) {
-          onCoinAnimation?.(wagerChange);
+        // Server handles the actual point changes - trigger animation for all outcomes.
+        if (won) {
+          // Won: show winnings (2x wager)
+          onCoinAnimation?.(toBOGX(currentBattle.wager) * 2);
+        } else if (isTie) {
+          // Tie: wager returned (neutral, but show it)
+          onCoinAnimation?.(toBOGX(currentBattle.wager), 'hold');
+        } else {
+          // Lost: show loss (wager was already deducted, this is visual feedback)
+          onCoinAnimation?.(-toBOGX(currentBattle.wager), 'loss');
         }
         
         // Update coins immediately so the wager indicator disappears
@@ -1237,20 +1294,10 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     loadBattles();
   };
 
-  // See results with animation (triggers win/loss animation)
+  // See results - animation is handled in completeBattle to avoid double-triggering
   const seeResultsWithAnimation = () => {
-    if (currentBattle) {
-      // Winner = most correct answers; tie-break by fastest total time.
-      const cmp = compareBattleResults(myResultsRef.current, opponentResultsRef.current);
-      if (cmp < 0) {
-        // User lost - trigger negative coin animation (wager already deducted, this is visual)
-        onCoinAnimation?.(-toBOGX(currentBattle.wager));
-      } else if (cmp > 0) {
-        // User won - trigger positive coin animation (winnings)
-        onCoinAnimation?.(toBOGX(currentBattle.wager) * 2);
-      }
-    }
-    // Then show results
+    // Animation is triggered in completeBattle after server confirms the result.
+    // Previously this also triggered animation, causing TWO animations to play.
     nextRound(myResultsRef.current);
   };
 
@@ -1272,6 +1319,11 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         // Server refunds coins - use actual refunded amount from API
         const refundedAmount = data.refunded || wagerAmount;
         onCoinAnimation?.(refundedAmount);
+        // Without this the balance AND the WAGER chip keep the pre-cancel values
+        // until the next 30s poll: the wager was already released on the server,
+        // so the header claimed coins were still locked in a battle that no screen
+        // could show any more.
+        window.dispatchEvent(new CustomEvent('bogx-updated'));
         showAlert('success', `Battle cancelled. +${formatCurrency(refundedAmount)} coins refunded! 💰`);
         loadBattles();
       } else {
@@ -1302,6 +1354,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         return renderInviteScreen();
       case 'intro':
         return renderIntroScreen();
+      case 'preparing':
+        return renderPreparingScreen();
       case 'countdown':
         return renderCountdownScreen();
       case 'quiz':
@@ -1419,18 +1473,19 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
           </div>
 
           {/* Status banner - takes the place of the question card */}
-          <div className="relative border border-green-500/30 bg-green-500/5 rounded-xl p-4 sm:p-5 mb-4 flex items-center gap-4 overflow-hidden">
-            {/* Notification animation inside the banner */}
+          <div className={`relative border border-green-500/30 bg-green-500/5 rounded-xl p-4 sm:p-5 ${isPrivateChallenge ? 'pb-9 sm:pb-10' : ''} mb-4 flex items-center gap-4 overflow-hidden`}>
+            {/* Notification animation - runs in its own lane below the text so it
+                never travels through the words */}
             {isPrivateChallenge && (
               <div className="pointer-events-none absolute inset-0 z-0">
                 {/* faint path */}
                 <div
-                  className="absolute top-1/2 left-[10%] right-[10%] h-px border-t border-dashed border-green-500/30"
+                  className="absolute bottom-4 left-[10%] right-[10%] h-px border-t border-dashed border-green-500/30"
                   style={{ animation: 'challengeTrail 2.4s ease-in-out infinite' }}
                 />
                 {/* flying bell */}
                 <div
-                  className="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-green-500/10 border border-green-500/40 flex items-center justify-center"
+                  className="absolute bottom-4 w-5 h-5 rounded-full bg-green-500/10 border border-green-500/40 flex items-center justify-center"
                   style={{ animation: 'challengeFly 2.4s ease-in-out infinite' }}
                 >
                   <Bell className="w-2.5 h-2.5 text-green-600" />
@@ -1605,20 +1660,20 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   // ═══════════════════════════════════════════════════════════════
   const renderPoolScreen = () => (
     <div className="relative flex flex-col h-full min-h-full overflow-hidden" style={{ backgroundColor: '#F5F0E8' }}>
-      {/* Header - same style as Setup Screen */}
+      {/* Header - same style as Solo Trivia */}
       <div className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#6B7280]/5 to-transparent">
-        <div className="flex items-center gap-3">
+        <div className="relative flex items-center gap-3">
           {onBack && (
             <button onClick={onBack} className="p-1 hover:bg-[#6B7280]/10 rounded transition-colors">
               <ChevronLeft className="w-5 h-5 text-gray-600" />
             </button>
           )}
           <div>
-            <span className="font-display text-xl tracking-wider text-gray-900 block leading-none">QUIZZBATTLE</span>
-            <span className="text-xs text-gray-500 block">Challenge others, win coins.</span>
+            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">QUIZZBATTLE</span>
+            <span className="text-[10px] text-gray-500 -mt-0.5 block">Challenge others, win coins.</span>
           </div>
-          {/* Right side buttons */}
-          <div className="ml-auto flex items-center gap-2">
+          {/* Right side buttons - absolute so their height never grows the header */}
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
           <button
             onClick={() => {
               if (isOnBreak) {
@@ -1639,7 +1694,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
               setScreen('invite');
             }}
             disabled={isOnBreak}
-            className={`flex flex-col items-center px-2 py-1.5 border rounded-lg text-[10px] font-semibold tracking-wider transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-3 border rounded-lg text-[10px] font-semibold tracking-wider transition-colors ${
               isOnBreak
                 ? 'border-warm text-gray-300 cursor-not-allowed'
                 : 'border-gray-300 text-gray-600 hover:border-[#6B7280] hover:text-[#6B7280]'
@@ -1668,7 +1723,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
               setShowCreate(!showCreate);
             }}
             disabled={isOnBreak}
-            className={`flex flex-col items-center px-2 py-1.5 rounded-lg text-[10px] font-semibold tracking-wider transition-colors text-white hover:opacity-90 ${
+            className={`flex items-center gap-1.5 px-3 py-3 rounded-lg text-[10px] font-semibold tracking-wider transition-colors text-white hover:opacity-90 ${
               isOnBreak ? 'bg-skeleton-light text-gray-600 cursor-not-allowed' : ''
             }`}
             style={!isOnBreak ? { backgroundColor: topicFilter !== 'all' ? TOPICS.find(t => t.id === topicFilter)?.color || '#6B7280' : '#6B7280' } : {}}
@@ -1780,82 +1835,130 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
           </div>
           
           <div className="p-4">
-            {/* Step 1: Wager */}
-            <div className="mb-6">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="w-6 h-6 bg-[#6B7280] rounded text-white text-xs font-bold flex items-center justify-center">1</span>
-                <span className="text-sm font-semibold tracking-wider text-[#6B7280] uppercase">Choose Wager</span>
+            {/* Step 1: Wager - Green theme like success/score */}
+            <div className="mb-4">
+              <div className="flex items-center gap-1.5 mb-2">
+                <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
+                <span className="font-display text-base tracking-wider text-green-600">SELECT WAGER</span>
               </div>
-              <div className="grid grid-cols-5 gap-2">
-                {WAGERS.map(w => (
-                  <button
-                    key={w.amount}
-                    onClick={() => setCreateWager(w.amount)}
-                    className={`py-3 text-center rounded-xl transition-colors ${
-                      createWager === w.amount
-                        ? 'bg-[#6B7280] text-white'
-                        : 'bg-cream border border-warm text-gray-600'
-                    }`}
-                  >
-                    <div className="font-display text-lg">{formatCurrency(w.amount)}{getCurrencySymbol()}</div>
-                    <div className="text-[9px] text-current opacity-60">{w.rounds}R</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            {/* Step 2: Topic */}
-            <div className="mb-6">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="w-6 h-6 bg-[#6B7280] rounded text-white text-xs font-bold flex items-center justify-center">2</span>
-                <span className="text-sm font-semibold tracking-wider text-[#6B7280] uppercase">Choose Topic</span>
-              </div>
+              {/* 3x2 Grid - compact for mobile */}
               <div className="grid grid-cols-3 gap-2">
-                {TOPICS.map(t => (
-                  <button
-                    key={t.id}
-                    onClick={() => setCreateTopic(t.id)}
-                    className={`py-3 text-sm font-semibold tracking-wider rounded-xl transition-colors flex items-center justify-center gap-2 ${
-                      createTopic === t.id
-                        ? 'bg-[#6B7280] text-white'
-                        : 'bg-cream border border-warm text-gray-600'
-                    }`}
-                  >
-                    <t.icon className="w-4 h-4" /> {t.label}
-                  </button>
-                ))}
+                {WAGERS.map(w => {
+                  const isSelected = createWager === w.amount;
+                  return (
+                    <button
+                      key={w.amount}
+                      onClick={() => setCreateWager(w.amount)}
+                      className={`relative py-2.5 px-2 rounded-xl transition-all duration-200 ${
+                        isSelected
+                          ? 'bg-green-500 text-white shadow-lg'
+                          : 'bg-white border border-warm text-green-600 active:scale-[0.98]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-center gap-1.5 mb-0.5">
+                        <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
+                        <span className="font-display text-lg tracking-wide">
+                          {formatCurrency(w.amount)}
+                        </span>
+                      </div>
+                      <div className={`text-[10px] font-bold tracking-wider ${isSelected ? 'text-white/80' : 'text-green-500/60'}`}>
+                        {w.rounds} Rounds
+                      </div>
+                      {isSelected && (
+                        <div className="absolute top-1 right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center">
+                          <Check className="w-2.5 h-2.5 text-green-500" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
             
-            {/* Step 3: Battle Type */}
-            <div className="mb-6">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="w-6 h-6 bg-[#6B7280] rounded text-white text-xs font-bold flex items-center justify-center">3</span>
-                <span className="text-sm font-semibold tracking-wider text-[#6B7280] uppercase">Start Battle</span>
+            {/* Step 2: Topic - each button in its own color */}
+            <div className="mb-4">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Target className="w-4 h-4 text-gray-600" />
+                <span className="font-display text-base tracking-wider text-gray-900">CHOOSE TOPIC</span>
               </div>
-              <button
-                onClick={() => handleCreateBattle(false)}
-                disabled={isGenerating}
-                className={`w-full py-4 rounded-xl font-display text-base tracking-widest flex items-center justify-center gap-2 ${
-                  isGenerating 
-                    ? 'bg-[#6B7280]/50 text-white/50 cursor-wait' 
-                    : 'bg-[#6B7280] text-white'
-                }`}
-              >
-                {isGenerating ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                    GENERATING...
-                  </>
-                ) : (
-                  <>
-                    <Swords className="w-5 h-5" />
-                    OPEN BATTLE
-                  </>
-                )}
-              </button>
-              <p className="text-center text-gray-600 text-xs mt-2">Anyone can accept your challenge</p>
+              {/* 3 columns for compact mobile */}
+              <div className="grid grid-cols-3 gap-2">
+                {TOPICS.map(t => {
+                  const isSelected = createTopic === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => setCreateTopic(t.id)}
+                      className={`relative py-2.5 font-display text-xs tracking-wider rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 border ${
+                        isSelected
+                          ? 'text-white shadow-lg border-transparent'
+                          : 'bg-white active:scale-[0.98]'
+                      }`}
+                      style={isSelected 
+                        ? { backgroundColor: t.color } 
+                        : { color: t.color, borderColor: `${t.color}40`, backgroundColor: `${t.color}08` }
+                      }
+                    >
+                      <t.icon className="w-3.5 h-3.5" />
+                      <span className="uppercase">{t.label}</span>
+                      {isSelected && (
+                        <div className="absolute top-1 right-1 w-3.5 h-3.5 bg-white rounded-full flex items-center justify-center">
+                          <Check className="w-2 h-2" style={{ color: t.color }} />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
+            
+            {/* Prize Pool Preview - compact, uses topic color */}
+            {(() => {
+              const selectedTopic = TOPICS.find(t => t.id === createTopic);
+              const topicColor = selectedTopic?.color || '#6B7280';
+              return (
+                <>
+                  <div 
+                    className="flex items-center justify-between px-3 py-2 rounded-xl mb-3 border"
+                    style={{ backgroundColor: `${topicColor}15`, borderColor: `${topicColor}30` }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Trophy className="w-4 h-4" style={{ color: topicColor }} />
+                      <span className="text-xs font-bold text-gray-700">Prize Pool</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <img src="/images/bogxcoin.png" alt="" className="w-5 h-5" />
+                      <span className="font-display text-xl" style={{ color: topicColor }}>{formatCurrency(createWager * 2)}</span>
+                    </div>
+                  </div>
+                  
+                  {/* Start Battle Button */}
+                  <button
+                    onClick={() => handleCreateBattle(false)}
+                    disabled={isGenerating}
+                    className={`w-full py-3.5 rounded-xl font-display text-lg tracking-widest flex items-center justify-center gap-2 transition-all ${
+                      isGenerating 
+                        ? 'text-white/50 cursor-wait' 
+                        : 'text-white shadow-lg active:scale-[0.99] active:brightness-90'
+                    }`}
+                    style={{ backgroundColor: isGenerating ? `${topicColor}80` : topicColor }}
+                  >
+                    {isGenerating ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        GENERATING...
+                      </>
+                    ) : (
+                      <>
+                        <Swords className="w-5 h-5" />
+                        OPEN BATTLE
+                      </>
+                    )}
+                  </button>
+                  <p className="text-center text-gray-400 text-[10px] mt-2">Anyone can accept your challenge</p>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
@@ -2285,34 +2388,74 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     setInviteStep(3);
   };
 
-  const handleInviteBack = () => {
+  const handleInviteBack = async () => {
     if (inviteStep === 1) {
       setScreen('pool');
     } else if (inviteStep === 4) {
-      // Can't go back from preparing screen
-      setScreen('pool');
+      // Cancel the battle and refund the wager before going back
+      if (currentBattle && user?.id && !hasStartedBattle) {
+        setGivingUp(true);
+        try {
+          const res = await fetch(`/api/battles/${currentBattle._id}/forfeit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ oderId: user.id }),
+          });
+          const data = await res.json();
+          if (data.success && data.cancelled) {
+            onCoinAnimation?.(data.refunded ?? toBOGX(currentBattle.wager), 'hold');
+          }
+        } catch (error) {
+          console.error('Failed to cancel battle:', error);
+        } finally {
+          setGivingUp(false);
+          window.dispatchEvent(new CustomEvent('bogx-updated'));
+          setCurrentBattle(null);
+          setSentBattleId(null);
+          loadBattles();
+        }
+      }
+      // Go back to Choose Wager (step 3)
+      setInviteStep(3);
     } else {
       setInviteStep((inviteStep - 1) as 1 | 2 | 3 | 4);
     }
   };
 
-  const renderInviteScreen = () => (
+  const renderInviteScreen = () => {
+    // Neutral until the topic is actually settled. `createTopic` defaults to
+    // 'sport', so keying this off step 2 would already paint the header red while
+    // the user is still choosing.
+    const headerColor = inviteStep >= 3 ? getTopicColor(createTopic) : '#6B7280';
+    return (
     <div className="flex flex-col h-full min-h-full flex-1" style={{ backgroundColor: '#F5F0E8' }}>
-      {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#6B7280]/5 to-transparent">
+      {/* Header - takes the chosen topic's colour from step 2 on */}
+      <div
+        className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b to-transparent"
+        style={{ backgroundImage: `linear-gradient(to bottom, ${headerColor}0D, transparent)` }}
+      >
         <div className="flex items-center gap-3">
-          <button onClick={handleInviteBack} className="p-1 hover:bg-[#6B7280]/10 rounded transition-colors">
-            <ChevronLeft className="w-5 h-5 text-gray-600" />
+          <button onClick={handleInviteBack} className="p-1 rounded transition-colors hover:bg-black/5">
+            <ChevronLeft className="w-5 h-5 transition-colors" style={{ color: headerColor }} />
           </button>
-          <Swords className="w-5 h-5 text-[#6B7280]" />
+          <Swords className="w-5 h-5 transition-colors" style={{ color: headerColor }} />
           <div className="flex-1">
-            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">
+            {/* Title and step counter take the topic colour from step 3 on, like
+                the icon and the back arrow. Steps 1-2 stay neutral (gray-900 /
+                gray-500) because no topic is settled yet. */}
+            <span
+              className="font-display text-lg tracking-wider block leading-none transition-colors"
+              style={{ color: inviteStep >= 3 ? headerColor : '#111827' }}
+            >
               {inviteStep === 1 && 'Select Player'}
               {inviteStep === 2 && 'Choose Topic'}
               {inviteStep === 3 && 'Choose Wager'}
               {inviteStep === 4 && 'Battle Setup'}
             </span>
-            <span className="text-[10px] text-gray-500 block">
+            <span
+              className="font-display text-[11px] tracking-wide block transition-colors"
+              style={{ color: inviteStep >= 3 ? `${headerColor}B3` : '#6B7280' }}
+            >
               {inviteStep === 4 ? 'Preparing questions' : `Step ${inviteStep} of 3`}
             </span>
           </div>
@@ -2353,8 +2496,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
               </div>
             </div>
             
-            {/* Player List */}
-            <div className="bg-white border border-warm rounded-xl overflow-hidden shadow-sm max-h-[620px] overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+            {/* Player List - taller to fill more space */}
+            <div className="bg-white border border-warm rounded-xl overflow-hidden shadow-sm overflow-y-auto" style={{ scrollbarWidth: 'none', maxHeight: 'calc(100vh - 280px)' }}>
               {inviteLoadingOnline || inviteIsSearching ? (
                 // Skeleton loading placeholders
                 <div className="divide-y divide-warm/30">
@@ -2408,56 +2551,63 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         {/* Step 2: Choose Topic */}
         {inviteStep === 2 && (
           <>
-            {/* Selected Player Preview */}
+            {/* Selected Player Preview - compact */}
             {selectedInviteUser && (
-              <div className="flex items-center gap-3 p-3 bg-[#6B7280]/10 rounded-xl mb-4">
-                <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-[#6B7280]/30 bg-cream">
+              <div className="flex items-center gap-2 p-2 bg-[#6B7280]/10 rounded-lg mb-3">
+                <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-[#6B7280]/30 bg-cream">
                   {selectedInviteUser.avatar ? (
                     <img src={selectedInviteUser.avatar} alt="" className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold">
+                    <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold text-sm">
                       {selectedInviteUser.username?.[0]?.toUpperCase()}
                     </div>
                   )}
                 </div>
                 <div>
-                  <div className="font-semibold text-gray-900">{selectedInviteUser.username}</div>
-                  <div className="text-[10px] text-gray-500">Challenging this player</div>
+                  <div className="font-semibold text-sm text-gray-900">{selectedInviteUser.username}</div>
+                  <div className="text-[9px] text-gray-500">Challenging this player</div>
                 </div>
               </div>
             )}
             
             <div className="grid grid-cols-2 gap-3">
-              {TOPICS.map(t => {
+              {TOPICS.map((t, idx) => {
                 const Icon = t.icon;
-                const topicImages: Record<string, string> = {
-                  music: '/images/topics/music.png',
-                  sport: '/images/topics/sport.png',
-                  film: '/images/topics/film.png',
-                  games: '/images/topics/games.png',
-                  politik: '/images/topics/culture.png',
-                };
-                const bgImage = topicImages[t.id] || '/images/topics/culture.png';
+                // Last item (odd count) spans full width
+                const isLastOdd = TOPICS.length % 2 === 1 && idx === TOPICS.length - 1;
                 return (
                   <button
                     key={t.id}
                     onClick={() => handleSelectTopic(t.id)}
-                    className="relative h-32 rounded-xl overflow-hidden transition-transform hover:scale-[1.02] active:scale-[0.98] group shadow-md"
+                    className={`relative rounded-xl overflow-hidden transition-all hover:scale-[1.02] active:scale-[0.98] group border-2 ${
+                      isLastOdd ? 'col-span-2' : ''
+                    }`}
+                    style={{ 
+                      backgroundColor: `${t.color}15`,
+                      borderColor: `${t.color}40`,
+                    }}
                   >
-                    {/* Background Image */}
-                    <div 
-                      className="absolute inset-0 bg-cover bg-center"
-                      style={{ backgroundImage: `url('${bgImage}')` }}
-                    />
-                    {/* Gradient Overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20 group-hover:from-[#6B7280]/90 group-hover:via-[#6B7280]/60 transition-colors" />
-                    {/* Content */}
-                    <div className="relative h-full flex items-end justify-start p-3 text-white">
-                      <div className="flex items-center gap-2">
-                        <Icon className="w-5 h-5 drop-shadow-lg" />
-                        <span className="font-bold text-sm tracking-wide drop-shadow-lg">{t.label}</span>
+                    <div className="p-5 flex flex-col items-center justify-center gap-3">
+                      {/* Large Icon */}
+                      <div 
+                        className="w-14 h-14 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110"
+                        style={{ backgroundColor: t.color }}
+                      >
+                        <Icon className="w-7 h-7 text-white" />
                       </div>
+                      {/* Label */}
+                      <span 
+                        className="font-display text-xl tracking-wide"
+                        style={{ color: t.color }}
+                      >
+                        {t.label}
+                      </span>
                     </div>
+                    {/* Hover glow effect */}
+                    <div 
+                      className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl"
+                      style={{ boxShadow: `inset 0 0 20px ${t.color}30` }}
+                    />
                   </button>
                 );
               })}
@@ -2465,99 +2615,227 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
           </>
         )}
 
-        {/* Step 3: Choose Wager */}
-        {inviteStep === 3 && (
+        {/* Step 3: Choose Wager - Bebas Neue Mobile Design */}
+        {inviteStep === 3 && (() => {
+          const selectedTopic = TOPICS.find(t => t.id === createTopic);
+          const topicColor = selectedTopic?.color || '#6B7280';
+          return (
           <>
-            {/* Selected Player & Topic Preview */}
-            <div className="flex items-center gap-3 p-3 bg-[#6B7280]/10 rounded-xl mb-4">
-              {selectedInviteUser && (
+            {/* VS Banner. Mirrors the step 4 hero (PreparingScreen) on purpose -
+                same artwork, padding, avatar sizes, avatar/name arrangement and
+                the rounds pill in the same spot - so moving between step 3 and 4
+                neither resizes nor shifts the scoreboard. The min-height matches
+                the hero, which is taller because of its heading and subtitle. */}
+            <div 
+              className="relative rounded-xl p-3 md:p-5 mb-3 md:mb-4 overflow-hidden shadow-lg flex flex-col justify-center min-h-[150px] md:min-h-[196px]"
+              style={{ backgroundColor: topicColor }}
+            >
+              {TOPIC_BACKGROUNDS[createTopic] && (
+                <div
+                  className="absolute inset-0 bg-cover bg-center opacity-20"
+                  style={{ backgroundImage: `url('${TOPIC_BACKGROUNDS[createTopic]}')` }}
+                />
+              )}
+              <div className="relative flex items-center justify-between px-4 md:px-8">
+                {/* You - avatar then name, like the step 4 hero */}
+                <div className="flex items-center gap-2 md:gap-3">
+                  <div className="w-10 h-10 md:w-14 md:h-14 rounded-full overflow-hidden border-2 border-white/40 shadow-lg flex-shrink-0">
+                    {user?.avatar ? (
+                      <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-white/20 flex items-center justify-center text-white font-display text-base md:text-lg">
+                        {user?.username?.[0]?.toUpperCase() || 'Y'}
+                      </div>
+                    )}
+                  </div>
+                  <span className="font-display text-sm md:text-base text-white tracking-wider max-w-[70px] md:max-w-[100px] truncate">
+                    {user?.username?.toUpperCase() || 'YOU'}
+                  </span>
+                </div>
+                
+                {/* Topic above VS, rounds below */}
+                <div className="flex flex-col items-center">
+                  <div className="flex items-center gap-1 mb-1 px-2 py-1 bg-white/20 rounded-full">
+                    {selectedTopic?.icon && <selectedTopic.icon className="w-3 h-3 text-white" />}
+                    <span className="font-display text-[10px] text-white uppercase tracking-wider">{selectedTopic?.label}</span>
+                  </div>
+                  <span className="font-display text-2xl md:text-3xl text-white/80 tracking-wider">VS</span>
+                  {/* Same rounds pill the step 4 hero shows, so the information
+                      does not appear out of nowhere on the next step. */}
+                  <div className="mt-1 px-3 py-1 rounded-full bg-white/20">
+                    <span className="font-display text-sm text-white tracking-wide">
+                      {createWager >= 1.00 ? 5 : 3} Rounds
+                    </span>
+                  </div>
+                </div>
+                
+                {/* Opponent - name then avatar, mirrored like the step 4 hero */}
+                <div className="flex items-center gap-2 md:gap-3">
+                  <span className="font-display text-sm md:text-base text-white tracking-wider max-w-[70px] md:max-w-[100px] truncate text-right">
+                    {selectedInviteUser?.username?.toUpperCase()}
+                  </span>
+                  <div className="w-10 h-10 md:w-14 md:h-14 rounded-full overflow-hidden border-2 border-white/40 shadow-lg flex-shrink-0">
+                    {selectedInviteUser?.avatar ? (
+                      <img src={selectedInviteUser.avatar} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-white/20 flex items-center justify-center text-white font-display text-base md:text-lg">
+                        {selectedInviteUser?.username?.[0]?.toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Section Title - uses topic color */}
+            <div className="flex items-center gap-1.5 mb-2">
+              <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
+              <span className="font-display text-base tracking-wider" style={{ color: topicColor }}>SELECT WAGER</span>
+            </div>
+            
+            {/* Wager Grid - 3x2 compact, uses topic color */}
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              {WAGERS.map(w => {
+                const isSelected = createWager === w.amount;
+                return (
+                  <button
+                    key={w.amount}
+                    onClick={() => setCreateWager(w.amount)}
+                    className={`relative py-2.5 px-2 rounded-xl transition-all duration-200 ${
+                      isSelected
+                        ? 'text-white shadow-lg'
+                        : 'bg-white border border-warm active:scale-[0.98]'
+                    }`}
+                    style={isSelected ? { backgroundColor: topicColor } : { color: topicColor }}
+                  >
+                    <div className="flex items-center justify-center gap-1.5 mb-0.5">
+                      <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
+                      <span className="font-display text-lg tracking-wide">
+                        {formatCurrency(w.amount)}
+                      </span>
+                    </div>
+                    <div className={`text-[10px] font-bold tracking-wider ${isSelected ? 'text-white/80' : 'opacity-60'}`}>
+                      {w.rounds} Rounds
+                    </div>
+                    {isSelected && (
+                      <div className="absolute top-1 right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center">
+                        <Check className="w-2.5 h-2.5" style={{ color: topicColor }} />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            
+            {/* Prize Pool - compact, uses topic color */}
+            {(() => {
+              const selectedTopic = TOPICS.find(t => t.id === createTopic);
+              const topicColor = selectedTopic?.color || '#6B7280';
+              return (
                 <>
-                  <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-[#6B7280]/30 bg-cream">
+                  <div 
+                    className="flex items-center justify-between px-3 py-2 rounded-xl mb-3 border"
+                    style={{ backgroundColor: `${topicColor}15`, borderColor: `${topicColor}30` }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Trophy className="w-4 h-4" style={{ color: topicColor }} />
+                      <span className="text-xs font-bold text-gray-700">Prize Pool</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <img src="/images/bogxcoin.png" alt="" className="w-5 h-5" />
+                      <span className="font-display text-xl" style={{ color: topicColor }}>{formatCurrency(createWager * 2)}</span>
+                    </div>
+                  </div>
+                  
+                  {/* Prepare Questions Button */}
+                  <button
+                    onClick={() => {
+                      if (isGenerating) return; // Prevent double-click
+                      setInviteStep(4);
+                      handleChallengeUser(selectedInviteUser, createWager, createTopic);
+                    }}
+                    disabled={isGenerating}
+                    className={`w-full py-3.5 rounded-xl text-white font-display text-lg tracking-widest transition-all shadow-lg flex items-center justify-center gap-2 active:scale-[0.99] active:brightness-90 ${isGenerating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    style={{ backgroundColor: topicColor }}
+                  >
+                    <Play className="w-5 h-5" />
+                    {isGenerating ? 'PREPARING...' : 'PREPARE QUESTIONS'}
+                  </button>
+                  
+                  <p className="text-center text-[10px] text-gray-400 mt-2">
+                    Answer first, then {selectedInviteUser?.username} gets notified
+                  </p>
+                </>
+              );
+            })()}
+          </>
+        );
+        })()}
+
+        {/* Step 4: Preparing Questions - loading animation with topic icon */}
+        {inviteStep === 4 && selectedInviteUser && (() => {
+          const selectedTopic = TOPICS.find(t => t.id === createTopic);
+          const topicColor = selectedTopic?.color || '#6B7280';
+          const TopicIcon = selectedTopic?.icon;
+          return (
+            // -mx-4 cancels PreparingScreen's own px-4: together with the invite
+            // container's px-4 the step 4 content sat 32px in while steps 1-3 sit
+            // at 16px, so the whole view shifted sideways on the step change.
+            <div className="-mx-4 flex flex-col flex-1">
+            <PreparingScreen 
+              topicColor={topicColor}
+              TopicIcon={TopicIcon}
+              topicId={createTopic}
+              rounds={createWager >= 1.00 ? 5 : 3}
+              player1={{ username: user?.username || 'You', avatar: user?.avatar }}
+              player2={{ username: selectedInviteUser.username, avatar: selectedInviteUser.avatar }}
+              subtitle={`Setting up your battle against ${selectedInviteUser.username}`}
+              readySubtitle={`Your battle against ${selectedInviteUser.username} is ready`}
+              onStart={() => {
+                setScreen('countdown');
+                setCountdown(3);
+                runCountdown();
+              }}
+              footer={
+                <p className="font-display text-sm tracking-wide text-gray-900 flex items-center justify-center gap-1.5">
+                  Answer your questions first. 
+                  <Bell className="w-3.5 h-3.5 inline" />
+                  {selectedInviteUser.username} gets notified and has 24h to respond.
+                </p>
+              }
+            >
+              {/* Battle Info Card - full width */}
+              <div className="w-full bg-cream border border-warm rounded-xl p-4 mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-warm">
                     {selectedInviteUser.avatar ? (
                       <img src={selectedInviteUser.avatar} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold">
+                      <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500 text-base font-bold">
                         {selectedInviteUser.username?.[0]?.toUpperCase()}
                       </div>
                     )}
                   </div>
                   <div className="flex-1">
-                    <div className="font-semibold text-gray-900">{selectedInviteUser.username}</div>
-                    <div className="flex items-center gap-1 text-[10px] text-gray-500">
-                      {TOPICS.find(t => t.id === createTopic)?.icon && (
-                        <>
-                          {(() => { const Icon = TOPICS.find(t => t.id === createTopic)?.icon; return Icon ? <Icon className="w-3 h-3" /> : null; })()}
-                        </>
-                      )}
-                      {TOPICS.find(t => t.id === createTopic)?.label}
+                    <div className="font-display text-xl tracking-wide text-gray-900">{selectedInviteUser.username}</div>
+                    <div className="font-display text-xs tracking-wide text-gray-500 flex items-center gap-1">
+                      <Bell className="w-3 h-3" />
+                      will be notified after you play
                     </div>
                   </div>
-                </>
-              )}
-            </div>
-            
-            <div className="grid grid-cols-3 gap-3 mb-6">
-              {WAGERS.map(w => (
-                <button
-                  key={w.amount}
-                  onClick={() => setCreateWager(w.amount)}
-                  className={`py-4 text-center rounded-xl transition-all shadow-sm ${
-                    createWager === w.amount
-                      ? 'bg-gradient-to-br from-[#6B7280] to-[#4B5563] text-white shadow-lg scale-[1.02]'
-                      : 'bg-white border border-warm text-gray-700 hover:border-[#6B7280] hover:shadow-md'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-1.5">
-                    <img src="/images/bogxcoin.png" alt="" className={`w-5 h-5 ${createWager === w.amount ? '' : 'opacity-80'}`} />
-                    <span className="font-bold text-xl">{w.amount.toFixed(2).replace('.', ',')}</span>
+                  <div className="text-right">
+                    <div className="flex items-center gap-2 justify-end">
+                      <span className="font-display text-sm tracking-wide text-gray-900">Prize Pool</span>
+                      <img src="/images/bogxcoin.png" alt="" className="w-6 h-6" />
+                      <span className="font-display text-2xl" style={{ color: topicColor }}>{(createWager * 2).toFixed(2)}</span>
+                    </div>
                   </div>
-                  <div className={`text-[11px] mt-0.5 ${createWager === w.amount ? 'text-white/80' : 'text-gray-500'}`}>{w.rounds} Rounds</div>
-                </button>
-              ))}
-            </div>
-            
-            {/* Estimated Prize */}
-            <div className="flex items-center justify-between px-4 py-3 bg-cream border border-warm rounded-xl mb-4">
-              <div className="flex items-center gap-2">
-                <Trophy className="w-4 h-4 text-[#6B7280]" />
-                <span className="text-sm text-gray-600">Winner takes all</span>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
-                <img src="/images/bogxcoin.png" alt="" className="w-5 h-5" />
-                <span className="font-bold text-[#6B7280]">{(createWager * 2).toFixed(2)} coins</span>
-              </div>
+            </PreparingScreen>
             </div>
-            
-            {/* Send Challenge Button - goes directly to Step 4, API runs in background */}
-            <button
-              onClick={() => {
-                // Go to preparing screen immediately
-                setInviteStep(4);
-                // Start API call in background
-                handleChallengeUser(selectedInviteUser, createWager, createTopic);
-              }}
-              className="w-full py-4 rounded-2xl text-white font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
-              style={{ background: 'linear-gradient(135deg, #C084FC 0%, #6B7280 50%, #9333EA 100%)' }}
-            >
-              <Swords className="w-5 h-5" />
-              SEND CHALLENGE
-            </button>
-          </>
-        )}
-
-        {/* Step 4: Preparing Questions - loading animation with BOGX logo */}
-        {inviteStep === 4 && selectedInviteUser && (
-          <PreparingScreen 
-            opponent={selectedInviteUser}
-            wager={createWager}
-            onReady={() => {}}
-            onStart={() => {
-              setScreen('countdown');
-              setCountdown(3);
-              runCountdown();
-            }}
-          />
-        )}
+          );
+        })()}
         
         {/* Carousel Step Indicators - bottom of body */}
         {inviteStep < 4 && (
@@ -2565,16 +2843,20 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
             {[1, 2, 3].map(s => (
               <div
                 key={s}
-                className={`w-2.5 h-2.5 rounded-full transition-colors ${
-                  s === inviteStep ? 'bg-[#6B7280]' : s < inviteStep ? 'bg-[#6B7280]/50' : 'bg-gray-300'
-                }`}
+                className="w-2.5 h-2.5 rounded-full transition-colors"
+                style={{
+                  backgroundColor: s === inviteStep
+                    ? headerColor
+                    : s < inviteStep ? `${headerColor}80` : '#D1D5DB',
+                }}
               />
             ))}
           </div>
         )}
       </div>
     </div>
-  );
+    );
+  };
 
   // ═══════════════════════════════════════════════════════════════
   // INTRO SCREEN
@@ -2733,6 +3015,116 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   };
 
   // ═══════════════════════════════════════════════════════════════
+  // PREPARING SCREEN - Shows while accepting battle, user clicks START
+  // ═══════════════════════════════════════════════════════════════
+  const renderPreparingScreen = () => {
+    if (!currentBattle) return null;
+    const topic = getTopicConfig(currentBattle.topic);
+    const opponent = isCreator 
+      ? (currentBattle.opponent || currentBattle.challengedUser as any) 
+      : currentBattle.creator;
+
+    return (
+      <div className="w-full h-full min-h-full flex-1 flex flex-col" style={{ backgroundColor: '#F5F0E8' }}>
+        {/* Header - tinted with the battle's topic colour, like the rest of this screen */}
+        <div
+          className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b to-transparent"
+          style={{ backgroundImage: `linear-gradient(to bottom, ${topic.color}0D, transparent)` }}
+        >
+          <div className="flex items-center gap-3">
+            <button
+              onClick={leavePreparing}
+              disabled={givingUp}
+              className="p-1 rounded transition-colors disabled:opacity-50 hover:bg-black/5"
+            >
+              <ChevronLeft className="w-5 h-5" style={{ color: topic.color }} />
+            </button>
+            <Swords className="w-5 h-5" style={{ color: topic.color }} />
+            <div>
+              <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">QuizzBattle</span>
+              <span className="text-[10px] text-gray-500 -mt-0.5 block">Get ready to battle!</span>
+            </div>
+          </div>
+        </div>
+        <PreparingScreen
+          topicColor={topic.color}
+          TopicIcon={topic.icon}
+          topicId={topic.id}
+          rounds={currentBattle?.rounds || 5}
+          player1={{ username: user?.username || 'You', avatar: user?.avatar }}
+          player2={{ username: opponent?.username || 'Opponent', avatar: opponent?.avatar }}
+          subtitle={`Preparing battle against ${opponent?.username || 'Opponent'}`}
+          readySubtitle={`Battle against ${opponent?.username || 'Opponent'} is ready`}
+          dataReady={!isAccepting}
+          onStart={startFromPreparing}
+        >
+          {/* Players Card */}
+          <div className="w-full max-w-sm sm:max-w-none bg-cream border border-warm rounded-xl p-4 sm:p-5 mb-3">
+            <div className="flex items-center gap-4 sm:gap-16">
+              {/* You */}
+              <div className="flex flex-col items-center gap-1 sm:gap-1.5">
+                <div className="w-11 h-11 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 sm:border-[3px]" style={{ borderColor: topic.color }}>
+                  <img src={user?.avatar || 'https://i.pravatar.cc/80?img=47'} alt="" className="w-full h-full object-cover" />
+                </div>
+                <span className="text-[10px] sm:text-base font-display text-gray-600">You</span>
+              </div>
+              
+              {/* VS + Topic */}
+              <div className="flex-1 flex flex-col items-center gap-1 sm:gap-2">
+                <span className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-0.5 sm:py-1 rounded text-[9px] sm:text-sm uppercase tracking-wider font-bold" style={{ backgroundColor: `${topic.color}15`, color: topic.color }}>
+                  <topic.icon className="w-2.5 h-2.5 sm:w-5 sm:h-5" /> {topic.label}
+                </span>
+                <span className="font-display text-sm sm:text-2xl text-gray-400">VS</span>
+                <span className="text-[10px] sm:text-base text-gray-400">{currentBattle.rounds} rounds</span>
+              </div>
+              
+              {/* Opponent */}
+              <div className="flex flex-col items-center gap-1 sm:gap-1.5">
+                <div className="w-11 h-11 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 sm:border-[3px] border-warm">
+                  <img src={opponent?.avatar || 'https://i.pravatar.cc/80?img=12'} alt="" className="w-full h-full object-cover" />
+                </div>
+                <span className="text-[10px] sm:text-base font-display text-gray-600 truncate max-w-[60px] sm:max-w-[140px]">{opponent?.username || 'Opponent'}</span>
+              </div>
+            </div>
+          </div>
+          
+          {/* Wager + Prize Pool Card - side by side layout */}
+          <div className="w-full max-w-sm sm:max-w-none bg-cream border border-warm rounded-xl p-3 sm:p-4 mb-4">
+            <div className="flex items-stretch gap-3">
+              {/* Your Wager */}
+              <div className="flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-lg bg-gray-100/50">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Coins className="w-3.5 h-3.5 text-gray-400" />
+                  <span className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider">Your Wager</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-display text-lg sm:text-2xl text-gray-700">{formatCurrency(toBOGX(currentBattle.wager))}</span>
+                  <img src="/images/bogxcoin.png" alt="" className="w-4 h-4 sm:w-5 sm:h-5" />
+                </div>
+              </div>
+              
+              {/* Divider */}
+              <div className="w-px bg-warm self-stretch" />
+              
+              {/* Prize Pool */}
+              <div className="flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-lg" style={{ backgroundColor: `${topic.color}10` }}>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Trophy className="w-3.5 h-3.5" style={{ color: topic.color }} />
+                  <span className="text-[10px] sm:text-xs uppercase tracking-wider" style={{ color: topic.color }}>Winner Takes</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-display text-lg sm:text-2xl" style={{ color: topic.color }}>{formatCurrency(toBOGX(currentBattle.wager * 2))}</span>
+                  <img src="/images/bogxcoin.png" alt="" className="w-4 h-4 sm:w-5 sm:h-5" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </PreparingScreen>
+      </div>
+    );
+  };
+
+  // ═══════════════════════════════════════════════════════════════
   // COUNTDOWN SCREEN - Redesigned with standalone animations
   // ═══════════════════════════════════════════════════════════════
   const renderCountdownScreen = () => {
@@ -2803,17 +3195,30 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
             </div>
           </div>
 
-          {/* Timer Row - GET READY / GO style */}
+          {/* Timer Row - GET READY / GO style - Same as Solo Trivia */}
           <div className="flex items-center gap-2.5 sm:gap-4 mb-4 sm:mb-5">
             <div 
               key={countdown}
-              className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg sm:rounded-xl flex flex-col items-center justify-center flex-shrink-0 animate-[popScale_0.5s_ease-out]"
+              className={`w-12 h-12 sm:w-16 sm:h-16 rounded-lg sm:rounded-xl flex flex-col items-center justify-center flex-shrink-0 transition-all duration-200 ${
+                isGo ? 'scale-110' : 'animate-pulse'
+              }`}
               style={{ 
-                background: isGo ? 'linear-gradient(135deg, #6B7280dd 0%, #6B7280 100%)' : 'linear-gradient(135deg, #6B7280aa 0%, #6B7280cc 100%)',
-                boxShadow: 'inset 0 0 0 2px rgba(168,85,247,0.4)'
+                background: isGo 
+                  ? 'linear-gradient(135deg, #10b981dd 0%, #10b981 100%)' 
+                  : 'linear-gradient(135deg, #6B7280dd 0%, #6B7280 100%)',
+                boxShadow: isGo 
+                  ? '0 0 25px rgba(16,185,129,0.6), inset 0 0 0 2px rgba(16,185,129,0.4)' 
+                  : '0 0 20px rgba(107,114,128,0.4), inset 0 0 0 2px rgba(107,114,128,0.4)',
+                animation: 'popIn 0.4s ease-out'
               }}
             >
-              <span className="font-display text-lg sm:text-2xl text-white animate-[ledPulse_1.6s_ease-in-out_infinite]">
+              <span 
+                className="font-display text-lg sm:text-2xl text-white tabular-nums"
+                style={{ 
+                  animation: 'popNumber 0.4s ease-out',
+                  textShadow: '0 0 10px rgba(255,255,255,0.5)'
+                }}
+              >
                 {isGo ? 'GO' : countdown}
               </span>
               <span className="font-display text-[7px] sm:text-[9px] text-white/80 tracking-widest">
@@ -2821,25 +3226,66 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
               </span>
             </div>
             <div className="flex-1 flex gap-1 sm:gap-1.5">
-              {[...Array(8)].map((_, i) => (
-                <span 
-                  key={i} 
-                  className="h-2.5 sm:h-4 flex-1 rounded transition-all duration-300"
-                  style={{ backgroundColor: isGo ? '#6B7280' : (i < Math.round((countdown / 3) * 8) ? '#9ca3af' : '#E5E0D8') }}
-                />
-              ))}
+              {[...Array(8)].map((_, i) => {
+                const ledsOn = isGo ? 8 : Math.round((countdown / 3) * 8);
+                const isActive = isGo ? true : i < ledsOn;
+                return (
+                  <span 
+                    key={i} 
+                    className="h-2.5 sm:h-4 flex-1 rounded transition-all duration-300"
+                    style={{ 
+                      backgroundColor: isActive ? (isGo ? '#10b981' : '#6B7280') : '#E5E0D8',
+                      boxShadow: isActive ? `0 0 8px ${isGo ? '#10b981' : '#6B7280'}` : 'none'
+                    }}
+                  />
+                );
+              })}
             </div>
-            {/* Right side: Show countdown number during GET READY phase, then 10 when GO */}
-            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-              <span className="font-display text-xl sm:text-3xl text-[#6B7280]" key={countdown}>
-                {isGo ? 10 : countdown}
-              </span>
-              <span className="font-display text-xs sm:text-sm text-[#6B7280]/60">sec</span>
+            {/* Right side: Countdown number OR GO */}
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+              {isGo ? (
+                <span 
+                  className="font-display text-xl sm:text-3xl text-green-500 animate-pulse"
+                  style={{ 
+                    textShadow: '0 0 15px rgba(16,185,129,0.6)',
+                    animation: 'popNumber 0.4s ease-out'
+                  }}
+                >
+                  GO!
+                </span>
+              ) : (
+                <>
+                  <span 
+                    key={countdown}
+                    className="font-display text-xl sm:text-3xl text-gray-500 tabular-nums"
+                    style={{ 
+                      animation: 'popNumber 0.4s ease-out',
+                      textShadow: '0 0 8px rgba(107,114,128,0.4)'
+                    }}
+                  >
+                    {countdown}
+                  </span>
+                  <span className="font-display text-xs sm:text-sm text-gray-400">sec</span>
+                </>
+              )}
             </div>
           </div>
+          
+          {/* Countdown animations */}
+          <style jsx>{`
+            @keyframes popIn {
+              0% { transform: scale(0.8); opacity: 0.5; }
+              50% { transform: scale(1.15); }
+              100% { transform: scale(1); opacity: 1; }
+            }
+            @keyframes popNumber {
+              0% { transform: scale(1.5); opacity: 0; }
+              100% { transform: scale(1); opacity: 1; }
+            }
+          `}</style>
 
-          {/* Question Card */}
-          <div className="border border-warm bg-cream rounded-xl p-4 sm:p-6 mb-4 sm:mb-5 flex items-center justify-center min-h-[90px] sm:min-h-[120px] animate-[fadeInUp_0.4s_0.1s_ease-out_backwards]">
+          {/* Question Card - no animation, always visible */}
+          <div className="border border-warm bg-cream rounded-xl p-4 sm:p-6 mb-4 sm:mb-5 flex items-center justify-center min-h-[90px] sm:min-h-[120px]">
             <h2 className="font-display text-xl sm:text-2xl text-gray-900 text-center leading-snug tracking-wide">
               {question?.question}
             </h2>
@@ -2995,8 +3441,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
             </div>
           </div>
 
-          {/* Question Card */}
-          <div className="border border-warm bg-cream rounded-xl p-4 sm:p-6 mb-4 sm:mb-5 flex items-center justify-center min-h-[90px] sm:min-h-[120px] animate-[fadeInUp_0.4s_0.1s_ease-out_backwards]">
+          {/* Question Card - no animation, always visible */}
+          <div className="border border-warm bg-cream rounded-xl p-4 sm:p-6 mb-4 sm:mb-5 flex items-center justify-center min-h-[90px] sm:min-h-[120px]">
             <h2 className="font-display text-xl sm:text-2xl text-gray-900 text-center leading-snug tracking-wide">
               {question?.question}
             </h2>
@@ -3085,6 +3531,16 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
+
+          {/* Give up - deliberately small and low-contrast so it isn't hit by accident */}
+          <button
+            onClick={() => setShowGiveUpConfirm(true)}
+            disabled={givingUp}
+            className="mx-auto mt-3 flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
+          >
+            <X className="w-3.5 h-3.5" />
+            Give up
+          </button>
         </div>
       </div>
     );
@@ -3376,36 +3832,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   return (
     <div className="w-full h-full flex flex-col bg-cream overflow-hidden relative">
       {renderScreen()}
-      
-      
-      {/* ENTERING ARENA - Inline version with blur backdrop */}
-      {isAccepting && screen === 'intro' && (() => {
-        const arenaTopicColor = currentBattle ? getTopicConfig(currentBattle.topic).color : '#6B7280';
-        return (
-          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center p-8 bg-cream/80 backdrop-blur-md">
-            {/* Animated Swords */}
-            <div className="relative w-24 h-24 mb-6">
-              <Swords className="w-24 h-24 animate-pulse" style={{ color: arenaTopicColor }} />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-20 h-20 border-4 rounded-full animate-spin" style={{ borderColor: `${arenaTopicColor}30`, borderTopColor: arenaTopicColor }} />
-              </div>
-            </div>
-            
-            <h3 className="font-display text-3xl tracking-wider mb-3" style={{ color: arenaTopicColor }}>
-              ENTERING ARENA
-            </h3>
-            <p className="text-gray-500 text-base mb-6">
-              Preparing your battle...
-            </p>
-            
-            {/* Coin deduction animation hint */}
-            <div className="flex items-center justify-center gap-2 font-bold text-lg" style={{ color: arenaTopicColor }}>
-              <Coins className="w-6 h-6 animate-bounce" />
-              <span>-{formatCurrency(toBOGX(currentBattle?.wager || 0))}</span>
-            </div>
-          </div>
-        );
-      })()}
+
       
       {/* Inline Toast (non-blocking, no blur) */}
       {inlineToast && (
@@ -3442,6 +3869,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         secondaryButtonText={alertState.secondaryButtonText}
         onSecondaryButtonClick={alertState.onSecondaryButtonClick}
         details={alertState.details}
+        balance={alertState.balance}
+        required={alertState.required}
         embedded={embedded}
         onPlayTrivia={onGoToTrivia}
         onReadArticles={onGoToArticles}
@@ -3469,6 +3898,91 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         currentUserPoints={coins}
         isGenerating={isGenerating}
       />
+
+      {/* Give Up Confirmation */}
+      {showGiveUpConfirm && currentBattle && (() => {
+        // "Nobody joined yet" is derived from the ROLE, not from currentBattle.opponent:
+        // that field is regularly missing on the locally cached object (pool entry kept
+        // after accept, populate variations between endpoints), which made the dialog
+        // claim an empty battle while the player was mid-game against someone.
+        // If you are not the creator, then you ARE the opponent — someone joined.
+        const creatorId = (currentBattle.creator as any)?._id ?? (currentBattle.creator as any);
+        const iAmCreator = String(creatorId) === String(user?.id);
+        const nobodyJoined = iAmCreator && !currentBattle.opponent;
+
+        // Same rule as /api/battles/[id]/forfeit: a refund only happens while the
+        // battle is NOT armed. Pressing START commits the wager, even before the
+        // first answer — otherwise players could burn their opponent's battle for
+        // free and leave a pile of armed-but-unplayed games behind.
+        const isFreeCancel = nobodyJoined || (!hasStartedBattle && myResults.length === 0);
+        return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowGiveUpConfirm(false)}
+          />
+          <div className="relative bg-cream border border-warm rounded-2xl w-full max-w-[340px] p-6 text-center shadow-xl">
+            <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center">
+              <X className="w-6 h-6 text-red-500" strokeWidth={2.5} />
+            </div>
+            <h3 className="font-display text-xl tracking-wider mb-2 text-gray-900">
+              {/* Only a real forfeit costs the wager - the refund cases are cancels. */}
+              {isFreeCancel ? 'CANCEL BATTLE?' : 'GIVE UP?'}
+            </h3>
+            {/* Mirrors /api/battles/[id]/forfeit exactly. Branching on `status` alone
+                was wrong: a battle you are already playing can still carry a stale
+                'open' status locally, which claimed "nobody has joined yet" while an
+                opponent was right there on screen. */}
+            <p className="text-gray-600 text-sm mb-6">
+              {nobodyJoined ? (
+                <>
+                  Nobody has joined yet, so the battle is cancelled and your{' '}
+                  <span className="font-display text-base text-gray-900">
+                    {formatCurrency(toBOGX(currentBattle.wager))}
+                  </span>{' '}
+                  <img src="/images/bogxcoin.png" alt="" className="w-4 h-4 inline align-text-bottom" /> wager is refunded.
+                </>
+              ) : isFreeCancel ? (
+                <>
+                  You haven&apos;t started yet, so the battle is cancelled and
+                  both players get their{' '}
+                  <span className="font-display text-base text-gray-900">
+                    {formatCurrency(toBOGX(currentBattle.wager))}
+                  </span>{' '}
+                  <img src="/images/bogxcoin.png" alt="" className="w-4 h-4 inline align-text-bottom" /> wager back. Nobody loses.
+                </>
+              ) : (
+                <>
+                  Your opponent wins the full pot of{' '}
+                  <span className="font-display text-base text-gray-900">
+                    {formatCurrency(toBOGX(currentBattle.wager) * 2)}
+                  </span>{' '}
+                  <img src="/images/bogxcoin.png" alt="" className="w-4 h-4 inline align-text-bottom" />. This cannot be undone.
+                </>
+              )}
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowGiveUpConfirm(false)}
+                disabled={givingUp}
+                className="flex-1 py-3 border border-warm text-gray-600 font-display text-sm tracking-wider rounded-xl disabled:opacity-50"
+              >
+                KEEP PLAYING
+              </button>
+              <button
+                onClick={handleGiveUp}
+                disabled={givingUp}
+                className="flex-1 py-3 bg-red-500 text-white font-display text-sm tracking-wider rounded-xl hover:bg-red-600 transition-colors disabled:opacity-50"
+              >
+                {givingUp ? 'PLEASE WAIT…' : (isFreeCancel ? 'CANCEL' : 'GIVE UP')}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+        );
+      })()}
 
       {/* Own Battle Cancel Modal */}
       {selectedOwnBattle && createPortal(
@@ -3524,9 +4038,10 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
           onClose={() => { setShowOpenBattles(false); refreshBattleCount(); }}
           userId={user.id}
           onPlayBattle={(battleId) => { setShowOpenBattles(false); loadBattles(); }}
-          onCoinsChange={(amount) => setCoins(prev => prev + amount)}
+          onCoinsChange={(amount, variant) => { setCoins(prev => prev + amount); onCoinAnimation?.(amount, variant); }}
           accentColor="purple"
           onCountChange={setLiveBattleCount}
+          currentlyPlayingBattleId={currentBattle?._id}
         />
       )}
 

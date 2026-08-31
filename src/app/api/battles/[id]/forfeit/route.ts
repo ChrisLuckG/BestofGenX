@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import Battle from '@/models/Battle';
 import User from '@/models/User';
+import Notification from '@/models/Notification';
 import { sendPushNotification } from '@/lib/webpush';
 
 // POST - Forfeit an active battle (user gives up, opponent wins)
@@ -28,9 +29,8 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'Battle not found' }, { status: 404 });
     }
     
-    // Check if battle is active
-    if (battle.status !== 'active') {
-      return NextResponse.json({ success: false, error: 'Can only forfeit active battles' }, { status: 400 });
+    if (battle.status !== 'active' && battle.status !== 'open') {
+      return NextResponse.json({ success: false, error: 'Can only forfeit open or active battles' }, { status: 400 });
     }
     
     // Check if user is part of this battle
@@ -41,14 +41,36 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'You are not part of this battle' }, { status: 403 });
     }
     
+    // ── Open battle: nobody accepted yet, so only the creator's wager is at ───
+    // stake. There is no opponent to award a pot to — cancel and refund.
+    if (battle.status === 'open') {
+      await User.findByIdAndUpdate(battle.creator._id, { $inc: { bogxCoins: battle.wager } });
+      battle.status = 'cancelled';
+      await battle.save();
+      
+      return NextResponse.json({
+        success: true,
+        cancelled: true,
+        refunded: battle.wager,
+        message: 'Battle cancelled before the opponent joined — wager refunded',
+      });
+    }
+    
     // ── No-play cancel: you can't "forfeit" a game you never started ──────────
-    // If the requesting user hasn't played a single round yet, this is a CANCEL,
-    // not a forfeit. Refund BOTH players — nobody wins, nobody loses.
+    // If the requesting user never armed the battle, this is a CANCEL, not a
+    // forfeit. Refund BOTH players — nobody wins, nobody loses.
+    //
+    // "Started" means pressing START on the preparing screen (recorded by
+    // /api/battles/[id]/start), NOT having answered a question. Keying this off the
+    // results array alone let a player arm a battle, look at the first question and
+    // leave with a full refund — burning the opponent's battle for free and leaving
+    // a trail of armed-but-unplayed games behind.
     const creatorPlayed = (battle.creatorResults?.length || 0) > 0;
     const opponentPlayed = (battle.opponentResults?.length || 0) > 0;
-    const userHasPlayed = (isCreator && creatorPlayed) || (isOpponent && opponentPlayed);
+    const userStarted = isCreator ? !!battle.creatorStartedAt : !!battle.opponentStartedAt;
+    const userIsCommitted = userStarted || (isCreator ? creatorPlayed : opponentPlayed);
 
-    if (!userHasPlayed) {
+    if (!userIsCommitted) {
       // Refund both players
       await User.findByIdAndUpdate(battle.creator._id, { $inc: { bogxCoins: battle.wager } });
       if (battle.opponent?._id) {
@@ -103,15 +125,40 @@ export async function POST(
     // Update battle
     battle.status = 'completed';
     battle.winner = winnerId;
+    battle.forfeitedBy = loserId;
     battle.completedAt = new Date();
     await battle.save();
     
+    // In-app notifications for BOTH sides. Without these the loser only saw the
+    // notification derived from the battle document, which compared two empty result
+    // arrays and told them the battle was "a tie" right after they gave up the pot.
+    await Notification.create({
+      userId: winnerId,
+      type: 'battle_result',
+      title: '🏆 Opponent Gave Up!',
+      message: `${loser?.username || 'Your opponent'} gave up! +${battle.wager.toFixed(2)} BOGX earned.`,
+      avatar: loser?.avatar,
+      data: { battleId: battle._id.toString(), url: '/battles' }
+    });
+    if (loserId) {
+      await Notification.create({
+        userId: loserId,
+        type: 'battle_result',
+        title: '🏳️ Battle Forfeited',
+        message: `You gave up. ${winner?.username || 'Your opponent'} takes the pot. -${battle.wager.toFixed(2)} BOGX lost.`,
+        avatar: winner?.avatar,
+        data: { battleId: battle._id.toString(), url: '/battles' }
+      });
+    }
+
     // Send push notification to winner
     if (winner?.pushSubscription) {
       try {
         await sendPushNotification(winner.pushSubscription, {
           title: 'Battle Won!',
-          body: `${loser?.username || 'Opponent'} forfeited! You won ${totalPot.toFixed(2)} BOGX!`,
+          // Net gain, not the pot: the winner staked one wager themselves, so quoting
+          // the full pot here contradicted the in-app message and the coin counter.
+          body: `${loser?.username || 'Opponent'} gave up! +${battle.wager.toFixed(2)} BOGX earned.`,
           tag: `battle-forfeit-${battle._id}`,
           url: '/mobile?tab=arcade',
           type: 'challenge'

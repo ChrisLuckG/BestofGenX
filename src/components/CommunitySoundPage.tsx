@@ -113,21 +113,16 @@ export default function CommunitySoundPage({ onBack, onOpenRadio, isDesktop = fa
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
-        {/* Hero banner - show skeleton while loading, then keep showing once loaded */}
+        {/* Hero banner - always show video background */}
         <div className={`relative w-full overflow-hidden bg-gray-200 ${isDesktop ? 'aspect-[3/1]' : 'aspect-[16/9]'}`}>
-          {loading ? (
-            <Skeleton className="w-full h-full" />
-          ) : heroImg ? (
-            isVideo ? (
-              <video src={heroImg} className="w-full h-full object-cover" muted autoPlay loop playsInline />
-            ) : (
-              <img src={heroImg} alt="Community Sound" className="w-full h-full object-cover" />
-            )
-          ) : (
-            <div className="w-full h-full bg-gradient-to-br from-[#22C55E]/20 to-[#22C55E]/5 flex items-center justify-center">
-              <Music className="w-16 h-16 text-[#22C55E]/30" />
-            </div>
-          )}
+          <video 
+            src="/videos/community-sound-bg.mp4" 
+            className="w-full h-full object-cover" 
+            muted 
+            autoPlay 
+            loop 
+            playsInline 
+          />
         </div>
 
         <div className="px-4 py-4 md:px-6">

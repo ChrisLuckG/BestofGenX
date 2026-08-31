@@ -6,6 +6,8 @@ import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import GenXLoader from "@/components/GenXLoader";
 import BackButton from "@/components/BackButton";
+// Shared with QuizzBattle so both games start the same way.
+import PreparingScreen from "@/components/games/PreparingScreen";
 import { formatCurrency } from "@/utils/currency";
 
 interface SoloTriviaGameProps {
@@ -23,7 +25,10 @@ interface Question {
   cardId?: string; // For tracking played questions
 }
 
-type GamePhase = 'setup' | 'countdown' | 'playing' | 'result';
+// 'preparing' is a full screen, not an overlay: the blurred modal that used to sit
+// on top of the setup page read as an interruption instead of as part of starting
+// the game, and it looked nothing like QuizzBattle.
+type GamePhase = 'setup' | 'preparing' | 'countdown' | 'playing' | 'result';
 
 // Icon mapping for categories
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
@@ -58,9 +63,18 @@ const CATEGORY_IMAGES: Record<string, string> = {
 // Default categories (5 official only)
 const DEFAULT_CATEGORIES = ['all', 'music', 'sports', 'movies', 'gaming', 'politik'];
 
+/** Accent used by the preparing screen; matches the game's own orange. */
+const TRIVIA_ACCENT = '#E36B11';
 const QUESTION_COUNT = 5; // Fixed 5 questions
 const POINT_OPTIONS = [0.10, 0.20, 0.30, 0.40, 0.50] as const;
 const PENALTY_RATE = 0.20; // 20% of max points
+const DAILY_GAME_LIMIT = 5; // Max games per day
+
+// Helper to get today's date key for localStorage
+const getTodayKey = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
 
 export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation, embedded = false }: SoloTriviaGameProps) {
   const { user, isLoggedIn } = useAuth();
@@ -89,6 +103,10 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
   const [reviewQuestion, setReviewQuestion] = useState<number | null>(null);
   const [selectedAnswers, setSelectedAnswers] = useState<(number | null)[]>([]);
   
+  // Daily game limit tracking
+  const [gamesPlayedToday, setGamesPlayedToday] = useState(0);
+  const [limitLoading, setLimitLoading] = useState(true);
+  
   // Animated display values for info box
   const [displayCorrect, setDisplayCorrect] = useState(0.30);
   const [displayWrong, setDisplayWrong] = useState(0.06);
@@ -107,6 +125,61 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
   const questionsRef = useRef<Question[]>([]);
+  
+  // Load daily game count on mount
+  useEffect(() => {
+    const loadGamesPlayed = async () => {
+      setLimitLoading(true);
+      const todayKey = getTodayKey();
+      
+      if (isLoggedIn && user?.id) {
+        // For logged-in users, fetch from server
+        try {
+          const res = await fetch(`/api/user/daily-trivia-count?userId=${user.id}`);
+          const data = await res.json();
+          if (data.success) {
+            setGamesPlayedToday(data.count || 0);
+          }
+        } catch {
+          // Fallback to localStorage
+          const stored = localStorage.getItem(`trivia_games_${todayKey}`);
+          setGamesPlayedToday(stored ? parseInt(stored, 10) : 0);
+        }
+      } else {
+        // For guests, use localStorage
+        const stored = localStorage.getItem(`trivia_games_${todayKey}`);
+        setGamesPlayedToday(stored ? parseInt(stored, 10) : 0);
+      }
+      setLimitLoading(false);
+    };
+    loadGamesPlayed();
+  }, [isLoggedIn, user?.id]);
+  
+  // Increment game count when a game completes
+  const incrementGameCount = async () => {
+    const todayKey = getTodayKey();
+    const newCount = gamesPlayedToday + 1;
+    setGamesPlayedToday(newCount);
+    
+    // Always save to localStorage as backup
+    localStorage.setItem(`trivia_games_${todayKey}`, String(newCount));
+    
+    if (isLoggedIn && user?.id) {
+      // Also save to server for logged-in users
+      try {
+        await fetch('/api/user/daily-trivia-count', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id }),
+        });
+      } catch {
+        // localStorage backup is already saved
+      }
+    }
+  };
+  
+  const gamesRemaining = DAILY_GAME_LIMIT - gamesPlayedToday;
+  const canPlay = gamesRemaining > 0;
   
   // Fetch online players count (heartbeat is now global in AuthContext)
   useEffect(() => {
@@ -400,9 +473,18 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
   }, []);
 
   const startGame = async () => {
+    // Check daily limit
+    if (!canPlay) {
+      setError(`You've reached your daily limit of ${DAILY_GAME_LIMIT} games. Come back tomorrow!`);
+      return;
+    }
+    
     setLoading(true);
     setError(null);
     setAnswerHistory([]);
+    // Show the preparing screen immediately; the fetch below decides when its ring
+    // may complete. Failures fall back to the setup page with the error.
+    setPhase('preparing');
     try {
       // Use smart questions API that avoids recently played questions
       const params = new URLSearchParams({
@@ -437,6 +519,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
         
         if (transformedQuestions.length === 0) {
           setLoading(false);
+          setPhase('setup');
           setError('No valid questions found. Please try again.');
           return;
         }
@@ -448,15 +531,18 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
         setWrongCount(0);
         setTotalEarnings(0);
         setLoading(false);
-        runCountdown();
+        // No auto-start: the countdown now runs when the player presses START on
+        // the preparing screen, same as QuizzBattle.
       } else {
         setLoading(false);
+        setPhase('setup');
         const categoryName = selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1);
         setError(`No questions available for "${categoryName}". Try "All" or another category.`);
       }
     } catch (e) {
       console.error('Failed to generate trivia:', e);
       setLoading(false);
+      setPhase('setup');
       setError('Failed to load questions. Please try again.');
     }
   };
@@ -558,6 +644,8 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
     const qs = questionsRef.current;
     if (currentIndex + 1 >= qs.length) {
       setPhase('result');
+      // Increment daily game count
+      incrementGameCount();
       // Update game stats when game ends
       if (isLoggedIn && user?.id) {
         const won = correctCount > qs.length / 2;
@@ -578,11 +666,11 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
   const currentQuestion = questions[currentIndex];
 
   // Unified Header Component - same as QuizzBattle (no online indicator for single player)
-  const GameHeader = ({ showBack = true }: { showBack?: boolean }) => (
+  const GameHeader = ({ showBack = true, onBackOverride }: { showBack?: boolean; onBackOverride?: () => void }) => (
     <div className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
       <div className="flex items-center gap-3">
         {showBack && (
-          <button onClick={onBack} className="p-1 hover:bg-[#E36B11]/10 rounded transition-colors">
+          <button onClick={onBackOverride || onBack} className="p-1 hover:bg-[#E36B11]/10 rounded transition-colors">
             <ChevronLeft className="w-5 h-5 text-gray-600" />
           </button>
         )}
@@ -867,47 +955,62 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
     );
   }
 
+  // Preparing Phase - same screen as QuizzBattle, not an overlay
+  if (phase === 'preparing') {
+    const CategoryIcon =
+      CATEGORY_ICONS[selectedCategory] || CATEGORY_ICONS[selectedCategory.toUpperCase()] || HelpCircle;
+    const categoryName =
+      selectedCategory === 'all' ? 'All categories' : selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1);
+
+    return (
+      <div className="w-full h-full min-h-full flex-1 flex flex-col" style={{ backgroundColor: '#F5F0E8' }}>
+        {/* Back returns to the category selection, not out of the game - the player
+            is mid-setup here, not mid-round. */}
+        <GameHeader onBackOverride={() => { setPhase('setup'); setQuestions([]); }} />
+        <PreparingScreen
+          topicColor={TRIVIA_ACCENT}
+          TopicIcon={CategoryIcon}
+          topicId={selectedCategory}
+          subtitle={`Loading ${QUESTION_COUNT} questions · ${categoryName}`}
+          readySubtitle={`${QUESTION_COUNT} questions ready · ${categoryName}`}
+          // Holds the ring short of full until the questions have really arrived.
+          dataReady={!loading && questions.length > 0}
+          onStart={runCountdown}
+        >
+          {/* Round Info Card */}
+          <div className="w-full max-w-sm bg-cream border border-warm rounded-xl p-4 mb-6">
+            <div className="flex items-center gap-3">
+              <div
+                className="w-11 h-11 rounded-full flex items-center justify-center shrink-0"
+                style={{ backgroundColor: `${TRIVIA_ACCENT}1A` }}
+              >
+                <CategoryIcon className="w-5 h-5" style={{ color: TRIVIA_ACCENT }} />
+              </div>
+              <div className="flex-1">
+                <div className="font-display text-base tracking-wide text-gray-900">{categoryName}</div>
+                <div className="text-[11px] text-gray-400">{QUESTION_COUNT} questions · 10 sec each</div>
+              </div>
+              <div className="text-right">
+                <div className="flex items-center gap-1.5 justify-end">
+                  <img src="/images/bogxcoin.png" alt="" className="w-5 h-5" />
+                  <span className="font-display text-xl" style={{ color: TRIVIA_ACCENT }}>
+                    {(maxPoints * QUESTION_COUNT).toFixed(2)}
+                  </span>
+                </div>
+                <div className="text-[10px] text-gray-400">Max win</div>
+              </div>
+            </div>
+          </div>
+        </PreparingScreen>
+      </div>
+    );
+  }
+
   // Setup Phase - Redesigned like QuizzBattle
   if (phase === 'setup') {
     return (
       <div className="w-full h-full min-h-full flex-1 flex flex-col relative" style={{ backgroundColor: '#F5F0E8' }}>
         <GameHeader />
-
-        {/* Loading Modal */}
-        {loading && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <div className="bg-cream rounded-3xl p-10 mx-4 shadow-2xl border border-warm max-w-md w-full">
-              <div className="flex flex-col items-center">
-                {/* Animated BOGX Logo */}
-                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#E36B11]/20 to-[#E36B11]/5 flex items-center justify-center mb-6 relative">
-                  <div className="absolute inset-0 rounded-full border-4 border-[#E36B11]/20 border-t-[#E36B11] animate-spin" />
-                  <img src="/images/genxlogo1.png" alt="BOGX" className="w-14 h-14 object-contain" />
-                </div>
-                
-                <h3 className="font-display text-2xl tracking-wider text-gray-900 mb-3">Preparing Questions</h3>
-                <p className="text-gray-500 text-base text-center mb-2">
-                  Loading {QUESTION_COUNT} trivia questions
-                </p>
-                {selectedCategory !== 'all' && (
-                  <span className="inline-flex items-center gap-2 px-4 py-2 bg-[#E36B11]/10 rounded-full text-[#E36B11] font-semibold text-sm">
-                    {(() => {
-                      const Icon = CATEGORY_ICONS[selectedCategory] || CATEGORY_ICONS[selectedCategory.toUpperCase()] || HelpCircle;
-                      return <Icon className="w-4 h-4" />;
-                    })()}
-                    {selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1)}
-                  </span>
-                )}
-                
-                {/* Animated dots */}
-                <div className="mt-6 flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-[#E36B11] animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <div className="w-3 h-3 rounded-full bg-[#E36B11] animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <div className="w-3 h-3 rounded-full bg-[#E36B11] animate-bounce" style={{ animationDelay: '300ms' }} />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         <div className="flex-1 overflow-y-auto px-4 py-4" style={{ scrollbarWidth: 'none' }}>
           {/* Step 1: Choose Category - 4x4 Grid */}
@@ -989,7 +1092,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
           </div>
 
           {/* Info Box - How it Works */}
-          <div className="bg-[#E36B11]/5 rounded-2xl border border-[#E36B11]/20 mt-4 p-3 sm:p-5">
+          <div className="bg-[#E36B11]/5 rounded-xl border border-[#E36B11]/20 mt-3 p-2 sm:p-5">
             {/* Mobile: 2 rows with Correct/Wrong side by side, then Max Win/Loss */}
             {/* Desktop: 4 columns */}
             <div className="hidden sm:flex sm:items-center sm:justify-center gap-4 text-center">
@@ -1036,70 +1139,78 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
               </div>
             </div>
             
-            {/* Mobile layout - cleaner horizontal rows */}
-            <div className="sm:hidden space-y-3">
-              {/* Per Answer Row */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center">
-                    <Check className="w-4 h-4 text-green-500" />
+            {/* Mobile layout - 2x2 grid compact */}
+            <div className="sm:hidden">
+              {/* Correct / Wrong side by side */}
+              <div className="flex gap-2">
+                <div className="flex-1 text-center">
+                  <span className="text-[9px] text-gray-500 uppercase">Correct</span>
+                  <div className="flex items-center justify-center gap-0.5">
+                    <span className="text-green-500 font-bold text-sm">+</span>
+                    <span className="font-display text-base text-green-600 tabular-nums">{formatCurrency(displayCorrect)}</span>
+                    <img src="/images/bogxcoin.png" alt="" className="w-3 h-3" />
                   </div>
-                  <span className="font-display text-sm text-gray-700">Correct</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-green-500 font-bold">+</span>
-                  <span className="font-display text-xl text-green-600 tabular-nums">{formatCurrency(displayCorrect)}</span>
-                  <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center">
-                    <X className="w-4 h-4 text-red-500" />
+                <div className="w-px bg-[#E36B11]/20" />
+                <div className="flex-1 text-center">
+                  <span className="text-[9px] text-gray-500 uppercase">Wrong</span>
+                  <div className="flex items-center justify-center gap-0.5">
+                    <span className="text-red-500 font-bold text-sm">-</span>
+                    <span className="font-display text-base text-red-500 tabular-nums">{formatCurrency(displayWrong)}</span>
+                    <img src="/images/bogxcoin.png" alt="" className="w-3 h-3" />
                   </div>
-                  <span className="font-display text-sm text-gray-700">Wrong</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-red-500 font-bold">-</span>
-                  <span className="font-display text-xl text-red-500 tabular-nums">{formatCurrency(displayWrong)}</span>
-                  <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
                 </div>
               </div>
               
               {/* Divider */}
-              <div className="border-t border-[#E36B11]/20 pt-3 flex justify-between text-center">
-                <div>
-                  <span className="text-[10px] text-gray-500 uppercase block">Max Win</span>
-                  <div className="flex items-center gap-1 mt-1">
-                    <span className="text-green-500 font-bold">+</span>
-                    <span className="font-display text-lg text-green-600 tabular-nums">{formatCurrency(displayMaxWin)}</span>
-                    <img src="/images/bogxcoin.png" alt="" className="w-3.5 h-3.5" />
+              <div className="border-t border-[#E36B11]/20 mt-1.5 pt-1.5 flex gap-2">
+                <div className="flex-1 text-center">
+                  <span className="text-[9px] text-gray-500 uppercase">Max Win</span>
+                  <div className="flex items-center justify-center gap-0.5">
+                    <span className="text-green-500 font-bold text-sm">+</span>
+                    <span className="font-display text-base text-green-600 tabular-nums">{formatCurrency(displayMaxWin)}</span>
+                    <img src="/images/bogxcoin.png" alt="" className="w-3 h-3" />
                   </div>
                 </div>
-                <div>
-                  <span className="text-[10px] text-gray-500 uppercase block">Max Loss</span>
-                  <div className="flex items-center gap-1 mt-1">
-                    <span className="text-red-500 font-bold">-</span>
-                    <span className="font-display text-lg text-red-500 tabular-nums">{formatCurrency(displayMaxLoss)}</span>
-                    <img src="/images/bogxcoin.png" alt="" className="w-3.5 h-3.5" />
+                <div className="w-px bg-[#E36B11]/20" />
+                <div className="flex-1 text-center">
+                  <span className="text-[9px] text-gray-500 uppercase">Max Loss</span>
+                  <div className="flex items-center justify-center gap-0.5">
+                    <span className="text-red-500 font-bold text-sm">-</span>
+                    <span className="font-display text-base text-red-500 tabular-nums">{formatCurrency(displayMaxLoss)}</span>
+                    <img src="/images/bogxcoin.png" alt="" className="w-3 h-3" />
                   </div>
                 </div>
               </div>
             </div>
             
-            <p className="text-[10px] sm:text-xs text-gray-500 text-center mt-3 pt-2 sm:mt-4 sm:pt-3 border-t border-[#E36B11]/20">5 Questions · 10 sec each · Faster = more points</p>
+            <p className="text-[9px] sm:text-xs text-gray-500 text-center mt-1.5 pt-1.5 sm:mt-4 sm:pt-3 border-t border-[#E36B11]/20">5 Questions · 10 sec each · Faster = more points</p>
+          </div>
+
+          {/* Daily Games Remaining */}
+          <div className="flex items-center justify-center gap-2 mt-4">
+            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
+              canPlay 
+                ? 'bg-[#E36B11]/10 text-[#E36B11]' 
+                : 'bg-red-100 text-red-600'
+            }`}>
+              <Clock className="w-3.5 h-3.5" />
+              {limitLoading ? '...' : canPlay ? `${gamesRemaining} games left today` : 'No games left today'}
+            </div>
           </div>
 
           {/* Start Button - centered, narrower */}
-          <div className="flex flex-col items-center mt-5 gap-3">
+          <div className="flex flex-col items-center mt-4 gap-3">
             <button
               onClick={startGame}
-              disabled={loading}
-              className="px-20 py-4 rounded-2xl text-white font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
-              style={{ background: 'linear-gradient(135deg, #E8A54B 0%, #E36B11 50%, #C4772A 100%)' }}
+              disabled={loading || !canPlay || limitLoading}
+              className={`px-20 py-4 rounded-2xl text-white font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2 ${
+                canPlay ? 'hover:scale-[1.02] active:scale-[0.98]' : 'opacity-50 cursor-not-allowed'
+              } disabled:opacity-50`}
+              style={{ background: canPlay ? 'linear-gradient(135deg, #E8A54B 0%, #E36B11 50%, #C4772A 100%)' : '#9CA3AF' }}
             >
               <Play className="w-5 h-5" />
-              START GAME
+              {canPlay ? 'START GAME' : 'COME BACK TOMORROW'}
             </button>
             {error && (
               <p className="text-red-500 text-sm text-center px-4">{error}</p>

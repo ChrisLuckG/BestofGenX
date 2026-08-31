@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { EVENT_ERA } from "@/lib/releaseCategory";
 
 export const dynamic = "force-dynamic";
 
@@ -68,16 +69,17 @@ export async function GET(request: NextRequest) {
           }
           const data: WikiResponse = await response.json();
 
-          // Filter for GenX era (1975-2000) for events, or GenX birth years (1965-1980) for births
+          // Events use the GenX lifespan window (EVENT_ERA), births the GenX birth
+          // years (1965-1980) - two different windows that happen to share a start.
           let list: WikiEvent[] = [];
           if (type === "births") {
             list = (data.births || []).filter(e => e.year >= 1965 && e.year <= 1980);
           } else if (type === "deaths") {
             list = (data.deaths || []).filter(e => e.year >= 1980 && e.year <= 2026);
           } else if (type === "selected") {
-            list = (data.selected || []).filter(e => e.year >= 1975 && e.year <= 2000);
+            list = (data.selected || []).filter(e => e.year >= EVENT_ERA.start && e.year <= EVENT_ERA.end);
           } else {
-            list = (data.events || []).filter(e => e.year >= 1975 && e.year <= 2000);
+            list = (data.events || []).filter(e => e.year >= EVENT_ERA.start && e.year <= EVENT_ERA.end);
           }
           return list.map(e => ({ ...e, source: label }));
         } catch (err) {

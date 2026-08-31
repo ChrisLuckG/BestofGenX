@@ -15,10 +15,34 @@ import { useState, useEffect, useCallback, useRef } from "react";
 //   but the server value always wins on next sync
 // ============================================================
 
+// How long an optimistic change owns the counter before a server value may
+// overwrite it. Must exceed the longest count-up animation (1.5s on desktop):
+// a server value landing mid-animation is what caused the balance to overshoot
+// (96.71 -> 96.75 -> 96.73). The animation adds RELATIVE steps, the sync writes an
+// ABSOLUTE value, so any sync inside the animation window gets the remaining steps
+// added on top of an already-correct balance.
+const OPTIMISTIC_WINDOW_MS = 2500;
+
 export function useBogxCoins(userId?: string) {
-  const [coins, setCoins] = useState(0);
+  const [coins, setCoinsState] = useState(0);
   const userIdRef = useRef(userId);
   userIdRef.current = userId;
+  // When the last optimistic (local) change happened, and a handle for a sync that
+  // was postponed because of it.
+  const lastOptimisticAtRef = useRef(0);
+  const deferredSyncRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const syncRef = useRef<() => void>(() => {});
+
+  /**
+   * Optimistic setter for callers (animations, instant reward feedback).
+   *
+   * Every call marks the counter as locally owned for OPTIMISTIC_WINDOW_MS, so a
+   * concurrent server sync waits instead of interleaving with a running animation.
+   */
+  const setCoins = useCallback<React.Dispatch<React.SetStateAction<number>>>(value => {
+    lastOptimisticAtRef.current = Date.now();
+    setCoinsState(value);
+  }, []);
   // Monotonically increasing request counter. If multiple syncFromServer()
   // calls overlap (e.g. rapidly cancelling several battles in a row, each
   // firing a 'bogx-updated' event), responses can resolve OUT OF ORDER —
@@ -29,13 +53,27 @@ export function useBogxCoins(userId?: string) {
 
   // Fetch authoritative balance from server
   const syncFromServer = useCallback(async () => {
+    // An optimistic change is still playing out - postpone instead of fighting it.
+    // Rewards are dispatched the moment the user clicks, so 'bogx-updated' usually
+    // arrives while the count-up is running AND before the POST has committed;
+    // waiting fixes both the overshoot and reading a pre-credit balance.
+    const sinceOptimistic = Date.now() - lastOptimisticAtRef.current;
+    if (sinceOptimistic < OPTIMISTIC_WINDOW_MS) {
+      if (deferredSyncRef.current) clearTimeout(deferredSyncRef.current);
+      deferredSyncRef.current = setTimeout(() => {
+        deferredSyncRef.current = null;
+        syncRef.current();
+      }, OPTIMISTIC_WINDOW_MS - sinceOptimistic + 50);
+      return;
+    }
+
     const id = userIdRef.current;
     const myRequestId = ++requestIdRef.current;
     if (!id) {
       // Guest: load from localStorage
       const stored = localStorage.getItem('bogx_guest_coins');
       const guestCoins = stored !== null ? parseFloat(stored) : 0;
-      if (myRequestId === requestIdRef.current) setCoins(guestCoins);
+      if (myRequestId === requestIdRef.current) setCoinsState(guestCoins);
       return;
     }
     try {
@@ -45,15 +83,17 @@ export function useBogxCoins(userId?: string) {
       if (myRequestId !== requestIdRef.current) return;
       if (data.user) {
         const bogx = data.user.bogxCoins ?? 0;
-        const legacyBogx = (data.user.coins ?? 0) / 100;
         // Round to 2 decimals to avoid floating point residue (e.g. -5.5e-17)
         // Allow negative balances - don't use Math.max
-        setCoins(Math.round(bogx * 100) / 100);
+        // setCoinsState, not setCoins: a server value is not an optimistic change
+        // and must not extend the suppression window.
+        setCoinsState(Math.round(bogx * 100) / 100);
       }
     } catch {
       // Keep current value on network error
     }
   }, []);
+  syncRef.current = syncFromServer;
 
   // Initial load + reload when user changes
   useEffect(() => {
@@ -80,6 +120,11 @@ export function useBogxCoins(userId?: string) {
       window.removeEventListener("focus", onVisibility);
     };
   }, [userId, syncFromServer]);
+
+  // Drop a postponed sync when the component goes away.
+  useEffect(() => () => {
+    if (deferredSyncRef.current) clearTimeout(deferredSyncRef.current);
+  }, []);
 
   return { coins, setCoins, syncFromServer };
 }

@@ -179,6 +179,8 @@ export default function InstallBanner() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId: user?.id, subscription: subscription.toJSON() })
         });
+        // Keep the news widget / settings bell in sync without a refresh
+        window.dispatchEvent(new CustomEvent('push-status-changed', { detail: { enabled: true } }));
       }
       handleDismiss();
     } catch (e) {

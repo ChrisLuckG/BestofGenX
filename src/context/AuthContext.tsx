@@ -84,6 +84,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 bogxCoins: data.bogxCoins ?? 0,
                 wins: data.wins ?? 0,
                 gamesPlayed: data.gamesPlayed ?? 0,
+                authorEarnings: data.authorEarnings ?? prev.authorEarnings ?? 0,
+                isAuthor: data.isAuthor ?? prev.isAuthor ?? false,
+                isAdmin: data.isAdmin ?? prev.isAdmin ?? false,
               } : null);
             }
           })

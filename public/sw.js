@@ -1,7 +1,8 @@
 // Service Worker for Push Notifications - Best of GenX
-// Version: 2.1.0 - iOS push improvements
+// Version: 2.2.0 - reliable notification-click deep linking (postMessage
+// instead of relying on WindowClient.navigate(), unsupported on iOS Safari)
 
-const SW_VERSION = '2.1.0';
+const SW_VERSION = '2.2.0';
 
 self.addEventListener('push', function(event) {
   console.log('[SW] Push received:', event);
@@ -73,7 +74,13 @@ self.addEventListener('notificationclick', function(event) {
       for (let i = 0; i < clientList.length; i++) {
         const client = clientList[i];
         if (client.url.includes(self.location.origin) && 'focus' in client) {
-          // Try to navigate to the target URL
+          // Always tell the running app where to go via postMessage. This is
+          // the reliable path: WindowClient.navigate() below is not supported in
+          // every browser (notably iOS Safari) - there it silently did nothing,
+          // so tapping a notification just brought the app to the foreground on
+          // whatever screen it already had open, with the deep link dropped.
+          // The app applies the same params either way (see mobile/page.tsx).
+          try { client.postMessage({ type: 'NOTIFICATION_NAVIGATE', url: url }); } catch (e) {}
           if ('navigate' in client) {
             return client.navigate(url).then(() => client.focus()).catch(() => client.focus());
           }
@@ -81,7 +88,8 @@ self.addEventListener('notificationclick', function(event) {
         }
       }
       
-      // Open new window
+      // No window open yet - a fresh load reads the URL directly, no
+      // postMessage needed.
       if (self.clients.openWindow) {
         return self.clients.openWindow(url);
       }

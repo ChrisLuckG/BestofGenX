@@ -92,6 +92,9 @@ export async function POST(request: Request) {
 
     // Note: Don't reward referrer until email is verified
     
+    // Note: the welcome notification is virtual (see /api/notifications), so it
+    // needs no row here and also reaches accounts created before it existed.
+
     // Return user without password
     const userResponse = {
       _id: user._id,

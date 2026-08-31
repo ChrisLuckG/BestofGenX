@@ -13,6 +13,8 @@ interface AlertState {
   secondaryButtonText?: string;
   onSecondaryButtonClick?: () => void;
   details?: string[];
+  balance?: number;
+  required?: number;
 }
 
 const initialState: AlertState = {
@@ -34,6 +36,8 @@ export function useAlert() {
       secondaryButtonText?: string;
       onSecondaryButtonClick?: () => void;
       details?: string[];
+      balance?: number;
+      required?: number;
     }
   ) => {
     setAlertState({
@@ -45,7 +49,9 @@ export function useAlert() {
       onButtonClick: options?.onButtonClick,
       secondaryButtonText: options?.secondaryButtonText,
       onSecondaryButtonClick: options?.onSecondaryButtonClick,
-      details: options?.details
+      details: options?.details,
+      balance: options?.balance,
+      required: options?.required
     });
   }, []);
 

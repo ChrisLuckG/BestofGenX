@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { Swords, Plus, ChevronLeft, ChevronRight, LayoutGrid, Lock, Clock } from "lucide-react";
+import { Swords, Plus, ChevronLeft, ChevronRight, LayoutGrid, Lock, Clock, Check, Trophy, Target } from "lucide-react";
 import BackButton from "@/components/BackButton";
 import CountryFlag from "@/components/CountryFlag";
 import { formatCurrency, getCurrencySymbol } from "@/utils/currency";
@@ -72,16 +72,16 @@ export default function BattlePoolScreen({
   return (
     <div className="relative flex flex-col h-full min-h-full overflow-hidden" style={{ backgroundColor: '#F5F0E8' }}>
       {/* Header */}
-      <div className="flex items-center justify-between px-3 pt-4 pb-3 border-b border-warm">
-        <div className="flex items-center gap-2">
+      <div className="px-3 pt-4 pb-3 border-b border-warm">
+        <div className="relative flex items-center gap-2">
           {onBack && <BackButton onClick={onBack} className="-ml-1" />}
           <img src="/images/Icon/trivia1.png" alt="" className="w-5 h-5 object-contain" />
           <div>
             <span className="font-display text-lg tracking-wider text-gray-900">QuizzBattle</span>
             <p className="text-[10px] text-gray-900 -mt-0.5 whitespace-nowrap">Challenge others, win coins.</p>
           </div>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Right side buttons - absolute so their height never grows the header */}
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
           <button
             onClick={() => {
               if (isOnBreak) {
@@ -95,7 +95,7 @@ export default function BattlePoolScreen({
               onShowChallengeModal();
             }}
             disabled={isOnBreak}
-            className={`flex flex-col items-center px-2 py-1.5 border rounded-lg text-[10px] font-semibold tracking-wider transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-3 border rounded-lg text-[10px] font-semibold tracking-wider transition-colors ${
               isOnBreak ? 'border-warm text-gray-300 cursor-not-allowed' : 'border-gray-300 text-gray-600 hover:border-[#A855F7] hover:text-[#A855F7]'
             }`}
           >
@@ -119,13 +119,14 @@ export default function BattlePoolScreen({
               onShowCreate(!showCreate);
             }}
             disabled={isOnBreak}
-            className={`flex flex-col items-center px-2 py-1.5 rounded-lg text-[10px] font-semibold tracking-wider transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-3 rounded-lg text-[10px] font-semibold tracking-wider transition-colors ${
               isOnBreak ? 'bg-skeleton-light text-gray-600 cursor-not-allowed' : 'bg-[#A855F7] text-white hover:bg-[#c06a2a]'
             }`}
           >
             <Plus className="w-3.5 h-3.5" />
             <span>CREATE</span>
           </button>
+          </div>
         </div>
       </div>
 
@@ -198,88 +199,137 @@ export default function BattlePoolScreen({
         </div>
       </div>
 
-      {/* Create Battle Fullscreen */}
+      {/* Create Battle Fullscreen - Bebas Neue Mobile Design */}
       {showCreate && (
         <div className="absolute inset-0 z-[100] overflow-y-auto" style={{ backgroundColor: '#F5F0E8', scrollbarWidth: 'none' }}>
           <div className="sticky top-0 z-10 flex items-center justify-between px-3 pt-4 pb-3 border-b border-warm bg-[#F5F0E8]">
             <div className="flex items-center gap-2">
               <BackButton onClick={() => onShowCreate(false)} className="-ml-1" />
-              <img src="/images/Icon/trivia1.png" alt="" className="w-5 h-5 object-contain" />
+              <img src="/images/Icon/trivia1.png" alt="" className="w-6 h-6 object-contain" />
               <div>
-                <span className="font-display text-lg tracking-wider text-gray-900">Create Battle</span>
-                <p className="text-[10px] text-gray-500 -mt-0.5 whitespace-nowrap">Set wager and topic.</p>
+                <span className="font-display text-xl tracking-wider text-gray-900">CREATE BATTLE</span>
+                <p className="text-[10px] text-gray-500 -mt-0.5 whitespace-nowrap">Set wager and topic</p>
               </div>
             </div>
           </div>
           <div className="p-4">
-            {/* Step 1: Wager */}
-            <div className="mb-6">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="w-6 h-6 bg-[#A855F7] rounded text-white text-xs font-bold flex items-center justify-center">1</span>
-                <span className="text-sm font-semibold tracking-wider text-[#A855F7] uppercase">Choose Wager</span>
+            {/* Step 1: Wager - Bebas Neue Mobile */}
+            <div className="mb-5">
+              <div className="flex items-center gap-2.5 mb-3">
+                <img src="/images/bogxcoin.png" alt="" className="w-6 h-6" />
+                <span className="font-display text-xl tracking-wider text-gray-900">SELECT WAGER</span>
               </div>
-              <div className="grid grid-cols-5 gap-2">
-                {WAGERS.map(w => (
-                  <button
-                    key={w.amount}
-                    onClick={() => onCreateWagerChange(w.amount)}
-                    className={`py-3 text-center rounded-xl transition-colors ${
-                      createWager === w.amount ? 'bg-[#A855F7] text-white' : 'bg-cream border border-warm text-gray-600'
-                    }`}
-                  >
-                    <div className="font-display text-lg">{formatCurrency(w.amount)}{getCurrencySymbol()}</div>
-                    <div className="text-[9px] text-current opacity-60">{w.rounds}R</div>
-                  </button>
-                ))}
+              {/* 2x3 Grid for better mobile touch targets */}
+              <div className="grid grid-cols-2 gap-2.5">
+                {WAGERS.map(w => {
+                  const isSelected = createWager === w.amount;
+                  return (
+                    <button
+                      key={w.amount}
+                      onClick={() => onCreateWagerChange(w.amount)}
+                      className={`relative py-4 px-3 rounded-2xl transition-all duration-200 ${
+                        isSelected
+                          ? 'bg-gradient-to-br from-[#A855F7] to-[#9333EA] text-white shadow-xl shadow-[#A855F7]/30 scale-[1.02] ring-2 ring-white/30'
+                          : 'bg-white border-2 border-warm text-gray-800 active:scale-[0.98]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-center gap-2 mb-1">
+                        <img 
+                          src="/images/bogxcoin.png" 
+                          alt="" 
+                          className={`w-6 h-6 ${isSelected ? 'drop-shadow-lg' : ''}`} 
+                        />
+                        <span className="font-display text-3xl tracking-wide">
+                          {formatCurrency(w.amount)}
+                        </span>
+                      </div>
+                      <div className={`text-xs font-bold tracking-wider ${isSelected ? 'text-white/80' : 'text-gray-500'}`}>
+                        {w.rounds} ROUNDS
+                      </div>
+                      {isSelected && (
+                        <div className="absolute top-2 right-2 w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-md">
+                          <Check className="w-3 h-3 text-[#A855F7]" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
+            
             {/* Step 2: Topic */}
-            <div className="mb-6">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="w-6 h-6 bg-[#A855F7] rounded text-white text-xs font-bold flex items-center justify-center">2</span>
-                <span className="text-sm font-semibold tracking-wider text-[#A855F7] uppercase">Choose Topic</span>
+            <div className="mb-5">
+              <div className="flex items-center gap-2.5 mb-3">
+                <Target className="w-6 h-6 text-[#A855F7]" />
+                <span className="font-display text-xl tracking-wider text-gray-900">CHOOSE TOPIC</span>
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                {TOPICS.map(t => (
-                  <button
-                    key={t.id}
-                    onClick={() => onCreateTopicChange(t.id)}
-                    className={`py-3 text-sm font-semibold tracking-wider rounded-xl transition-colors flex items-center justify-center gap-2 ${
-                      createTopic === t.id ? 'bg-[#A855F7] text-white' : 'bg-cream border border-warm text-gray-600'
-                    }`}
-                  >
-                    <t.icon className="w-4 h-4" /> {t.label}
-                  </button>
-                ))}
+              {/* 2 columns for mobile */}
+              <div className="grid grid-cols-2 gap-2.5">
+                {TOPICS.map(t => {
+                  const isSelected = createTopic === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => onCreateTopicChange(t.id)}
+                      className={`relative py-3.5 font-display text-sm tracking-wider rounded-2xl transition-all duration-200 flex items-center justify-center gap-2 ${
+                        isSelected
+                          ? 'bg-gradient-to-br from-[#A855F7] to-[#9333EA] text-white shadow-xl shadow-[#A855F7]/30'
+                          : 'bg-white border-2 border-warm text-gray-700 active:scale-[0.98]'
+                      }`}
+                    >
+                      <t.icon className="w-5 h-5" />
+                      <span className="uppercase">{t.label}</span>
+                      {isSelected && (
+                        <div className="absolute top-1.5 right-1.5 w-4 h-4 bg-white rounded-full flex items-center justify-center">
+                          <Check className="w-2.5 h-2.5 text-[#A855F7]" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-            {/* Step 3: Start */}
-            <div className="mb-6">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="w-6 h-6 bg-[#A855F7] rounded text-white text-xs font-bold flex items-center justify-center">3</span>
-                <span className="text-sm font-semibold tracking-wider text-[#A855F7] uppercase">Start Battle</span>
+            
+            {/* Prize Pool Preview */}
+            <div className="flex items-center justify-between px-4 py-4 bg-gradient-to-r from-[#A855F7]/10 to-[#A855F7]/5 border border-[#A855F7]/20 rounded-2xl mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-[#A855F7]/20 flex items-center justify-center">
+                  <Trophy className="w-5 h-5 text-[#A855F7]" />
+                </div>
+                <div>
+                  <span className="font-display text-sm tracking-wider text-gray-900 block">PRIZE POOL</span>
+                  <span className="text-[10px] text-gray-500">Winner takes all</span>
+                </div>
               </div>
-              <button
-                onClick={() => onCreateBattle(false)}
-                disabled={isGenerating}
-                className={`w-full py-4 rounded-xl font-display text-base tracking-widest flex items-center justify-center gap-2 ${
-                  isGenerating ? 'bg-[#A855F7]/50 text-white/50 cursor-wait' : 'bg-[#A855F7] text-white'
-                }`}
-              >
-                {isGenerating ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                    GENERATING...
-                  </>
-                ) : (
-                  <>
-                    <Swords className="w-5 h-5" />
-                    OPEN BATTLE
-                  </>
-                )}
-              </button>
-              <p className="text-center text-gray-600 text-xs mt-2">Anyone can accept your challenge</p>
+              <div className="flex items-center gap-2">
+                <img src="/images/bogxcoin.png" alt="" className="w-7 h-7" />
+                <span className="font-display text-3xl text-[#A855F7]">{formatCurrency(createWager * 2)}</span>
+              </div>
             </div>
+            
+            {/* Start Battle Button */}
+            <button
+              onClick={() => onCreateBattle(false)}
+              disabled={isGenerating}
+              className={`w-full py-4 rounded-2xl font-display text-xl tracking-widest flex items-center justify-center gap-3 transition-all ${
+                isGenerating 
+                  ? 'bg-[#A855F7]/50 text-white/50 cursor-wait' 
+                  : 'bg-[#A855F7] active:bg-[#9333EA] text-white shadow-xl shadow-[#A855F7]/30 active:scale-[0.99]'
+              }`}
+            >
+              {isGenerating ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  GENERATING...
+                </>
+              ) : (
+                <>
+                  <Swords className="w-6 h-6" />
+                  OPEN BATTLE
+                </>
+              )}
+            </button>
+            <p className="text-center text-gray-500 text-xs mt-3">Anyone can accept your challenge</p>
           </div>
         </div>
       )}

@@ -89,11 +89,29 @@ export async function GET(
         // awardBogx credits coins + creates GameResult so it counts in rankings
         await awardBogx({ userId, amount: pointsAwarded, source: `article-${id}`, description: `Read article: ${article.title || id}` });
         
-        // Credit the author with earnings (0.02 BOGX per read = 10% of reader reward)
-        if (article.author) {
-          await User.findByIdAndUpdate(article.author, { 
+        // Credit the author with earnings (0.02 BOGX per read = 40% of reader reward)
+        let authorId = article.author;
+        
+        // If no author ID but we have authorName, try to find the user
+        if (!authorId && article.authorName) {
+          const authorUser = await User.findOne({ 
+            $or: [
+              { username: article.authorName },
+              { displayName: article.authorName }
+            ]
+          }).select('_id').lean();
+          if (authorUser) {
+            authorId = authorUser._id;
+            // Also update the article with the correct author ID for future reads
+            await Article.findByIdAndUpdate(id, { author: authorId });
+          }
+        }
+        
+        if (authorId) {
+          await User.findByIdAndUpdate(authorId, { 
             $inc: { authorEarnings: 0.02 } 
           });
+          console.log(`Author ${authorId} earned 0.02 BOGX from article read`);
         }
         
         console.log(`User ${userId} read article ${id} - awarded ${pointsAwarded} BOGX`);
@@ -214,6 +232,28 @@ export async function PUT(
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ articleId: id, category: updates.category || existing?.category || 'culture', title: updates.title || '' }),
         }).catch(() => {}); // silent fail — never block publishing
+      }
+    }
+
+    // A byline must never be destroyed by an update. Clients that build their
+    // payload from a non-populated `author` field send authorName: "Unknown"
+    // (or empty), and `$set` would happily overwrite the real name with it -
+    // which is why bylines kept reverting to "Unknown" after every edit.
+    // Resolve from the author account instead, and drop the key if that fails
+    // so the existing value survives.
+    if ('authorName' in updates) {
+      const incoming = typeof updates.authorName === 'string' ? updates.authorName.trim() : '';
+      if (!incoming || incoming === 'Unknown') {
+        const existing = await Article.findById(id).select('author authorName').lean();
+        const authorUser = existing?.author
+          ? await User.findById(existing.author).select('displayName username').lean()
+          : null;
+        const resolved = (authorUser as any)?.displayName || (authorUser as any)?.username || existing?.authorName;
+        if (resolved) {
+          updates.authorName = resolved;
+        } else {
+          delete updates.authorName;
+        }
       }
     }
 

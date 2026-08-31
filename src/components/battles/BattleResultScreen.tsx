@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Trophy, ChevronLeft, ChevronRight, ArrowRight, Swords, HelpCircle, X, Check, Share2 } from "lucide-react";
+import { Trophy, ChevronLeft, ChevronRight, ArrowRight, Swords, X, Check, Share2 } from "lucide-react";
 import { Battle, RoundResult, getTopicConfig, toBOGX } from "./types";
 import { formatCurrency, getCurrencySymbol } from "@/utils/currency";
 import { compareBattleResults } from "@/utils/battleWinner";
@@ -46,12 +46,48 @@ export default function BattleResultScreen({
       && (ms / 1000).toFixed(1) === (compareMs / 1000).toFixed(1);
     return `${(ms / 1000).toFixed(tied ? 3 : 1)}s`;
   };
-  const isComplete = myResults.length >= battle.rounds;
+  // Forfeit detection: check if battle was forfeited and by whom
+  // For old battles without forfeitedBy, infer from: completed + winner + empty results
+  const myUserId = String(isCreator ? battle.creator._id : battle.opponent?._id || '');
+  const opponentUserId = String(isCreator ? battle.opponent?._id : battle.creator._id || '');
+  
+  // Normalize IDs to strings for comparison (winner/forfeitedBy may be ObjectId or string)
+  const winnerId = battle.winner ? String(typeof battle.winner === 'object' ? (battle.winner as any)?._id : battle.winner) : null;
+  const forfeiterId = battle.forfeitedBy ? String(typeof battle.forfeitedBy === 'object' ? (battle.forfeitedBy as any)?._id : battle.forfeitedBy) : null;
+  
+  // Explicit forfeit (new battles)
+  const iForfeited = !!forfeiterId && forfeiterId === myUserId;
+  const opponentForfeited = !!forfeiterId && forfeiterId === opponentUserId;
+  
+  // Inferred forfeit (old battles): completed with winner but results don't justify it
+  const battleCompleted = battle.status === 'completed';
+  const hasWinner = !!winnerId;
+  const iWon = !!winnerId && winnerId === myUserId;
+  const myResultsEmpty = myResults.length === 0;
+  const oppResultsEmpty = opponentResults.length === 0;
+  
+  // If battle is completed with a winner but both sides have 0 results (or equal empty),
+  // someone forfeited. The loser is whoever is NOT the winner.
+  const bothEmpty = myResultsEmpty && oppResultsEmpty;
+  const inferredIForfeited = battleCompleted && hasWinner && !iWon && (myResultsEmpty || bothEmpty);
+  const inferredOppForfeited = battleCompleted && hasWinner && iWon && (oppResultsEmpty || bothEmpty);
+  
+  const isForfeit = iForfeited || opponentForfeited || inferredIForfeited || inferredOppForfeited;
+  const actuallyIForfeited = iForfeited || inferredIForfeited;
+  const actuallyOppForfeited = opponentForfeited || inferredOppForfeited;
+  
+  // A battle is complete when all rounds are played OR it was forfeited/completed
+  // For forfeits: battle.status === 'completed' but results may be empty
+  const isComplete = myResults.length >= battle.rounds || battle.status === 'completed';
   
   // Winner = most correct answers; tie-break by fastest total time.
+  // For forfeits: the winner is set by the server, use that directly
   const cmp = compareBattleResults(myResults, opponentResults);
-  const won = cmp > 0;
-  const isDraw = cmp === 0;
+  const wonByScore = cmp > 0;
+  const wonByForfeit = actuallyOppForfeited;
+  const lostByForfeit = actuallyIForfeited;
+  const won = lostByForfeit ? false : (wonByForfeit || wonByScore);
+  const isDraw = !isForfeit && cmp === 0;
   const myCorrect = myResults.filter(r => r.correct).length;
   const oppCorrect = opponentResults.filter(r => r.correct).length;
   // Opponent data is only hidden while they still have to play - once the
@@ -65,6 +101,38 @@ export default function BattleResultScreen({
   // Colors based on result - use topic color for wins
   const resultColor = won ? topic.color : '#ef4444';
   const resultBandBg = won ? `bg-opacity-10` : 'bg-red-500/10';
+
+  // Plain-language reason for the outcome. The scoreboard alone can't explain a
+  // win on equal answers (decided by time) or a pot lost without a single answer.
+  const opponentName = (isCreator ? battle.opponent : battle.creator)?.username || 'Your opponent';
+  const timeGap = Math.abs(myTotalTime - oppTotalTime);
+  // Derived from the ROUNDED totals shown in the TOT column, otherwise the note
+  // contradicts the table: 11.74s vs 15.64s renders as "11.7 / 15.7" but the raw
+  // gap is 3.90s, which reads like a different number than the visible 4.0s.
+  const formatGap = (ms: number) => {
+    const shown = Math.abs(
+      Number((myTotalTime / 1000).toFixed(1)) - Number((oppTotalTime / 1000).toFixed(1))
+    );
+    // Identical at one decimal → fall back to ms, same as the per-round times do
+    if (shown === 0) return `${Math.round(ms)}ms`;
+    return `${shown.toFixed(1)}s`;
+  };
+  const outcomeNote = (() => {
+    if (isForfeit) {
+      const playedRounds = actuallyIForfeited ? myResults.length : opponentResults.length;
+      const who = actuallyIForfeited ? 'You' : opponentName;
+      if (playedRounds === 0) return `${who} left before answering a single question — the full pot went to the other side.`;
+      return `${who} gave up after ${playedRounds} of ${battle.rounds} rounds — the full pot went to the other side.`;
+    }
+    if (myCorrect !== oppCorrect) {
+      const diff = Math.abs(myCorrect - oppCorrect);
+      return `${won ? 'You were' : `${opponentName} was`} ${diff} correct answer${diff === 1 ? '' : 's'} ahead.`;
+    }
+    // Equal number of correct answers from here on
+    if (myCorrect === 0) return 'Neither of you got a single answer right — your wager came back.';
+    if (timeGap === 0) return `Both ${myCorrect}/${battle.rounds} and exactly the same time — your wager came back.`;
+    return `Both ${myCorrect}/${battle.rounds} correct — ${won ? 'you were' : `${opponentName} was`} ${formatGap(timeGap)} faster over all ${battle.rounds} rounds.`;
+  })();
 
   // Question viewer (flipped view) - same height as results
   if (viewingQuestion !== null && hasQuestions) {
@@ -282,7 +350,8 @@ export default function BattleResultScreen({
             )}
             {/* Center content */}
             <div className="flex items-center gap-2">
-              {won && <Trophy className={`${isMobile ? 'w-8 h-8' : 'w-5 h-5 sm:w-7 sm:h-7'} animate-[popIcon_0.35s_ease-out] flex-shrink-0`} style={{ color: '#166534' }} />}
+              {won && !isForfeit && <Trophy className={`${isMobile ? 'w-8 h-8' : 'w-5 h-5 sm:w-7 sm:h-7'} animate-[popIcon_0.35s_ease-out] flex-shrink-0`} style={{ color: '#166534' }} />}
+              {isForfeit && <span className={`${isMobile ? 'text-2xl' : 'text-lg sm:text-2xl'} animate-[popIcon_0.35s_ease-out] flex-shrink-0 leading-none`}>🏳️</span>}
               {isDraw && (
                 <span
                   className={`font-display ${isMobile ? 'text-3xl' : 'text-xl sm:text-3xl'} animate-[popIcon_0.35s_ease-out] flex-shrink-0 leading-none`}
@@ -297,6 +366,15 @@ export default function BattleResultScreen({
               >
                 {won ? 'YOU WIN!' : isDraw ? 'DRAW' : 'YOU LOSE'}
               </span>
+              {/* Reason on the same line - a forfeit is not a 0:0 result */}
+              {isForfeit && (
+                <span
+                  className={`font-display ${isMobile ? 'text-sm' : 'text-xs sm:text-base'} tracking-wide whitespace-nowrap`}
+                  style={{ color: won ? '#166534' : '#dc2626', opacity: 0.75 }}
+                >
+                  {actuallyIForfeited ? '· YOU GAVE UP' : '· OPPONENT GAVE UP'}
+                </span>
+              )}
             </div>
             {/* BOGX amount - right side on mobile. A draw returns the wager, so
                 it's shown as "back" instead of a plain amount that reads like a loss. */}
@@ -446,8 +524,9 @@ export default function BattleResultScreen({
           </div>
         )}
 
-        {/* Round by Round - Grid layout */}
-        {isComplete && (
+        {/* Round by Round - Grid layout. Skipped when nobody answered anything
+            (forfeit before the first question): a table of dashes says nothing. */}
+        {isComplete && !bothEmpty && (
           <div className={`${isMobile ? 'mb-4' : 'mb-6'} animate-[fadeInUp_0.4s_0.3s_ease-out_backwards]`}>
             <div className={`${isMobile ? 'text-xs' : 'text-sm'} font-bold tracking-widest text-gray-500 uppercase mb-2`}>
               Round by Round
@@ -542,15 +621,19 @@ export default function BattleResultScreen({
           </div>
         )}
 
-        {/* Questions Button - click any round above or use this button */}
-        {isComplete && hasQuestions && (
-          <button
-            onClick={() => { setIsFlipped(true); setTimeout(() => setViewingQuestion(0), 150); }}
-            className="w-full py-2.5 mb-4 bg-[#E36B11]/10 text-[#E36B11] font-display text-sm tracking-wider rounded-xl flex items-center justify-center gap-2 hover:bg-[#E36B11]/20 transition-all border border-[#E36B11]/30"
-          >
-            <HelpCircle className="w-4 h-4" />
-            📝 Questions
-          </button>
+        {/* Outcome explanation. Replaces the old "Questions" button - the rounds in
+            the table above are clickable, so a second entry point was redundant. */}
+        {isComplete && (
+          <div className={`mb-4 px-3 ${isMobile ? 'py-2' : 'py-2.5'} rounded-xl bg-white/60 border border-warm`}>
+            <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600 text-center leading-snug`}>
+              {outcomeNote}
+            </p>
+            {hasQuestions && !bothEmpty && (
+              <p className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-400 text-center mt-1`}>
+                Tap a round above to see the question
+              </p>
+            )}
+          </div>
         )}
 
         {/* Spacer */}
@@ -579,7 +662,7 @@ export default function BattleResultScreen({
             onClick={onContinue}
             className={`w-full ${isMobile ? 'py-3 text-base' : 'py-4 text-lg'} bg-[#E36B11] text-white font-display tracking-widest rounded-xl flex items-center justify-center gap-2 hover:bg-[#C4772A] transition-all`}
           >
-            Next Round
+            LET'S GO
             <ArrowRight className={isMobile ? 'w-4 h-4' : 'w-5 h-5'} />
           </button>
         )}

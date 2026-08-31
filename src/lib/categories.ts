@@ -23,28 +23,28 @@ export const CATEGORIES: CategoryDef[] = [
   {
     slug: 'sports',
     label: 'Sport',
-    color: '#dc2626',
+    color: '#C0392B',
     keywords: /sport|football|soccer|basketball|boxing|tennis|athlete|champion|winner/,
   },
   {
     slug: 'music',
     label: 'Music',
-    color: '#16a34a',
+    color: '#15803D',
     keywords: /music|song|band|concert|artist|album|guitar|drum|radio/,
   },
   {
     slug: 'movies-tv',
     label: 'TV & Cinema',
-    color: '#b91c1c',
+    color: '#1D4ED8',
     aliases: ['genx-icons'],
     keywords: /movie|film|cinema|screen|serie|series|tv|television|show|actor|actress|director|stream/,
   },
   {
     slug: 'gaming',
     label: 'Gaming & Tech',
-    color: '#7c3aed',
+    color: '#A21CAF',
     aliases: ['tech'],
-    keywords: /game|gaming|arcade|esport|console|playstation|xbox|nintendo|tech|computer|software|digital|gadget/,
+    keywords: /game|gaming|arcade|trivia|esport|console|playstation|xbox|nintendo|tech|computer|software|digital|gadget/,
   },
   {
     slug: 'lifestyle',
@@ -56,7 +56,7 @@ export const CATEGORIES: CategoryDef[] = [
   {
     slug: 'news',
     label: 'Politics',
-    color: '#374151',
+    color: '#334155',
     keywords: /news|breaking|update|current|politic|election|world|politik/,
   },
   {
@@ -115,7 +115,38 @@ export function getCategoryLabel(slug: string): string {
 }
 
 export function getCategoryColor(slug: string): string {
-  return getCategoryDef(slug)?.color ?? '#374151';
+  return getCategoryDef(slug)?.color ?? '#334155';
+}
+
+/**
+ * Quiz topic id -> content category slug.
+ *
+ * The games use their own ids ('sport', 'film', 'games', 'politik') while the
+ * editorial side uses the slugs above. They are deliberately NOT registered as
+ * `aliases`, because aliases widen VALID_CATEGORY_SLUGS and would let an article
+ * be stored with the slug 'film'.
+ */
+const TOPIC_TO_SLUG: Record<string, string> = {
+  music: 'music',
+  sport: 'sports',
+  sports: 'sports',
+  film: 'movies-tv',
+  movies: 'movies-tv',
+  tv: 'movies-tv',
+  games: 'gaming',
+  gaming: 'gaming',
+  politik: 'news',
+  politics: 'news',
+  fashion: 'lifestyle',
+};
+
+/**
+ * Accent colour for a quiz topic id. Same colour the editorial surfaces use for
+ * that subject, so a Music battle and a Music article are never two different
+ * colours - which is exactly what happened while both sides kept their own maps.
+ */
+export function getTopicColor(topicId: string): string {
+  return getCategoryColor(TOPIC_TO_SLUG[topicId.toLowerCase()] ?? topicId);
 }
 
 /**

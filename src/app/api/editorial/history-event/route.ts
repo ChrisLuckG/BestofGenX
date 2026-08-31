@@ -95,10 +95,11 @@ interface HistoryEvent {
 // used with its long-then-medium preference. This endpoint previously ran an
 // unfiltered search and kept result #1, which is why events ended up with short
 // clips instead of proper footage.
-async function searchYouTube(query: string, year?: number): Promise<string | null> {
+async function searchYouTube(query: string, year?: number, context?: string): Promise<string | null> {
   const hit = await searchYouTubeVideo({
     query,
     year,
+    context,
     tiers: PREFER_LONG,
     extraQueries: [`${query} ${year || ''} history`.trim()],
   });
@@ -236,23 +237,26 @@ Respond with a JSON object:
       return NextResponse.json({ success: false, error: "AI returned incomplete event data" });
     }
 
-    // Search for a YouTube video - pass year for better results
-    // Try multiple search variations to find a video
-    let videoId = await searchYouTube(eventData.youtubeSearch || eventData.title, eventData.year);
+    // Search for a YouTube video - pass year for better results.
+    // The event's own title and description are the relevance context: every
+    // fallback query below is looser than the last, and without that anchor a
+    // broad query happily returns a video about something else entirely.
+    const videoContext = [eventData.title, eventData.description].filter(Boolean).join(' ');
+    let videoId = await searchYouTube(eventData.youtubeSearch || eventData.title, eventData.year, videoContext);
     
     // If no video found, try alternative searches
     if (!videoId) {
       console.log(`No video found for "${eventData.youtubeSearch}", trying alternatives...`);
       // Try with just the title
-      videoId = await searchYouTube(eventData.title, eventData.year);
+      videoId = await searchYouTube(eventData.title, eventData.year, videoContext);
     }
     if (!videoId) {
       // Try with title + "documentary"
-      videoId = await searchYouTube(`${eventData.title} documentary`, eventData.year);
+      videoId = await searchYouTube(`${eventData.title} documentary`, eventData.year, videoContext);
     }
     if (!videoId) {
       // Try with title + category
-      videoId = await searchYouTube(`${eventData.title} ${eventData.category}`, eventData.year);
+      videoId = await searchYouTube(`${eventData.title} ${eventData.category}`, eventData.year, videoContext);
     }
     
     // REQUIRE a video - reject events without video

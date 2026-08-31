@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
     }
 
     const battles = await Battle.find(query)
-      .select('_id creator opponent topic wager rounds status questions creatorResults opponentResults creatorTotalPoints opponentTotalPoints winner isPrivate challengedUser createdAt acceptedAt createdVia acceptedVia')
+      .select('_id creator opponent topic wager rounds status questions creatorResults opponentResults creatorTotalPoints opponentTotalPoints winner forfeitedBy isPrivate challengedUser createdAt acceptedAt createdVia acceptedVia creatorStartedAt opponentStartedAt')
       .populate('creator', 'username avatar country countryFlag points bogxCoins isBot')
       .populate('opponent', 'username avatar country countryFlag points bogxCoins isBot')
       .populate('challengedUser', 'username avatar country countryFlag points bogxCoins')

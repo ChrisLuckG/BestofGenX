@@ -317,84 +317,6 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
                     </div>
                   </div>
                   
-                  {/* Level Timeline with LEDs */}
-                  <div className="px-6 py-4 border-t border-dashed border-[#E36B11]/20 bg-white/30">
-                    <div className="flex items-center justify-between relative">
-                      {/* Connection Line */}
-                      <div className="absolute top-3 left-6 right-6 h-0.5 bg-gray-300" />
-                      {/* Solid line up to current level */}
-                      <div 
-                        className="absolute top-3 left-6 h-0.5"
-                        style={{ 
-                          width: `${(levelIndex / (LEVELS.length - 1)) * 100}%`,
-                          backgroundColor: level.color,
-                          transformOrigin: 'left',
-                          animation: 'lineGrow 0.6s ease-out 150ms both',
-                        }}
-                      />
-                      {/* Progress line within current level (gradient to next node) */}
-                      {levelIndex < LEVELS.length - 1 && progress > 0 && (() => {
-                        // Calculate segment width as percentage of total line
-                        const segmentWidth = 100 / (LEVELS.length - 1); // e.g., 25% for 5 levels
-                        const progressWidth = segmentWidth * (progress / 100); // e.g., 82% of 25% = 20.5%
-                        const startPos = (levelIndex / (LEVELS.length - 1)) * 100; // e.g., 25% for level 2
-                        return (
-                          <div 
-                            className="absolute top-3 left-6 h-0.5"
-                            style={{ 
-                              marginLeft: `${startPos}%`,
-                              width: `${progressWidth}%`,
-                              background: `linear-gradient(to right, ${level.color}, ${level.color}20)`,
-                              transformOrigin: 'left',
-                              animation: 'lineGrow 0.6s ease-out 300ms both',
-                            }}
-                          />
-                        );
-                      })()}
-                      
-                      {/* Level Nodes */}
-                      {LEVELS.map((l, i) => {
-                        const isActive = i <= levelIndex;
-                        const isCurrent = l.name === level.name;
-                        // Different icon for each level
-                        const LevelIcon = [Sparkles, Star, Flame, Award, Crown][i] || Star;
-                        return (
-                          <div key={l.name} className="flex flex-col items-center z-10">
-                            {/* LED Circle */}
-                            <div 
-                              className={`w-6 h-6 rounded-full flex items-center justify-center border-2 ${
-                                isCurrent ? 'shadow-lg' : ''
-                              }`}
-                              style={{ 
-                                backgroundColor: isActive ? l.color : '#E5E7EB',
-                                borderColor: isActive ? l.color : '#D1D5DB',
-                                color: l.color,
-                                animation: isCurrent
-                                  ? `nodePopIn 0.35s ease-out ${i * 120}ms both, pulseRing 2s ease-in-out ${i * 120 + 400}ms infinite`
-                                  : `nodePopIn 0.35s ease-out ${i * 120}ms both`,
-                              }}
-                            >
-                              <LevelIcon className={`w-3 h-3 ${isActive ? 'text-white' : 'text-gray-400'}`} />
-                            </div>
-                            {/* Label */}
-                            <div 
-                              className="mt-2 text-center"
-                              style={{ animation: `fadeInUp 0.35s ease-out ${i * 120 + 100}ms both` }}
-                            >
-                              <div 
-                                className="text-[9px] font-bold uppercase tracking-wide"
-                                style={{ color: isActive ? l.color : '#6B7280' }}
-                              >
-                                {l.name}
-                              </div>
-                              <div className="text-[8px] text-gray-600">Level {i + 1}</div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  
                   {/* Pull handle - toggles Stats Row */}
                   <button
                     onClick={() => setStatsExpanded(prev => !prev)}
@@ -412,8 +334,89 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
                   {/* Stats Row - collapsible, collapsed by default */}
                   <div 
                     className="overflow-hidden transition-all duration-300 ease-out"
-                    style={{ maxHeight: statsExpanded ? '120px' : '0px', opacity: statsExpanded ? 1 : 0 }}
+                    style={{ maxHeight: statsExpanded ? '220px' : '0px', opacity: statsExpanded ? 1 : 0 }}
                   >
+                    {/* Level Timeline with LEDs */}
+                    <div className="px-6 py-4 border-t border-dashed border-[#E36B11]/20 bg-white/30">
+                      <div className="flex items-center justify-between relative">
+                        {/* Connection Line */}
+                        <div className="absolute top-3 left-6 right-6 h-0.5 bg-gray-300" />
+                        {/* Solid line up to current level */}
+                        <div 
+                          className="absolute top-3 left-6 h-0.5"
+                          style={{ 
+                            width: `${(levelIndex / (LEVELS.length - 1)) * 100}%`,
+                            backgroundColor: level.color,
+                            transformOrigin: 'left',
+                            animation: statsExpanded ? 'lineGrow 0.6s ease-out 150ms both' : 'none',
+                          }}
+                        />
+                        {/* Progress line within current level (gradient to next node) */}
+                        {levelIndex < LEVELS.length - 1 && progress > 0 && (() => {
+                          // Calculate segment width as percentage of total line
+                          const segmentWidth = 100 / (LEVELS.length - 1); // e.g., 25% for 5 levels
+                          const progressWidth = segmentWidth * (progress / 100); // e.g., 82% of 25% = 20.5%
+                          const startPos = (levelIndex / (LEVELS.length - 1)) * 100; // e.g., 25% for level 2
+                          return (
+                            <div 
+                              className="absolute top-3 left-6 h-0.5"
+                              style={{ 
+                                marginLeft: `${startPos}%`,
+                                width: `${progressWidth}%`,
+                                background: `linear-gradient(to right, ${level.color}, ${level.color}20)`,
+                                transformOrigin: 'left',
+                                animation: statsExpanded ? 'lineGrow 0.6s ease-out 300ms both' : 'none',
+                              }}
+                            />
+                          );
+                        })()}
+                        
+                        {/* Level Nodes */}
+                        {LEVELS.map((l, i) => {
+                          const isActive = i <= levelIndex;
+                          const isCurrent = l.name === level.name;
+                          // Different icon for each level
+                          const LevelIcon = [Sparkles, Star, Flame, Award, Crown][i] || Star;
+                          return (
+                            <div key={l.name} className="flex flex-col items-center z-10">
+                              {/* LED Circle */}
+                              <div 
+                                className={`w-6 h-6 rounded-full flex items-center justify-center border-2 ${
+                                  isCurrent ? 'shadow-lg' : ''
+                                }`}
+                                style={{ 
+                                  backgroundColor: isActive ? l.color : '#E5E7EB',
+                                  borderColor: isActive ? l.color : '#D1D5DB',
+                                  color: l.color,
+                                  animation: statsExpanded
+                                    ? isCurrent
+                                      ? `nodePopIn 0.35s ease-out ${i * 120}ms both, pulseRing 2s ease-in-out ${i * 120 + 400}ms infinite`
+                                      : `nodePopIn 0.35s ease-out ${i * 120}ms both`
+                                    : 'none',
+                                }}
+                              >
+                                <LevelIcon className={`w-3 h-3 ${isActive ? 'text-white' : 'text-gray-400'}`} />
+                              </div>
+                              {/* Label */}
+                              <div 
+                                className="mt-2 text-center"
+                                style={{ animation: statsExpanded ? `fadeInUp 0.35s ease-out ${i * 120 + 100}ms both` : 'none' }}
+                              >
+                                <div 
+                                  className="text-[9px] font-bold uppercase tracking-wide"
+                                  style={{ color: isActive ? l.color : '#6B7280' }}
+                                >
+                                  {l.name}
+                                </div>
+                                <div className="text-[8px] text-gray-600">Level {i + 1}</div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    
+                    {/* Stats Row */}
                     <div className="flex items-center justify-around py-3 px-6 border-t border-dashed border-[#E36B11]/20 bg-white/50">
                       <div className="text-center px-3">
                         <Trophy className="w-4 h-4 text-gray-400 mx-auto" />
@@ -462,26 +465,16 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
           </button>
         ) : null}
         
-        {/* Info: Why user might not appear in rankings */}
-        {isLoggedIn && currentUserRank && !rankings.find(p => p.isCurrentUser) && activeTab === 'day' && (
-          <div className="mx-4 mb-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
-            <span className="text-amber-500 text-sm mt-0.5">💡</span>
-            <p className="text-xs text-amber-700">
-              <strong>Tip:</strong> You appear in the daily ranking once you've earned positive points today. Wrong answers and lost battles reduce your daily score.
-            </p>
-          </div>
-        )}
-
         {/* Tabs */}
         <div className="flex border-b border-warm sticky top-0 bg-[#F5F0E8]/95 backdrop-blur-sm z-10">
           {(["day", "month", "year"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-3 text-xs font-semibold uppercase tracking-widest transition-all ${
+              className={`flex-1 py-3 font-display uppercase tracking-wide transition-all ${
                 activeTab === tab
-                  ? "text-gray-900 border-b-2 border-gray-900"
-                  : "text-gray-600 hover:text-gray-800"
+                  ? "text-xl text-[#E36B11] border-b-2 border-[#E36B11]"
+                  : "text-base text-gray-400 hover:text-gray-600"
               }`}
             >
               {tab === "day" ? "Today" : tab === "month" ? "Month" : "Year"}
@@ -568,7 +561,7 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
                       <span className="text-[10px] font-black text-black">2</span>
                     </div>
                   </div>
-                  <div className="text-xs font-semibold text-gray-900 text-center truncate w-full">{top3[1].name}</div>
+                  <div className="font-display text-sm text-gray-900 text-center truncate w-full">{top3[1].name}</div>
                   <CountryFlag flag={top3[1].flag} className="w-5 h-4 mx-auto rounded-[2px]" />
                   <div className="flex items-center gap-1 justify-center">
                     <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
@@ -594,7 +587,7 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
                       <span className="text-xs font-black text-black">1</span>
                     </div>
                   </div>
-                  <div className="text-xs font-semibold text-gray-900 text-center truncate w-full">{top3[0].name}</div>
+                  <div className="font-display text-base text-gray-900 text-center truncate w-full">{top3[0].name}</div>
                   <CountryFlag flag={top3[0].flag} className="w-5 h-4 mx-auto rounded-[2px]" />
                   <div className="flex items-center gap-1 justify-center">
                     <img src="/images/bogxcoin.png" alt="" className="w-5 h-5" />
@@ -620,7 +613,7 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
                       <span className="text-[10px] font-black text-black">3</span>
                     </div>
                   </div>
-                  <div className="text-xs font-semibold text-gray-900 text-center truncate w-full">{top3[2].name}</div>
+                  <div className="font-display text-sm text-gray-900 text-center truncate w-full">{top3[2].name}</div>
                   <CountryFlag flag={top3[2].flag} className="w-5 h-4 mx-auto rounded-[2px]" />
                   <div className="flex items-center gap-1 justify-center">
                     <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
@@ -656,7 +649,7 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
                         <CountryFlag flag={player.flag} className="w-4 h-3 rounded-[2px]" />
-                        <span className="text-sm font-semibold text-gray-900 truncate">{player.name}</span>
+                        <span className="font-display text-sm text-gray-900 truncate">{player.name}</span>
                         {isMe && <span className="text-[7px] font-bold bg-[#E36B11] text-white px-1.5 py-0.5">YOU</span>}
                       </div>
                       <div className="text-[10px] text-gray-600">{player.country}</div>

@@ -22,6 +22,9 @@ interface AlertModalProps {
   onReadArticles?: () => void;
   onWatchVideos?: () => void;
   onPlayTrivia?: () => void;
+  /** For coins type - actual balance and required amount (avoids parsing them out of the message) */
+  balance?: number;
+  required?: number;
 }
 
 const alertConfig = {
@@ -71,7 +74,9 @@ export default function AlertModal({
   embedded = false,
   onReadArticles,
   onWatchVideos,
-  onPlayTrivia
+  onPlayTrivia,
+  balance,
+  required
 }: AlertModalProps) {
   if (!show) return null;
 
@@ -96,9 +101,11 @@ export default function AlertModal({
 
   // Special layout for coins type
   if (type === 'coins') {
-    // Extract amount from message if possible (e.g. "You need 0.50 coins...")
+    // Prefer the explicit values; only fall back to parsing the message for legacy callers
     const amountMatch = message.match(/(\d+[,.]?\d*)/);
-    const requiredAmount = amountMatch ? parseFloat(amountMatch[1].replace(',', '.')) : 0.50;
+    const currentBalance = balance ?? (amountMatch ? parseFloat(amountMatch[1].replace(',', '.')) : 0);
+    const requiredAmount = required ?? 0.50;
+    const missingAmount = Math.max(0, requiredAmount - currentBalance);
     
     return renderModal(
       <div className={containerClass} onClick={onClose}>
@@ -135,11 +142,11 @@ export default function AlertModal({
             <div className="flex bg-[#E36B11]/5 rounded-lg border border-[#E36B11]/10 divide-x divide-[#E36B11]/10">
               <div className="flex-1 py-1.5 text-center">
                 <div className="text-[10px] text-gray-600 uppercase tracking-wider">Your balance</div>
-                <div className="text-base text-gray-900">0,00 <span className="text-[11px] text-gray-600">BOGX</span></div>
+                <div className="text-base text-gray-900">{currentBalance.toFixed(2).replace('.', ',')} <span className="text-[11px] text-gray-600">BOGX</span></div>
               </div>
               <div className="flex-1 py-1.5 text-center">
                 <div className="text-[10px] text-gray-600 uppercase tracking-wider">Missing</div>
-                <div className="text-base text-[#E36B11]">{requiredAmount.toFixed(2).replace('.', ',')} <span className="text-[11px] text-gray-600">BOGX</span></div>
+                <div className="text-base text-[#E36B11]">{missingAmount.toFixed(2).replace('.', ',')} <span className="text-[11px] text-gray-600">BOGX</span></div>
               </div>
             </div>
           </div>

@@ -4,6 +4,7 @@ import dbConnect from "@/lib/mongoose";
 import DailyFact from "@/models/DailyFact";
 import Article from "@/models/Article";
 import { combinePrompts } from "@/lib/loadPrompt";
+import { searchYouTubeVideo } from "@/lib/youtubeSearch";
 
 // Cron job to generate daily "On This Day" article
 // Runs at 9:00 AM, creates article scheduled for 10:00 AM
@@ -66,27 +67,18 @@ async function generateArticleImage(title: string, subtitle: string, baseUrl: st
   return null;
 }
 
-// Search YouTube for a relevant video
-async function searchYouTubeVideo(query: string): Promise<string | null> {
-  try {
-    const apiKey = process.env.YOUTUBE_API_KEY;
-    if (!apiKey) return null;
-    
-    const searchQuery = encodeURIComponent(`${query} 80s 90s official`);
-    const response = await fetch(
-      `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${searchQuery}&type=video&maxResults=1&key=${apiKey}`
-    );
-    
-    if (!response.ok) return null;
-    
-    const data = await response.json();
-    if (data.items?.[0]?.id?.videoId) {
-      return `https://www.youtube.com/watch?v=${data.items[0].id.videoId}`;
-    }
-  } catch (err) {
-    console.error("YouTube search failed:", err);
-  }
-  return null;
+// Search YouTube for a relevant video.
+// Was a third private copy that requested maxResults=1 and used that hit blindly,
+// with no relevance or clip-bait check at all. Now shares the vetted helper, so an
+// unrelated result yields no video instead of a wrong one.
+async function findSectionVideo(query: string, context?: string): Promise<string | null> {
+  const hit = await searchYouTubeVideo({
+    query,
+    context,
+    tiers: ['any'],
+    extraQueries: [`${query} 80s 90s official`],
+  });
+  return hit ? `https://www.youtube.com/watch?v=${hit.videoId}` : null;
 }
 
 // Search Wikimedia for an image
@@ -200,11 +192,18 @@ export async function GET(request: NextRequest) {
         // Extract h2 titles to search for media
         const h2Matches = processedContent.match(/<h2[^>]*>([^<]+)<\/h2>/gi) || [];
         const sectionTitles = h2Matches.map(h2 => h2.replace(/<[^>]+>/g, '').trim());
-        
+
+        // The prose that follows each heading, used as relevance context: a heading
+        // alone is too short to tell a fitting video from a merely similar one.
+        const sectionBodies = processedContent
+          .split(/<h2[^>]*>[^<]+<\/h2>/i)
+          .slice(1)
+          .map(part => part.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+
         // Search for YouTube videos and images for each section
         const mediaPromises = sectionTitles.map(async (title, index) => {
           // Alternate between video and image, or try both
-          const videoUrl = await searchYouTubeVideo(title);
+          const videoUrl = await findSectionVideo(title, sectionBodies[index]);
           const imageUrl = !videoUrl ? await searchWikimediaImage(title) : null;
           return { index, title, videoUrl, imageUrl };
         });

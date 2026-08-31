@@ -24,7 +24,33 @@ export async function GET(request: NextRequest) {
     
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     
-    // Get pending challenges (someone challenged you)
+    // Stored rows first: these are the authored notifications GET /api/notifications
+    // actually renders. The derived Battle-collection entries below are only a
+    // fallback for battles from before those rows existed, so they must be counted
+    // exactly as that route emits them - otherwise the badge disagrees with the list.
+    //
+    // We need every stored row here (not just the unread ones) to know which battles
+    // are already covered: an unrelated read/unread state must not resurrect the
+    // derived duplicate.
+    const dbNotifications = await Notification.find({ userId })
+      .select('_id type read data')
+      .lean();
+    
+    const storedChallengeBattleIds = new Set(
+      dbNotifications
+        .filter((n: any) => n.type === 'battle_challenge' && n.data?.battleId)
+        .map((n: any) => String(n.data.battleId))
+    );
+    const storedResultBattleIds = new Set(
+      dbNotifications
+        .filter((n: any) => n.type === 'battle_result' && n.data?.battleId)
+        .map((n: any) => String(n.data.battleId))
+    );
+    
+    // Get pending challenges (someone challenged you).
+    // A challenge that already has a stored battle_challenge row is that row - counting
+    // the battle as well made a single invite show as 2 in the badge while the list
+    // rendered 1, because GET /api/notifications emits no derived challenge entries.
     const pendingBattles = await Battle.find({
       challengedUser: userId,
       status: 'open',
@@ -34,11 +60,13 @@ export async function GET(request: NextRequest) {
     
     // Dismissed counts as read - if user dismissed, they saw it
     const pendingChallenges = pendingBattles.filter(b => {
+      if (storedChallengeBattleIds.has(String(b._id))) return false;
       const notifId = `battle-challenge-${b._id}`;
       return !dismissedIds.has(notifId) && !readIds.has(notifId);
     }).length;
     
-    // Get completed battles (results)
+    // Get completed battles (results) - same dedup as the list route's
+    // battleIdsWithStoredResult skip.
     const completedBattles = await Battle.find({
       $or: [{ creator: userId }, { opponent: userId }],
       status: 'completed',
@@ -46,18 +74,15 @@ export async function GET(request: NextRequest) {
     }).select('_id').lean();
     
     const unreadResults = completedBattles.filter(b => {
+      if (storedResultBattleIds.has(String(b._id))) return false;
       const notifId = `battle-result-${b._id}`;
       return !dismissedIds.has(notifId) && !readIds.has(notifId);
     }).length;
     
     // Count unread notifications from Notification collection
     // Also need to exclude dismissed ones
-    const dbNotifications = await Notification.find({
-      userId: userId,
-      read: false
-    }).select('_id').lean();
-    
-    const unreadNotifications = dbNotifications.filter(n => {
+    const unreadNotifications = dbNotifications.filter((n: any) => {
+      if (n.read) return false;
       const notifId = `notif-${n._id}`;
       return !dismissedIds.has(notifId) && !readIds.has(notifId);
     }).length;

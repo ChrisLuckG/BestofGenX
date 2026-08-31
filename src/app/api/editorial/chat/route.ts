@@ -8,8 +8,10 @@ import Article from '@/models/Article';
 import { generateReporterSystemPrompt } from '@/lib/generateReporterPrompt';
 import { VALID_CATEGORY_SLUGS } from '@/lib/categories';
 import { combinePrompts } from '@/lib/loadPrompt';
-import { fetchWikidataBirthdays, formatBirthdayContext, hasWikidataCategory } from '@/lib/wikidataBirthdays';
+import { fetchWikidataBirthdays, fetchWikidataBirthdaysAnyCategory, formatBirthdayContext, formatBirthdayUnavailable, hasWikidataCategory } from '@/lib/wikidataBirthdays';
 import { saveMenschen, getMenschenCoverage, markMenschCovered } from '@/lib/menschenDb';
+import { countryNameFromCode, getContinentLabel, isCountryInContinent } from '@/lib/continents';
+import { searchYouTubeVideo, PREFER_LONG } from '@/lib/youtubeSearch';
 
 // Increase timeout for article generation (Wikidata + OpenAI + YouTube can take time)
 export const maxDuration = 60;
@@ -26,31 +28,63 @@ let _deathsCache: { key: string; value: string } | null = null;
 let _wikidataDeathsCache: { key: string; value: string } | null = null;
 
 // Fetch GenX deaths from Wikidata SPARQL (more complete than Wikipedia "On This Day")
+// Uses VALUES for death dates instead of FILTER(MONTH/DAY) which times out.
 async function fetchWikidataDeaths(month: number, day: number): Promise<string> {
   const cacheKey = `wikidata-deaths-${month}-${day}`;
   if (_wikidataDeathsCache?.key === cacheKey) return _wikidataDeathsCache.value;
   
   try {
+    // Build death date values for all years (GenX people could have died any year from 1980 onwards)
+    const mm = String(month).padStart(2, '0');
+    const dd = String(day).padStart(2, '0');
+    const currentYear = new Date().getFullYear();
+    const deathDateValues: string[] = [];
+    for (let y = 1980; y <= currentYear; y++) {
+      deathDateValues.push(`"${y}-${mm}-${dd}T00:00:00Z"^^xsd:dateTime`);
+    }
+    
+    // Using VALUES instead of FILTER(MONTH/DAY) is dramatically faster:
+    // measured 4.2s here, while the FILTER(MONTH()/DAY()) variant timed out (>60s).
+    //
+    // The birth date is read through the statement node (p:/psv:) to get
+    // wikibase:timePrecision. `wdt:P569` alone hands back "1965-01-01" for a
+    // year-only date, which is indistinguishable from a real 1 January. That is
+    // how Dadullah (Wikidata knows only "1965") was proposed as "29.05.1965" —
+    // a birth day invented to satisfy the required DD.MM.YYYY format.
+    // Precision 11 = day, 10 = month, 9 = year.
+    //
+    // The death date needs no precision check: it only matches a VALUES entry if
+    // it is stored to the day.
     const query = `
-SELECT ?person ?personLabel ?birthDate ?deathDate ?occupationLabel ?countryLabel WHERE {
-  ?person wdt:P31 wd:Q5;
-          wdt:P569 ?birthDate;
-          wdt:P570 ?deathDate.
+SELECT ?personLabel ?birthDate ?birthPrecision ?deathDate ?occupationLabel ?countryLabel WHERE {
+  VALUES ?deathDate { ${deathDateValues.join(' ')} }
+  ?person wdt:P570 ?deathDate;
+          p:P569/psv:P569 ?birthNode.
+  ?birthNode wikibase:timeValue ?birthDate;
+             wikibase:timePrecision ?birthPrecision.
+  FILTER(YEAR(?birthDate) >= 1965 && YEAR(?birthDate) <= 1980)
   OPTIONAL { ?person wdt:P106 ?occupation. }
   OPTIONAL { ?person wdt:P27 ?country. }
-  FILTER(MONTH(?deathDate) = ${month} && DAY(?deathDate) = ${day})
-  FILTER(YEAR(?birthDate) >= 1965 && YEAR(?birthDate) <= 1980)
   SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
 }
-LIMIT 50
+LIMIT 300
 `;
-    const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(query)}&format=json`;
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'BOGX-Editorial/1.0', 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(8000),
+    // POST: the VALUES list makes this query too long to be comfortable in a URL.
+    const res = await fetch('https://query.wikidata.org/sparql', {
+      method: 'POST',
+      headers: {
+        'User-Agent': 'BOGX-Editorial/1.0 (https://bestofgenx.com; contact@bestofgenx.com)',
+        Accept: 'application/sparql-results+json',
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: 'query=' + encodeURIComponent(query),
+      signal: AbortSignal.timeout(20000),
     });
-    
-    if (!res.ok) return '';
+
+    if (!res.ok) {
+      console.error(`[Wikidata deaths] HTTP ${res.status} for ${dd}.${mm}`);
+      return '';
+    }
     const data = await res.json();
     
     const results = data.results?.bindings || [];
@@ -59,28 +93,64 @@ LIMIT 50
     // Deduplicate by person (Wikidata can return multiple rows per person for multiple occupations)
     const seen = new Set<string>();
     const deaths: string[] = [];
+    // People whose birth date is not documented to the day. They are NOT offered
+    // as options: the RIP format demands DD.MM.YYYY, so listing them only invites
+    // a made-up day.
+    const impreciseNames: string[] = [];
     
+    // Wikidata dates are ISO (YYYY-MM-DD), the reporters must answer DD.MM.YYYY.
+    const toDmy = (iso?: string): string => {
+      const m = iso?.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      return m ? `${m[3]}.${m[2]}.${m[1]}` : '';
+    };
+
     for (const r of results) {
       const name = r.personLabel?.value;
-      if (!name || seen.has(name)) continue;
+      // Skip Q-ids (unlabelled items)
+      if (!name || /^Q\d+$/.test(name) || seen.has(name)) continue;
       seen.add(name);
-      
-      const birthYear = r.birthDate?.value?.substring(0, 4) || '?';
-      const deathYear = r.deathDate?.value?.substring(0, 4) || '?';
+
+      const born = toDmy(r.birthDate?.value);
+      const died = toDmy(r.deathDate?.value);
+      if (!born || !died) continue;
+
+      // Precision below 11 means the day (and possibly the month) is unknown.
+      if (parseInt(r.birthPrecision?.value || '0', 10) < 11) {
+        impreciseNames.push(`${name} (born ${r.birthDate?.value?.substring(0, 4)}, exact day undocumented)`);
+        continue;
+      }
+
       const occupation = r.occupationLabel?.value || 'person';
       const country = r.countryLabel?.value || '';
-      
-      deaths.push(`  - ${name}, ${occupation}${country ? ` (${country})` : ''} — born ${birthYear}, died ${deathYear}`);
+
+      deaths.push(`  - NAME: ${name} | BORN: ${born} | DIED: ${died} | ${occupation}${country ? ` | COUNTRY: ${country}` : ''}`);
     }
-    
-    const value = deaths.length > 0 
-      ? `\nGENX DEATHS ON THIS DAY (from Wikidata - born 1965-1980):\n${deaths.join('\n')}\n`
+
+    const impreciseNote = impreciseNames.length
+      ? `\n🚫 NOT usable — Wikidata has no exact birth DAY for these, so you cannot state one:\n${impreciseNames.slice(0, 20).map(n => `  ✖ ${n}`).join('\n')}\n`
+      : '';
+
+    const value = deaths.length > 0
+      ? `
+================================================================================
+🕯️ GENX DEATH ANNIVERSARIES ON ${dd}.${mm} — ${deaths.length} people (Wikidata, born 1965–1980)
+================================================================================
+This is the AUTHORITATIVE list for a RIP/MEMORIAL request. Every entry died on
+today's day and month, and BOTH dates below are verified to the day.
+
+${deaths.join('\n')}
+${impreciseNote}
+✅ For a RIP/MEMORIAL task, pick ONE person from THIS list and copy BORN/DIED verbatim.
+🚫 Do NOT answer "no GenX deaths found" while this list has entries — it is not empty.
+🚫 Never invent a birth day. If a name is not in the list above with a full date,
+   pick a different person from the list instead.
+`
       : '';
     
     if (value) _wikidataDeathsCache = { key: cacheKey, value };
     return value;
   } catch (err) {
-    console.error('Wikidata fetch failed:', err);
+    console.error('Wikidata deaths fetch failed:', err);
     return ''; // Fail silently
   }
 }
@@ -218,115 +288,34 @@ const CTA_HTML: Record<string, string> = {
   rankroll: `<div class="cta-block rankroll-cta-banner" data-cta-type="rankroll" data-rankroll-id="" style="display:flex;flex-direction:column;gap:12px;padding:16px;background:linear-gradient(to right,rgba(212,135,58,0.15),rgba(212,135,58,0.05));border-radius:16px;border:1px solid rgba(212,135,58,0.2);margin:24px 0;cursor:pointer;"><div style="display:flex;align-items:center;gap:12px;"><div class="cta-icon" style="width:44px;height:44px;min-width:44px;background:#E36B11;border-radius:50%;display:flex;align-items:center;justify-content:center;" data-emoji="🗳️"><svg width="22" height="22" fill="white" viewBox="0 0 24 24"><path d="M18 13h-.68l-2 2h1.91L19 17H5l1.78-2h2.05l-2-2H6l-3 3v4c0 1.1.89 2 1.99 2H19c1.1 0 2-.89 2-2v-4l-3-3zm-1-5.05l-4.95 4.95-3.54-3.54 4.95-4.95 3.54 3.54zm-4.24-5.66L6.39 8.66a.996.996 0 000 1.41l4.95 4.95c.39.39 1.02.39 1.41 0l6.36-6.36a.996.996 0 000-1.41l-4.95-4.95a.996.996 0 00-1.41 0z"/></svg></div><div><div style="font-weight:700;color:#1a1a1a;font-size:14px;line-height:1.3;">Vote Now!</div><div style="font-size:12px;color:#666;line-height:1.4;">Cast your vote and rank your favorites.</div></div></div><span style="display:block;text-align:center;padding:10px 18px;background:#E36B11;color:white;border-radius:10px;font-weight:700;font-size:13px;">Go to Rankroll →</span></div>`,
 };
 
-// Search YouTube Data API for a real video ID
-// preferLong: true = filter for videos >20min (documentaries)
-async function findYoutubeVideoId(searchTerm: string, preferLong: boolean = false): Promise<string | null> {
-  const apiKey = process.env.YOUTUBE_API_KEY;
-  console.log('[YouTube] Searching for:', searchTerm, '| preferLong:', preferLong, '| API Key exists:', !!apiKey);
-  
-  if (!apiKey) {
-    console.warn('[YouTube] YOUTUBE_API_KEY not set, skipping video search');
-    return null;
-  }
-  
-  try {
-    // Ask for several candidates instead of blindly trusting rank #1 — YouTube's
-    // top hit for a person + film is often a talk-show or paparazzi clip that has
-    // nothing to do with the passage the video sits next to.
-    //
-    // For history articles we want documentaries. `videoDuration` takes a single
-    // value, so "long or medium" needs one request per tier. Previously only
-    // `long` (>20min) was tried and a miss meant NO video at all - many single
-    // events simply have no 20-minute upload, only a solid 8-minute report.
-    // Medium (4-20min) is the fallback; `short` is never requested.
-    const attempts: Array<{ term: string; duration: string }> = preferLong
-      ? [
-          { term: `${searchTerm} documentary`, duration: '&videoDuration=long' },
-          { term: `${searchTerm} documentary`, duration: '&videoDuration=medium' },
-          { term: searchTerm, duration: '&videoDuration=medium' },
-        ]
-      : [{ term: searchTerm, duration: '' }];
-
-    for (const attempt of attempts) {
-      const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(attempt.term)}&type=video&maxResults=8${attempt.duration}&key=${apiKey}`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error('[YouTube] API error:', res.status, errorText);
-        continue;
-      }
-
-      const data = await res.json();
-      const items = (data.items || []).filter(
-        (it: any) => it?.id?.videoId && /^[a-zA-Z0-9_-]{11}$/.test(it.id.videoId)
-      );
-      if (!items.length) {
-        console.log('[YouTube] No results for', attempt.duration || 'any duration');
-        continue;
-      }
-
-      const best = pickBestYoutubeMatch(items, searchTerm);
-      console.log('[YouTube] Picked:', best.id, '|', best.title, `(score ${best.score}${attempt.duration ? ', ' + attempt.duration.split('=')[1] : ''})`);
-      return best.id;
-    }
-
-    return null;
-  } catch (err) {
-    console.error('[YouTube] Search failed:', err);
-    return null;
-  }
-}
-
-// Words that carry no meaning when comparing a query to a video title.
-const YT_STOPWORDS = new Set([
-  'the', 'a', 'an', 'and', 'or', 'of', 'in', 'on', 'at', 'to', 'for',
-  'with', 'his', 'her', 'their', 'from', 'official', 'video', 'scene', 'clip',
-]);
-
-// Clips that are technically "about" the person but never illustrate the text.
-const YT_JUNK = /\b(access hollywood|entertainment tonight|red carpet|paparazzi|interview|talk show|reaction|tier list|ranking every|top \d+|compilation of|fan edit|edit\b|tiktok|shorts)\b/i;
-
-// Formats that genuinely show the work being discussed.
-const YT_GOOD = /\b(trailer|official trailer|movie ?clips?|scene|full scene|performance|live at|official video|highlights|documentary)\b/i;
-
 /**
- * Scores candidates by how much of the search phrase actually appears in the
- * video title, so the embed matches the paragraph it illustrates.
+ * Finds a video for one article section.
+ *
+ * This used to be a private copy of the search-and-pick logic. It scored
+ * candidates against the search term but had NO minimum, so `scored[0]` was
+ * embedded even when nothing matched - which is how a Korn music video ended up
+ * next to a paragraph about a tattoo studio. It now delegates to the shared
+ * helper, which drops off-topic candidates and returns null instead.
+ *
+ * preferLong: history articles want documentaries rather than clips.
+ * context: heading + paragraph the video will illustrate.
+ * excludeIds: Set of video IDs to exclude (to avoid duplicates in articles).
  */
-function pickBestYoutubeMatch(
-  items: any[],
-  searchTerm: string
-): { id: string; title: string; score: number } {
-  const terms = searchTerm
-    .toLowerCase()
-    .replace(/[^a-z0-9à-ÿ\s]/g, ' ')
-    .split(/\s+/)
-    .filter(t => t.length > 2 && !YT_STOPWORDS.has(t));
-
-  const scored = items.map((it: any, idx: number) => {
-    const title = String(it.snippet?.title || '');
-    const haystack = `${title} ${it.snippet?.description || ''}`.toLowerCase();
-
-    // Core signal: share of meaningful query words present in the result.
-    const hits = terms.filter(t => haystack.includes(t)).length;
-    let score = terms.length ? (hits / terms.length) * 100 : 0;
-
-    // A title match is worth far more than a description match.
-    const titleLower = title.toLowerCase();
-    score += terms.filter(t => titleLower.includes(t)).length * 12;
-
-    if (YT_GOOD.test(title)) score += 15;
-    if (YT_JUNK.test(title)) score -= 40;
-
-    // Keep YouTube's own ranking as a mild tie-breaker.
-    score -= idx;
-
-    return { id: it.id.videoId as string, title, score: Math.round(score) };
+async function findYoutubeVideoId(
+  searchTerm: string,
+  preferLong: boolean = false,
+  context?: string,
+  excludeIds?: Set<string>
+): Promise<string | null> {
+  const hit = await searchYouTubeVideo({
+    query: searchTerm,
+    context,
+    // Articles are not all documentaries, so any duration is allowed here -
+    // relevance, not length, is what decides.
+    tiers: preferLong ? PREFER_LONG : ['any'],
+    excludeVideoIds: excludeIds,
   });
-
-  scored.sort((a, b) => b.score - a.score);
-  return scored[0];
+  return hit?.videoId || null;
 }
 
 function buildYoutubeIframe(youtubeId: string): string {
@@ -411,6 +400,9 @@ async function convertSectionsToContent(
   }
   const contentParts: string[] = [];
   
+  // Track used video IDs to avoid duplicates
+  const usedVideoIds = new Set<string>();
+  
   // Build a lookup map for Spotify links by song/band
   const spotifyMap = new Map<string, string>();
   for (const s of spotifyLinks) {
@@ -469,12 +461,22 @@ async function convertSectionsToContent(
         }
       }
     } else if (section.youtubeSearch) {
-      // Original YouTube behavior
-      console.log('[Sections] Section has youtubeSearch:', section.youtubeSearch, '| preferLong:', isHistory);
-      const youtubeId = await findYoutubeVideoId(section.youtubeSearch, isHistory);
+      // The heading and the paragraph itself are passed as context, so the video is
+      // checked against the passage it will sit next to - not just against the search
+      // term the model happened to invent. No on-topic video means no embed.
+      console.log('[Sections] Section has youtubeSearch:', section.youtubeSearch, '| preferLong:', isHistory, '| excluding:', usedVideoIds.size, 'videos');
+      const youtubeId = await findYoutubeVideoId(
+        section.youtubeSearch,
+        isHistory,
+        [section.heading || '', section.text || ''].join(' '),
+        usedVideoIds
+      );
       if (youtubeId) {
         console.log('[Sections] Adding video iframe:', youtubeId);
+        usedVideoIds.add(youtubeId); // Track this video to avoid duplicates
         contentParts.push(buildYoutubeIframe(youtubeId));
+      } else {
+        console.log('[Sections] No on-topic video for this section - embedding none');
       }
     }
   }
@@ -653,7 +655,7 @@ export async function POST(request: NextRequest) {
     await dbConnect();
 
     const body = await request.json();
-    const { reporterUserId, message, conversationId, autoPublish, overrideCategory, overrideCountry, proposalOnly, articleMode: forceArticleMode, skipYoutube, spotifyLinks } = body;
+    const { reporterUserId, message, conversationId, autoPublish, overrideCategory, overrideCountry, overrideContinent, proposalOnly, articleMode: forceArticleMode, skipYoutube, spotifyLinks, isEventRequest } = body;
 
     if (!reporterUserId || !message) {
       return NextResponse.json({ success: false, error: 'reporterUserId and message required' }, { status: 400 });
@@ -707,36 +709,56 @@ export async function POST(request: NextRequest) {
     // Both are cached per day, so after the first request they resolve instantly.
     // Wikipedia's curated list is thin and US-heavy, so for a category-filtered
     // birthday request we additionally pull the complete worldwide pool from Wikidata.
+    // An EVENT request (movie premiere, album release, ...) must not receive the
+    // birthday pool: the reporter otherwise picks a name from that long list and
+    // answers with a birthday instead of the requested event.
+    //
+    // "Any category" is a birthday request too. It used to be excluded here
+    // (hasWikidataCategory(undefined) === false), so the reporters got no
+    // verified pool at all and had to answer from memory — exactly the case that
+    // produces invented birth years.
+    const mentionsBirthdayTask = /BIRTHDAY ARTICLE|BORN ON THIS DAY|birthday/i.test(message);
+    const wantsBirthdayPool =
+      !isEventRequest && (hasWikidataCategory(overrideCategory) || mentionsBirthdayTask);
+
+    // A RIP/MEMORIAL task asks for a death ANNIVERSARY (this day, any year) and is
+    // answered from the Wikidata list above. The "RECENT DEATHS" block is about the
+    // CURRENT month and literally dictates the sentence "Keine Generation-X-Todesfälle
+    // in den aktuellen Daten gefunden." — which is what most reporters replied with
+    // even though the on-this-day list had 45 entries. Two different questions, so
+    // the recent-deaths block is only sent when the editor actually asks for news.
+    const isDeathAnniversaryTask =
+      /RIP\/MEMORIAL ARTICLE|DIED on|death date falls|death anniversary/i.test(message);
+
     const [liveContext, deathsContext, wikidataDeaths, wikidataBirths] = await Promise.all([
       fetchLiveContext(now.getMonth() + 1, now.getDate()),
-      fetchRecentDeaths(now),
+      isDeathAnniversaryTask ? Promise.resolve('') : fetchRecentDeaths(now),
       fetchWikidataDeaths(now.getMonth() + 1, now.getDate()),
-      hasWikidataCategory(overrideCategory)
-        ? fetchWikidataBirthdays(now.getMonth() + 1, now.getDate(), overrideCategory)
-        : Promise.resolve([]),
+      // No pool wanted resolves to null, not [] — an empty array is truthy and
+      // was formatted into a "Wikidata says NOBODY matches" block for requests
+      // where Wikidata had never been asked.
+      !wantsBirthdayPool
+        ? Promise.resolve(null)
+        : hasWikidataCategory(overrideCategory)
+          ? fetchWikidataBirthdays(now.getMonth() + 1, now.getDate(), overrideCategory)
+          : fetchWikidataBirthdaysAnyCategory(now.getMonth() + 1, now.getDate()),
     ]);
 
-    // Map country codes to full names
-    const countryNames: Record<string, string> = {
-      'US': 'United States', 'CA': 'Canada', 'MX': 'Mexico', 'BR': 'Brazil',
-      'AR': 'Argentina', 'UK': 'United Kingdom', 'DE': 'Germany', 'FR': 'France',
-      'IT': 'Italy', 'ES': 'Spain', 'NL': 'Netherlands', 'SE': 'Sweden',
-      'NO': 'Norway', 'PL': 'Poland', 'RU': 'Russia', 'JP': 'Japan',
-      'CN': 'China', 'KR': 'South Korea', 'IN': 'India', 'AU': 'Australia',
-      'NZ': 'New Zealand', 'ZA': 'South Africa', 'EG': 'Egypt', 'NG': 'Nigeria',
-      'AT': 'Austria', 'CH': 'Switzerland', 'BE': 'Belgium', 'PT': 'Portugal',
-      'GR': 'Greece', 'IE': 'Ireland', 'CZ': 'Czech Republic', 'HU': 'Hungary',
-    };
-    const countryFullName = overrideCountry ? (countryNames[overrideCountry] || overrideCountry) : '';
+    const countryFullName = countryNameFromCode(overrideCountry);
+    const continentLabel = getContinentLabel(overrideContinent);
+    // Country is the narrower constraint and therefore wins over continent.
+    const originName = countryFullName || continentLabel;
 
-    // Build override instructions if category/country filters are set
-    const overrideInstructions = (overrideCategory || countryFullName) ? `
+    // Build override instructions if category/origin filters are set
+    const overrideInstructions = (overrideCategory || originName) ? `
 ================================================================================
 ⚠️⚠️⚠️ EDITOR OVERRIDE — HIGHEST PRIORITY ⚠️⚠️⚠️
 ================================================================================
 The editor has set MANDATORY filters. These OVERRIDE your specialty/region:
 ${overrideCategory ? `CATEGORY FILTER: You MUST find someone in "${overrideCategory}" category ONLY.` : ''}
 ${countryFullName ? `COUNTRY FILTER: You MUST find someone from "${countryFullName}" ONLY.` : ''}
+${!countryFullName && continentLabel ? `CONTINENT FILTER: You MUST find someone from a country in ${continentLabel} ONLY.` : ''}
+${originName ? `Never substitute a more famous person from outside ${originName}. Reporting "nothing found" is correct and expected when ${originName} has no match today.` : ''}
 
 IGNORE your normal specialty. Follow the editor's filters above.
 ================================================================================
@@ -746,7 +768,7 @@ IGNORE your normal specialty. Follow the editor's filters above.
     // already wrote about, so this date needs no external lookup next year and
     // nobody gets a second birthday piece.
     let birthdayCoverage = new Map<string, { title?: string }>();
-    if (wikidataBirths.length) {
+    if (wikidataBirths?.length) {
       const mm = String(now.getMonth() + 1).padStart(2, '0');
       const dd = String(now.getDate()).padStart(2, '0');
       const [, coverage] = await Promise.all([
@@ -768,16 +790,27 @@ IGNORE your normal specialty. Follow the editor's filters above.
 
     // The complete Wikidata pool goes in front of the short Wikipedia list so the
     // reporter picks from every GenX politician/athlete/... worldwide, not just the US ones.
-    const wikidataBirthContext = wikidataBirths.length
-      ? formatBirthdayContext(
-          wikidataBirths,
-          now.getMonth() + 1,
-          now.getDate(),
-          overrideCategory,
-          countryFullName,
-          birthdayCoverage
-        )
-      : '';
+    //
+    // null means the lookup itself failed (timeout/HTTP error) — that must be
+    // stated in the prompt. Leaving the block out instead lets the reporter fill
+    // the gap from memory, which is how wrong birth years got published.
+    const wikidataBirthContext =
+      !wantsBirthdayPool
+        ? '' // never asked → the prompt must not claim anything about birthdays
+        : wikidataBirths === null
+          ? formatBirthdayUnavailable(now.getMonth() + 1, now.getDate(), overrideCategory)
+          : formatBirthdayContext(
+              wikidataBirths,
+              now.getMonth() + 1,
+              now.getDate(),
+              overrideCategory,
+              countryFullName,
+              birthdayCoverage,
+              // Only used when no specific country is set, since country is narrower.
+              !countryFullName && overrideContinent
+                ? (c: string) => isCountryInContinent(c, overrideContinent)
+                : undefined
+            );
 
     // Combine: reporter persona first (their identity), then full BOGX knowledge
     const systemPrompt = `TODAY'S DATE: ${dateStr}
@@ -800,7 +833,14 @@ The sections below already contain LIVE, up-to-date data (today-in-history + the
 USE THEM as your source for any recent-events / "who died" question — interpret the editor's intent from MEANING,
 ignoring typos/spelling/language (e.g. "gestroben" still means "gestorben"). Never claim you have no recent
 information when the data below answers it. If the data truly contains nothing relevant, say so honestly.
-${wikidataBirthContext}${liveContext}${deathsContext}${wikidataDeaths}
+${isEventRequest ? `\n⚠️ THIS IS AN EVENT REQUEST. The editor wants something that HAPPENED on this date
+(premiere, release, match, launch) — NOT a person's birthday or death anniversary.
+Any birthday/death lists below are context only and must NOT be answered with.\n` : ''}
+${isDeathAnniversaryTask
+  // The verified death list goes FIRST for a RIP task. Buried at the end, after the
+  // long Wikipedia block, it was consistently ignored.
+  ? `${wikidataDeaths}${wikidataBirthContext}${liveContext}`
+  : `${wikidataBirthContext}${liveContext}${deathsContext}${wikidataDeaths}`}
 ${reporterPersona}
 
 ================================================================================
@@ -845,17 +885,19 @@ Output ONLY valid JSON. Use the SECTIONS array format (NOT the old "content" fie
   "imageSearchTerm": "specific search term",
   "ctas": ["articles", "tv"]
 }
-CRITICAL — YOUTUBE SEARCH RULES:
-- Each section MUST have a "youtubeSearch" field with a HIGHLY SPECIFIC search term.
-- ALWAYS include the person's FULL NAME + a SPECIFIC event/song/movie/match + year if known.
-- BAD: "David Healy goals" (too generic)
-- GOOD: "David Healy goal vs England 2005 Windsor Park"
-- GOOD: "Shawn Burr NHL highlights Detroit Red Wings"
-- GOOD: "Kurt Cobain Smells Like Teen Spirit live 1991"
-- For SPORTS: "Name + match/opponent + year" or "Name + best goals/plays + team"
-- For MUSIC: "Name + song title + official video" or "Name + live performance + venue year"
-- For ACTORS: "Name + movie title + scene" or "Name + interview + show year"
-- For RIP: "Name + tribute" or "Name + best moments compilation" or "Name + final performance"
+CRITICAL — VIDEO EMBEDDING RULES:
+- NOT every section needs a video! Quality over quantity.
+- Only include "youtubeSearch" when the TEXT EXPLICITLY REFERENCES the video content.
+- The text MUST mention what the video shows, e.g.:
+  - "In the clip below, we see him scoring the winning goal..."
+  - "The following footage from 1991 captures the energy..."
+  - "Watch his legendary performance at Wembley..."
+- If the section is just biographical text with no video reference, set "youtubeSearch": null
+- When you DO include a video, make the search term HIGHLY SPECIFIC:
+  - BAD: "David Healy goals" (too generic)
+  - GOOD: "David Healy goal vs England 2005 Windsor Park"
+  - GOOD: "Kurt Cobain Smells Like Teen Spirit live 1991"
+- Aim for 1-2 videos per article MAX, not one per section!
 - personCountry and personCountryCode are REQUIRED - use the person's BIRTH country.
 - DO NOT use the old "content" field. Use "sections" array ONLY.`;
 
@@ -880,6 +922,22 @@ CRITICAL — YOUTUBE SEARCH RULES:
     });
 
     const rawResponse = completion.choices[0]?.message?.content || '';
+
+    // An empty completion has a reason ('length' = prompt/answer hit the token cap,
+    // 'content_filter' = refused). Swallowing it left the conference showing a blank
+    // card with no way to tell a token overflow from a genuine "nothing found".
+    if (!rawResponse.trim()) {
+      const finish = completion.choices[0]?.finish_reason || 'unknown';
+      console.error('Editorial chat: empty completion', {
+        reporter: reporterName,
+        finish_reason: finish,
+        promptTokens: completion.usage?.prompt_tokens,
+      });
+      return NextResponse.json(
+        { success: false, error: `EMPTY_COMPLETION: model returned nothing (finish_reason: ${finish}, prompt tokens: ${completion.usage?.prompt_tokens ?? '?'})` },
+        { status: 502 }
+      );
+    }
 
     // Save user message to conversation
     conversation.messages.push({
@@ -1046,7 +1104,18 @@ It's in the Articles tab → Drafts. Add CTAs manually, then publish.`
       });
     }
     console.error('Editorial chat error:', error);
-    return NextResponse.json({ success: false, error: 'Chat failed' }, { status: 500 });
+    // The real cause must reach the editor. Returning a bare "Chat failed" made the
+    // conference show "Reporter returned an empty response" for rate limits, context
+    // overflows and DB errors alike — three very different problems, one useless label.
+    const detail =
+      error?.error?.message ||   // OpenAI SDK error shape
+      error?.message ||
+      'unknown error';
+    const kind = error?.status === 429 ? 'RATE_LIMIT' : error?.code || error?.status || 'ERROR';
+    return NextResponse.json(
+      { success: false, error: `${kind}: ${String(detail).slice(0, 300)}` },
+      { status: 500 }
+    );
   }
 }
 

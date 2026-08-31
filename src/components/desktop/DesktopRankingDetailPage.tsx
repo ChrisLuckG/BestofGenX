@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { ChevronLeft, BookOpen } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import AlertModal from "@/components/AlertModal";
+import LoginRequiredModal from "@/components/LoginRequiredModal";
 import RankingItemRow from "@/components/RankingItemRow";
 
 interface RankingItem {
@@ -305,15 +305,15 @@ export default function DesktopRankingDetailPage({ poll, onBack, onOpenArticle, 
         </div>
       </div>
 
-      {/* Login Required Modal */}
-      <AlertModal
-        show={showLoginModal}
-        type="login"
-        title="LOGIN REQUIRED"
-        message="Log in or create a free account to vote and earn BOGX."
+      {/* Login Required Modal - auto-transitions to login */}
+      <LoginRequiredModal
+        isOpen={showLoginModal}
         onClose={() => setShowLoginModal(false)}
-        buttonText="LOGIN"
-        onButtonClick={() => {
+        onLogin={() => {
+          setShowLoginModal(false);
+          onShowLogin?.();
+        }}
+        onRegister={() => {
           setShowLoginModal(false);
           onShowLogin?.();
         }}

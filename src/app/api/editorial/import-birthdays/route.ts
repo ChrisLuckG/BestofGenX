@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
-import Menschen from '@/models/Menschen';
+import { Person } from '@/models/Almanac';
 
 // Fetch image from Wikipedia for a person
 async function fetchWikiImage(name: string): Promise<string | null> {
@@ -118,8 +118,8 @@ export async function POST(request: NextRequest) {
           }
         }
         
-        // Format birthday
-        const birthday = `${dd}.${mm}.${year}`;
+        // Format birthday as YYYY-MM-DD for Person schema
+        const born = `${year}-${mm}-${dd}`;
         
         // Get image from Wikipedia (with thumbnail from pages array or fetch separately)
         let imageUrl = wikiPage?.thumbnail?.source || null;
@@ -130,22 +130,32 @@ export async function POST(request: NextRequest) {
         // Get wiki URL
         const wikiUrl = wikiPage?.content_urls?.desktop?.page || null;
         
+        // Map category to profession enum
+        const categoryToProfession: Record<string, string> = {
+          'music': 'Music', 'sports': 'Sport', 'movies-tv': 'Actor',
+          'politics': 'Politik', 'gaming': 'Other', 'culture': 'Art', 'authors': 'Other',
+        };
+        
         // Try to insert (will fail silently if duplicate due to unique index)
-        await Menschen.findOneAndUpdate(
-          { name: fullName, birthday },
+        await Person.findOneAndUpdate(
+          { 
+            firstname: { $regex: new RegExp(`^${firstName}$`, 'i') },
+            lastname: { $regex: new RegExp(`^${lastName}$`, 'i') }
+          },
           {
             $setOnInsert: {
-              firstName,
-              lastName,
-              name: fullName,
-              birthday,
+              firstname: firstName,
+              lastname: lastName,
+              born,
               birthYear: year,
-              country,
+              countryBorn: country,
               countryCode: countryCodes[country] || '',
               category,
-              profession,
+              profession: categoryToProfession[category] || 'Other',
+              subcat: profession,
+              knownfor: text,
               description: text,
-              imageUrl,
+              image: imageUrl,
               wikiUrl,
               isGenX: true,
               discoveredBy: 'system',

@@ -119,17 +119,32 @@ export async function GET(request: NextRequest) {
     // Reconciliation: the wallet must equal the ledger. Any difference means some
     // code path changed bogxCoins without writing a GameResult - surfacing it here
     // keeps it from silently drifting out of the rankings.
-    const userDoc = await User.findById(userId).select('bogxCoins').lean();
+    const userDoc = await User.findById(userId).select('bogxCoins authorEarnings').lean();
     const wallet = round2((userDoc as any)?.bogxCoins || 0);
+    const authorEarnings = round2((userDoc as any)?.authorEarnings || 0);
     const ledgerNet = round2(totalEarned - totalLost);
+
+    // Add author earnings as a separate bucket if user has any
+    if (authorEarnings > 0) {
+      breakdown.push({
+        key: 'author-earnings',
+        label: 'Author Earnings',
+        icon: '✎',
+        count: 0, // We don't track count for author earnings
+        earned: authorEarnings,
+        lost: 0,
+        total: authorEarnings,
+      });
+    }
 
     return NextResponse.json({
       success: true,
       breakdown,
-      totalEarned: round2(totalEarned),
+      totalEarned: round2(totalEarned + authorEarnings),
       totalSpent: round2(totalLost),
       ledgerNet,
       wallet,
+      authorEarnings,
       drift: round2(wallet - ledgerNet),
     });
   } catch (error) {

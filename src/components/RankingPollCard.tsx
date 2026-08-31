@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
-import AlertModal from "@/components/AlertModal";
+import LoginRequiredModal from "@/components/LoginRequiredModal";
 import RankingItemRow from "@/components/RankingItemRow";
 
 interface RankingItem {
@@ -206,19 +206,19 @@ export default function RankingPollCard({ poll, onPointsAwarded, onShowLogin, on
         ))}
       </div>
 
-      {/* Login Required Modal */}
-      <AlertModal
-        show={showLoginModal}
-        type="login"
-        title="LOGIN REQUIRED"
-        message="Log in or create a free account to vote and earn BOGX."
+      {/* Login Required Modal - auto-transitions to login */}
+      <LoginRequiredModal
+        isOpen={showLoginModal}
         onClose={() => setShowLoginModal(false)}
-        buttonText="LOGIN"
-        onButtonClick={() => {
+        onLogin={() => {
           setShowLoginModal(false);
           onShowLogin?.();
         }}
-        embedded
+        onRegister={() => {
+          setShowLoginModal(false);
+          onShowLogin?.();
+        }}
+        embedded={embedded}
       />
     </>
   );

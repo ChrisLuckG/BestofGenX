@@ -87,10 +87,37 @@ export async function POST(
       }, { status: 400 });
     }
     
-    // Update battle
+    // Claim the battle atomically on `status: 'open'`.
+    //
+    // The status check above plus a later `save()` was not enough: the bot join paths
+    // (trigger-bots, cron/bot-battles) do their own read-modify-write, so between our
+    // check and our save a bot could take the battle - or, worse, overwrite our accept
+    // afterwards. The user's wager was already deducted at that point, leaving them
+    // paying for a battle whose `opponent` was now a bot, and every later call
+    // answering "You are not part of this battle".
+    const claimed = await Battle.findOneAndUpdate(
+      { _id: battleId, status: 'open' },
+      {
+        $set: {
+          opponent: opponentId,
+          status: 'active',
+          acceptedAt: new Date(),
+          acceptedVia: 'api:battles/[id]/accept',
+        },
+      },
+      { new: true }
+    );
+
+    if (!claimed) {
+      // Someone else got there first - give the wager straight back, it was
+      // deducted a few lines above.
+      await User.findByIdAndUpdate(opponentId, { $inc: { bogxCoins: battle.wager } });
+      return NextResponse.json({ success: false, error: 'Battle is not open' }, { status: 400 });
+    }
+
     battle.opponent = opponentId;
     battle.status = 'active';
-    battle.acceptedAt = new Date();
+    battle.acceptedAt = claimed.acceptedAt;
     battle.acceptedVia = 'api:battles/[id]/accept';
     
     // If creator is a bot, regenerate questions based on opponent's history

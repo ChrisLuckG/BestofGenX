@@ -1,6 +1,6 @@
 "use client";
 
-import { getCategoryLabel } from "@/lib/categories";
+import { getCategoryLabel, getCategoryColor } from "@/lib/categories";
 
 interface CategoryBadgeProps {
   category: string;
@@ -17,6 +17,13 @@ export default function CategoryBadge({ category, size = 'md', className = '', c
     sm: 'px-1.5 py-0.5 text-[8px]',
     md: 'px-2 py-1 text-[9px]',
     lg: 'px-3 py-1.5 text-[10px]',
+  };
+
+  // Leading colour bar - scales with the badge so it never looks like a stray pixel
+  const stripeWidths = {
+    sm: 'w-[3px]',
+    md: 'w-[4px]',
+    lg: 'w-[5px]',
   };
 
   const flagSizes = {
@@ -49,17 +56,25 @@ export default function CategoryBadge({ category, size = 'md', className = '', c
           )}
         </span>
       )}
-      {/* Category */}
+      {/* Category. Deliberately NOT a solid colour fill: the badge sits on top of
+          cover photos, where a full-strength fill competes with the image and the
+          headline. Dark translucent glass stays legible on bright and dark photos
+          alike, and the category colour is carried by a thin leading bar - enough
+          to identify the section at a glance without shouting. */}
       <span 
         className={`
-          inline-flex items-center 
-          bg-[#E36B11] backdrop-blur-sm border border-[#E36B11] 
-          text-white font-bold uppercase tracking-wider rounded-sm
-          ${sizeClasses[size]}
+          inline-flex items-stretch overflow-hidden
+          bg-black/45 backdrop-blur-md border border-white/15 
+          text-[#F5F0E8] font-bold uppercase tracking-wider rounded-sm
           ${className}
         `}
       >
-        {label}
+        <span
+          aria-hidden="true"
+          className={`${stripeWidths[size]} flex-shrink-0`}
+          style={{ backgroundColor: getCategoryColor(category) }}
+        />
+        <span className={sizeClasses[size]}>{label}</span>
       </span>
     </div>
   );

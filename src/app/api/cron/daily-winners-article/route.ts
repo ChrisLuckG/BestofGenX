@@ -4,6 +4,7 @@ import User from '@/models/User';
 import Article from '@/models/Article';
 import GameResult from '@/models/GameResult';
 import { berlinDateAt } from '@/lib/berlinTime';
+import { buildChampionImagePrompt } from '@/lib/championImagePrompt';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
@@ -15,10 +16,13 @@ const openai = new OpenAI({
 // platform's default serverless timeout and no article gets created.
 export const maxDuration = 300;
 
-// Generate cover image via /api/generate-image
+// Generate cover image via /api/generate-image.
+// Prompts live in @/lib/championImagePrompt so this route and
+// scripts/regenerate-champion-image.ts cannot drift apart again.
 async function generateCoverImage(winnerName: string, dateNice: string, baseUrl: string): Promise<string | null> {
   try {
-    const prompt = `Championship podium with golden trophy, winner's stage. Background color #F5F0E8 warm cream beige. Soft orange #E36B11 accents. Minimalist flat illustration style, subtle confetti. Warm cozy retro 80s 90s nostalgia aesthetic. Simple clean composition. NO people, NO faces, NO text, NO neon, NO dark colors.`;
+    // Pick theme based on day of week (0 = Sunday, 6 = Saturday)
+    const prompt = buildChampionImagePrompt(new Date().getDay());
     const response = await fetch(`${baseUrl}/api/generate-image`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

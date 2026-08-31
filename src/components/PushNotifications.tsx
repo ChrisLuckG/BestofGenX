@@ -153,6 +153,8 @@ export default function PushNotifications({ showSettings = false, onClose }: { s
       if (res.ok) {
         setIsSubscribed(true);
         setShowPrompt(false);
+        // Keep the news widget / settings bell in sync without a refresh
+        window.dispatchEvent(new CustomEvent('push-status-changed', { detail: { enabled: true } }));
         console.log('Push subscription saved');
       }
     } catch (e) {

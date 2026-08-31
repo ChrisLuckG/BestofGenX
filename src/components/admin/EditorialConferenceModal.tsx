@@ -289,50 +289,64 @@ export default function EditorialConferenceModal({
       }
     } catch { /* continue anyway */ }
 
-    let created = 0;
+    // Run all tasks in PARALLEL so they don't block each other
+    const tasksToRun = aiReporters.filter(r => {
+      const msg = assignments[r._id]?.trim() || campaignTopic.trim();
+      const type = taskTypes[r._id];
+      return !!msg && !!type;
+    });
 
-    for (const reporter of aiReporters) {
-      const msg = assignments[reporter._id]?.trim() || campaignTopic.trim();
-      const type: TaskType = taskTypes[reporter._id];
-      // Skip reporters with no task type selected or no message
-      if (!msg || !type) continue;
-
+    // Set all to 'writing' immediately
+    for (const reporter of tasksToRun) {
       setStatus(reporter._id, 'writing');
-      try {
-        let ok = false;
-        if (type === 'article') ok = await runArticle(reporter, msg);
-        else if (type === 'rankroll') ok = await runRankroll(reporter, msg);
-        else if (type === 'menschen') ok = await runMenschen(reporter, msg);
-        else if (type === 'tv') ok = await runTV(reporter, msg);
-
-        const reporterStatus = ok ? 'done' : 'error';
-        setStatus(reporter._id, reporterStatus);
-        if (ok) created++;
-
-        // Persist result to DB live
-        if (sessionId) {
-          fetch('/api/editorial/conference', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              sessionId,
-              result: {
-                reporterUserId: reporter._id,
-                reporterName: reporter.displayName || reporter.username,
-                taskType: type,
-                message: msg,
-                status: reporterStatus,
-                resultLabel: resultLabels[reporter._id] || '',
-                ...(createdIds[reporter._id] || {}),
-              },
-            }),
-          }).catch(() => {});
-        }
-      } catch (err: any) {
-        setStatus(reporter._id, 'error');
-        setResultLabels(prev => ({ ...prev, [reporter._id]: err?.message || 'Network error' }));
-      }
     }
+
+    // Run all tasks in parallel
+    const results = await Promise.allSettled(
+      tasksToRun.map(async (reporter) => {
+        const msg = assignments[reporter._id]?.trim() || campaignTopic.trim();
+        const type: TaskType = taskTypes[reporter._id];
+
+        try {
+          let ok = false;
+          if (type === 'article') ok = await runArticle(reporter, msg);
+          else if (type === 'rankroll') ok = await runRankroll(reporter, msg);
+          else if (type === 'menschen') ok = await runMenschen(reporter, msg);
+          else if (type === 'tv') ok = await runTV(reporter, msg);
+
+          const reporterStatus = ok ? 'done' : 'error';
+          setStatus(reporter._id, reporterStatus);
+
+          // Persist result to DB live
+          if (sessionId) {
+            fetch('/api/editorial/conference', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                sessionId,
+                result: {
+                  reporterUserId: reporter._id,
+                  reporterName: reporter.displayName || reporter.username,
+                  taskType: type,
+                  message: msg,
+                  status: reporterStatus,
+                  resultLabel: resultLabels[reporter._id] || '',
+                  ...(createdIds[reporter._id] || {}),
+                },
+              }),
+            }).catch(() => {});
+          }
+
+          return ok;
+        } catch (err: any) {
+          setStatus(reporter._id, 'error');
+          setResultLabels(prev => ({ ...prev, [reporter._id]: err?.message || 'Network error' }));
+          return false;
+        }
+      })
+    );
+
+    const created = results.filter(r => r.status === 'fulfilled' && r.value === true).length;
 
     // Mark session as completed/partial in DB
     if (sessionId) {

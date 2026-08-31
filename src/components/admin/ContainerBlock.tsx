@@ -55,7 +55,7 @@ interface SimpleArticle {
 }
 
 interface ContainerBlockType {
-  type: 'MAIN' | '2H' | 'FIXED' | 'SLIDER' | 'VERTICAL' | 'SOCIAL';
+  type: 'MAIN' | '2H' | 'FIXED' | 'SLIDER' | 'VERTICAL' | 'SOCIAL' | 'VIDEO';
   articleId?: string | null;
   articleId2?: string | null;
   articles?: string[];
@@ -65,6 +65,8 @@ interface ContainerBlockType {
   autoFill?: 'latest' | 'history' | 'category';  // Auto-fill mode for SLIDER
   autoFillCategory?: string;  // Category filter for auto-fill
   autoFillLimit?: number;  // How many articles to show
+  videoUrl?: string;  // YouTube/Twitch URL for VIDEO block
+  videoTitle?: string;  // Title for VIDEO block
 }
 
 interface ContainerBlockProps {
@@ -668,6 +670,48 @@ export default function ContainerBlock({
                   </div>
                 );
               })()}
+
+              {/* VIDEO Block - for livestreams */}
+              {block.type === 'VIDEO' && (
+                <div className="relative rounded-lg overflow-hidden bg-red-500/10 border border-red-500/30 p-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[9px] text-red-400 font-bold">🔴 VIDEO / LIVESTREAM</span>
+                    <button 
+                      onClick={() => onRemoveBlock(index, bIdx)} 
+                      className="text-red-400 hover:text-red-300 bg-red-500/20 rounded p-0.5"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                  
+                  {/* Video URL input */}
+                  <input
+                    type="text"
+                    placeholder="YouTube/Twitch URL..."
+                    value={block.videoUrl || ''}
+                    onChange={(e) => onUpdateBlock(index, bIdx, { videoUrl: e.target.value })}
+                    className="w-full bg-gray-700 text-[8px] text-white px-2 py-1 rounded border border-red-500/50 mb-1"
+                  />
+                  
+                  {/* Video Title input */}
+                  <input
+                    type="text"
+                    placeholder="Titel (z.B. 'LIVE: GenX Radio')"
+                    value={block.videoTitle || ''}
+                    onChange={(e) => onUpdateBlock(index, bIdx, { videoTitle: e.target.value })}
+                    className="w-full bg-gray-700 text-[8px] text-white px-2 py-1 rounded border border-red-500/50"
+                  />
+                  
+                  {/* Preview */}
+                  {block.videoUrl && (
+                    <div className="mt-1 p-1 bg-black/30 rounded text-center">
+                      <span className="text-[7px] text-red-300">
+                        {block.videoTitle || 'Livestream'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           );
           });
@@ -682,6 +726,7 @@ export default function ContainerBlock({
         <button onClick={() => onAddBlock(index, 'FIXED')} className="px-1 py-0 bg-green-500/30 text-black rounded lowercase text-[6px] hover:bg-green-500/50">+FIXED</button>
         <button onClick={() => onAddBlock(index, 'SLIDER')} className="px-1 py-0 bg-cyan-500/30 text-black rounded lowercase text-[6px] hover:bg-cyan-500/50">+SLIDER</button>
         <button onClick={() => onAddBlock(index, 'VERTICAL')} className="px-1 py-0 bg-indigo-500/30 text-black rounded lowercase text-[6px] hover:bg-indigo-500/50">+VERT</button>
+        <button onClick={() => onAddBlock(index, 'VIDEO')} className="px-1 py-0 bg-red-500/30 text-black rounded lowercase text-[6px] hover:bg-red-500/50">+VIDEO</button>
         {/* Add new Container button */}
         <button 
           onClick={() => onAddContainer?.()}

@@ -15,6 +15,10 @@ export async function GET(request: NextRequest) {
       query,
       tiers: PREFER_LONG_THEN_ANY, // Allow any duration for ranking items
       maxResults: 5,
+      // No topical gate here: this only supplies a tile thumbnail, where a loosely
+      // related image beats an empty tile. The gate exists for videos embedded next
+      // to article prose, where a wrong video actively misinforms.
+      minRelevance: 0,
     });
     
     if (result?.videoId) {

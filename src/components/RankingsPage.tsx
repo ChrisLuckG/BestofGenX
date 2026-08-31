@@ -23,6 +23,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [statsExpanded, setStatsExpanded] = useState(false); // Stats row - collapsed by default
+  const [visibleCount, setVisibleCount] = useState(10); // Start with top 10, load more on click
   
   // Central live rankings hook - same logic on Desktop AND Mobile
   const { rankings, loading, isLive } = useLiveRankings({
@@ -73,6 +74,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
       newDate.setFullYear(newDate.getFullYear() - 1);
     }
     setSelectedDate(newDate);
+    setVisibleCount(10);
   };
 
   const goToNext = () => {
@@ -90,6 +92,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
     // Don't go past today/current month/current year
     if (newDate <= today) {
       setSelectedDate(newDate);
+      setVisibleCount(10);
     }
   };
 
@@ -159,7 +162,10 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
   
   // Get top 3 for podium
   const top3 = rankings.slice(0, 3);
-  const restRankings = rankings.slice(3);
+  const allRestRankings = rankings.slice(3);
+  // Show only up to visibleCount (minus the 3 in podium)
+  const restRankings = allRestRankings.slice(0, Math.max(0, visibleCount - 3));
+  const hasMoreToShow = allRestRankings.length > restRankings.length;
 
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-cream">
@@ -244,65 +250,6 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                 </div>
               </div>
               
-              {/* Row 2: Level Progress (full width) */}
-              {(() => {
-                // Tier/level is based on LIFETIME wallet balance (not the period score),
-                // so it stays consistent across Today/Month/Year tabs.
-                const userBogx = user?.bogxCoins ?? currentUserScore ?? currentUserRank.points;
-                const level = getUserLevel(userBogx);
-                const progress = getLevelProgress(userBogx);
-                const segments = getProgressSegments(userBogx);
-                const toNext = getBogxToNextLevel(userBogx);
-                const nextName = getNextLevelName(userBogx);
-                
-                return (
-                  <div className="px-3 pb-3 border-t border-dashed border-[#E36B11]/10 pt-2">
-                    <div style={{ color: level.color }} className="font-bold text-xs">{level.name.toUpperCase()}</div>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      {/* Segmented Progress Bar */}
-                      <div className="flex-1 flex gap-0.5">
-                        {[...Array(10)].map((_, i) => {
-                          const isActive = i < segments;
-                          return (
-                            <div 
-                              key={i} 
-                              className="flex-1 h-2 rounded-sm"
-                              style={{ 
-                                backgroundColor: level.color,
-                                opacity: isActive ? 0 : 0.2,
-                                transformOrigin: 'bottom',
-                                transform: isActive ? 'scaleY(0)' : 'scaleY(1)',
-                                animation: isActive ? `ledPopIn 0.25s ease-out ${i * 40}ms forwards` : 'none',
-                              }}
-                            />
-                          );
-                        })}
-                      </div>
-                      <span className="text-[10px] text-gray-500">{progress}%</span>
-                    </div>
-                    <div className="text-[10px] text-gray-600 mt-1">
-                      {formatCurrency(userBogx)} BOGX · {nextName ? (
-                        <>{formatCurrency(toNext)} to <span style={{ color: level.color }} className="font-semibold">{nextName}</span></>
-                      ) : (
-                        <span style={{ color: level.color }} className="font-semibold">Max Level!</span>
-                      )}
-                    </div>
-                    
-                    {/* Level Steps */}
-                    <div className="flex items-center gap-1 mt-1.5 text-[8px] text-gray-500">
-                      {LEVELS.map((l, i) => (
-                        <span key={l.name}>
-                          {i > 0 && <span className="mx-0.5">•</span>}
-                          <span style={{ color: l.name === level.name ? level.color : undefined, fontWeight: l.name === level.name ? 'bold' : undefined }}>
-                            {l.name.toUpperCase()}
-                          </span>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
-              
               {/* Pull handle - toggles Stats Row */}
               <button
                 onClick={() => setStatsExpanded(prev => !prev)}
@@ -317,12 +264,74 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                 />
               </button>
 
-              {/* Row 3: Stats (full width) - larger, black - collapsible, collapsed by default */}
+              {/* Row 3: Level Progress + Stats - collapsible, collapsed by default */}
               <div 
                 className="overflow-hidden transition-all duration-300 ease-out"
-                style={{ maxHeight: statsExpanded ? '100px' : '0px', opacity: statsExpanded ? 1 : 0 }}
+                style={{ maxHeight: statsExpanded ? '250px' : '0px', opacity: statsExpanded ? 1 : 0 }}
               >
-                <div className="flex items-center justify-around py-3 px-3 border-t border-dashed border-[#E36B11]/20 bg-white/50">
+                {/* Level Progress - on top, animated */}
+                {(() => {
+                  const userBogx = user?.bogxCoins ?? currentUserScore ?? currentUserRank.points;
+                  const level = getUserLevel(userBogx);
+                  const progress = getLevelProgress(userBogx);
+                  const segments = getProgressSegments(userBogx);
+                  const toNext = getBogxToNextLevel(userBogx);
+                  const nextName = getNextLevelName(userBogx);
+                  
+                  return (
+                    <div 
+                      className="px-3 py-3 border-t border-dashed border-[#E36B11]/20 bg-white/50"
+                      style={{
+                        animation: statsExpanded ? 'slideDown 0.3s ease-out' : 'none',
+                      }}
+                    >
+                      <div style={{ color: level.color }} className="font-display text-lg">{level.name.toUpperCase()}</div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className="flex-1 flex gap-0.5">
+                          {[...Array(10)].map((_, i) => {
+                            const isActive = i < segments;
+                            return (
+                              <div 
+                                key={i} 
+                                className="flex-1 h-2.5 rounded-sm"
+                                style={{ 
+                                  backgroundColor: level.color,
+                                  opacity: isActive ? 0 : 0.2,
+                                  transformOrigin: 'bottom',
+                                  transform: isActive ? 'scaleY(0)' : 'scaleY(1)',
+                                  animation: statsExpanded && isActive ? `ledPopIn 0.25s ease-out ${i * 50 + 200}ms forwards` : 'none',
+                                }}
+                              />
+                            );
+                          })}
+                        </div>
+                        <span className="text-xs text-gray-500 font-semibold">{progress}%</span>
+                      </div>
+                      <div className="text-xs text-gray-600 mt-1.5">
+                        {formatCurrency(userBogx)} BOGX · {nextName ? (
+                          <>{formatCurrency(toNext)} to <span style={{ color: level.color }} className="font-semibold">{nextName}</span></>
+                        ) : (
+                          <span style={{ color: level.color }} className="font-semibold">Max Level!</span>
+                        )}
+                      </div>
+                      
+                      {/* Level Steps */}
+                      <div className="flex items-center gap-1 mt-2 text-[9px] text-gray-500">
+                        {LEVELS.map((l, i) => (
+                          <span key={l.name}>
+                            {i > 0 && <span className="mx-0.5">•</span>}
+                            <span style={{ color: l.name === level.name ? level.color : undefined, fontWeight: l.name === level.name ? 'bold' : undefined }}>
+                              {l.name.toUpperCase()}
+                            </span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+                
+                {/* Stats Row - below level progress */}
+                <div className="flex items-center justify-around py-3 px-3 border-t border-dashed border-[#E36B11]/10 bg-white/30">
                   <div className="text-center">
                     <Trophy className="w-4 h-4 text-gray-900 mx-auto" />
                     <div className="font-bold text-base text-gray-900">
@@ -371,16 +380,6 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
           </button>
         )}
         
-        {/* Info: Why user might not appear in rankings */}
-        {isLoggedIn && currentUserRank && !rankings.find(p => p.isCurrentUser) && activeTab === 'day' && (
-          <div className="mx-4 mb-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
-            <span className="text-amber-500 text-sm mt-0.5">💡</span>
-            <p className="text-xs text-amber-700">
-              <strong>Tip:</strong> You appear in the daily ranking once you've earned positive points today.
-            </p>
-          </div>
-        )}
-
         {/* Sticky Container for Tabs + Date Navigation */}
         <div className="sticky top-0 bg-cream z-10">
           {/* Tabs - Today/Month/Year */}
@@ -388,11 +387,11 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
             {(["day", "month", "year"] as const).map((tab) => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`flex-1 py-3 text-xs font-semibold uppercase tracking-widest transition-all ${
+                onClick={() => { setActiveTab(tab); setVisibleCount(10); }}
+                className={`flex-1 py-3 font-display uppercase tracking-wide transition-all ${
                   activeTab === tab
-                    ? "text-gray-900 border-b-2 border-gray-900"
-                    : "text-gray-600"
+                    ? "text-xl text-[#E36B11] border-b-2 border-[#E36B11]"
+                    : "text-base text-gray-400"
                 }`}
               >
                 {tab === "day" ? "Today" : tab === "month" ? "Month" : "Year"}
@@ -487,7 +486,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                       <span className="text-[10px] font-black text-black">2</span>
                     </div>
                   </div>
-                  <div className="text-xs font-semibold text-gray-900 text-center truncate w-full">{top3[1].name}</div>
+                  <div className="font-display text-sm text-gray-900 text-center truncate w-full">{top3[1].name}</div>
                   <CountryFlag flag={top3[1].flag} className="w-5 h-4 mx-auto rounded-[2px]" />
                   <div className="font-display text-base text-[#A0A8B8]">{formatCurrency(top3[1].points)} {getCurrencySymbol()}</div>
                 </div>
@@ -508,7 +507,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                       <span className="text-xs font-black text-black">1</span>
                     </div>
                   </div>
-                  <div className="text-xs font-semibold text-gray-900 text-center truncate w-full">{top3[0].name}</div>
+                  <div className="font-display text-base text-gray-900 text-center truncate w-full">{top3[0].name}</div>
                   <CountryFlag flag={top3[0].flag} className="w-5 h-4 mx-auto rounded-[2px]" />
                   <div className="font-display text-xl text-[#FFB800]">{formatCurrency(top3[0].points)} {getCurrencySymbol()}</div>
                 </div>
@@ -529,7 +528,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                       <span className="text-[10px] font-black text-black">3</span>
                     </div>
                   </div>
-                  <div className="text-xs font-semibold text-gray-900 text-center truncate w-full">{top3[2].name}</div>
+                  <div className="font-display text-sm text-gray-900 text-center truncate w-full">{top3[2].name}</div>
                   <CountryFlag flag={top3[2].flag} className="w-5 h-4 mx-auto rounded-[2px]" />
                   <div className="font-display text-base text-[#CD7F32]">{formatCurrency(top3[2].points)} {getCurrencySymbol()}</div>
                 </div>
@@ -568,7 +567,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
                         <CountryFlag flag={player.flag} className="w-4 h-3 rounded-[2px]" />
-                        <span className="text-sm font-semibold text-gray-900 truncate">{player.name}</span>
+                        <span className="font-display text-sm text-gray-900 truncate">{player.name}</span>
                         {isMe && <span className="text-[7px] font-bold bg-[#E36B11] text-white px-1.5 py-0.5">YOU</span>}
                       </div>
                       <div className="text-[10px] text-gray-600">{player.country}</div>
@@ -586,6 +585,16 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                   </div>
                 );
               })}
+              
+              {/* View More Button - shows when there are more rankings */}
+              {hasMoreToShow && (
+                <button
+                  onClick={() => setVisibleCount(prev => Math.min(prev + 10, rankings.length))}
+                  className="w-full py-3 text-center text-sm font-semibold text-[#E36B11] hover:bg-[#E36B11]/5 transition-colors"
+                >
+                  View More
+                </button>
+              )}
             </div>
           </>
         )}

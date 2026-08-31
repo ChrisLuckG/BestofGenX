@@ -492,8 +492,6 @@ export default function PredictionsGame({ onBack, onShowLogin, embedded = false 
         onClose={() => { setShowLoginRequired(false); setPendingPick(null); }}
         onLogin={() => { setShowLoginRequired(false); onShowLogin?.('login'); }}
         onRegister={() => { setShowLoginRequired(false); onShowLogin?.('register'); }}
-        title="Log in to lock in your pick"
-        message="Predictions are free to view, but you need a free account to submit one. We'll bring you right back to this question after you sign in."
       />
 
       {/* Confirmation Modal for new predictions */}

@@ -216,70 +216,25 @@ export default function TVPage() {
   const getVideosByCategory = (category: string) => 
     filteredVideos.filter(v => v.category === category);
 
-  if (loading) {
-    return (
-      <div className="h-full min-h-full bg-cream">
-        <TVSkeleton />
-      </div>
-    );
-  }
-
   return (
     <div className="h-full min-h-full bg-cream overflow-y-auto">
-      {/* Header with Search & Language Filter */}
-      <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
+      {/* Header - always visible */}
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
         <div className="flex items-center gap-3">
           <Tv className="w-5 h-5 text-[#E36B11]" />
           <div>
-            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none uppercase">TV</span>
+            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">TV</span>
             <span className="text-[10px] text-gray-500 -mt-0.5 block">Movies, shows & more</span>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-2 flex-1 max-w-md">
-          {/* Search */}
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search..."
-              className="w-full bg-cream border border-warm rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#E36B11]"
-            />
-          </div>
-          
-          {/* Language Filter with Flags */}
-          <div className="flex items-center gap-1 bg-cream border border-warm rounded-lg p-1">
-            <button
-              onClick={() => setLanguageFilter('all')}
-              className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                languageFilter === 'all' ? 'bg-[#E36B11] text-white' : 'text-gray-600 hover:bg-[#E36B11]/10'
-              }`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setLanguageFilter('de')}
-              className={`px-2 py-1 rounded flex items-center gap-1 transition-colors ${
-                languageFilter === 'de' ? 'bg-[#E36B11] text-white' : 'text-gray-600 hover:bg-[#E36B11]/10'
-              }`}
-            >
-              <CountryFlag flag="DE" className="w-4 h-3 rounded-sm" />
-            </button>
-            <button
-              onClick={() => setLanguageFilter('en')}
-              className={`px-2 py-1 rounded flex items-center gap-1 transition-colors ${
-                languageFilter === 'en' ? 'bg-[#E36B11] text-white' : 'text-gray-600 hover:bg-[#E36B11]/10'
-              }`}
-            >
-              <CountryFlag flag="GB" className="w-4 h-3 rounded-sm" />
-            </button>
           </div>
         </div>
       </div>
 
       {/* Content */}
+      {loading ? (
+        <div className="p-4">
+          <TVSkeleton />
+        </div>
+      ) : (
       <div className="p-4 space-y-6">
         {/* Featured Video - Hero Card (Position 1) */}
         {(() => {
@@ -373,6 +328,7 @@ export default function TVPage() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

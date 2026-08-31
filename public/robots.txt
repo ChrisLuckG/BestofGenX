@@ -1,0 +1,18 @@
+# Soft Launch - Allow Google Ads but no indexing
+# Google Ads bot needs access to verify the site
+
+User-agent: Googlebot
+Disallow: /
+
+User-agent: Bingbot
+Disallow: /
+
+User-agent: *
+Disallow: /
+
+# Allow Google Ads verification
+User-agent: AdsBot-Google
+Allow: /
+
+User-agent: Mediapartners-Google
+Allow: /

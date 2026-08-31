@@ -32,6 +32,9 @@ async function getYouTubeVideoThumbnail(searchTerm: string): Promise<string | nu
       query: searchTerm,
       tiers: PREFER_LONG_THEN_ANY, // Allow any duration for ranking items
       maxResults: 5,
+      // Ranking tiles: a loosely related thumbnail beats an empty tile, so the
+      // topical gate stays off here (it guards article embeds, see youtubeSearch.ts).
+      minRelevance: 0,
     });
     
     if (result?.videoId) {

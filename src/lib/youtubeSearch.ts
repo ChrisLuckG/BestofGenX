@@ -36,12 +36,26 @@ export interface YouTubeSearchOptions {
   year?: number;
   /** Never return this id (used by "find me a different video"). */
   excludeVideoId?: string;
+  /** Never return any of these ids (used to avoid duplicates in articles). */
+  excludeVideoIds?: Set<string>;
   /** Duration tiers in priority order. Defaults to PREFER_LONG. */
   tiers?: DurationTier[];
   /** Candidates fetched per request. */
   maxResults?: number;
   /** Extra query variants, tried after the built-in ones. */
   extraQueries?: string[];
+  /**
+   * The text the video will sit next to (section heading + paragraph, or an event
+   * description). Checking the title against the actual passage is what stops a
+   * video that merely matches the search phrase from illustrating the wrong thing.
+   */
+  context?: string;
+  /**
+   * Minimum share of the query that must appear in a candidate's title.
+   * 0 disables the topical gate - only for callers that would rather have a loosely
+   * related thumbnail than none (ranking tiles).
+   */
+  minRelevance?: number;
 }
 
 export interface YouTubeSearchResult {
@@ -87,6 +101,89 @@ function scoreCandidate(title: string): number {
   return score;
 }
 
+// Words that say nothing about the subject when comparing a phrase to a title.
+const STOPWORDS = new Set([
+  'the', 'a', 'an', 'and', 'or', 'of', 'in', 'on', 'at', 'to', 'for', 'from',
+  'with', 'his', 'her', 'their', 'its', 'was', 'were', 'is', 'are', 'that',
+  'this', 'it', 'as', 'by', 'but', 'not', 'all', 'official', 'video', 'full',
+  'hd', 'documentary', 'archive', 'archival', 'footage', 'clip', 'clips',
+  'scene', 'live', 'best', 'top', 'new', 'old', 'more', 'about', 'into',
+  'when', 'who', 'what', 'how', 'why', 'would', 'could', 'had', 'has', 'have',
+]);
+
+function tokenize(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/<[^>]+>/g, ' ') // section text arrives as HTML
+    .replace(/[^a-z0-9äöüßà-ÿ\s]/g, ' ')
+    .split(/\s+/)
+    .filter(t => t.length > 2 && !STOPWORDS.has(t));
+}
+
+/**
+ * How much of `needle` appears in `haystack`, 0..1.
+ *
+ * Longer words weigh more (a shared "woodstock" says far more than a shared
+ * "day") and a four-digit year counts triple because it pins down the event.
+ */
+function weightedOverlap(needle: string[], haystack: string): number {
+  if (!needle.length) return 0;
+  const hay = new Set(tokenize(haystack));
+  if (!hay.size) return 0;
+
+  let hit = 0;
+  let total = 0;
+  for (const t of needle) {
+    const weight = /^\d{4}$/.test(t) ? 3 : t.length >= 6 ? 2 : 1;
+    total += weight;
+    if (hay.has(t)) hit += weight;
+  }
+  return total > 0 ? hit / total : 0;
+}
+
+// Thresholds tuned against real examples rather than guessed. At 0.4/0.5 a plainly
+// correct pairing (a Woodstock '99 riot clip next to the Woodstock '99 paragraph)
+// landed exactly on the line, so both were loosened until the good cases had
+// headroom while the bad ones still failed clearly:
+//   Korn "All In The Family" vs tattoo-artist paragraph -> query 0.10 / context 0.33
+//   Woodstock riot clip      vs Woodstock paragraph     -> query 0.38 / context 0.50
+/** Default floor for the query check. Below this the title shares almost nothing
+ *  with what was searched for. */
+const DEFAULT_MIN_RELEVANCE = 0.35;
+
+/** A title whose own words are largely covered by the passage is on topic even if
+ *  the search phrase was worded differently. */
+const MIN_TITLE_IN_CONTEXT = 0.45;
+
+/**
+ * Is this candidate actually about the passage it would illustrate?
+ *
+ * Two independent ways to pass, because either signal alone produces mistakes:
+ *  - the title covers enough of the search phrase, or
+ *  - the title's own words appear in the surrounding text.
+ *
+ * Example of what this rejects: a paragraph about Fred Durst becoming a tattoo
+ * artist and signing with Korn, next to a video titled "Korn - All In The Family".
+ * "korn" alone is not enough overlap, and "family" appears nowhere in the passage.
+ */
+function relevance(
+  title: string,
+  description: string,
+  queryTokens: string[],
+  contextText: string | null
+): { queryScore: number; contextScore: number } {
+  const queryScore = Math.max(
+    weightedOverlap(queryTokens, title),
+    // A description hit is weaker evidence than a title hit.
+    weightedOverlap(queryTokens, description) * 0.6
+  );
+  // Reverse direction on purpose: ask how much of the TITLE the passage covers.
+  // Comparing passage-to-title would drown in the paragraph's other words.
+  const contextScore = contextText ? weightedOverlap(tokenize(title), contextText) : 0;
+
+  return { queryScore, contextScore };
+}
+
 /**
  * Searches YouTube, preferring longer videos.
  * Returns null when no acceptable video exists - callers should treat "no video"
@@ -99,9 +196,12 @@ export async function searchYouTubeVideo(
     query,
     year,
     excludeVideoId,
+    excludeVideoIds,
     tiers = PREFER_LONG,
     maxResults = 8,
     extraQueries,
+    context,
+    minRelevance = DEFAULT_MIN_RELEVANCE,
   } = options;
 
   const apiKey = process.env.YOUTUBE_API_KEY;
@@ -112,6 +212,10 @@ export async function searchYouTubeVideo(
   if (!query?.trim()) return null;
 
   const variants = buildQueryVariants(query, year, extraQueries);
+  // Tokens come from the raw query, not from the padded variants: "documentary"
+  // and "archive footage" are format words, not subject matter.
+  const queryTokens = tokenize(year ? `${query} ${year}` : query);
+  const contextText = context?.trim() || null;
 
   // Duration is the outer loop on purpose: a long video from a looser query is
   // worth more here than a short video from the perfect query.
@@ -140,34 +244,77 @@ export async function searchYouTubeVideo(
         .map((it: any) => ({
           videoId: it?.id?.videoId as string,
           title: (it?.snippet?.title as string) || '',
+          description: (it?.snippet?.description as string) || '',
         }))
         .filter(
           (c: any) =>
             c.videoId &&
             VIDEO_ID_RE.test(c.videoId) &&
-            c.videoId !== excludeVideoId
+            c.videoId !== excludeVideoId &&
+            !excludeVideoIds?.has(c.videoId)
         );
 
       if (!candidates.length) continue;
 
-      // Highest scoring candidate, original ranking as the tie-breaker.
-      const best = candidates
-        .map((c: any, i: number) => ({ ...c, score: scoreCandidate(c.title), i }))
-        .sort((a: any, b: any) => b.score - a.score || a.i - b.i)[0];
+      const ranked = candidates
+        .map((c: any, i: number) => {
+          const { queryScore, contextScore } = relevance(c.title, c.description, queryTokens, contextText);
+          const onTopic =
+            minRelevance <= 0 ||
+            queryScore >= minRelevance ||
+            contextScore >= MIN_TITLE_IN_CONTEXT;
+          return {
+            ...c,
+            i,
+            queryScore,
+            contextScore,
+            onTopic,
+            score: scoreCandidate(c.title) + queryScore * 5 + contextScore * 5,
+          };
+        })
+        // Off-topic candidates are dropped entirely rather than ranked last:
+        // "best of a bad field" is exactly how a wrong video got embedded before.
+        .filter((c: any) => c.onTopic && scoreCandidate(c.title) >= 0)
+        .sort((a: any, b: any) => b.score - a.score || a.i - b.i);
 
-      // Obvious clip-bait is rejected so the next tier/variant gets a chance.
-      if (best.score < 0) {
-        console.log('[YouTube] Rejected clip-bait:', best.title);
+      if (!ranked.length) {
+        console.log(`[YouTube] No on-topic candidate for "${q}" (${tier}); trying next variant`);
         continue;
       }
 
+      const best = ranked[0];
       console.log(
-        `[YouTube] Found (${tier}) "${best.title}" via "${q}" -> ${best.videoId}`
+        `[YouTube] Found (${tier}) "${best.title}" via "${q}" -> ${best.videoId}` +
+          ` [query ${best.queryScore.toFixed(2)}, context ${best.contextScore.toFixed(2)}]`
       );
       return { videoId: best.videoId, title: best.title, tier, query: q };
     }
   }
 
-  console.log('[YouTube] No suitable long/medium video for:', query);
+  // No video is a valid, intended outcome: an unrelated embed next to a paragraph
+  // is worse than no embed at all.
+  console.log('[YouTube] No on-topic video found for:', query);
   return null;
+}
+
+/** Exported for tests: the relevance gate is the part most likely to need tuning. */
+export function isOnTopic(
+  title: string,
+  description: string,
+  query: string,
+  context?: string,
+  minRelevance: number = DEFAULT_MIN_RELEVANCE
+): { onTopic: boolean; queryScore: number; contextScore: number } {
+  const { queryScore, contextScore } = relevance(
+    title,
+    description,
+    tokenize(query),
+    context?.trim() || null
+  );
+  return {
+    onTopic:
+      minRelevance <= 0 || queryScore >= minRelevance || contextScore >= MIN_TITLE_IN_CONTEXT,
+    queryScore,
+    contextScore,
+  };
 }

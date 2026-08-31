@@ -34,6 +34,51 @@ const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6h
 // Junk that signals a clip/meme rather than real footage.
 const JUNK_TITLE_RE = /#shorts|\btiktok\b|reaction|reacts? to|tier list|fan edit|\basmr\b/i;
 
+/**
+ * Drops ids that cannot actually be played in an embed.
+ *
+ * `videoEmbeddable=true` on the search is not enough: the search index lags behind
+ * deletions and says nothing about region blocks, which is how a ranking ended up
+ * with a "Video nicht verfügbar" tile. `videos.list` costs 1 quota unit for up to
+ * 50 ids - next to nothing compared with the 100 units a search costs - so this
+ * check is essentially free.
+ */
+async function keepPlayableIds(ids: string[], apiKey: string, region = 'DE'): Promise<Set<string>> {
+  const playable = new Set<string>();
+  if (!ids.length) return playable;
+
+  try {
+    const url =
+      `https://www.googleapis.com/youtube/v3/videos?part=status,contentDetails` +
+      `&id=${ids.slice(0, 50).join(',')}&key=${apiKey}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) {
+      console.error('[YouTube] videos.list check failed:', res.status);
+      // Cannot verify -> keep everything rather than emptying the pool.
+      return new Set(ids);
+    }
+    const data = await res.json();
+    for (const v of data.items || []) {
+      const status = v.status || {};
+      if (status.privacyStatus !== 'public') continue;
+      if (status.embeddable === false) continue;
+      if (status.uploadStatus && status.uploadStatus !== 'processed') continue;
+
+      const restriction = v.contentDetails?.regionRestriction;
+      if (restriction?.blocked?.includes(region)) continue;
+      if (restriction?.allowed && !restriction.allowed.includes(region)) continue;
+
+      playable.add(v.id);
+    }
+    const dropped = ids.length - playable.size;
+    if (dropped > 0) console.log(`[YouTube] Dropped ${dropped} unplayable video(s) from the pool`);
+    return playable;
+  } catch (err) {
+    console.error('[YouTube] videos.list check error:', err);
+    return new Set(ids);
+  }
+}
+
 function cleanTitle(raw: string): string {
   return raw
     .replace(/\s*\|.*$/, '')          // "Title | Channel" -> "Title"
@@ -104,7 +149,7 @@ export async function POST(request: NextRequest) {
 
     const data = await res.json();
     const seen = new Set<string>();
-    const videos: CachedVideo[] = [];
+    const candidates: CachedVideo[] = [];
 
     for (const item of data.items || []) {
       const videoId = item?.id?.videoId;
@@ -113,13 +158,18 @@ export async function POST(request: NextRequest) {
       if (JUNK_TITLE_RE.test(rawTitle)) continue;
 
       seen.add(videoId);
-      videos.push({
+      candidates.push({
         videoId,
         title: cleanTitle(rawTitle),
         thumbnail: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
         channelTitle: item.snippet?.channelTitle || '',
       });
     }
+
+    // Keep only videos that really play in an embed (deleted/private/region-blocked
+    // ones still show up in search results).
+    const playable = await keepPlayableIds(candidates.map(v => v.videoId), apiKey);
+    const videos = candidates.filter(v => playable.has(v.videoId));
 
     cache.set(cacheKey, { videos, at: Date.now() });
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Bell, Crown, Radio, Tv, User } from "lucide-react";
+import { Bell, Crown, Radio, Tv, User, ArrowUp, ArrowDown, Lock } from "lucide-react";
 import Image from "next/image";
 import { formatCurrency, getCurrencySymbol } from "@/utils/currency";
 
@@ -25,9 +25,18 @@ interface HeaderProps {
   notificationsEnabled?: boolean; // Push notifications enabled
   unreadCount?: number; // Number of unread notifications
   coinAnimation?: { amount: number } | null; // Explicit animation trigger
+  // Rank positions like desktop
+  dailyRank?: number;
+  monthlyRank?: number;
+  yearlyRank?: number;
+  // Wager display
+  pendingAmount?: number;
+  onWagerClick?: () => void;
+  // Loading state
+  isLoadingRanks?: boolean;
 }
 
-export default function Header({ coins, userAvatar, userRank, hasPendingWager = false, rankingsOpen, onCoinsClick, onLogoClick, onNotificationClick, onProfileClick, onRadioClick, onTVClick, notificationOpen, profileOpen, radioOpen = false, tvOpen = false, notificationsEnabled, unreadCount = 0, coinAnimation }: HeaderProps) {
+export default function Header({ coins, userAvatar, userRank, hasPendingWager = false, rankingsOpen, onCoinsClick, onLogoClick, onNotificationClick, onProfileClick, onRadioClick, onTVClick, notificationOpen, profileOpen, radioOpen = false, tvOpen = false, notificationsEnabled, unreadCount = 0, coinAnimation, dailyRank = 0, monthlyRank = 0, yearlyRank = 0, pendingAmount = 0, onWagerClick, isLoadingRanks = false }: HeaderProps) {
   const [displayCoins, setDisplayCoins] = useState(coins);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isNegative, setIsNegative] = useState(false);
@@ -35,6 +44,36 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
   const [flyingAmount, setFlyingAmount] = useState<number | null>(null);
   const prevCoinsRef = useRef(coins);
   const lastAnimationRef = useRef<{ amount: number } | null>(null);
+  
+  // Wager animation state
+  const [wagerVisible, setWagerVisible] = useState(pendingAmount > 0);
+  const [wagerAnim, setWagerAnim] = useState<'in' | 'out' | null>(null);
+  const prevPendingRef = useRef(pendingAmount);
+  
+  // Track wager changes for fade in/out
+  useEffect(() => {
+    const prev = prevPendingRef.current;
+    const curr = pendingAmount;
+    prevPendingRef.current = curr;
+    
+    if (prev === 0 && curr > 0) {
+      // Wager appeared - fade in
+      setWagerVisible(true);
+      setWagerAnim('in');
+      setTimeout(() => setWagerAnim(null), 500);
+    } else if (prev > 0 && curr === 0) {
+      // Wager disappeared - fade out
+      setWagerAnim('out');
+      setTimeout(() => {
+        setWagerVisible(false);
+        setWagerAnim(null);
+      }, 500);
+    } else if (prev > 0 && curr > 0 && prev !== curr) {
+      // Wager amount changed
+      setWagerAnim('in');
+      setTimeout(() => setWagerAnim(null), 500);
+    }
+  }, [pendingAmount]);
   
   const handleNotificationClick = () => {
     if (onNotificationClick) {
@@ -125,7 +164,7 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
   }, [coinAnimation]);
   return (
     <div className="absolute top-0 left-0 right-0 z-50 bg-cream border-b border-warm">
-      <div className="relative flex items-center justify-between px-4 h-16">
+      <div className="relative flex items-center justify-between px-4 h-[72px]">
         {/* Left - GenX Logo */}
         <button onClick={onLogoClick} className="flex items-center hover:scale-105 transition-all -ml-1">
           <Image 
@@ -137,127 +176,229 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
           />
         </button>
 
-        {/* Center - Score Widget: Coin left, Rank+Points right - same height as TV/Radio */}
+        {/* Score Widget - Desktop-like design with animations */}
         <button
           onClick={onCoinsClick}
-          className={`ml-auto flex items-center gap-1.5 px-1.5 py-1.5 hover:scale-105 rounded-lg relative ${isNegative ? 'animate-pulse' : ''}`}
-          style={{ 
-            background: rankingsOpen
-              ? '#E36B11'
-              : isNegative 
-                ? 'linear-gradient(180deg, #ff0000 0%, #cc0000 100%)'
+          className={`ml-auto flex items-stretch rounded-lg border shadow-sm transition-all relative overflow-hidden ${
+            rankingsOpen 
+              ? 'bg-gradient-to-b from-[#E36B11] to-[#C4772A] border-[#E36B11]' 
+              : isNegative
+                ? 'bg-gradient-to-b from-red-500 to-red-600 border-red-500'
                 : isPositive
-                  ? 'linear-gradient(180deg, #E36B11 0%, #c06a2a 100%)'
-                  : 'rgba(212, 135, 58, 0.1)',
-            border: rankingsOpen ? 'none' : '2px solid #E36B11',
-            boxShadow: rankingsOpen
-              ? '0 2px 10px rgba(212, 135, 58, 0.4)'
-              : isNegative 
-                ? '0 4px 30px rgba(255, 0, 0, 0.8)'
-                : isPositive
-                  ? '0 4px 20px rgba(212, 135, 58, 0.6)'
-                  : '0 2px 8px rgba(212, 135, 58, 0.15)',
-            transition: 'all 0.3s ease'
-          }}
+                  ? 'bg-gradient-to-b from-[#E36B11] to-[#C4772A] border-[#E36B11]'
+                  : 'bg-gradient-to-b from-[#FFFDF9] to-[#FDF8F0] border-[#E36B11]/30'
+          }`}
+          style={isAnimating ? { 
+            animation: isPositive ? 'scoreWin 1.4s ease-out' : 'scoreLoss 1.4s ease-out' 
+          } : undefined}
         >
-          {/* Left: Coin icon (bigger) - enhanced contrast when on orange bg */}
-          <img 
-            src="/images/bogxcoin.png" 
-            alt="" 
-            className="w-8 h-8"
-            style={{ 
-              filter: rankingsOpen 
-                ? 'brightness(1.3) contrast(1.5) saturate(1.4) drop-shadow(0 1px 3px rgba(0,0,0,0.4))' 
-                : 'saturate(1.1)' 
-            }}
-          />
+          {/* Left accent bar */}
+          <div className={`absolute left-0 top-1 bottom-1 w-0.5 rounded-full ${
+            rankingsOpen || isPositive ? 'bg-gradient-to-b from-white to-white/80' : 'bg-gradient-to-b from-[#E36B11] to-[#E5A55A]'
+          }`} />
           
-          {/* Right: Rank on top, Points below */}
-          <div className="flex flex-col items-start leading-tight">
-            {/* Top row: Crown + Rank */}
-            <span className={`text-xs font-black flex items-center gap-0.5 ${rankingsOpen ? 'text-white/80' : 'text-[#E36B11]'}`}>
-              <Crown className="w-3.5 h-3.5" />
-              #{userRank 
-                ? userRank >= 10000 
-                  ? `${(userRank / 1000).toFixed(0)}K` 
-                  : userRank >= 1000 
-                    ? `${(userRank / 1000).toFixed(1)}K`
-                    : userRank.toLocaleString('de-DE')
-                : '—'}
-            </span>
-            {/* Bottom: BOGX Coins */}
-            <span className={`font-black transition-all duration-300 whitespace-nowrap ${isAnimating ? "scale-110" : ""} text-sm ${isPositive ? 'text-green-400' : isNegative ? 'text-red-400' : rankingsOpen ? 'text-white' : 'text-[#E36B11]'}`}>
-              {formatCurrency(displayCoins)}
-            </span>
+          {/* Coins Section - no icon, bigger numbers, fixed min width */}
+          <div className={`flex items-center pl-2 pr-1 py-2 border-r ${
+            rankingsOpen || isPositive || isNegative ? 'border-white/20' : 'border-[#E36B11]/10'
+          }`} style={{ minWidth: '70px' }}>
+            <div className="flex flex-col justify-center">
+              <span 
+                className={`font-display font-bold tabular-nums leading-none transition-all ${
+                  isPositive ? 'text-green-400' : 
+                  isNegative ? 'text-red-300' : 
+                  rankingsOpen ? 'text-white' : 'text-[#E36B11]'
+                }`}
+                style={{ fontSize: '26px' }}
+              >
+                {displayCoins.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+              <span className={`text-[7px] font-display uppercase ${
+                rankingsOpen || isPositive || isNegative ? 'text-white/60' : 'text-gray-400'
+              }`}>Coins</span>
+            </div>
           </div>
           
+          {/* Rank Positions OR Wager Section - fixed width to prevent size change */}
+          <div className="flex items-center justify-center px-1 py-2 relative" style={{ minWidth: '100px' }}>
+            {/* Wager overlay - shows instead of ranks when active - Desktop style with fade in/out */}
+            {wagerVisible ? (
+              <div 
+                className={`group/wager relative flex items-center gap-2 px-2 py-1 rounded-lg cursor-pointer transition-all duration-300 border hover:from-[#6366F1] hover:to-[#4F46E5] hover:border-[#6366F1] ${
+                  wagerAnim === 'in' ? 'bg-gradient-to-b from-[#A855F7]/20 to-[#A855F7]/30 border-[#A855F7]/40' :
+                  wagerAnim === 'out' ? 'bg-gradient-to-b from-green-500/20 to-green-500/30 border-green-500/40' :
+                  'bg-gradient-to-b from-[#6366F1]/10 to-[#6366F1]/20 border-[#6366F1]/30'
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onWagerClick?.();
+                }}
+                style={
+                  wagerAnim === 'in' ? { animation: 'wagerIn 0.5s cubic-bezier(0.22, 1, 0.36, 1)' } :
+                  wagerAnim === 'out' ? { animation: 'wagerOut 0.5s ease-in forwards' } :
+                  { animation: 'wagerPulse 2s ease-in-out infinite' }
+                }
+              >
+                <Lock className={`w-4 h-4 transition-all group-hover/wager:text-white ${
+                  wagerAnim === 'in' ? 'text-[#A855F7] scale-125' :
+                  wagerAnim === 'out' ? 'text-green-500 scale-110' :
+                  'text-[#6366F1]'
+                }`} />
+                <div className="flex flex-col">
+                  <span 
+                    className={`font-display font-bold tabular-nums leading-none transition-all group-hover/wager:text-white ${
+                      wagerAnim === 'in' ? 'text-[#A855F7] scale-110' :
+                      wagerAnim === 'out' ? 'text-green-500 scale-110' :
+                      'text-[#6366F1]'
+                    }`}
+                    style={{ fontSize: '20px' }}
+                  >
+                    {pendingAmount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                  <span className="text-[8px] font-display uppercase text-gray-400 transition-colors group-hover/wager:text-white/70">Wager</span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                {/* Day - no arrow, colored number */}
+                <div className="flex flex-col items-center">
+                  {isLoadingRanks ? (
+                    <div className="w-8 h-6 bg-gray-200 rounded animate-pulse" />
+                  ) : (
+                    <span 
+                      className={`font-display font-bold tabular-nums leading-none ${
+                        rankingsOpen ? 'text-white' : dailyRank > 0 ? 'text-green-500' : 'text-[#E36B11]'
+                      }`}
+                      style={{ fontSize: '20px' }}
+                    >
+                      {dailyRank > 0 ? dailyRank.toString().padStart(2, '0') : '?'}
+                    </span>
+                  )}
+                  <span className={`text-[8px] font-display uppercase ${
+                    rankingsOpen ? 'text-white/60' : 'text-gray-400'
+                  }`}>Day</span>
+                </div>
+                
+                {/* Separator */}
+                <div className={`w-px h-6 ${rankingsOpen ? 'bg-white/20' : 'bg-gray-300'}`} />
+                
+                {/* Month - no arrow, colored number */}
+                <div className="flex flex-col items-center">
+                  {isLoadingRanks ? (
+                    <div className="w-8 h-6 bg-gray-200 rounded animate-pulse" />
+                  ) : (
+                    <span 
+                      className={`font-display font-bold tabular-nums leading-none ${
+                        rankingsOpen ? 'text-white' : monthlyRank > 0 ? 'text-green-500' : 'text-gray-400'
+                      }`}
+                      style={{ fontSize: '20px' }}
+                    >
+                      {monthlyRank > 0 ? monthlyRank.toString().padStart(2, '0') : '—'}
+                    </span>
+                  )}
+                  <span className={`text-[8px] font-display uppercase ${
+                    rankingsOpen ? 'text-white/60' : 'text-gray-400'
+                  }`}>Mon</span>
+                </div>
+                
+                {/* Separator */}
+                <div className={`w-px h-6 ${rankingsOpen ? 'bg-white/20' : 'bg-gray-300'}`} />
+                
+                {/* Year - no arrow, colored number */}
+                <div className="flex flex-col items-center">
+                  {isLoadingRanks ? (
+                    <div className="w-8 h-6 bg-gray-200 rounded animate-pulse" />
+                  ) : (
+                    <span 
+                      className={`font-display font-bold tabular-nums leading-none ${
+                        rankingsOpen ? 'text-white' : yearlyRank > 0 ? 'text-green-500' : 'text-gray-400'
+                      }`}
+                      style={{ fontSize: '20px' }}
+                    >
+                      {yearlyRank > 0 ? yearlyRank.toString().padStart(2, '0') : '—'}
+                    </span>
+                  )}
+                  <span className={`text-[8px] font-display uppercase ${
+                    rankingsOpen ? 'text-white/60' : 'text-gray-400'
+                  }`}>Year</span>
+                </div>
+              </div>
+            )}
+          </div>
           
           {/* Flying amount indicator */}
           {flyingAmount !== null && (
             <span 
-              className={`absolute left-1/2 -translate-x-1/2 font-black text-lg pointer-events-none ${
-                flyingAmount > 0 ? 'text-green-400' : 'text-red-400'
+              className={`absolute left-1/2 -translate-x-1/2 -top-1 z-20 pointer-events-none font-display text-sm ${
+                flyingAmount > 0 ? 'text-green-500' : 'text-red-500'
               }`}
               style={{
-                animation: flyingAmount > 0 ? 'flyUp 1.5s ease-out forwards' : 'flyDown 1.5s ease-out forwards',
-                textShadow: flyingAmount > 0 
-                  ? '0 0 10px rgba(74, 222, 128, 0.8)' 
-                  : '0 0 10px rgba(248, 113, 113, 0.8)'
+                animation: 'scoreDelta 1.4s ease-out forwards',
+                textShadow: '0 1px 6px rgba(255,255,255,0.9)',
               }}
             >
-              {flyingAmount > 0 ? `+${formatCurrency(flyingAmount)}` : `${formatCurrency(flyingAmount)}`}
+              {flyingAmount > 0 ? '+' : '−'}{Math.abs(flyingAmount).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           )}
         </button>
         
-        {/* Keyframes for flying animation */}
+        {/* Keyframes for animations - same as Desktop */}
         <style>{`
-          @keyframes flyUp {
-            0% { bottom: 0; opacity: 1; transform: translateX(-50%) scale(1); }
-            100% { bottom: 80px; opacity: 0; transform: translateX(-50%) scale(1.5); }
+          @keyframes scoreWin {
+            0% { transform: scale(1); }
+            25% { transform: scale(1.06); }
+            50% { transform: scale(0.99); }
+            75% { transform: scale(1.02); }
+            100% { transform: scale(1); }
           }
-          @keyframes flyDown {
-            0% { top: 100%; opacity: 1; transform: translateX(-50%) scale(1); }
-            100% { top: 200%; opacity: 0; transform: translateX(-50%) scale(0.5); }
+          @keyframes scoreLoss {
+            0%, 100% { transform: translateX(0) scale(1); }
+            15% { transform: translateX(-4px) scale(1.02); }
+            30% { transform: translateX(4px) scale(1.02); }
+            45% { transform: translateX(-3px) scale(1); }
+            60% { transform: translateX(3px) scale(1); }
+            80% { transform: translateX(-1px) scale(1); }
+          }
+          @keyframes coinSpinWin {
+            0%   { transform: rotate(0deg) scale(1); }
+            35%  { transform: rotate(300deg) scale(1.28); }
+            70%  { transform: rotate(560deg) scale(1.04); }
+            100% { transform: rotate(720deg) scale(1); }
+          }
+          @keyframes coinSpinLoss {
+            0%   { transform: rotate(0deg) scale(1); filter: saturate(1); }
+            30%  { transform: rotate(-140deg) scale(0.88); filter: saturate(0.35); }
+            65%  { transform: rotate(-260deg) scale(1.02); filter: saturate(0.8); }
+            100% { transform: rotate(-360deg) scale(1); filter: saturate(1); }
+          }
+          @keyframes scoreDelta {
+            0% { transform: translate(-50%, 6px) scale(0.7); opacity: 0; }
+            20% { transform: translate(-50%, -12px) scale(1.15); opacity: 1; }
+            60% { transform: translate(-50%, -28px) scale(1); opacity: 1; }
+            100% { transform: translate(-50%, -50px) scale(0.9); opacity: 0; }
+          }
+          @keyframes wagerPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+            50% { box-shadow: 0 0 0 6px rgba(99, 102, 241, 0); }
+          }
+          /* Revealed left-to-right so it reads as coming out of the score, not fading
+             in on top of it. clip-path rather than scaleX: scaling squashed the amount
+             and the lock icon while the panel was still narrow. */
+          @keyframes wagerIn {
+            0% { clip-path: inset(0 100% 0 0); }
+            100% { clip-path: inset(0 0 0 0); }
+          }
+          @keyframes wagerOut {
+            0% { clip-path: inset(0 0 0 0); opacity: 1; }
+            100% { clip-path: inset(0 100% 0 0); opacity: 0; }
           }
         `}</style>
 
         {/* Separator */}
-        <div className="w-px h-6 bg-gray-300 mx-1" />
+        <div className="w-px h-6 bg-gray-300 mx-1.5" />
 
-        {/* Right side - TV + Radio + Notifications + Profile - all same style */}
+        {/* Right side - Notifications + Profile */}
         <div className="flex items-center gap-0 -mr-1">
-          {/* TV Button */}
-          <button
-            onClick={onTVClick}
-            className={`flex flex-col items-center px-1.5 py-1 rounded-lg transition-all ${
-              tvOpen ? 'bg-[#E36B11]' : 'hover:bg-cream'
-            }`}
-            title="BestOfGenX TV"
-          >
-            <Tv className={`w-6 h-6 ${tvOpen ? 'text-white' : 'text-gray-900'}`} />
-            <span className={`text-[8px] font-bold tracking-wider ${tvOpen ? 'text-white' : 'text-gray-900'}`}>TV</span>
-          </button>
-          
-          {/* Separator */}
-          <div className="w-px h-6 bg-gray-300 mx-0.5" />
-          
-          {/* Radio Button */}
-          <button
-            onClick={onRadioClick}
-            className={`flex flex-col items-center px-1.5 py-1 rounded-lg transition-all ${
-              radioOpen ? 'bg-[#E36B11]' : 'hover:bg-cream'
-            }`}
-            title="BestOfGenX Radio"
-          >
-            <Radio className={`w-6 h-6 ${radioOpen ? 'text-white' : 'text-gray-900'}`} />
-            <span className={`text-[8px] font-bold tracking-wider ${radioOpen ? 'text-white' : 'text-gray-900'}`}>RADIO</span>
-          </button>
-          
-          {/* Separator */}
-          <div className="w-px h-6 bg-gray-300 mx-0.5" />
-          
-          {/* Notification Bell - same style as Radio */}
+          {/* Notification Bell */}
           <button 
             onClick={handleNotificationClick}
             className={`flex flex-col items-center px-1.5 py-1 rounded-lg transition-all relative ${

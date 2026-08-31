@@ -149,12 +149,12 @@ function processArticleHtml(raw: string): string {
     // The coin keeps data-keep-size: step 4 below rewrites every other <img> to
     // width:100%, which is what previously blew this icon up to full width.
     const rewardBadge = `<div class="video-reward-badge" style="position:absolute;top:8px;right:8px;display:flex;align-items:center;gap:4px;background:rgba(0,0,0,0.75);padding:3px 8px;border-radius:10px;font-size:10px;font-weight:600;color:#FFD700;z-index:2;"><img src="/images/bogxcoin.png" data-keep-size alt="" style="width:11px;height:11px;max-width:11px;display:block;flex-shrink:0;"/>+0,02</div>`;
-    const watchedOverlay = `<div class="video-watched-overlay" style="display:none;position:absolute;top:8px;right:8px;background:rgba(34,197,94,0.9);padding:3px 8px;border-radius:10px;font-size:10px;font-weight:600;color:white;text-transform:uppercase;letter-spacing:0.3px;z-index:2;">✓ Watched</div>`;
+    const watchedOverlay = `<div class="video-watched-overlay" style="display:none;position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.75);padding:3px 8px;border-radius:10px;font-size:10px;font-weight:600;color:white;text-transform:uppercase;letter-spacing:0.3px;z-index:2;">✓ Watched</div>`;
 
     // The onclick handler: hide badge, show watched label, then swap to iframe
     const onClickHandler = `(function(el){var card=el.closest('.article-video-card');var badge=card.querySelector('.video-reward-badge');var watched=card.querySelector('.video-watched-overlay');if(badge)badge.style.display='none';if(watched)watched.style.display='block';setTimeout(function(){el.outerHTML='<iframe src=\\'${embedSrc}\\' style=\\'width:380px;height:214px;border:0;display:block;\\' frameborder=\\'0\\' allow=\\'autoplay; encrypted-media\\' allowfullscreen></iframe>';},150);})(this)`;
 
-    return `<div class="article-video-card" data-video-id="${videoId}" style="width:380px;max-width:380px;border-radius:6px;overflow:hidden;margin-top:-10px;"><div style="position:relative;width:380px;height:214px;cursor:pointer;" onclick="${onClickHandler}"><img src="${thumbnailUrl}" data-keep-size alt="" style="width:380px;height:214px;object-fit:cover;display:block;" />${rewardBadge}${watchedOverlay}<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;"><div style="width:52px;height:52px;border-radius:50%;background:rgba(212,135,58,0.9);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.3);"><span style="color:white;font-size:22px;margin-left:3px;">▶</span></div></div></div></div>`;
+    return `<div class="article-video-card" data-video-id="${videoId}" style="width:380px;max-width:380px;border-radius:6px;overflow:hidden;margin-top:-10px;"><div style="position:relative;width:380px;height:214px;cursor:pointer;" onclick="${onClickHandler}"><img src="${thumbnailUrl}" data-keep-size alt="" style="width:380px;height:214px;object-fit:cover;display:block;" />${rewardBadge}${watchedOverlay}<div class="video-coin-container" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;"><img src="/images/bogxcoin.png" data-keep-size alt="Play" class="video-play-coin" style="width:64px;height:64px;max-width:64px;clip-path:circle(42%);background:black;transition:transform 0.2s ease;"/></div><div class="video-play-button" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;pointer-events:none;"><div style="width:52px;height:52px;border-radius:50%;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;"><span style="color:white;font-size:20px;margin-left:3px;">▶</span></div></div></div></div>`;
   };
 
   const floatVideo = (card: string, index: number): string => {
@@ -224,6 +224,7 @@ function processArticleHtml(raw: string): string {
     @media(max-width:767px){
       .article-video-card{float:none!important;width:100%!important;margin:16px 0!important;}
     }
+    .article-video-card:hover .video-play-coin{transform:scale(1.15);}
   </style>`;
 
   // 4. Wrap standalone images - full width, no max-width restriction.
@@ -532,11 +533,32 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
   // Mark already-watched videos on load: hide the reward badge, show "Watched" label.
   useEffect(() => {
     const el = proseRef.current;
-    if (!el || !user?.id) return;
+    if (!el) return;
 
     const cards = el.querySelectorAll('.article-video-card[data-video-id]');
     if (!cards.length) return;
 
+    // For guests: check localStorage
+    if (!user?.id) {
+      cards.forEach((card: any) => {
+        const vid = card.dataset.videoId;
+        const guestWatchedKey = `bogx_guest_watched_${vid}`;
+        if (localStorage.getItem(guestWatchedKey)) {
+          watchedVideosRef.current.add(vid);
+          const badge = card.querySelector('.video-reward-badge') as HTMLElement | null;
+          const watched = card.querySelector('.video-watched-overlay') as HTMLElement | null;
+          const coinContainer = card.querySelector('.video-coin-container') as HTMLElement | null;
+          const playButton = card.querySelector('.video-play-button') as HTMLElement | null;
+          if (badge) badge.style.display = 'none';
+          if (watched) watched.style.display = 'block';
+          if (coinContainer) coinContainer.style.display = 'none';
+          if (playButton) playButton.style.display = 'flex';
+        }
+      });
+      return;
+    }
+
+    // For logged-in users: check server
     const videoIds = Array.from(cards).map((c: any) => c.dataset.videoId).filter(Boolean);
     if (!videoIds.length) return;
 
@@ -551,8 +573,12 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
             watchedVideosRef.current.add(vid);
             const badge = card.querySelector('.video-reward-badge') as HTMLElement | null;
             const watched = card.querySelector('.video-watched-overlay') as HTMLElement | null;
+            const coinContainer = card.querySelector('.video-coin-container') as HTMLElement | null;
+            const playButton = card.querySelector('.video-play-button') as HTMLElement | null;
             if (badge) badge.style.display = 'none';
             if (watched) watched.style.display = 'block';
+            if (coinContainer) coinContainer.style.display = 'none';
+            if (playButton) playButton.style.display = 'flex';
           }
         });
       })

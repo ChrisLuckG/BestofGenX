@@ -37,6 +37,7 @@ export interface IPerson {
   countryBorn?: string;
   cityBorn?: string;
   countryDied?: string;
+  cityDied?: string;
   nationality?: string;
   countryCode?: string; // ISO code for flag
   
@@ -118,6 +119,7 @@ const PersonSchema = new mongoose.Schema({
   countryBorn: String,
   cityBorn: String,
   countryDied: String,
+  cityDied: String,
   nationality: String,
   countryCode: String,
   

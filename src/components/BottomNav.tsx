@@ -1,6 +1,6 @@
 "use client";
 
-import { Play, FileText, Swords, Vote, ShoppingBag, Trophy, User, Tv } from "lucide-react";
+import { Play, FileText, Swords, Vote, ShoppingBag, Trophy, User, Tv, Radio } from "lucide-react";
 import { sounds } from "@/utils/sounds";
 
 export type NavTab = "home" | "feed" | "articles" | "arcade" | "voting" | "shop" | "rankings" | "profile" | "notifications" | "battles" | "tv" | "rewards" | "radio";
@@ -19,7 +19,10 @@ const tabs = [
   { id: "arcade" as NavTab, label: "Trivia", image: "/images/Icon/trivia1.png", imageActive: "/images/Icon/trivia2.png" },
   { id: "articles" as NavTab, label: "Articles", icon: FileText },
   { id: "voting" as NavTab, label: "Rankroll", icon: Vote },
-  { id: "shop" as NavTab, label: "Shop", icon: ShoppingBag },
+  { id: "radio" as NavTab, label: "Radio", icon: Radio },
+  { id: "tv" as NavTab, label: "TV", icon: Tv },
+  // Shop hidden for now - will be added later
+  // { id: "shop" as NavTab, label: "Shop", icon: ShoppingBag },
 ];
 
 export default function BottomNav({ activeTab, onTabChange, userAvatar, profileHighlighted, lockedToTab, battleAlertCount = 0 }: BottomNavProps) {

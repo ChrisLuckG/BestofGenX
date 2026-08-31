@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUp, ArrowDown, Minus, Lock } from "lucide-react";
+import { ArrowUp, ArrowDown, Lock } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 interface DesktopRankWidgetProps {
@@ -20,40 +20,135 @@ interface DesktopRankWidgetProps {
   onWagerClick?: () => void; // Click handler for wager section
   animateDelta?: number;   // Explicit delta to animate (bypasses internal diff calculation)
   animateKey?: number;     // Key to trigger animation
+  isBreakTime?: boolean;   // Whether we're in the daily reset break
+  breakCountdown?: string; // Countdown string like "01:37:40"
+  isLoggedIn?: boolean;    // Whether user is logged in
+  onShowLogin?: () => void; // Callback to show login modal
 }
 
-function RankPosition({ value, label, isActive, change }: { value: number; label: string; isActive?: boolean; change?: 'up' | 'down' | null }) {
-  const hasRank = value > 0;
+// Direction of a rank position compared to the last value we ever saw for it.
+// The comparison value is persisted so a fresh login still gets a direction
+// instead of a neutral state - there is always an arrow.
+function useRankDirection(label: string, value: number): 'up' | 'down' {
+  const storageKey = `rank-dir-${label.toLowerCase()}`;
+  const [direction, setDirection] = useState<'up' | 'down'>('up');
 
-  // Keep showing the last known direction. Rankings only report a direction at
-  // the moment the position moves, so without this the arrow would fall back to
-  // a neutral dash on the next poll.
-  const [lastChange, setLastChange] = useState<'up' | 'down' | null>(null);
   useEffect(() => {
-    if (change) setLastChange(change);
-  }, [change]);
-  const shown = change || lastChange;
+    if (typeof window === 'undefined') return;
+
+    let stored: { rank: number; dir: 'up' | 'down' } | null = null;
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) stored = JSON.parse(raw);
+    } catch { /* ignore */ }
+
+    // Unranked (no points in this period yet) counts as being down.
+    if (value <= 0) {
+      setDirection(stored?.dir ?? 'down');
+      return;
+    }
+
+    // Lower rank number = better position.
+    const dir: 'up' | 'down' = !stored
+      ? 'up'
+      : value < stored.rank ? 'up'
+      : value > stored.rank ? 'down'
+      : stored.dir;
+
+    setDirection(dir);
+    try {
+      localStorage.setItem(storageKey, JSON.stringify({ rank: value, dir }));
+    } catch { /* ignore */ }
+  }, [storageKey, value]);
+
+  return direction;
+}
+
+function RankPosition({ value, label, isActive, change, onHoverChange }: { value: number; label: string; isActive?: boolean; change?: 'up' | 'down' | null; onHoverChange?: (hovering: boolean) => void }) {
+  const hasRank = value > 0;
+  const isDay = label === 'Day';
+
+  // A live change from the rankings hook wins, otherwise fall back to the
+  // persisted comparison so an arrow is always shown.
+  const persisted = useRankDirection(label, value);
+  const shown = change || persisted;
+
+  // Roll the digits when the position actually moves.
+  const prevValueRef = useRef(value);
+  const [roll, setRoll] = useState<'up' | 'down' | null>(null);
+  // Track if we just got placed (transition from 0 to ranked)
+  const [justPlaced, setJustPlaced] = useState(false);
+
+  useEffect(() => {
+    const prev = prevValueRef.current;
+    prevValueRef.current = value;
+    
+    // Detect when user just got placed (was 0, now has rank)
+    if (prev <= 0 && value > 0) {
+      setJustPlaced(true);
+      const timer = setTimeout(() => setJustPlaced(false), 1000);
+      return () => clearTimeout(timer);
+    }
+    
+    // Ranks arrive as 0 first and are filled in once loaded - animating that would
+    // claim a position change on every page load.
+    if (prev === value || prev <= 0 || value <= 0) return;
+
+    // Smaller rank number = better position = rolls upwards.
+    setRoll(value < prev ? 'up' : 'down');
+    const timer = setTimeout(() => setRoll(null), 600);
+    return () => clearTimeout(timer);
+  }, [value]);
+
+  const arrowAnim = roll ? { animation: `arrowPop${roll === 'up' ? 'Up' : 'Down'} 0.6s ease-out` } : undefined;
 
   return (
-    <div className="flex items-center gap-0.5">
-      {/* Always rendered so the row never shifts */}
-      {shown === 'up' ? (
-        <ArrowUp className={`w-3 h-3 shrink-0 transition-colors ${isActive ? 'text-green-300' : 'text-green-500 group-hover/main:text-green-300'}`} />
-      ) : shown === 'down' ? (
-        <ArrowDown className={`w-3 h-3 shrink-0 transition-colors ${isActive ? 'text-red-300' : 'text-red-500 group-hover/main:text-red-300'}`} />
+    <div 
+      className="relative flex items-center gap-0.5 group/rank"
+      onMouseEnter={() => !hasRank && isDay && onHoverChange?.(true)}
+      onMouseLeave={() => !hasRank && isDay && onHoverChange?.(false)}
+    >
+      {hasRank ? (
+        // Show arrow when ranked
+        shown === 'up' ? (
+          <ArrowUp style={arrowAnim} className={`w-3 h-3 shrink-0 transition-colors ${isActive ? 'text-green-300' : 'text-green-500 group-hover/main:text-green-300'}`} />
+        ) : (
+          <ArrowDown style={arrowAnim} className={`w-3 h-3 shrink-0 transition-colors ${isActive ? 'text-red-300' : 'text-red-500 group-hover/main:text-red-300'}`} />
+        )
       ) : (
-        <Minus className={`w-3 h-3 shrink-0 transition-colors ${isActive ? 'text-white/40' : 'text-gray-300 group-hover/main:text-white/40'}`} />
+        // Show down arrow when not ranked
+        <ArrowDown className={`w-3 h-3 shrink-0 transition-colors ${isActive ? 'text-red-300' : 'text-red-500 group-hover/main:text-red-300'}`} />
       )}
       <div className="flex flex-col justify-center">
-        <span className={`text-lg font-display tabular-nums leading-none transition-colors ${
-          isActive 
-            ? 'text-white'
-            : (hasRank ? 'text-gray-800 group-hover/main:text-white' : 'text-gray-400 group-hover/main:text-white/60')
-        }`}>
-          {hasRank ? value.toString().padStart(2, '0') : '—'}
+        {/* Clipping wrapper: the incoming number slides in from outside it, which is
+            what makes it read as a flip-clock rather than a fade. */}
+        <span className={`block h-[18px] ${!hasRank && isDay ? 'overflow-visible' : 'overflow-hidden'}`}>
+          <span
+            // Remounts on change so the CSS animation restarts.
+            key={`${value}-${roll ?? 'idle'}-${justPlaced ? 'placed' : ''}`}
+            style={
+              justPlaced 
+                ? { animation: 'rankFadeIn 0.5s ease-out' }
+                : roll 
+                  ? { animation: `rankRoll${roll === 'up' ? 'Up' : 'Down'} 0.5s cubic-bezier(0.22, 1, 0.36, 1)` } 
+                  : undefined
+            }
+            className={`block text-lg font-display tabular-nums leading-none transition-all origin-center ${
+              isActive
+                ? 'text-white'
+                : hasRank 
+                  ? 'text-gray-800 group-hover/main:text-white' 
+                  : isDay 
+                    ? 'text-[#E36B11] cursor-pointer group-hover/main:text-white group-hover/rank:scale-150' 
+                    : 'text-gray-400 group-hover/main:text-white/60'
+            }`}
+          >
+            {hasRank ? value.toString().padStart(2, '0') : (isDay ? '?' : '—')}
+          </span>
         </span>
         <span className={`text-[9px] font-display uppercase transition-colors ${isActive ? 'text-white/60' : 'text-gray-400 group-hover/main:text-white/60'}`}>{label}</span>
       </div>
+      
     </div>
   );
 }
@@ -74,15 +169,23 @@ export default function DesktopRankWidget({
   onClick,
   onWagerClick,
   animateDelta,
-  animateKey
+  animateKey,
+  isBreakTime = false,
+  breakCountdown = '',
+  isLoggedIn = true,
+  onShowLogin
 }: DesktopRankWidgetProps) {
   const active = isActive;
   const prevCoinsRef = useRef(coins);
   const prevWagerRef = useRef(pendingAmount);
   const [coinAnim, setCoinAnim] = useState<'up' | 'down' | null>(null);
+  const [showDayTip, setShowDayTip] = useState(false);
   const [coinDelta, setCoinDelta] = useState(0);
   const [wagerAnim, setWagerAnim] = useState<'in' | 'out' | null>(null);
   const [wagerVisible, setWagerVisible] = useState(pendingAmount > 0);
+  // Last non-zero amount: during the fade-out pendingAmount is already 0, and
+  // watching the wager count down to 0,00 while it slides away looks broken.
+  const [displayAmount, setDisplayAmount] = useState(pendingAmount);
 
   // Animate when explicit delta is provided (preferred - shows correct amount)
   useEffect(() => {
@@ -97,20 +200,43 @@ export default function DesktopRankWidget({
   }, [animateKey, animateDelta, coins]);
 
   // Fallback: Animate when coins change (for cases without explicit delta)
+  // Use a small debounce to prevent flickering when multiple updates happen quickly
+  const pendingAnimRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
     // Skip if we have explicit delta
     if (animateDelta !== undefined && animateKey !== undefined) return;
     
     const diff = Math.round((coins - prevCoinsRef.current) * 100) / 100;
     if (diff !== 0) {
-      setCoinAnim(diff > 0 ? 'up' : 'down');
-      setCoinDelta(diff);
-      prevCoinsRef.current = coins;
+      // Clear any pending animation
+      if (pendingAnimRef.current) {
+        clearTimeout(pendingAnimRef.current);
+      }
+      
+      // Small delay to batch rapid changes (e.g. refund + wager release)
+      pendingAnimRef.current = setTimeout(() => {
+        const finalDiff = Math.round((coins - prevCoinsRef.current) * 100) / 100;
+        if (finalDiff !== 0) {
+          setCoinAnim(finalDiff > 0 ? 'up' : 'down');
+          setCoinDelta(finalDiff);
+          prevCoinsRef.current = coins;
 
-      const timer = setTimeout(() => setCoinAnim(null), 1400);
-      return () => clearTimeout(timer);
+          const timer = setTimeout(() => setCoinAnim(null), 1400);
+          return () => clearTimeout(timer);
+        }
+      }, 100);
     }
+    
+    return () => {
+      if (pendingAnimRef.current) {
+        clearTimeout(pendingAnimRef.current);
+      }
+    };
   }, [coins, animateDelta, animateKey]);
+
+  useEffect(() => {
+    if (pendingAmount > 0) setDisplayAmount(pendingAmount);
+  }, [pendingAmount]);
 
   // Animate when wager changes - fade in/out
   useEffect(() => {
@@ -140,13 +266,17 @@ export default function DesktopRankWidget({
   
   return (
     <div 
-      className={`relative flex cursor-pointer transition-transform ${active ? 'scale-[0.98]' : ''}`}
-      style={coinAnim ? { animation: coinAnim === 'up' ? 'scoreWin 1.4s ease-out' : 'scoreLoss 1.4s ease-out' } : undefined}
+      className={`rank-widget relative flex cursor-pointer transition-transform ${active ? 'scale-[0.98]' : ''}`}
+      style={coinAnim ? { 
+        animation: coinAnim === 'up' ? 'scoreWin 1.4s ease-out' : 'scoreLoss 1.4s ease-out',
+        willChange: 'transform',
+        transform: 'translateZ(0)', // Force GPU acceleration
+      } : undefined}
     >
-      {/* Floating delta amount */}
+      {/* Floating delta amount - starts from COINS area (left side) */}
       {coinAnim && (
         <span
-          className={`absolute left-1/2 -translate-x-1/2 -top-1 z-20 pointer-events-none font-display text-base ${
+          className={`absolute left-8 -top-1 z-20 pointer-events-none font-display text-base ${
             coinAnim === 'up' ? 'text-green-500' : 'text-red-500'
           }`}
           style={{
@@ -186,10 +316,20 @@ export default function DesktopRankWidget({
           60% { transform: translateX(3px) scale(1); }
           80% { transform: translateX(-1px) scale(1); }
         }
-        @keyframes coinSpin {
-          0% { transform: rotate(0deg) scale(1); }
-          40% { transform: rotate(180deg) scale(1.25); }
-          100% { transform: rotate(360deg) scale(1); }
+        /* Win spins the coin twice and forward; a loss turns it back the other way
+           and briefly drains the colour, so the two read differently at a glance
+           without needing to see the number. */
+        @keyframes coinSpinWin {
+          0%   { transform: rotate(0deg) scale(1); }
+          35%  { transform: rotate(300deg) scale(1.28); }
+          70%  { transform: rotate(560deg) scale(1.04); }
+          100% { transform: rotate(720deg) scale(1); }
+        }
+        @keyframes coinSpinLoss {
+          0%   { transform: rotate(0deg) scale(1); filter: saturate(1); }
+          30%  { transform: rotate(-140deg) scale(0.88); filter: saturate(0.35); }
+          65%  { transform: rotate(-260deg) scale(1.02); filter: saturate(0.8); }
+          100% { transform: rotate(-360deg) scale(1); filter: saturate(1); }
         }
         @keyframes scoreDelta {
           0% { transform: translate(-50%, 6px) scale(0.7); opacity: 0; }
@@ -197,8 +337,69 @@ export default function DesktopRankWidget({
           60% { transform: translate(-50%, -18px) scale(1); opacity: 1; }
           100% { transform: translate(-50%, -32px) scale(0.9); opacity: 0; }
         }
+        /* Rank positions roll like a flip clock: a better position (smaller number)
+           comes up from below, a worse one drops in from above. */
+        @keyframes rankRollUp {
+          0%   { transform: translateY(105%); opacity: 0; }
+          60%  { transform: translateY(-8%);  opacity: 1; }
+          100% { transform: translateY(0);    opacity: 1; }
+        }
+        @keyframes rankRollDown {
+          0%   { transform: translateY(-105%); opacity: 0; }
+          60%  { transform: translateY(8%);    opacity: 1; }
+          100% { transform: translateY(0);     opacity: 1; }
+        }
+        @keyframes rankFadeIn {
+          0%   { transform: scale(0.5); opacity: 0; }
+          50%  { transform: scale(1.15); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes arrowPopUp {
+          0%   { transform: translateY(3px) scale(0.8); opacity: 0.4; }
+          45%  { transform: translateY(-3px) scale(1.2); opacity: 1; }
+          100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        @keyframes arrowPopDown {
+          0%   { transform: translateY(-3px) scale(0.8); opacity: 0.4; }
+          45%  { transform: translateY(3px) scale(1.2); opacity: 1; }
+          100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        /* The wager comes OUT OF the score widget: it is revealed left-to-right from
+           the shared edge, so it reads as sliding out of the score rather than fading
+           in next to it. Removal reverses the reveal, back into the score.
+           clip-path rather than scaleX on purpose - scaling the panel would squash the
+           amount and the lock icon while it is still narrow. */
+        @keyframes wagerIn {
+          0%   { clip-path: inset(0 100% 0 0); }
+          100% { clip-path: inset(0 0 0 0); }
+        }
+        @keyframes wagerOut {
+          0%   { clip-path: inset(0 0 0 0); }
+          100% { clip-path: inset(0 100% 0 0); opacity: 0; }
+        }
+        /* Respect the OS setting - this widget animates on every reward, which is
+           exactly the kind of motion that setting exists for. */
+        @media (prefers-reduced-motion: reduce) {
+          .rank-widget, .rank-widget * {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+          }
+        }
       `}</style>
       
+      {/* Tooltip for unranked Day - outside overflow-hidden so it's visible */}
+      {showDayTip && dailyRank <= 0 && (
+        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-72 p-3 bg-[#FFF8E7] border border-[#E36B11]/30 rounded-lg shadow-xl z-[100]">
+          <p className="text-xs text-gray-700 leading-relaxed">
+            <strong className="text-[#E36B11]">Tip:</strong> {isLoggedIn ? (
+              <>You appear in the daily ranking once you've earned positive points today. Wrong answers and lost battles reduce your daily score.</>
+            ) : (
+              <><button onClick={onShowLogin} className="text-[#E36B11] underline hover:no-underline">Log in</button> to appear in the daily ranking and compete with other players.</>
+            )}
+          </p>
+        </div>
+      )}
+
       {/* Main container - Coins & Rankings with own hover group */}
       <div 
         onClick={onClick}
@@ -220,7 +421,9 @@ export default function DesktopRankWidget({
             src="/images/bogxcoin.png" 
             alt="" 
             className={`relative w-10 h-10 -my-2 shrink-0 transition-all ${!active ? 'group-hover/main:brightness-0 group-hover/main:invert' : ''}`}
-            style={coinAnim ? { animation: 'coinSpin 0.9s ease-out' } : undefined}
+            style={coinAnim
+              ? { animation: coinAnim === 'up' ? 'coinSpinWin 1.1s ease-out' : 'coinSpinLoss 0.9s ease-in-out' }
+              : undefined}
           />
           <div className="relative flex flex-col justify-center">
             <span className={`text-lg font-display tabular-nums leading-none transition-all duration-300 ${
@@ -234,11 +437,31 @@ export default function DesktopRankWidget({
           </div>
         </div>
         
-        {/* Rank Positions Section */}
-        <div className={`flex items-center gap-3 px-3 py-2 transition-colors ${active ? 'border-white/20' : 'border-[#E36B11]/10 group-hover/main:border-white/20'}`}>
-          <RankPosition value={dailyRank} label="Day" isActive={active} change={dailyChange} />
-          <RankPosition value={monthlyRank} label="Month" isActive={active} change={monthlyChange} />
-          <RankPosition value={yearlyRank} label="Year" isActive={active} change={yearlyChange} />
+        {/* Rank Positions Section - or Break Timer during reset */}
+        <div className={`relative flex items-center gap-3 px-3 py-2 transition-colors ${active ? 'border-white/20' : 'border-[#E36B11]/10 group-hover/main:border-white/20'}`}>
+          {isBreakTime && breakCountdown ? (
+            // Show countdown timer during break
+            <>
+              <div className={`flex items-center gap-1.5 ${active ? 'text-white/60' : 'text-[#E36B11]'}`}>
+                <span className="text-[10px] font-display uppercase">Next Game In</span>
+              </div>
+              <div className="flex items-center gap-1">
+                {breakCountdown.split(':').map((part, i) => (
+                  <div key={i} className="flex flex-col items-center">
+                    <span className={`font-display text-lg font-bold leading-none ${active ? 'text-white' : 'text-[#E36B11]'}`}>{part}</span>
+                    <span className={`text-[8px] uppercase ${active ? 'text-white/50' : 'text-gray-400'}`}>{['Min', 'Sec', 'Ms'][i]}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            // Normal rank positions
+            <>
+              <RankPosition value={dailyRank} label="Day" isActive={active} change={dailyChange} onHoverChange={setShowDayTip} />
+              <RankPosition value={monthlyRank} label="Month" isActive={active} change={monthlyChange} />
+              <RankPosition value={yearlyRank} label="Year" isActive={active} change={yearlyChange} />
+            </>
+          )}
         </div>
       </div>
       
@@ -249,10 +472,15 @@ export default function DesktopRankWidget({
             e.stopPropagation();
             onWagerClick?.();
           }}
-          className={`group/wager relative flex items-center gap-2 px-3 py-2 rounded-r-lg border border-l-2 border-[#6366F1]/30 shadow-sm transition-all duration-300 cursor-pointer bg-gradient-to-b from-[#FFFDF9] to-[#FDF8F0] ${
-            wagerAnim === 'in' ? 'animate-fade-in' : 
-            wagerAnim === 'out' ? 'opacity-0' : 'opacity-100'
-          } hover:from-[#6366F1] hover:to-[#4F46E5] hover:border-[#6366F1]`}
+          // Only an actual removal retracts. A reduced-but-still-open wager keeps
+          // its red/green colour cue but slides out again, otherwise `forwards` would
+          // leave it clipped away and it would pop back when the state resets.
+          style={
+            pendingAmount === 0 ? { animation: 'wagerOut 0.45s ease-in forwards' }
+            : wagerAnim ? { animation: 'wagerIn 0.55s cubic-bezier(0.22, 1, 0.36, 1)' }
+            : undefined
+          }
+          className={`group/wager relative flex items-center gap-2 px-3 py-2 rounded-r-lg border border-l-2 border-[#6366F1]/30 shadow-sm transition-all duration-300 cursor-pointer bg-gradient-to-b from-[#FFFDF9] to-[#FDF8F0] origin-left hover:from-[#6366F1] hover:to-[#4F46E5] hover:border-[#6366F1]`}
         >
           {/* Wager background */}
           <div className={`absolute inset-0 rounded-r-lg transition-all group-hover/wager:opacity-0 ${
@@ -271,7 +499,7 @@ export default function DesktopRankWidget({
               wagerAnim === 'out' ? 'text-green-500 scale-110' : 
               'text-gray-800'
             }`}>
-              {pendingAmount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {displayAmount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
             <span className="text-[9px] font-display uppercase text-gray-400 transition-colors group-hover/wager:text-white/70">Wager</span>
           </div>

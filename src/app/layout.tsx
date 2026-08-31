@@ -23,6 +23,15 @@ export const metadata: Metadata = {
   title: "BOGX - Best of GenX",
   description: "Test your retro knowledge - 80s, 90s, Early 2000s!",
   manifest: "/manifest.json",
+  // SOFT LAUNCH: No indexing, but Google Ads can verify
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: {
+      index: false,
+      follow: false,
+    },
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",

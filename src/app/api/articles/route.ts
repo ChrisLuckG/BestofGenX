@@ -241,9 +241,11 @@ export async function POST(request: NextRequest) {
       const authorUser = await User.findById(specificAuthorId).select('username displayName avatar').lean<any>();
       if (authorUser) {
         authorId = specificAuthorId;
-        authorName = authorUser.displayName || authorUser.username || 'BOGX Team';
+        // Prefer displayName, then username, then body.authorName (passed by caller), then fallback
+        authorName = authorUser.displayName || authorUser.username || body.authorName || 'BOGX Team';
         authorAvatar = authorUser.avatar || '';
       } else {
+        // User not found in DB - use the name passed by the caller
         authorId = specificAuthorId;
         authorName = body.authorName || 'BOGX Team';
         authorAvatar = body.authorAvatar || '';

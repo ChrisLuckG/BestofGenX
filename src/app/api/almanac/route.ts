@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
     const countryBorn = searchParams.get('countryBorn');
     const aliveStatus = searchParams.get('aliveStatus');
     const birthdayToday = searchParams.get('birthdayToday');
+    const birthMonth = searchParams.get('birthMonth'); // 1-12 for filtering by birth month
     
     if (type === 'people') {
       const query: any = {};
@@ -57,6 +58,11 @@ export async function GET(request: NextRequest) {
         query.$and = [...(query.$and || []), { $or: [{ died: { $exists: false } }, { died: null }, { died: '' }] }];
       } else if (aliveStatus === 'deceased') {
         query.died = { $exists: true, $ne: null, $gt: '' };
+      }
+      // Filter by birth month (1-12)
+      if (birthMonth) {
+        const mm = String(parseInt(birthMonth)).padStart(2, '0');
+        query.born = { ...(query.born || {}), $regex: `-${mm}-` };
       }
       
       const people = await Person.find(query).lean();

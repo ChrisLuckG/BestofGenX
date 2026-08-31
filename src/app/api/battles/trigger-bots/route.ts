@@ -7,11 +7,11 @@ import { TOPIC_TO_THEME } from '@/lib/battleTopics';
 
 // NOTE: culture removed - not enough DB questions for this theme yet
 const TOPICS = ['sport', 'music', 'film', 'fashion', 'games', 'tv'];
-// BOGX wager amounts - Bots use various wagers
+// BOGX wager amounts - 3 rounds for ≤0.75, 5 rounds for >0.75
 const WAGERS = [
   { amount: 0.25, rounds: 3 },
   { amount: 0.50, rounds: 3 },
-  { amount: 0.75, rounds: 5 },
+  { amount: 0.75, rounds: 3 },
   { amount: 1.00, rounds: 5 },
 ];
 
@@ -104,13 +104,6 @@ async function ensureShadowHunterBattle(): Promise<{ created: boolean; joined: b
     const creator = openUserBattle.creator as any;
     // Only join if creator is NOT a bot (real user), and it can afford the wager
     if (!creator?.isBot && (shadowHunter.bogxCoins || 0) >= openUserBattle.wager) {
-      openUserBattle.opponent = shadowHunter._id;
-      openUserBattle.status = 'active';
-      openUserBattle.acceptedAt = new Date();
-      openUserBattle.acceptedVia = 'trigger-bots:ensureShadowHunterBattle';
-      console.log('[BATTLE JOIN] trigger-bots ShadowHunter joined', openUserBattle._id.toString(),
-        'creator=', (creator as any)?.username, 'createdAt=', openUserBattle.createdAt);
-
       // CRITICAL: simulate the bot's answers immediately upon joining.
       // Without this, the bot becomes "opponent" but never actually plays,
       // leaving the real creator's battle permanently stuck waiting for an
@@ -124,14 +117,38 @@ async function ensureShadowHunterBattle(): Promise<{ created: boolean; joined: b
         const points = correct ? Math.round(300 * pct) : 0;
         return { round: idx, correct, timeMs, points };
       });
-      openUserBattle.opponentResults = opponentResults;
-      openUserBattle.opponentTotalPoints = opponentResults.reduce((sum: number, r: any) => sum + r.points, 0);
 
-      // Deduct the bot's wager, matching every other bot-join path
-      await User.findByIdAndUpdate(shadowHunter._id, { $inc: { bogxCoins: -openUserBattle.wager } });
+      // Claim the battle atomically on `status: 'open'`.
+      //
+      // The previous read-modify-`save()` was a lost update: a real user could accept
+      // the battle between the findOne above and the save below, and the bot's save
+      // then overwrote `opponent` and `status` with its own values. The user's wager
+      // had already been deducted by the accept route, so they ended up paying for a
+      // battle that now belonged to creator + bot - and every later call answered
+      // "You are not part of this battle". Note /api/battles/trigger-bots runs on
+      // every BattlesPage mount, i.e. exactly while users are accepting battles.
+      const claimed = await Battle.findOneAndUpdate(
+        { _id: openUserBattle._id, status: 'open' },
+        {
+          $set: {
+            opponent: shadowHunter._id,
+            status: 'active',
+            acceptedAt: new Date(),
+            acceptedVia: 'trigger-bots:ensureShadowHunterBattle',
+            opponentResults,
+            opponentTotalPoints: opponentResults.reduce((sum: number, r: any) => sum + r.points, 0),
+          },
+        },
+        { new: true }
+      );
 
-      await openUserBattle.save();
-      result.joined = true;
+      if (claimed) {
+        console.log('[BATTLE JOIN] trigger-bots ShadowHunter joined', openUserBattle._id.toString(),
+          'creator=', (creator as any)?.username, 'createdAt=', openUserBattle.createdAt);
+        // Only after the claim succeeded - otherwise the bot pays for nothing.
+        await User.findByIdAndUpdate(shadowHunter._id, { $inc: { bogxCoins: -openUserBattle.wager } });
+        result.joined = true;
+      }
     }
   }
   
@@ -293,12 +310,6 @@ export async function POST(request: NextRequest) {
           
           // Don't join if creator is also a bot (avoid bot vs bot)
           if (!creator?.isBot) {
-            openBattle.opponent = bot._id;
-            openBattle.status = 'active';
-            openBattle.acceptedAt = new Date();
-            openBattle.acceptedVia = 'trigger-bots:botLoop';
-            console.log('[BATTLE JOIN] trigger-bots bot joined', openBattle._id.toString(), 'bot=', bot.username);
-
             // Simulate the bot's answers immediately upon joining — without
             // this the battle gets permanently stuck waiting for an
             // opponent who can never finish (same bug as ShadowHunter's join path).
@@ -310,17 +321,31 @@ export async function POST(request: NextRequest) {
               const points = correct ? Math.round(300 * pct) : 0;
               return { round: idx, correct, timeMs, points };
             });
-            openBattle.opponentResults = opponentResults;
-            openBattle.opponentTotalPoints = opponentResults.reduce((sum: number, r: any) => sum + r.points, 0);
 
-            await openBattle.save();
-            
-            // Deduct wager
-            await User.findByIdAndUpdate(bot._id, {
-              $inc: { bogxCoins: -openBattle.wager }
-            });
-            
-            results.battlesJoined++;
+            // Atomic claim - see the ShadowHunter path above for why a plain
+            // save() here silently stole battles a real user had just accepted.
+            const claimed = await Battle.findOneAndUpdate(
+              { _id: openBattle._id, status: 'open' },
+              {
+                $set: {
+                  opponent: bot._id,
+                  status: 'active',
+                  acceptedAt: new Date(),
+                  acceptedVia: 'trigger-bots:botLoop',
+                  opponentResults,
+                  opponentTotalPoints: opponentResults.reduce((sum: number, r: any) => sum + r.points, 0),
+                },
+              },
+              { new: true }
+            );
+
+            if (claimed) {
+              console.log('[BATTLE JOIN] trigger-bots bot joined', openBattle._id.toString(), 'bot=', bot.username);
+              await User.findByIdAndUpdate(bot._id, {
+                $inc: { bogxCoins: -openBattle.wager }
+              });
+              results.battlesJoined++;
+            }
           }
         }
       }

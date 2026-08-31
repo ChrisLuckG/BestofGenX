@@ -120,7 +120,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
     containerTheme?: string,
     customColor?: string, // Custom hex color when containerTheme is 'custom'
     containerBlocks?: {
-      type: 'MAIN' | '2H' | 'FIXED' | 'SLIDER' | 'VERTICAL' | 'SOCIAL';
+      type: 'MAIN' | '2H' | 'FIXED' | 'SLIDER' | 'VERTICAL' | 'SOCIAL' | 'VIDEO';
       articleId?: string | null;
       articleId2?: string | null;
       articles?: string[];
@@ -129,6 +129,8 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
       autoFill?: 'latest' | 'history' | 'category';
       autoFillCategory?: string;
       autoFillLimit?: number;
+      videoUrl?: string;
+      videoTitle?: string;
     }[]
   }[]>([]);
   const [savingTemplate, setSavingTemplate] = useState(false);
@@ -725,7 +727,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
     persistTemplateItems(newItems);
   };
 
-  const addBlockToContainer = (index: number, blockType: 'MAIN' | '2H' | 'FIXED' | 'SLIDER' | 'VERTICAL' | 'SOCIAL') => {
+  const addBlockToContainer = (index: number, blockType: 'MAIN' | '2H' | 'FIXED' | 'SLIDER' | 'VERTICAL' | 'SOCIAL' | 'VIDEO') => {
     const newItems = [...templateItems];
     const item = newItems[index];
     const blocks = item.containerBlocks || [];

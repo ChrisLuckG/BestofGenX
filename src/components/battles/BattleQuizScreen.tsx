@@ -157,8 +157,8 @@ export default function BattleQuizScreen({
           </div>
         </div>
 
-        {/* Question Card */}
-        <div className="border border-warm bg-cream rounded-xl p-4 sm:p-6 mb-4 sm:mb-5 flex items-center justify-center min-h-[80px] sm:min-h-[120px] animate-[fadeInUp_0.4s_0.1s_ease-out_backwards]">
+        {/* Question Card - no animation, always visible */}
+        <div className="border border-warm bg-cream rounded-xl p-4 sm:p-6 mb-4 sm:mb-5 flex items-center justify-center min-h-[80px] sm:min-h-[120px]">
           <h2 className="font-display text-lg sm:text-2xl text-gray-900 text-center leading-snug tracking-wide">
             {question?.question}
           </h2>

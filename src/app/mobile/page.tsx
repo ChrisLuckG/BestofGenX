@@ -40,9 +40,11 @@ import NoFundsModal from "@/components/NoFundsModal";
 import PushNotifications from "@/components/PushNotifications";
 import SummaryCard from "@/components/games/SummaryCard";
 import CheckoutSuccessModal from "@/components/CheckoutSuccessModal";
+import OpenBattlesModal from "@/components/OpenBattlesModal";
+
 import DevLockScreen from "@/components/DevLockScreen";
 import StaticPageInline from "@/components/StaticPageInline";
-import InstallBanner from "@/components/InstallBanner";
+
 import ArticlePage from "@/components/ArticlePage";
 import CommunitySoundPage from "@/components/CommunitySoundPage";
 import AuthorPage from "@/components/AuthorPage";
@@ -52,6 +54,7 @@ import WelcomeBackModal, { WelcomeBackRankChange } from "@/components/WelcomeBac
 import { useAuth } from "@/context/AuthContext";
 import { useBogxCoins } from "@/hooks/useBogxCoins";
 import { usePendingWager } from "@/hooks/usePendingWager";
+import { useLiveRankings } from "@/hooks/useLiveRankings";
 import { useSearchParams } from "next/navigation";
 
 // Active bet type (for betting games)
@@ -158,7 +161,13 @@ export default function MobilePage() {
   // Central BOGX hook - same source of truth on Desktop AND Mobile
   const { coins, setCoins } = useBogxCoins(user?.id);
   // Pending wager indicator - global source of truth (same on mobile & desktop)
-  const { hasPendingWager } = usePendingWager(user?.id);
+  const { hasPendingWager, pendingAmount } = usePendingWager(user?.id);
+  // Live rankings for header score widget - stable date to avoid re-fetching
+  const widgetToday = useMemo(() => new Date(), []);
+  const { currentUserEntry: dailyUserEntry, loading: dailyLoading } = useLiveRankings({ period: 'day', selectedDate: widgetToday, userId: user?.id });
+  const { currentUserEntry: monthlyUserEntry, loading: monthlyLoading } = useLiveRankings({ period: 'month', selectedDate: widgetToday, userId: user?.id });
+  const { currentUserEntry: yearlyUserEntry, loading: yearlyLoading } = useLiveRankings({ period: 'year', selectedDate: widgetToday, userId: user?.id });
+  const isLoadingRanks = dailyLoading || monthlyLoading || yearlyLoading;
   const [activeTab, setActiveTab] = useState<NavTab>("home");
   const [previousTab, setPreviousTab] = useState<NavTab>("home"); // Track previous tab for toggle back
   const [articlesCategoryFilter, setArticlesCategoryFilter] = useState<string>('all');
@@ -197,17 +206,6 @@ export default function MobilePage() {
   useEffect(() => {
     if (arcadeGame !== 'bogxinvaders') setGameFullscreen(false);
   }, [arcadeGame]);
-  const [radioOpen, setRadioOpen] = useState(false);
-  const eqBarsMobile = useMemo(() =>
-    Array.from({ length: 40 }).map((_, i) => ({
-      duration: `${(0.3 + Math.random() * 0.4).toFixed(2)}s`,
-      delay: `${((i * 0.02) % 0.3).toFixed(2)}s`,
-      height: `${Math.floor(30 + Math.random() * 70)}%`,
-    })), []);
-  const [activeStation, setActiveStation] = useState<string>('techno');
-  const [showSongRequest, setShowSongRequest] = useState(false);
-  const [songRequestData, setSongRequestData] = useState({ playlist: '', band: '', song: '', link: '' });
-  const [songRequestSent, setSongRequestSent] = useState(false);
   
   // Radio stations - loaded from DB
   const [radioStations, setRadioStations] = useState<{_id: string; name: string; description: string; playlistId: string; imageUrl?: string}[]>([]);
@@ -266,6 +264,11 @@ export default function MobilePage() {
   const [welcomeLoading, setWelcomeLoading] = useState(true);
   const [showLogoutToast, setShowLogoutToast] = useState(false);
   const [pendingBattleId, setPendingBattleId] = useState<string | null>(null);
+  // Battle to open the "Battle Challenge!" confirm modal for, from a raw push
+  // notification tap. See handling below for why this doesn't go through
+  // pendingBattleId directly.
+  const [initialChallengeBattleId, setInitialChallengeBattleId] = useState<string | null>(null);
+  const [showOpenBattlesModal, setShowOpenBattlesModal] = useState(false);
   const [pushToast, setPushToast] = useState<{ title: string; body: string; url?: string } | null>(null);
   const [openArticleId, setOpenArticleId] = useState<string | null>(null);
   const [showCommunitySound, setShowCommunitySound] = useState(false);
@@ -316,20 +319,27 @@ export default function MobilePage() {
   const [isBattleActive, setIsBattleActive] = useState(false); // Block tab switching during active battle
     
   const searchParams = useSearchParams();
-  
-  // Check for URL parameters (checkout, tab from push notification)
-  useEffect(() => {
-    const checkout = searchParams.get('checkout');
-    const tab = searchParams.get('tab');
-    const ref = searchParams.get('ref');
-    const battleParam = searchParams.get('battle');
 
-    // Deep-link from a battle-challenge push: go straight to the battle intro
+  // Shared by two callers: the URL-param effect below (cold start / full page
+  // load, e.g. clicking a push notification while the app wasn't running) and
+  // the SW postMessage handler further down (app already running in the
+  // background, where the OS just brings it to the foreground with no URL
+  // change - see the NOTIFICATION_NAVIGATE case for why that path exists).
+  const applyDeepLinkParams = (params: URLSearchParams) => {
+    const checkout = params.get('checkout');
+    const tab = params.get('tab');
+    const ref = params.get('ref');
+    const battleParam = params.get('battle');
+
+    // Deep-link from a battle-challenge push. This must NOT set pendingBattleId
+    // directly - that path accepts the challenge (deducting the wager) and drops
+    // the player straight into gameplay with no confirmation, which from the
+    // outside looks like the app "popped" them into a battle instead of guiding
+    // them there. Route through the notifications tab's challenge modal instead,
+    // the same confirm-before-you-play step a manual notification click gets.
     if (battleParam) {
-      setPendingBattleId(battleParam);
-      setArcadeGame('quizzbattle');
-      setActiveTab('arcade');
-      window.history.replaceState({}, '', '/mobile');
+      setInitialChallengeBattleId(battleParam);
+      setActiveTab('notifications');
       return;
     }
 
@@ -337,28 +347,32 @@ export default function MobilePage() {
     if (ref && typeof window !== 'undefined') {
       localStorage.setItem('bogx_ref', ref);
     }
-    
+
     if (checkout === 'success') {
       // Prevent re-triggering if already showing
       if (showCheckoutSuccess) return;
-      const sessionId = searchParams.get('session_id');
-      setCheckoutSessionId(sessionId);
+      setCheckoutSessionId(params.get('session_id'));
       setShowCheckoutSuccess(true);
       setActiveTab('shop');
-      window.history.replaceState({}, '', '/mobile');
     } else if (checkout === 'cancelled') {
       setActiveTab('shop');
-      window.history.replaceState({}, '', '/mobile');
     } else if (tab === 'rankings') {
       // From results push notification - open rankings overlay
       setShowRankingsOverlay(true);
       setRankingsTab('ranking');
-      window.history.replaceState({}, '', '/mobile');
     } else if (tab === 'battles') {
       setArcadeGame('quizzbattle');
       setActiveTab('arcade');
+    }
+  };
+
+  // Check for URL parameters (checkout, tab from push notification)
+  useEffect(() => {
+    applyDeepLinkParams(searchParams);
+    if (searchParams.toString()) {
       window.history.replaceState({}, '', '/mobile');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, showCheckoutSuccess]);
   
   // Guest limit: after 5 games, show login card
@@ -715,7 +729,6 @@ export default function MobilePage() {
     setShowLoginRequired(false);
     setShowNoFunds(false);
     setShowJoinChallengePage(false);
-    setRadioOpen(false);
     setOpenArticleId(null);
     if (openRankrollData) setRankrollRefreshKey(k => k + 1);
     setOpenRankrollData(null);
@@ -746,7 +759,7 @@ export default function MobilePage() {
         break;
       case 'radio':
         sounds.modalOpen();
-        setRadioOpen(true);
+        setActiveTab('radio');
         break;
       case 'joinChallenge':
         sounds.modalOpen();
@@ -982,8 +995,7 @@ export default function MobilePage() {
   // Listen for CTA events from article links
   useEffect(() => {
     const handleOpenRadio = () => {
-      setRadioOpen(true);
-      setShowSongRequest(true);
+      setActiveTab('radio');
     };
     const handleOpenShop = () => {
       setOpenArticleId(null); // Close article first
@@ -1053,6 +1065,21 @@ export default function MobilePage() {
     if (!isLoggedIn) return;
     
     const handleServiceWorkerMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'NOTIFICATION_NAVIGATE' && event.data?.url) {
+        // Sent when the user taps a system notification while the app is
+        // already running (open in the background). WindowClient.navigate() -
+        // the other mechanism the service worker tries - is not supported in
+        // every browser (notably iOS Safari), where it silently failed and just
+        // brought the app to the foreground on whatever screen it already had
+        // open, with no deep link applied. This path does not depend on it.
+        try {
+          const target = new URL(event.data.url, window.location.origin);
+          applyDeepLinkParams(target.searchParams);
+        } catch (e) {
+          console.error('Failed to parse notification navigate URL:', e);
+        }
+        return;
+      }
       if (event.data?.type === 'NEW_NOTIFICATION') {
         console.log('🔔 New notification received via SW:', event.data);
         const notifData = event.data.data;
@@ -1091,10 +1118,10 @@ export default function MobilePage() {
     if (!mounted || !isLoggedIn || !user?.id || pushEnabled) return;
     if (activeTab === 'notifications') return; // Don't show on notification page
     
-    // Only show if app is installed (standalone mode) - otherwise InstallBanner handles it
+    // Only show if app is installed (standalone mode)
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
                         (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
-    if (!isStandalone) return; // Let InstallBanner handle non-installed users
+    if (!isStandalone) return;
     
     // Check how many times user has dismissed the reminder
     const dismissCount = parseInt(localStorage.getItem(`push_reminder_dismissed_${user.id}`) || '0');
@@ -1744,8 +1771,7 @@ export default function MobilePage() {
         maxHeight: '100vh',
       }}
     >
-      {/* Install PWA Banner */}
-      <InstallBanner />
+
       
       {/* Logged-in indicator subtle glow */}
       {isLoggedIn && (
@@ -1781,7 +1807,6 @@ export default function MobilePage() {
           setOpenArticleId(null); 
           setOpenRankrollData(null);
           setShowRankingsOverlay(false);
-          setRadioOpen(false); // Close radio
           // If already on notifications, go back
           if (activeTab === 'notifications') {
             setActiveTab(previousTab);
@@ -1795,7 +1820,12 @@ export default function MobilePage() {
           setOpenArticleId(null); 
           setOpenRankrollData(null);
           setShowRankingsOverlay(false);
-          setRadioOpen(false); // Close radio
+          if (!isLoggedIn) {
+            // Not logged in - show login popup instead of inline page
+            setLoginInitialView('login');
+            setShowLoginPage(true);
+            return;
+          }
           if (activeTab === 'profile') {
             setActiveTab(previousTab);
           } else {
@@ -1803,41 +1833,17 @@ export default function MobilePage() {
             setActiveTab('profile');
           }
         }}
-        onRadioClick={() => {
-          setOpenArticleId(null);
-          setOpenRankrollData(null);
-          setShowRankingsOverlay(false);
-          // If radio is open, close it
-          if (radioOpen) {
-            setRadioOpen(false);
-          } else {
-            // Close other header tabs, go back to previous normal tab
-            if (['notifications', 'profile', 'tv'].includes(activeTab)) {
-              // Save the tab before TV/News/Profile as previous
-              setActiveTab(previousTab);
-            }
-            setRadioOpen(true);
-          }
-        }}
-        onTVClick={() => {
-          setOpenArticleId(null);
-          setOpenRankrollData(null);
-          setShowRankingsOverlay(false);
-          setRadioOpen(false); // Close radio
-          if (activeTab === 'tv') {
-            setActiveTab(previousTab);
-          } else {
-            if (!['notifications', 'profile', 'tv'].includes(activeTab)) setPreviousTab(activeTab);
-            setActiveTab('tv');
-          }
-        }}
         notificationOpen={activeTab === 'notifications'}
         profileOpen={activeTab === 'profile'}
-        radioOpen={radioOpen}
-        tvOpen={activeTab === 'tv'}
         notificationsEnabled={notificationsEnabled}
         unreadCount={unreadNotifications}
         coinAnimation={coinAnimation.show ? { amount: coinAnimation.amount } : null}
+        dailyRank={dailyUserEntry?.rank || 0}
+        monthlyRank={monthlyUserEntry?.rank || 0}
+        yearlyRank={yearlyUserEntry?.rank || 0}
+        pendingAmount={pendingAmount}
+        isLoadingRanks={isLoadingRanks}
+        onWagerClick={() => setShowOpenBattlesModal(prev => !prev)}
       />
       </div>
 
@@ -1964,10 +1970,8 @@ export default function MobilePage() {
       )}
 
       {/* Main Content Area - flex-1 to fill space between header and footer */}
-      {/* Slides left when radio panel is open */}
       <div 
-        className="flex-1 mt-14 overflow-hidden relative transition-transform duration-300 ease-out"
-        style={{ transform: radioOpen ? 'translateX(-85%)' : undefined }}
+        className="flex-1 mt-[72px] overflow-hidden relative"
       >
         
         {/* Rankings Overlay - opened via score click, above article */}
@@ -1996,7 +2000,7 @@ export default function MobilePage() {
           <div className="absolute inset-x-0 bottom-0 top-2 z-50 bg-cream">
             <CommunitySoundPage
               onBack={() => setShowCommunitySound(false)}
-              onOpenRadio={() => { setShowCommunitySound(false); setRadioOpen(true); }}
+              onOpenRadio={() => { setShowCommunitySound(false); setActiveTab('radio'); }}
             />
           </div>
         )}
@@ -2022,7 +2026,7 @@ export default function MobilePage() {
               onShowLogin={() => { closeAllOverlays(); setShowLoginRequired(true); }}
               onOpenAuthor={(authorName) => setOpenAuthorName(authorName)}
               onOpenArticle={(id) => setOpenArticleId(id)}
-              onOpenRadio={() => { setOpenArticleId(null); setRadioOpen(true); }}
+              onOpenRadio={() => { setOpenArticleId(null); setActiveTab('radio'); }}
               readArticles={rewardedArticles}
               onCoinAnimation={(amount) => {
                 // Points are already saved in the API, just update local state and show animation
@@ -2152,7 +2156,7 @@ export default function MobilePage() {
                 onShowBattles={() => setArcadeGame('quizzbattle')}
                 battleAlertCount={pendingChallengeCount + activeBattleCount}
                 userId={user?.id}
-                onCoinsChange={(amount) => { setCoins(prev => prev + amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }}
+                onCoinsChange={(amount, variant) => { setCoins(prev => prev + amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount, variant }); }}
                 onPlaySpecificBattle={(battleId) => { setPendingBattleId(battleId); setArcadeGame('quizzbattle'); }}
               />
             )
@@ -2193,6 +2197,11 @@ export default function MobilePage() {
           {activeTab === "shop" && <ShopPage coins={coins} onCoinsUsed={(amount) => { setCoins(prev => prev - amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount: -amount }); }} />}
         </div>
         
+        {/* Radio Tab */}
+        <div className={`absolute inset-0 transition-opacity duration-150 ${activeTab === "radio" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"}`}>
+          {activeTab === "radio" && <CommunitySoundPage />}
+        </div>
+        
         {/* TV Tab */}
         <div className={`absolute inset-0 transition-opacity duration-150 ${activeTab === "tv" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"}`}>
           {activeTab === "tv" && <TVPage />}
@@ -2207,12 +2216,14 @@ export default function MobilePage() {
         <div className={`absolute inset-0 transition-opacity duration-150 ${activeTab === "notifications" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"}`}>
           {activeTab === "notifications" && (
             <NotificationPage 
-              onGoToProfile={() => setActiveTab('profile')}
+              onGoToProfile={() => { if (isLoggedIn) setActiveTab('profile'); else { setLoginInitialView('login'); setShowLoginPage(true); } }}
               onGoToBattle={(battleId) => {
                 setPendingBattleId(battleId);
                 setArcadeGame('quizzbattle');
                 setActiveTab('arcade');
               }}
+              initialChallengeId={initialChallengeBattleId}
+              onInitialChallengeHandled={() => setInitialChallengeBattleId(null)}
               autoEnable={notificationAutoEnable}
               onNewNotification={() => {}}
               onPointsAwarded={(amount) => {
@@ -2239,273 +2250,9 @@ export default function MobilePage() {
           )}
         </div>
         
-        {/* Profile Tab */}
+        {/* Profile Tab - only shows ProfilePage when logged in */}
         <div className={`absolute inset-0 transition-opacity duration-150 ${activeTab === "profile" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"}`}>
-          {activeTab === "profile" && (
-            isLoggedIn ? <ProfilePage coins={coins} /> : <LoginPage isOpen={true} onClose={() => setActiveTab(previousTab)} onSuccess={() => {}} />
-          )}
-        </div>
-      </div>
-
-      {/* Radio Panel - Slides in from right */}
-      <div 
-        className={`fixed top-16 right-0 bottom-0 w-[85%] bg-cream z-[60] transition-transform duration-300 ease-out border-l border-warm ${
-          radioOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
-        }`}
-      >
-        <div className="h-full flex flex-col">
-          {/* Radio Header with Equalizer */}
-          <div className="px-4 pt-4 pb-3 border-b border-warm">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-[#E36B11] flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                </svg>
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-display text-base text-gray-900 tracking-wide">Radio</h3>
-                <p className="text-[10px] text-gray-500">Pick a station, press play & enjoy</p>
-              </div>
-              <button 
-                onClick={() => setRadioOpen(false)}
-                className="w-8 h-8 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 hover:text-gray-900 transition-colors flex-shrink-0"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            {/* Mini Equalizer */}
-            <div className="flex items-end justify-between w-full h-5 gap-[1px]">
-              {eqBarsMobile.map((bar, i) => (
-                <div
-                  key={i}
-                  className="bg-gradient-to-t from-[#E36B11]/50 to-[#E5A55A]/30 rounded-t-sm flex-1"
-                  style={{
-                    animation: `eqMobile ${bar.duration} ease-in-out ${bar.delay} infinite alternate`,
-                    height: bar.height,
-                  }}
-                />
-              ))}
-            </div>
-            <style>{`
-              @keyframes eqMobile {
-                0% { height: 20%; }
-                100% { height: 100%; }
-              }
-            `}</style>
-          </div>
-
-          {/* GenX Stations Label */}
-          <div className="px-4 pt-3 pb-2 flex items-center gap-2">
-            <svg className="w-4 h-4 text-[#E36B11]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-            </svg>
-            <span className="font-display text-xs text-[#E36B11] uppercase tracking-wider">GenX Stations</span>
-          </div>
-          
-          {/* Station List */}
-          <div className="flex-1 overflow-y-auto px-4" style={{ scrollbarWidth: 'none' }}>
-            <div className="space-y-1">
-              {radioStations.map((station) => (
-                <button
-                  key={station._id}
-                  onClick={() => {
-                    const spotifyUrl = `https://open.spotify.com/playlist/${station.playlistId}`;
-                    window.open(spotifyUrl, '_blank', 'noopener,noreferrer');
-                    setRadioOpen(false);
-                  }}
-                  className="w-full flex items-center gap-3 py-2.5 text-left group"
-                >
-                  {station.imageUrl ? (
-                    <img 
-                      src={station.imageUrl} 
-                      alt={station.name}
-                      className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#E36B11] to-[#B5672A] flex items-center justify-center flex-shrink-0">
-                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                      </svg>
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="font-display text-sm text-gray-900 truncate tracking-wide">
-                      <span className="font-light text-gray-400">Best of GenX - </span>
-                      <span className="font-bold">{station.name.replace('Best of GenX - ', '')}</span>
-                    </div>
-                    <div className="text-[10px] text-gray-900 truncate">{station.description}</div>
-                  </div>
-                  <div className="flex flex-col items-center flex-shrink-0">
-                    <span className="text-[9px] text-gray-400">Open in</span>
-                    <div className="flex items-center gap-0.5">
-                      <svg className="w-[14px] h-[14px] text-[#1DB954]" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
-                      </svg>
-                      <span className="text-[10px] font-medium text-[#1DB954]">Spotify</span>
-                    </div>
-                  </div>
-                  <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              ))}
-            
-            </div>
-
-            {/* Song Request Banner */}
-            <div className="mt-4 pt-4 border-t border-warm">
-              <div className="flex items-center gap-3 p-3 bg-[#E36B11]/10 rounded-xl border border-[#E36B11]/20 mb-3">
-                <div className="w-10 h-10 rounded-full bg-[#E36B11] flex items-center justify-center flex-shrink-0">
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                  </svg>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-display text-sm text-gray-900 tracking-wide">Suggest a Song</h4>
-                  <p className="text-[10px] text-gray-500">Your wish on our playlist</p>
-                </div>
-                <div className="flex flex-col items-end flex-shrink-0">
-                  <span className="px-2 py-0.5 bg-[#E36B11]/20 rounded text-[10px] font-bold text-[#E36B11]">+50 BOGX</span>
-                  <p className="text-[8px] text-gray-400 mt-0.5">if your song gets added</p>
-                </div>
-              </div>
-              
-              {!isLoggedIn ? (
-                /* Sign-up prompt for non-logged-in users */
-                <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-4 text-center">
-                  <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-[#E36B11]/20 flex items-center justify-center">
-                    <svg className="w-6 h-6 text-[#E36B11]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                    </svg>
-                  </div>
-                  <p className="text-white font-semibold text-sm mb-1">Become part of the community!</p>
-                  <p className="text-gray-400 text-xs mb-4">Suggest your favorite songs for our GenX playlists.</p>
-                  <button
-                    onClick={() => openOverlay('login', { loginView: 'signup' })}
-                    className="w-full py-2.5 rounded-lg font-bold text-sm bg-[#E36B11] text-white hover:bg-[#C4772A] transition-colors"
-                  >
-                    Sign up for free
-                  </button>
-                </div>
-              ) : (
-                /* Song request form for logged-in users */
-                <div className="space-y-3">
-                  {songRequestSent ? (
-                    <div className="text-center py-4 bg-[#E36B11]/5 rounded-xl">
-                      <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-green-500/20 flex items-center justify-center">
-                        <svg className="w-7 h-7 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                      <p className="font-bold text-gray-900">Your request is underway!</p>
-                      <p className="text-sm text-gray-500 mt-1">Our team will take it from here.</p>
-                      <button
-                        onClick={() => setSongRequestSent(false)}
-                        className="mt-3 text-xs text-[#E36B11] hover:underline"
-                      >
-                        Suggest another song
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      {/* Playlist Select */}
-                      <div className="relative">
-                        <select
-                          value={songRequestData.playlist}
-                          onChange={(e) => setSongRequestData({...songRequestData, playlist: e.target.value})}
-                          className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#E36B11]/50 appearance-none"
-                        >
-                          <option value="">Choose a playlist...</option>
-                          {radioStations.map((station) => (
-                            <option key={station._id} value={station.name}>{station.name}</option>
-                          ))}
-                        </select>
-                        <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-
-                      {/* Spotify Link Input */}
-                      <div className="relative">
-                        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                        </svg>
-                        <input
-                          type="url"
-                          value={songRequestData.link}
-                          onChange={async (e) => {
-                            const newLink = e.target.value;
-                            setSongRequestData(prev => ({...prev, link: newLink}));
-                            
-                            if (newLink.includes('spotify.com') && newLink.includes('track')) {
-                              try {
-                                const res = await fetch(`/api/spotify-info?url=${encodeURIComponent(newLink)}`);
-                                const data = await res.json();
-                                if (data.success) {
-                                  setSongRequestData(prev => ({
-                                    ...prev,
-                                    song: data.song || prev.song,
-                                    band: data.band || prev.band,
-                                  }));
-                                }
-                              } catch { /* ignore */ }
-                            }
-                          }}
-                          placeholder="Paste Spotify link..."
-                          className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#E36B11]/50"
-                        />
-                      </div>
-
-                      {/* Track Info */}
-                      {(songRequestData.band || songRequestData.song) && (
-                        <div className="flex gap-2 text-xs items-center">
-                          <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                          <span className="text-gray-900 font-medium truncate">{songRequestData.band} – {songRequestData.song}</span>
-                        </div>
-                      )}
-                      {songRequestData.link && !songRequestData.band && !songRequestData.song && (
-                        <div className="flex gap-2 text-xs">
-                          <span className="text-[#E36B11] animate-pulse">Loading track info...</span>
-                        </div>
-                      )}
-
-                      {/* Submit Button - ORANGE */}
-                      <button
-                        onClick={() => {
-                          if (songRequestData.playlist && songRequestData.band && songRequestData.song) {
-                            const payload = {
-                              userId: user?.id,
-                              username: user?.username,
-                              playlist: songRequestData.playlist.replace('Best of GenX - ', ''),
-                              band: songRequestData.band,
-                              song: songRequestData.song,
-                              link: songRequestData.link || null,
-                            };
-                            fetch('/api/song-request', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify(payload),
-                            }).catch((err) => console.error('Song request failed:', err));
-                            setSongRequestSent(true);
-                            setSongRequestData({ playlist: '', band: '', song: '', link: '' });
-                          }
-                        }}
-                        disabled={!songRequestData.playlist || !songRequestData.band || !songRequestData.song || !songRequestData.link}
-                        className="w-full py-3 rounded-xl font-bold text-sm transition-all disabled:bg-gray-300 disabled:text-gray-500 bg-[#E36B11] text-white hover:bg-[#C4772A] flex items-center justify-center gap-2"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                        </svg>
-                        Send request
-                      </button>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
+          {activeTab === "profile" && isLoggedIn && <ProfilePage coins={coins} />}
         </div>
       </div>
 
@@ -2605,6 +2352,8 @@ export default function MobilePage() {
       onClose={() => setShowLoginRequired(false)}
       onLogin={() => { setShowLoginRequired(false); setLoginInitialView('login'); setShowLoginPage(true); }}
       onRegister={() => { setShowLoginRequired(false); setLoginInitialView('signup'); setShowLoginPage(true); }}
+      title="Ready to join?"
+      message="Let's get you set up..."
     />
 
     {/* Login Page - Slide in from right */}
@@ -2702,7 +2451,21 @@ export default function MobilePage() {
         sessionId={checkoutSessionId || undefined}
       />
 
-      {/* Global Push Reminder - Matches InstallBanner style exactly */}
+      {/* Open Battles Modal - triggered by clicking wager in header */}
+      <OpenBattlesModal
+        isOpen={showOpenBattlesModal}
+        onClose={() => setShowOpenBattlesModal(false)}
+        userId={user?.id || ''}
+        onPlayBattle={(battleId) => {
+          setShowOpenBattlesModal(false);
+          setPendingBattleId(battleId);
+          setActiveTab('arcade');
+          setArcadeGame('quizzbattle');
+        }}
+      />
+
+
+      {/* Global Push Reminder */}
       {showPushReminder && (
         <div 
           className={`fixed left-0 right-0 z-[40] transition-all duration-300 ease-out ${

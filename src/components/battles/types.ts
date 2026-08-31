@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { Dumbbell, Music, Film, Shirt, Gamepad2, Tv } from "lucide-react";
+import { getTopicColor } from "@/lib/categories";
 
 // ═══════════════════════════════════════════════════════════════
 // BATTLE TYPES - Shared across all battle components
@@ -35,6 +36,7 @@ export interface Battle {
   creatorTotalPoints: number;
   opponentTotalPoints: number;
   winner?: string;
+  forfeitedBy?: string;
   isPrivate?: boolean;
   challengedUser?: string;
 }
@@ -60,13 +62,16 @@ export interface TopicConfig {
 }
 
 // NOTE: culture, art, food removed - not enough DB questions for these themes yet
+// Colours come from @/lib/categories - the same ids are rendered by
+// BattlesPage.tsx and by the editorial surfaces, and inlining hex values here is
+// what made one battle appear in two different colours.
 export const TOPICS: TopicConfig[] = [
-  { id: 'sport', label: 'Sport', icon: Dumbbell, color: '#22C55E' },    // Green
-  { id: 'music', label: 'Music', icon: Music, color: '#8B5CF6' },       // Purple
-  { id: 'film', label: 'Film', icon: Film, color: '#3B82F6' },          // Blue
-  { id: 'fashion', label: 'Fashion', icon: Shirt, color: '#EC4899' },   // Pink
-  { id: 'games', label: 'Games', icon: Gamepad2, color: '#10B981' },    // Emerald
-  { id: 'tv', label: 'TV', icon: Tv, color: '#EF4444' },                // Red
+  { id: 'sport', label: 'Sport', icon: Dumbbell, color: getTopicColor('sport') },
+  { id: 'music', label: 'Music', icon: Music, color: getTopicColor('music') },
+  { id: 'film', label: 'Film', icon: Film, color: getTopicColor('film') },
+  { id: 'fashion', label: 'Fashion', icon: Shirt, color: getTopicColor('fashion') },
+  { id: 'games', label: 'Games', icon: Gamepad2, color: getTopicColor('games') },
+  { id: 'tv', label: 'TV', icon: Tv, color: getTopicColor('tv') },
 ];
 
 export const getTopicConfig = (topicId: string): TopicConfig => {
@@ -77,13 +82,14 @@ export const getTopicConfig = (topicId: string): TopicConfig => {
 // WAGER CONFIG
 // ═══════════════════════════════════════════════════════════════
 
+// 3 rounds for ≤0.75 BOGX, 5 rounds for >0.75 BOGX
 export const WAGERS = [
   { amount: 0.25, rounds: 3 },
   { amount: 0.50, rounds: 3 },
-  { amount: 0.75, rounds: 5 },
+  { amount: 0.75, rounds: 3 },
   { amount: 1.00, rounds: 5 },
-  { amount: 2.50, rounds: 7 },
-  { amount: 5.00, rounds: 10 },
+  { amount: 2.50, rounds: 5 },
+  { amount: 5.00, rounds: 5 },
 ];
 
 // ═══════════════════════════════════════════════════════════════

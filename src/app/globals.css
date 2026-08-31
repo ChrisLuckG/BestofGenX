@@ -203,6 +203,16 @@ html {
   background-color: #EDE6DC;  /* Lighter skeleton */
 }
 
+/* News/notification row hover, belt and braces next to the `hover:bg-[#E36B11]`
+   utility on the same rows: the utility demonstrably filled the sidebar rows but
+   never the full-page ones, and the reason was never established. Keep both so
+   the fill cannot silently disappear again - a row that stays light while its
+   text turns white is an unreadable notification. */
+.news-item:hover {
+  background-color: var(--bogx-gold) !important;
+  border-color: var(--bogx-gold) !important;
+}
+
 /* Border Colors - warm tones */
 .border-warm {
   border-color: #E0D5C8;  /* Warm border - between cream and gold */
@@ -608,6 +618,17 @@ body {
   }
 }
 
+@keyframes slideDown {
+  0% {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
 /* Level timeline connector line - grows from left */
 @keyframes lineGrow {
   0% {
@@ -881,10 +902,10 @@ body {
 
 /* Challenge sent: subtle notification travelling from you to your opponent */
 @keyframes challengeFly {
-  0%   { left: 8%;  opacity: 0; transform: translateY(-50%) scale(0.7); }
-  15%  { opacity: 1; transform: translateY(-50%) scale(1); }
-  70%  { opacity: 1; transform: translateY(-50%) scale(1); }
-  100% { left: 92%; opacity: 0; transform: translateY(-50%) scale(0.7); }
+  0%   { left: 8%;  opacity: 0; transform: translateY(50%) scale(0.7); }
+  15%  { opacity: 1; transform: translateY(50%) scale(1); }
+  70%  { opacity: 1; transform: translateY(50%) scale(1); }
+  100% { left: 92%; opacity: 0; transform: translateY(50%) scale(0.7); }
 }
 
 @keyframes challengeTrail {

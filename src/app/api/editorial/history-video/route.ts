@@ -13,10 +13,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { query, year, excludeVideoId } = body as { 
+    const { query, year, excludeVideoId, context } = body as { 
       query: string; 
       year?: number;
       excludeVideoId?: string;
+      /** Event title + description, so the replacement is still about the event. */
+      context?: string;
     };
 
     if (!query) {
@@ -30,6 +32,7 @@ export async function POST(request: NextRequest) {
       query,
       year,
       excludeVideoId,
+      context,
       tiers: PREFER_LONG,
       maxResults: 15, // Get more results to find alternatives
       extraQueries: [
@@ -49,6 +52,7 @@ export async function POST(request: NextRequest) {
         query,
         year,
         excludeVideoId,
+        context,
         tiers: PREFER_LONG_THEN_ANY,
         maxResults: 20,
         extraQueries: [

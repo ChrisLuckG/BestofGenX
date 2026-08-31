@@ -189,6 +189,7 @@ export default function AdminPage() {
         {activeTab === 'articles' && <ArticlesTab userId={user?.id} />}
         {activeTab === 'users' && <UsersTab userId={user?.id} onGoToArticles={() => setActiveTab('articles')} />}
         {activeTab === 'rewards' && <RewardsTab />}
+        {/* Rankroll stays mounted for pending proposals from Conference */}
         {(activeTab === 'rankroll' || pendingRankrollTitle) && (
           <RankrollTab
             initialNewTitle={pendingRankrollTitle}
@@ -200,11 +201,18 @@ export default function AdminPage() {
         {activeTab === 'currency' && <CurrencyTab />}
         {activeTab === 'costs' && <CostsTab />}
         {activeTab === 'requests' && <RequestsTab onArticleCreated={() => setActiveTab('articles')} onStatusChange={fetchNewRequestsCount} />}
-                {activeTab === 'marketing' && <MarketingTab />}
-        {activeTab === 'tv' && <TVTab />}
+        {activeTab === 'marketing' && <MarketingTab />}
+        {/* TV stays mounted so video searches continue when switching tabs */}
+        <div className={activeTab === 'tv' ? '' : 'hidden'}>
+          <TVTab />
+        </div>
         {activeTab === 'mike' && <MikeTab />}
-        {activeTab === 'menschen' && <MenschenTab userId={user?.id} />}
-        {activeTab === 'conference' && (
+        {/* Menschen stays mounted so birthday searches continue when switching tabs */}
+        <div className={activeTab === 'menschen' ? '' : 'hidden'}>
+          <MenschenTab userId={user?.id} />
+        </div>
+        {/* Conference stays mounted so background searches continue when switching tabs */}
+        <div className={activeTab === 'conference' ? '' : 'hidden'}>
           <NewsroomConference
             userId={user?.id}
             onRankrollProposed={(title: string, description: string) => {
@@ -213,7 +221,7 @@ export default function AdminPage() {
               setPendingRankrollDescription(description);
             }}
           />
-        )}
+        </div>
       </div>
     </div>
   );

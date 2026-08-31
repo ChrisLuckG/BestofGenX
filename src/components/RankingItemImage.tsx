@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Play } from "lucide-react";
 
 interface RankingItemImageProps {
   image?: string;
@@ -98,13 +99,11 @@ export default function RankingItemImage({ image, videoUrl, rank, title, size = 
       >
         {rank.toString().padStart(2, "0")}
       </div>
-      {/* Play button overlay for YouTube videos */}
+      {/* Subtle play button overlay for YouTube videos */}
       {youtubeId && (
-        <div className="absolute inset-0 flex items-center justify-center hover:bg-black/20 transition-colors">
-          <div className={`rounded-full bg-red-600 flex items-center justify-center shadow-lg ${size === "large" ? "w-12 h-12" : "w-7 h-7"}`}>
-            <svg viewBox="0 0 24 24" fill="white" className={size === "large" ? "w-6 h-6 ml-0.5" : "w-3.5 h-3.5 ml-0.5"}>
-              <path d="M8 5v14l11-7z" />
-            </svg>
+        <div className="absolute inset-0 flex items-center justify-center hover:bg-black/10 transition-colors">
+          <div className={`rounded-full bg-black/30 flex items-center justify-center ${size === "large" ? "w-8 h-8" : "w-5 h-5"}`}>
+            <Play className={`text-white/70 ${size === "large" ? "w-4 h-4 ml-0.5" : "w-2.5 h-2.5 ml-0.5"}`} fill="currentColor" />
           </div>
         </div>
       )}

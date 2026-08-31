@@ -41,6 +41,9 @@ export interface IBattle extends Document {
   // Winner
   winner?: mongoose.Types.ObjectId;
   
+  // Set when a player forfeits (gives up mid-battle)
+  forfeitedBy?: mongoose.Types.ObjectId;
+  
   // Private battle (invite only, not shown in pool)
   isPrivate: boolean;
   
@@ -65,6 +68,17 @@ export interface IBattle extends Document {
   createdAt: Date;
   acceptedAt?: Date;
   completedAt?: Date;
+
+  /**
+   * Set when a player presses START on the preparing screen. From that moment the
+   * wager is committed: backing out is a forfeit, not a free cancel.
+   *
+   * WHY THIS EXISTS: the forfeit route used to treat "no answers submitted yet" as
+   * "never started", so a player could arm a battle, see the first question and walk
+   * away with a full refund - leaving the opponent's battle burnt for nothing.
+   */
+  creatorStartedAt?: Date;
+  opponentStartedAt?: Date;
 }
 
 const BattleSchema = new Schema<IBattle>({
@@ -126,6 +140,7 @@ const BattleSchema = new Schema<IBattle>({
   opponentTotalPoints: { type: Number, default: 0 },
   
   winner: { type: Schema.Types.ObjectId, ref: 'User' },
+  forfeitedBy: { type: Schema.Types.ObjectId, ref: 'User' },
   
   isPrivate: { type: Boolean, default: false },
   
@@ -142,7 +157,10 @@ const BattleSchema = new Schema<IBattle>({
   acceptedVia: String,
 
   acceptedAt: Date,
-  completedAt: Date
+  completedAt: Date,
+
+  creatorStartedAt: Date,
+  opponentStartedAt: Date
 }, {
   timestamps: true
 });

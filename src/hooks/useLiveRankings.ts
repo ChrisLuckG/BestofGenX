@@ -88,25 +88,32 @@ export function useLiveRankings({
     }
   }, [storageKey]);
 
+  // Depend on the resolved query string, not the Date object. Callers that pass
+  // an inline `new Date()` would otherwise change the dependency on every render
+  // and trigger an endless fetch loop (ERR_INSUFFICIENT_RESOURCES).
+  const isToday = isTodayDate(selectedDate);
+  const query = (() => {
+    const params = new URLSearchParams();
+    params.set("period", period);
+    if (period === "day" && !isToday) {
+      params.set("date", formatDateForApi(selectedDate, "day"));
+    } else if (period === "month") {
+      params.set("month", formatDateForApi(selectedDate, "month"));
+    } else if (period === "year") {
+      params.set("year", formatDateForApi(selectedDate, "year"));
+    }
+    return params.toString();
+  })();
+
   const fetchRankings = useCallback(
     async (silent = false) => {
       if (!silent) setLoading(true);
       try {
-        const params = new URLSearchParams();
-        params.set("period", period);
-        if (period === "day" && !isTodayDate(selectedDate)) {
-          params.set("date", formatDateForApi(selectedDate, "day"));
-        } else if (period === "month") {
-          params.set("month", formatDateForApi(selectedDate, "month"));
-        } else if (period === "year") {
-          params.set("year", formatDateForApi(selectedDate, "year"));
-        }
-
-        const res = await fetch(`/api/rankings/snapshot?${params.toString()}`);
+        const res = await fetch(`/api/rankings/snapshot?${query}`);
         if (!res.ok) return;
 
         const data = await res.json();
-        setIsLive(data.isLive || isTodayDate(selectedDate));
+        setIsLive(data.isLive || isToday);
 
         const players: RankingPlayer[] = (data.rankings || []).map((r: any, index: number) => {
           const id = r._id || r.oderId || `user-${index}`;
@@ -160,7 +167,7 @@ export function useLiveRankings({
         if (!silent) setLoading(false);
       }
     },
-    [period, selectedDate, userId, limit]
+    [query, isToday, storageKey, userId, limit]
   );
 
   // Initial load + reload when period/date/user changes
@@ -170,8 +177,7 @@ export function useLiveRankings({
 
   // Polling + instant refresh via bogx-updated event
   useEffect(() => {
-    const isLiveDay = period === "day" && isTodayDate(selectedDate);
-    const isCurrentMonthOrYear = period === "month" || period === "year";
+    const isLiveDay = period === "day" && isToday;
 
     // Day: fast poll + bogx-updated event
     // Month/Year: slow poll every 60s to pick up accumulated plays
@@ -187,7 +193,7 @@ export function useLiveRankings({
       clearInterval(interval);
       if (isLiveDay) window.removeEventListener("bogx-updated", onBogxUpdate);
     };
-  }, [period, selectedDate, pollIntervalMs, fetchRankings]);
+  }, [period, isToday, pollIntervalMs, fetchRankings]);
 
   // Derived helpers
   const currentUserEntry = rankings.find((p) => p.isCurrentUser) || null;

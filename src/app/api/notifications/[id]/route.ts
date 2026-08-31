@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import Notification from '@/models/Notification';
 import User from '@/models/User';
+import { WELCOME_NOTIFICATION_ID } from '@/lib/welcomeNotification';
 
 // DELETE - Delete/dismiss a notification permanently
 // Supports both DB notifications (notif-xxx) and virtual notifications (battle-result-xxx, prediction-result-xxx)
@@ -27,7 +28,8 @@ export async function DELETE(
     // We need to add them to user's dismissedNotifications array
     const isVirtualNotification = id.startsWith('battle-result-') || 
                                    id.startsWith('battle-active-') || 
-                                   id.startsWith('prediction-result-');
+                                   id.startsWith('prediction-result-') ||
+                                   id === WELCOME_NOTIFICATION_ID;
     
     if (isVirtualNotification) {
       if (!userId) {
