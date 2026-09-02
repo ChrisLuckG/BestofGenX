@@ -5,8 +5,8 @@ import GameResult from '@/models/GameResult';
 import { sendPushNotification } from '@/lib/webpush';
 import { sendEmail, createResultsEmail } from '@/lib/email';
 
-// This endpoint is called by Vercel Cron at 9:00 AM German time (7:00 UTC)
-// Sends push notification when game ends
+// This endpoint is called by Vercel Cron at 9:55 AM German time (7:55 UTC)
+// Sends push notification when game ends (break is 9:55-10:00)
 export async function GET(request: Request) {
   try {
     // Verify cron request

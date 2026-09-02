@@ -31,6 +31,34 @@ Pattern to follow: keep the client-safe helpers in their own module.
 See `src/lib/releaseCategory.ts` (client-safe) next to `src/lib/wikidataReleases.ts`
 (server-only, uses MongoDB for caching).
 
+## Ranking periods: a negative balance means NO rank
+
+`buildPeriodRankings` in `src/app/api/rankings/snapshot/route.ts` ends with
+`rankings.filter(r => r.points > 0)`. A player whose net `pointsChange` over the
+window is <= 0 is dropped from that leaderboard entirely — they are not sorted to
+the bottom, they simply have no rank.
+
+Day, month and year are independent windows over the same GameResult events
+(10:00 Berlin boundaries), so the three ranks routinely disagree, and that is
+correct behaviour rather than a bug. Measured for Bacon77 on 02.09.:
+day **+0.13 → #22**, month **−2.37 → no rank**, year **+101.56 → #2** — losses on
+the 1st outweighed the small gain on the 2nd.
+
+Therefore an unranked period must render as an explained "?", never as a bare "—":
+35 games played in the month looks identical to never having played. Do not "fix"
+this by removing the filter without asking — whether a negative player is listed
+last or not listed at all is a product decision about the leaderboard.
+
+The tooltip wording lives in `src/lib/rankPeriod.ts` and is used by BOTH
+`src/components/Header.tsx` (mobile, tap + 5s auto-close, no `mouseleave` on touch)
+and `src/components/desktop/DesktopRankWidget.tsx` (hover). Edit the helper, not the
+components: these two widgets already drifted apart once, which is how the day ended
+up with an explained "?" while month and year showed a silent "—".
+
+`scripts/diagnose-month-rank.ts` replicates the API's window maths and the
+`points > 0` filter for one user, which is the fastest way to answer
+"why do I have a day rank but no month rank".
+
 ## BOGX coin counter: optimistic vs. server value
 
 Two things write the balance: optimistic local updates (instant reward feedback,

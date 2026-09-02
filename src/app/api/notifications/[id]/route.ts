@@ -23,12 +23,11 @@ export async function DELETE(
     
     console.log('[DELETE NOTIFICATION]', id, 'userId:', userId);
     
-    // Check if this is a virtual notification (battle-result, battle-active, prediction-result)
-    // These are not stored in Notification collection, they're generated from Battles/Predictions
+    // Check if this is a virtual notification (battle-result, battle-active)
+    // These are not stored in Notification collection, they're generated from Battles
     // We need to add them to user's dismissedNotifications array
     const isVirtualNotification = id.startsWith('battle-result-') || 
                                    id.startsWith('battle-active-') || 
-                                   id.startsWith('prediction-result-') ||
                                    id === WELCOME_NOTIFICATION_ID;
     
     if (isVirtualNotification) {

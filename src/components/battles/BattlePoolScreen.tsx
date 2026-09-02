@@ -229,7 +229,7 @@ export default function BattlePoolScreen({
                       onClick={() => onCreateWagerChange(w.amount)}
                       className={`relative py-4 px-3 rounded-2xl transition-all duration-200 ${
                         isSelected
-                          ? 'bg-gradient-to-br from-[#A855F7] to-[#9333EA] text-white shadow-xl shadow-[#A855F7]/30 scale-[1.02] ring-2 ring-white/30'
+                          ? 'bg-[#A855F7] text-white shadow-xl shadow-[#A855F7]/30 scale-[1.02] ring-2 ring-white/30'
                           : 'bg-white border-2 border-warm text-gray-800 active:scale-[0.98]'
                       }`}
                     >
@@ -273,7 +273,7 @@ export default function BattlePoolScreen({
                       onClick={() => onCreateTopicChange(t.id)}
                       className={`relative py-3.5 font-display text-sm tracking-wider rounded-2xl transition-all duration-200 flex items-center justify-center gap-2 ${
                         isSelected
-                          ? 'bg-gradient-to-br from-[#A855F7] to-[#9333EA] text-white shadow-xl shadow-[#A855F7]/30'
+                          ? 'bg-[#A855F7] text-white shadow-xl shadow-[#A855F7]/30'
                           : 'bg-white border-2 border-warm text-gray-700 active:scale-[0.98]'
                       }`}
                     >
@@ -291,7 +291,7 @@ export default function BattlePoolScreen({
             </div>
             
             {/* Prize Pool Preview */}
-            <div className="flex items-center justify-between px-4 py-4 bg-gradient-to-r from-[#A855F7]/10 to-[#A855F7]/5 border border-[#A855F7]/20 rounded-2xl mb-4">
+            <div className="flex items-center justify-between px-4 py-4 bg-[#A855F7]/10 border border-[#A855F7]/20 rounded-2xl mb-4">
               <div className="flex items-center gap-2.5">
                 <div className="w-10 h-10 rounded-xl bg-[#A855F7]/20 flex items-center justify-center">
                   <Trophy className="w-5 h-5 text-[#A855F7]" />

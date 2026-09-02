@@ -4,14 +4,14 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Save, Loader2, Upload, Image as ImageIcon } from "lucide-react";
 
+// Slugs stay as they are - they are the DB keys and the public URLs. Only the
+// labels are English.
 const PAGE_TITLES: Record<string, string> = {
   'about': 'About Us / Who We Are',
-  'impressum': 'Impressum',
-  'datenschutz': 'Datenschutz',
-  'agb': 'AGB',
-  'kontakt': 'Kontakt',
-  'presse': 'Presse',
-  'karriere': 'Karriere',
+  'impressum': 'Imprint',
+  'datenschutz': 'Privacy Policy',
+  'agb': 'Terms & Conditions',
+  'kontakt': 'Contact',
 };
 
 export default function PageEditorPage() {

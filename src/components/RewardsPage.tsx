@@ -295,7 +295,7 @@ export default function RewardsPage({ isOpen, coins, onClose, onRedeem, embedded
               </div>
               <button 
                 onClick={onClose}
-                className="text-[10px] text-[#E36B11] font-medium"
+                className="text-[10px] font-display text-[#E36B11]"
               >
                 View All →
               </button>

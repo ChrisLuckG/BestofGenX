@@ -68,9 +68,19 @@ async function fetchPersonDataFromWikidata(name: string, birthYear: string): Pro
   countryDied?: string;
   causeOfDeath?: string;
   deathDate?: string;
+  twitter?: string;
+  instagram?: string;
+  facebook?: string;
+  youtube?: string;
+  tiktok?: string;
+  website?: string;
 } | null> {
+  // Wikidata properties for social media:
+  // P2002 = Twitter username, P2003 = Instagram username, P2013 = Facebook ID
+  // P2397 = YouTube channel ID, P7085 = TikTok username, P856 = official website
   const sparql = `
-    SELECT ?person ?personLabel ?birthPlaceLabel ?birthCountryLabel ?deathPlaceLabel ?deathCountryLabel ?causeLabel ?deathDate WHERE {
+    SELECT ?person ?personLabel ?birthPlaceLabel ?birthCountryLabel ?deathPlaceLabel ?deathCountryLabel ?causeLabel ?deathDate
+           ?twitter ?instagram ?facebook ?youtube ?tiktok ?website WHERE {
       ?person wdt:P31 wd:Q5 .
       ?person rdfs:label "${name.replace(/"/g, '\\"')}"@en .
       ${birthYear ? `?person wdt:P569 ?birthDate . FILTER(YEAR(?birthDate) = ${birthYear})` : ''}
@@ -85,6 +95,12 @@ async function fetchPersonDataFromWikidata(name: string, birthYear: string): Pro
       }
       OPTIONAL { ?person wdt:P509 ?cause . }
       OPTIONAL { ?person wdt:P570 ?deathDate . }
+      OPTIONAL { ?person wdt:P2002 ?twitter . }
+      OPTIONAL { ?person wdt:P2003 ?instagram . }
+      OPTIONAL { ?person wdt:P2013 ?facebook . }
+      OPTIONAL { ?person wdt:P2397 ?youtube . }
+      OPTIONAL { ?person wdt:P7085 ?tiktok . }
+      OPTIONAL { ?person wdt:P856 ?website . }
       
       SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
     }
@@ -103,6 +119,12 @@ async function fetchPersonDataFromWikidata(name: string, birthYear: string): Pro
     countryDied: normalizeCountry(r.deathCountryLabel?.value),
     causeOfDeath: r.causeLabel?.value,
     deathDate: r.deathDate?.value?.substring(0, 10),
+    twitter: r.twitter?.value ? `https://twitter.com/${r.twitter.value}` : undefined,
+    instagram: r.instagram?.value ? `https://instagram.com/${r.instagram.value}` : undefined,
+    facebook: r.facebook?.value ? `https://facebook.com/${r.facebook.value}` : undefined,
+    youtube: r.youtube?.value ? `https://youtube.com/channel/${r.youtube.value}` : undefined,
+    tiktok: r.tiktok?.value ? `https://tiktok.com/@${r.tiktok.value}` : undefined,
+    website: r.website?.value,
   };
 }
 
@@ -132,17 +154,34 @@ export async function POST(request: NextRequest) {
   
   console.log(`Found ${people.length} people with missing cityBorn`);
   
-  // Filter to only people with proper YYYY-MM-DD dates, then sort by birthday DESCENDING
-  // (31st first, then 30th, 29th... so today's birthdays are processed first)
+  // Filter to only people with proper YYYY-MM-DD dates, then sort by proximity to today
+  // (today's birthdays first, then tomorrow, then day after, etc.)
   const peopleWithFullDate = people.filter((p: any) => p.born && p.born.length >= 10);
+  
+  const today = new Date();
+  const todayMonth = today.getMonth() + 1; // 1-12
+  const todayDay = today.getDate();
   
   const sortedPeople = peopleWithFullDate.sort((a: any, b: any) => {
     // Parse MM-DD from YYYY-MM-DD
+    const aMonth = parseInt(a.born.substring(5, 7));
     const aDay = parseInt(a.born.substring(8, 10));
+    const bMonth = parseInt(b.born.substring(5, 7));
     const bDay = parseInt(b.born.substring(8, 10));
     
-    // Sort by day DESCENDING (31, 30, 29...)
-    return bDay - aDay;
+    // Calculate days until birthday (0 = today, 1 = tomorrow, etc.)
+    const getDaysUntil = (m: number, d: number) => {
+      const thisYear = today.getFullYear();
+      const bday = new Date(thisYear, m - 1, d);
+      if (bday < today) bday.setFullYear(thisYear + 1); // Birthday already passed this year
+      return Math.floor((bday.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    };
+    
+    const aDays = getDaysUntil(aMonth, aDay);
+    const bDays = getDaysUntil(bMonth, bDay);
+    
+    // Sort by days until birthday ASCENDING (today first, then tomorrow, etc.)
+    return aDays - bDays;
   }).slice(0, limit);
   
   console.log('First 5 people to update:', sortedPeople.slice(0, 5).map((p: any) => `${p.firstname} ${p.lastname} (${p.born})`));
@@ -195,6 +234,33 @@ export async function POST(request: NextRequest) {
           if (person.died && person.died.length < 10 && data.deathDate) {
             update.died = data.deathDate;
             updatedFields.push('deathDate');
+          }
+          
+          // Social media links (stored in social.* subdocument)
+          const social = (person as any).social || {};
+          if (!social.twitter && data.twitter) {
+            update['social.twitter'] = data.twitter;
+            updatedFields.push('twitter');
+          }
+          if (!social.instagram && data.instagram) {
+            update['social.instagram'] = data.instagram;
+            updatedFields.push('instagram');
+          }
+          if (!social.facebook && data.facebook) {
+            update['social.facebook'] = data.facebook;
+            updatedFields.push('facebook');
+          }
+          if (!social.youtube && data.youtube) {
+            update['social.youtube'] = data.youtube;
+            updatedFields.push('youtube');
+          }
+          if (!social.tiktok && data.tiktok) {
+            update['social.tiktok'] = data.tiktok;
+            updatedFields.push('tiktok');
+          }
+          if (!social.website && data.website) {
+            update['social.website'] = data.website;
+            updatedFields.push('website');
           }
           
           // Also search for image if missing

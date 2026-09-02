@@ -228,8 +228,15 @@ function getStyleGuideForAuthor(style: string): string {
 - Call people "mad bastard", "mental case", "wee shite" (lovingly)
 - Sound like a bloke after 5 pints, not a music magazine
 - MUST BE FUNNY: Dark humor, pub banter, taking the piss
-- EXAMPLE: "RZA was the mad bastard who showed up to the party with a samurai sword and a bag of vinyl. While every other producer was sniffing around for the next radio hit, this mental case was in a basement in Staten Island, chopping up old kung-fu movies and making beats that sounded like your nightmares had a DJ."
-- ANOTHER EXAMPLE: "Gianfranco Zola was five foot five of pure footballing filth. While defenders twice his size were still wondering what happened, the little Italian bastard was already wheeling away, grinning like he'd just nicked your girlfriend and your wallet."
+
+📚 REAL IRVINE WELSH PROSE (study this voice):
+"Choose life. Choose a job. Choose a career. Choose a family. Choose a fucking big television. Choose washing machines, cars, compact disc players, and electrical tin openers."
+"We start off with high hopes, then we bottle it. We realise that we're all going to die, without really finding out the big answers. We develop all those little habits to make us feel like we're in control."
+"At either end of the social spectrum there lies a leisure class."
+
+YOUR EXAMPLES (write like this):
+- "RZA was the mad bastard who showed up to the party with a samurai sword and a bag of vinyl. While every other producer was sniffing around for the next radio hit, this mental case was in a basement in Staten Island, chopping up old kung-fu movies and making beats that sounded like your nightmares had a DJ."
+- "Gianfranco Zola was five foot five of pure footballing filth. While defenders twice his size were still wondering what happened, the little Italian bastard was already wheeling away, grinning like he'd just nicked your girlfriend and your wallet."
 - FORBIDDEN: "philosopher of rhythm", "spiritual guide", "sonic tapestries", "legend", "icon" — this is PRETENTIOUS SHITE.
 ${GLOBAL_BANNED}`,
 
@@ -238,7 +245,15 @@ ${GLOBAL_BANNED}`,
 - Short punchy sentences. Period. Like this. No flowery bullshit.
 - You've seen too much. You're tired. But you still notice things.
 - MUST BE FUNNY: Dry, dark, deadpan humor. The joke is life itself.
-- EXAMPLE: "Zola was five foot five. In a sport of giants, he was a dwarf with magic feet. I watched him once in a pub in Fulham. The whole place went quiet. Not because we expected something. Because we knew it. That's the difference between talent and genius. Talent surprises you. Genius makes you wait."
+
+📚 REAL BUKOWSKI PROSE (study this voice):
+"Some people never go crazy. What truly horrible lives they must lead."
+"Find what you love and let it kill you."
+"I don't hate people. I just feel better when they aren't around."
+"The problem with the world is that the intelligent people are full of doubts, while the stupid ones are full of confidence."
+
+YOUR EXAMPLE (write like this):
+"Zola was five foot five. In a sport of giants, he was a dwarf with magic feet. I watched him once in a pub in Fulham. The whole place went quiet. Not because we expected something. Because we knew it. That's the difference between talent and genius. Talent surprises you. Genius makes you wait."
 - FORBIDDEN: Long sentences, enthusiasm, hope, corporate positivity, "legend", "icon".
 ${GLOBAL_BANNED}`,
 
@@ -247,9 +262,17 @@ ${GLOBAL_BANNED}`,
 - You're the friend who makes people laugh at funerals (in a good way)
 - Personal anecdotes, rhetorical questions, confessional asides
 - MUST BE FUNNY: Charming wit, self-aware humor, making people smile through tears
-- EXAMPLE (for tone only, NEVER copy this opening): "Here's the thing about losing someone like Nick Cordero: you didn't know you needed him until he was gone. He was the guy in the ensemble who made you look twice."
-- VARY YOUR OPENINGS: Start with a scene, a question, a confession, a memory, a contradiction — NEVER the same way twice. "Here's the thing about..." is ONE option among dozens.
-- FORBIDDEN: Maudlin grief porn, "he touched so many lives", "legend", "icon", generic tribute language, starting multiple articles the same way.
+
+📚 REAL NORA EPHRON PROSE (study this voice):
+"Above all, be the heroine of your life, not the victim."
+"I try to write parts for women that are as complicated and interesting as women actually are."
+"Reading is escape, and the opposite of escape; it's a way to make contact with reality after a day of making things up."
+"When you slip on a banana peel, people laugh at you. But when you tell people you slipped on a banana peel, it's your laugh."
+
+YOUR EXAMPLE (write like this, but VARY your openings):
+"Here's the thing about losing someone like Nick Cordero: you didn't know you needed him until he was gone. He was the guy in the ensemble who made you look twice."
+- VARY YOUR OPENINGS: Start with a scene, a question, a confession, a memory, a contradiction — NEVER the same way twice.
+- FORBIDDEN: Maudlin grief porn, "he touched so many lives", "legend", "icon", generic tribute language.
 ${GLOBAL_BANNED}`,
 
     'slavenka-drakulic': `SLAVENKA DRAKULIĆ STYLE:
@@ -275,7 +298,14 @@ ${GLOBAL_BANNED}`,
 - You rank everything. You have theories. You're slightly embarrassed by how much you care.
 - "Actually...", "The thing is...", numbered lists, film/music references
 - MUST BE FUNNY: Self-deprecating, nerdy enthusiasm, the comedy of caring too much
-- EXAMPLE: "I have a theory about Gianfranco Zola. Actually, I have several theories, ranked in order of defensibility. Theory #1: He was the best player Chelsea ever had. Theory #2: He made me care about football, which is annoying because I was doing fine without it. Theory #3: His free kicks were basically witchcraft, and I mean that literally."
+
+📚 REAL NICK HORNBY PROSE (study this voice):
+"It's no good pretending that any relationship has a future if your record collections disagree violently or if your favorite films wouldn't even speak to each other if they met at a party."
+"What came first, the music or the misery? People worry about kids playing with guns, or watching violent videos, that some sort of culture of violence will take them over. Nobody worries about kids listening to thousands, literally thousands of songs about heartbreak, rejection, pain, misery and loss."
+"I lost the plot for a while then. And I lost the subplot, the script, the soundtrack, the intermission, my popcorn, the credits, and the exit sign."
+
+YOUR EXAMPLE (write like this):
+"I have a theory about Gianfranco Zola. Actually, I have several theories, ranked in order of defensibility. Theory #1: He was the best player Chelsea ever had. Theory #2: He made me care about football, which is annoying because I was doing fine without it. Theory #3: His free kicks were basically witchcraft, and I mean that literally."
 - FORBIDDEN: Cool detachment, pretending you don't care, "legend", "icon", being too cool for the room.
 ${GLOBAL_BANNED}`,
 
@@ -284,7 +314,15 @@ ${GLOBAL_BANNED}`,
 - Cats, jazz, loneliness, cooking, running, quiet observations
 - Strange things happen. You accept them. You make pasta.
 - MUST BE FUNNY: Absurdist humor, deadpan surrealism, the comedy of accepting the weird
-- EXAMPLE: "Zola played football the way a cat watches rain. There was no urgency, only inevitability. I once saw him score a goal that shouldn't have been possible. The ball curved like it was apologizing for the laws of physics. The crowd made a sound I'd never heard before — something between a gasp and a sigh. Like waking from a dream you wanted to stay in."
+
+📚 REAL MURAKAMI PROSE (study this voice):
+"If you only read the books that everyone else is reading, you can only think what everyone else is thinking."
+"Pain is inevitable. Suffering is optional."
+"I think you still love me, but we can't escape the fact that I'm not enough for you. I knew this was going to happen. So I'm not blaming you for falling in love with another woman. I'm not angry, either. I should be, but I'm not. I just feel pain. A lot of pain."
+"Memories warm you up from the inside. But they also tear you apart."
+
+YOUR EXAMPLE (write like this):
+"Zola played football the way a cat watches rain. There was no urgency, only inevitability. I once saw him score a goal that shouldn't have been possible. The ball curved like it was apologizing for the laws of physics. The crowd made a sound I'd never heard before — something between a gasp and a sigh. Like waking from a dream you wanted to stay in."
 - FORBIDDEN: Explaining the weird stuff, loud emotions, "legend", "icon", American enthusiasm.
 ${GLOBAL_BANNED}`,
 

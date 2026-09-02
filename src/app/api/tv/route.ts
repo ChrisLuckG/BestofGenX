@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import TVVideo from '@/models/TVVideo';
 
-// GET - Fetch all videos
+// GET - Fetch all videos.
+// Person videos are NOT injected here: picking a slot in the Menschen tab creates a
+// real TVVideo row (see /api/almanac/set-tv-featured), so injecting them again
+// would show every featured documentary twice.
 export async function GET(request: Request) {
   try {
     await dbConnect();

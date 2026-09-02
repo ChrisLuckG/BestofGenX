@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { Play, FileText, Brain, Vote, ShoppingBag, Trophy, Tv, Radio, Bell, User, Users, X, ChevronLeft, ChevronRight, Gift, Clock, Trash2, Swords } from "lucide-react";
+import { Play, FileText, Brain, Vote, ShoppingBag, Trophy, Tv, Radio, Bell, User, Users, X, ChevronLeft, ChevronRight, Gift, Clock, Trash2, Swords, ExternalLink } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useBogxCoins } from "@/hooks/useBogxCoins";
 import { usePendingWager } from "@/hooks/usePendingWager";
@@ -29,7 +30,7 @@ import WelcomeNewsPanel from "@/components/WelcomeNewsPanel";
 import DesktopRankingsPage from "@/components/desktop/DesktopRankingsPage";
 import LoginPage from "@/components/LoginPage";
 import DesktopLoginPage from "@/components/desktop/DesktopLoginPage";
-import PredictionsGame from "@/components/games/PredictionsGame";
+
 import GenXManGame from "@/components/games/GenXManGame";
 import SoloTriviaGame from "@/components/games/SoloTriviaGame";
 import BogxInvadersGame from "@/components/games/BogxInvadersGame";
@@ -239,6 +240,7 @@ export default function DesktopPage() {
   const [shopProducts, setShopProducts] = useState<any[]>([]);
   const [tvVideos, setTvVideos] = useState<any[]>([]);
   const [tvLoading, setTvLoading] = useState(true);
+  const [playingVideo, setPlayingVideo] = useState<any>(null); // Video player modal
   
   // Live rankings for the widget - uses the same hook as the leaderboard for consistent change arrows.
   // The date MUST be stable: a fresh `new Date()` per render would change the
@@ -868,6 +870,7 @@ export default function DesktopPage() {
                   animateKey={coinAnimKey}
                   isBreakTime={isBreakTime}
                   breakCountdown={breakCountdown}
+                  countdownMs={countdownMs}
                   isLoggedIn={isLoggedIn}
                   onShowLogin={() => { setPreviousTab(activeTab); setActiveTab('profile'); setShowLoginPage(true); }}
                 />
@@ -1184,7 +1187,7 @@ export default function DesktopPage() {
                       {visibleRankingsCount < rankings.length && (
                         <button
                           onClick={() => setVisibleRankingsCount(prev => Math.min(prev + 10, rankings.length))}
-                          className="w-full py-2.5 text-center text-[11px] font-semibold text-[#E36B11] hover:bg-[#E36B11]/5 transition-colors"
+                          className="w-full py-2.5 text-center text-[11px] font-display text-[#E36B11] hover:bg-[#E36B11]/5 transition-colors"
                         >
                           View More
                         </button>
@@ -1204,7 +1207,7 @@ export default function DesktopPage() {
               {visibleRankingsCount >= rankings.length && rankings.length > 0 && (
                 <button 
                   onClick={() => { setSelectedPlayerId(null); handleTabChange('rankings'); }} 
-                  className="relative z-10 w-full py-2 text-center text-[10px] font-semibold text-gray-700 hover:bg-gray-100 transition-colors uppercase tracking-wider flex items-center justify-center gap-1 border-t border-warm cursor-pointer"
+                  className="relative z-10 w-full py-2 text-center text-[10px] font-display text-gray-700 hover:bg-gray-100 transition-colors flex items-center justify-center gap-1 border-t border-warm cursor-pointer"
                 >
                   View All
                   <ChevronRight className="w-3 h-3" />
@@ -1222,7 +1225,7 @@ export default function DesktopPage() {
               className="relative rounded-xl border border-warm overflow-y-auto shadow-sm min-h-[calc(100vh-108px)] scrollbar-hide bg-[#F5F0E8] isolate"
             >
               {/* Static Page View */}
-              {staticPageSlug && <StaticPageInline slug={staticPageSlug} defaultTitle={staticPageSlug} onClose={() => { setStaticPageSlug(null); contentRef.current?.scrollTo(0, 0); }} />}
+              {staticPageSlug && <StaticPageInline slug={staticPageSlug} defaultTitle={staticPageSlug} onClose={() => { setStaticPageSlug(null); contentRef.current?.scrollTo(0, 0); }} onNavigate={(newSlug) => { setStaticPageSlug(newSlug); contentRef.current?.scrollTo(0, 0); }} />}
               {/* Battle Result inline view - exclusive, replaces all tab content */}
               {!staticPageSlug && !selectedPlayerId && showBattleResultId && (
                 <DesktopContentWrapper>
@@ -1257,7 +1260,7 @@ export default function DesktopPage() {
               {/* Content Tabs */}
               {!showBattleResultId && !showChallenge && !showWelcomePage && <>
               {!staticPageSlug && !selectedPlayerId && activeTab === "feed" && !openArticleId && !showCommunitySound && <WelcomeReel onOpenArticle={handleOpenArticle} readArticles={readArticles} isDesktop={true} onShowLogin={handleShowLogin} onOpenCommunitySound={handleOpenCommunitySound} onCoinAnimation={triggerCoinGain} />}
-              {!staticPageSlug && !selectedPlayerId && showCommunitySound && <CommunitySoundPage isDesktop={true} onBack={() => setShowCommunitySound(false)} onOpenRadio={() => { setShowCommunitySound(false); handleTabChange('radio'); }} />}
+              {!staticPageSlug && !selectedPlayerId && showCommunitySound && <CommunitySoundPage isDesktop={true} onBack={() => setShowCommunitySound(false)} onOpenRadio={() => { setShowCommunitySound(false); handleTabChange('radio'); }} onShowLogin={() => { setShowCommunitySound(false); setShowLoginPage(true); }} />}
               {!staticPageSlug && !selectedPlayerId && openArticleId && <ArticlePage articleId={openArticleId} onBack={() => {
                 setOpenArticleId(null);
                 // Clear article from URL
@@ -1285,8 +1288,6 @@ export default function DesktopPage() {
                   <DesktopBattlesPage coins={coins} setCoins={setCoins} onCoinAnimation={(amount, variant) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount, variant }); }} onShowLogin={() => setShowLoginPage(true)} onBattleActiveChange={setIsBattleActive} pendingBattleId={pendingBattleId} onPendingBattleHandled={() => setPendingBattleId(null)} onBack={() => setArcadeGame(null)} challengeTarget={challengeTarget} onChallengeTargetHandled={() => setChallengeTarget(null)} />
                 ) : arcadeGame === 'genxmen' ? (
                   <GenXManGame onBack={() => setArcadeGame(null)} onScoreUpdate={() => {}} />
-                ) : arcadeGame === 'prediction' ? (
-                  <DesktopContentWrapper><PredictionsGame onBack={() => setArcadeGame(null)} onShowLogin={() => setShowLoginPage(true)} embedded={true} /></DesktopContentWrapper>
                 ) : arcadeGame === 'trivia' ? (
                   <div className="h-full min-h-full flex flex-col bg-[#F5F0E8]">
                     <SoloTriviaGame onBack={() => setArcadeGame(null)} onCoinsChange={(amount) => animateCoins(amount)} onCoinAnimation={(amount) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} embedded={true} />
@@ -1307,7 +1308,7 @@ export default function DesktopPage() {
               {!staticPageSlug && !selectedPlayerId && activeTab === "voting" && openRankrollData && <DesktopRankingDetailPage poll={openRankrollData} onBack={() => setOpenRankrollData(null)} onOpenArticle={(id: string) => { setOpenArticleId(id); }} onShowLogin={() => setShowLoginPage(true)} onCoinAnimation={(amount) => { animateCoins(amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} />}
               {!staticPageSlug && !selectedPlayerId && activeTab === "shop" && <DesktopContentWrapper><ShopPage coins={coins} onCoinsUsed={(amount) => { setCoins(prev => prev - amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount: -amount }); }} /></DesktopContentWrapper>}
               {!staticPageSlug && !selectedPlayerId && activeTab === "tv" && <DesktopContentWrapper><TVPage /></DesktopContentWrapper>}
-              {!staticPageSlug && !selectedPlayerId && activeTab === "radio" && <DesktopContentWrapper transparent><CommunitySoundPage isDesktop={true} onBack={() => handleTabChange('feed')} /></DesktopContentWrapper>}
+              {!staticPageSlug && !selectedPlayerId && activeTab === "radio" && <DesktopContentWrapper transparent><CommunitySoundPage isDesktop={true} onBack={() => handleTabChange('feed')} onShowLogin={() => setShowLoginPage(true)} /></DesktopContentWrapper>}
               {!staticPageSlug && !selectedPlayerId && activeTab === "notifications" && !showBattleResultId && <DesktopContentWrapper transparent><NotificationPage onGoToProfile={() => handleTabChange('profile')} onGoToBattle={(id) => { handleTabChange('arcade'); setArcadeGame('quizzbattle'); setPendingBattleId(id); }} onShowBattleResult={(id) => openNotificationView(() => setShowBattleResultId(id))} onShowChallenge={(battleId, notificationId) => openNotificationView(() => setShowChallenge({ battleId, notificationId }))} onOpenArticle={(id) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onPointsAwarded={(amount) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} onChallengeDeclined={() => setPendingChallengeCount(prev => Math.max(0, prev - 1))} autoOpenSettings={openNotificationSettings} onSettingsClosed={() => { setOpenNotificationSettings(false); if (previousTabBeforeSettings) { handleTabChange(previousTabBeforeSettings); setPreviousTabBeforeSettings(null); } }} /></DesktopContentWrapper>}
               {!staticPageSlug && !selectedPlayerId && activeTab === "profile" && (isLoggedIn ? <DesktopContentWrapper><ProfilePage coins={coins} /></DesktopContentWrapper> : <DesktopLoginPage onClose={() => handleTabChange("feed")} onSuccess={() => {}} showBack={true} />)}
               {!staticPageSlug && activeTab === "rankings" && !selectedPlayerId && <DesktopRankingsPage currentUserScore={coins} onBack={() => handleTabChange('home')} onShowSignup={() => setShowLoginPage(true)} onShowRewards={() => handleTabChange('rewards')} selectedPlayerId={null} onPlayerClose={() => {}} />}
@@ -1371,7 +1372,7 @@ export default function DesktopPage() {
                   <Tv className="w-4 h-4 text-[#E36B11]" />
                   <span className="font-display text-sm tracking-wider uppercase text-gray-900">GenX TV</span>
                 </div>
-                <span className="text-[10px] font-semibold text-[#E36B11] uppercase group-hover:underline">View All</span>
+                <span className="text-[10px] font-display text-[#E36B11] group-hover:underline">View All</span>
               </div>
               <div className="p-3 space-y-3">
                 {tvLoading ? (
@@ -1386,21 +1387,26 @@ export default function DesktopPage() {
                 ) : tvVideos.map((video) => (
                   <div 
                     key={video._id}
-                    className="block w-full text-left"
+                    className="block w-full text-left cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation(); // Don't trigger parent button
+                      setPlayingVideo(video);
+                    }}
                   >
-                    <div className="relative aspect-video rounded-lg overflow-hidden bg-skeleton group-hover:ring-2 group-hover:ring-[#E36B11]/30 transition-all">
+                    <div className="relative aspect-video rounded-lg overflow-hidden bg-skeleton hover:ring-2 hover:ring-[#E36B11]/50 transition-all">
                       <img 
                         src={video.thumbnail || (video.youtubeId ? `https://img.youtube.com/vi/${video.youtubeId}/hqdefault.jpg` : '')} 
                         alt="" 
                         loading="lazy"
                         decoding="async"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        className="w-full h-full object-cover hover:scale-105 transition-transform"
                       />
                       {/* Gradient overlay for text */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
-                      {/* Play button - always visible as hint */}
+
+                      {/* Play button - subtle */}
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-10 h-10 rounded-full bg-[#E36B11]/90 flex items-center justify-center opacity-70 group-hover:opacity-100 transition-opacity shadow-lg">
+                        <div className="w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center hover:scale-110 transition-all shadow-lg">
                           <Play className="w-5 h-5 text-white fill-white ml-0.5" />
                         </div>
                       </div>
@@ -1470,7 +1476,7 @@ export default function DesktopPage() {
             {/* Shop Widget */}
             <button
               onClick={() => handleTabChange('shop')}
-              className="w-full rounded-xl border border-warm bg-gradient-to-b from-[#FFFDF9] to-[#FDF8F0] p-4 text-left group hover:border-[#E36B11]/30 transition-all shadow-sm"
+              className="w-full rounded-xl border border-warm bg-[#FFFDF9] p-4 text-left group hover:border-[#E36B11]/30 transition-all shadow-sm"
             >
               <div className="flex items-center gap-2 mb-2">
                 <ShoppingBag className="w-5 h-5 text-[#E36B11]" />
@@ -1505,12 +1511,10 @@ export default function DesktopPage() {
         
         {/* Links */}
         <div className="flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm text-gray-500 mb-6">
-          <button onClick={() => { setStaticPageSlug('impressum'); contentRef.current?.scrollTo(0, 0); window.scrollTo(0, 0); }} className="hover:text-[#E36B11] transition-colors">Impressum</button>
-          <button onClick={() => { setStaticPageSlug('datenschutz'); contentRef.current?.scrollTo(0, 0); window.scrollTo(0, 0); }} className="hover:text-[#E36B11] transition-colors">Datenschutz</button>
-          <button onClick={() => { setStaticPageSlug('agb'); contentRef.current?.scrollTo(0, 0); window.scrollTo(0, 0); }} className="hover:text-[#E36B11] transition-colors">AGB</button>
-          <button onClick={() => { setStaticPageSlug('karriere'); contentRef.current?.scrollTo(0, 0); window.scrollTo(0, 0); }} className="hover:text-[#E36B11] transition-colors">Karriere</button>
-          <button onClick={() => { setStaticPageSlug('kontakt'); contentRef.current?.scrollTo(0, 0); window.scrollTo(0, 0); }} className="hover:text-[#E36B11] transition-colors">Kontakt</button>
-          <button onClick={() => { setStaticPageSlug('presse'); contentRef.current?.scrollTo(0, 0); window.scrollTo(0, 0); }} className="hover:text-[#E36B11] transition-colors">Presse</button>
+          <button onClick={() => { setStaticPageSlug('impressum'); contentRef.current?.scrollTo(0, 0); window.scrollTo(0, 0); }} className="hover:text-[#E36B11] transition-colors">Imprint</button>
+          <button onClick={() => { setStaticPageSlug('datenschutz'); contentRef.current?.scrollTo(0, 0); window.scrollTo(0, 0); }} className="hover:text-[#E36B11] transition-colors">Privacy</button>
+          <button onClick={() => { setStaticPageSlug('agb'); contentRef.current?.scrollTo(0, 0); window.scrollTo(0, 0); }} className="hover:text-[#E36B11] transition-colors">Terms</button>
+          <button onClick={() => { setStaticPageSlug('kontakt'); contentRef.current?.scrollTo(0, 0); window.scrollTo(0, 0); }} className="hover:text-[#E36B11] transition-colors">Contact</button>
         </div>
         
         {/* Social Links */}
@@ -1615,6 +1619,68 @@ export default function DesktopPage() {
         onShowLogin={() => setShowLoginPage(true)}
         accentColor="purple"
       />
+
+      {/* Video Player Modal - portal escapes the page's stacking contexts */}
+      {playingVideo && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 bg-black/95 z-[9999] flex items-center justify-center p-4"
+          onClick={() => setPlayingVideo(null)}
+        >
+          <div 
+            className="relative w-full max-w-4xl bg-black rounded-xl overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button 
+              onClick={() => setPlayingVideo(null)}
+              className="absolute top-3 right-3 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            
+            {/* YouTube Embed */}
+            <div className="aspect-video">
+              <iframe
+                src={`https://www.youtube.com/embed/${playingVideo.youtubeId}?autoplay=1&rel=0`}
+                title={playingVideo.title}
+                className="w-full h-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+            
+            {/* Video Info */}
+            <div className="p-4 bg-gray-900">
+              <div className="flex items-start gap-3">
+                <div className="flex-1">
+                  <h3 className="text-white font-display text-lg tracking-wide">{playingVideo.title}</h3>
+                  {playingVideo.description && (
+                    <p className="text-gray-400 text-sm mt-1 line-clamp-2">{playingVideo.description}</p>
+                  )}
+                  <div className="flex items-center gap-3 mt-2">
+                    {playingVideo.category && (
+                      <span className="text-[#E36B11] text-xs font-display">{playingVideo.category}</span>
+                    )}
+                    {playingVideo.duration && (
+                      <span className="text-gray-500 text-xs">⏱️ {playingVideo.duration}</span>
+                    )}
+                  </div>
+                </div>
+                <a
+                  href={`https://www.youtube.com/watch?v=${playingVideo.youtubeId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  YouTube
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
     </div>
   );
@@ -1774,7 +1840,7 @@ function BattleChallengeInline({ battleId, notificationId, userId, onAccept, onD
       <div className="bg-white rounded-xl border border-warm px-4 mb-5 text-sm">
         <div className="flex justify-between items-center py-2.5 border-b border-warm">
           <span className="text-gray-500">Topic</span>
-          <span className="text-gray-900 font-semibold uppercase">{battle.topic}</span>
+          <span className="text-gray-900 font-display">{battle.topic}</span>
         </div>
         <div className="flex justify-between items-center py-2.5 border-b border-warm">
           <span className="text-gray-500">Rounds</span>

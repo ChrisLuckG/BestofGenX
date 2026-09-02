@@ -57,7 +57,7 @@ export default function LoginRequiredModal({
     >
       <div className="px-6 py-8 text-center">
         {/* Animated icon */}
-        <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-[#E36B11] to-[#C4772A] flex items-center justify-center mb-4 shadow-lg animate-pulse">
+        <div className="w-16 h-16 mx-auto rounded-2xl bg-[#E36B11] flex items-center justify-center mb-4 shadow-lg animate-pulse">
           <Sparkles className="w-8 h-8 text-white" />
         </div>
         

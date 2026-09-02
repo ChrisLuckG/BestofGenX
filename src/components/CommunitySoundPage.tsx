@@ -9,6 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 interface CommunitySoundPageProps {
   onBack?: () => void;
   onOpenRadio?: () => void;
+  onShowLogin?: () => void;
   isDesktop?: boolean;
 }
 
@@ -26,11 +27,35 @@ interface RadioStation {
   imageUrl?: string;
 }
 
-export default function CommunitySoundPage({ onBack, onOpenRadio, isDesktop = false }: CommunitySoundPageProps) {
+// Cache keys and TTL
+const CACHE_KEY_ARTICLE = 'community_sound_article';
+const CACHE_KEY_STATIONS = 'community_sound_stations';
+const CACHE_TTL = 1000 * 60 * 30; // 30 minutes
+
+function getCached<T>(key: string): T | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const { data, timestamp } = JSON.parse(raw);
+    if (Date.now() - timestamp > CACHE_TTL) {
+      localStorage.removeItem(key);
+      return null;
+    }
+    return data as T;
+  } catch { return null; }
+}
+
+function setCache<T>(key: string, data: T) {
+  try {
+    localStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }));
+  } catch { /* quota exceeded - ignore */ }
+}
+
+export default function CommunitySoundPage({ onBack, onOpenRadio, onShowLogin, isDesktop = false }: CommunitySoundPageProps) {
   const { user, isLoggedIn } = useAuth();
-  const [article, setArticle] = useState<CommunityArticle | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [stations, setStations] = useState<RadioStation[]>([]);
+  const [article, setArticle] = useState<CommunityArticle | null>(() => getCached<CommunityArticle>(CACHE_KEY_ARTICLE));
+  const [stations, setStations] = useState<RadioStation[]>(() => getCached<RadioStation[]>(CACHE_KEY_STATIONS) || []);
+  const [loading, setLoading] = useState(!getCached(CACHE_KEY_ARTICLE) && !getCached(CACHE_KEY_STATIONS));
   const [songRequestData, setSongRequestData] = useState({ playlist: '', band: '', song: '', link: '' });
   const [songRequestSent, setSongRequestSent] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -59,6 +84,9 @@ export default function CommunitySoundPage({ onBack, onOpenRadio, isDesktop = fa
   }, []);
 
   useEffect(() => {
+    // If we have cached data, show it immediately but still refresh in background
+    const hasCachedData = article || stations.length > 0;
+    
     // Fetch article and stations in parallel
     Promise.all([
       fetch('/api/articles?contentType=music-community&status=published&limit=1').then(res => res.json()),
@@ -66,10 +94,13 @@ export default function CommunitySoundPage({ onBack, onOpenRadio, isDesktop = fa
     ])
       .then(([articleData, stationsData]) => {
         if (articleData.success && articleData.articles?.[0]) {
-          setArticle(articleData.articles[0]);
+          const art = articleData.articles[0];
+          setArticle(art);
+          setCache(CACHE_KEY_ARTICLE, art);
         }
-        if (stationsData.success) {
-          setStations(stationsData.stations || []);
+        if (stationsData.success && stationsData.stations) {
+          setStations(stationsData.stations);
+          setCache(CACHE_KEY_STATIONS, stationsData.stations);
         }
       })
       .catch(() => {})
@@ -78,6 +109,18 @@ export default function CommunitySoundPage({ onBack, onOpenRadio, isDesktop = fa
 
   const heroImg = article?.coverImage || '';
   const isVideo = /\.(mp4|webm|mov)($|\?)/i.test(heroImg) || heroImg.includes('/video/');
+
+  // Preload images for faster display
+  useEffect(() => {
+    const imagesToPreload: string[] = [];
+    if (heroImg && !isVideo) imagesToPreload.push(heroImg);
+    stations.forEach(s => { if (s.imageUrl) imagesToPreload.push(s.imageUrl); });
+    
+    imagesToPreload.forEach(src => {
+      const img = new Image();
+      img.src = src;
+    });
+  }, [heroImg, isVideo, stations]);
 
   // Skeleton component for loading state
   const Skeleton = ({ className }: { className: string }) => (
@@ -101,7 +144,7 @@ export default function CommunitySoundPage({ onBack, onOpenRadio, isDesktop = fa
   return (
     <div className="w-full h-full min-h-full flex flex-col overflow-hidden" style={{ backgroundColor: '#F5F0E8' }}>
       {/* Header - consistent with other pages */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#22C55E]/5 to-transparent">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-green-500/5">
         <div className="flex items-center gap-3">
           {onBack && <BackButton onClick={onBack} />}
           <Music className="w-5 h-5 text-[#22C55E]" />
@@ -202,7 +245,7 @@ export default function CommunitySoundPage({ onBack, onOpenRadio, isDesktop = fa
           {/* Song Request Section */}
           {isLoggedIn && (
             <div className="mt-8 bg-cream rounded-2xl border border-warm overflow-hidden shadow-sm">
-              <div className="bg-gradient-to-r from-[#22C55E]/10 to-[#22C55E]/5 px-5 py-4 border-b border-warm flex items-center justify-between">
+              <div className="bg-green-500/10 px-5 py-4 border-b border-warm flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-[#22C55E]/10 flex items-center justify-center">
                     <Music className="w-5 h-5 text-[#22C55E]" />
@@ -357,6 +400,12 @@ export default function CommunitySoundPage({ onBack, onOpenRadio, isDesktop = fa
               <Music className="w-8 h-8 text-[#22C55E] mx-auto mb-2" />
               <p className="text-gray-900 font-medium">Want to request a song?</p>
               <p className="text-sm text-gray-500 mt-1">Log in to suggest songs and earn coins!</p>
+              <button
+                onClick={onShowLogin}
+                className="mt-4 px-6 py-2.5 bg-[#22C55E] text-white font-display text-sm rounded-lg hover:bg-[#16a34a] transition-colors"
+              >
+                Log In
+              </button>
             </div>
           )}
         </div>

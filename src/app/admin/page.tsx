@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { Lock, Loader2 } from "lucide-react";
@@ -12,7 +12,7 @@ import ArticlesTab from "@/components/admin/ArticlesTab";
 import CurrencyTab from "@/components/admin/SettingsTab";
 import CostsTab from "@/components/admin/CostsTab";
 import RequestsTab from "@/components/admin/RequestsTab";
-// PredictionsTab is now embedded in ArcadeTab
+
 import MarketingTab from "@/components/admin/MarketingTab";
 import TVTab from "@/components/admin/TVTab";
 import MenschenTab from "@/components/admin/MenschenTab";
@@ -39,7 +39,7 @@ const CONFIG_TABS: { id: TabType; label: string }[] = [
   { id: 'currency', label: 'Currency' },
   { id: 'mike', label: 'Mike' },
   { id: 'menschen', label: 'Menschen' },
-  { id: 'conference', label: '📰 Conference' },
+  { id: 'conference', label: '?? Conference' },
 ];
 
 export default function AdminPage() {
@@ -216,7 +216,7 @@ export default function AdminPage() {
           <NewsroomConference
             userId={user?.id}
             onRankrollProposed={(title: string, description: string) => {
-              // Stay on the Conference tab — the editor opens as an overlay on top of it.
+              // Stay on the Conference tab - the editor opens as an overlay on top of it.
               setPendingRankrollTitle(title);
               setPendingRankrollDescription(description);
             }}

@@ -267,7 +267,7 @@ export default function DesktopRewardsPage({ coins, onClose, onRedeem }: Desktop
             </div>
             <a 
               href="/mobile?tab=shop" 
-              className="text-xs text-[#E36B11] hover:underline font-medium"
+              className="text-xs font-display text-[#E36B11] hover:underline"
             >
               View All →
             </a>

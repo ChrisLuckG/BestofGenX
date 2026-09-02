@@ -462,7 +462,7 @@ export default function DesktopRankrollPage({ onOpenArticle, onOpenRankroll }: D
   return (
     <div className="h-full flex flex-col bg-[#F5F0E8] overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-[#E36B11]/5">
         <div className="flex items-center gap-3">
           <Vote className="w-5 h-5 text-[#E36B11]" />
           <div>

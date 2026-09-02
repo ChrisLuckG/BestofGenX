@@ -111,29 +111,25 @@ export default function CoinAnimation({ amount, variant, onComplete, isDesktop =
   const displayAmount = Math.abs(amount).toFixed(2).replace('.', ',');
   
   if (isDesktop) {
-    // DESKTOP: Amount flies UP from the score widget area (where BOGX coins are shown)
+    // DESKTOP: Bigger coins flying up to header score box with amount label
     return (
       <div className="fixed inset-0 pointer-events-none z-[9999] overflow-hidden" style={{ willChange: 'transform', transform: 'translateZ(0)' }}>
-        {/* Amount label - starts from score widget, flies UP */}
+        {/* Amount label - appears briefly in center */}
         <div 
-          className="absolute top-14"
-          style={{ 
-            left: 'calc(50% - 80px)', // Start near the BOGX coin in header (left side of score widget)
-            animation: 'desktopAmountFlyUp 1.4s ease-out forwards' 
-          }}
+          className="absolute left-1/2 top-1/2 -translate-x-1/2"
+          style={{ animation: 'desktopAmountPop 1.4s ease-out forwards' }}
         >
           <span className="text-4xl font-bold text-[#C9A227]" style={{ textShadow: '0 2px 12px rgba(0,0,0,0.4)' }}>
             +{displayAmount}
           </span>
         </div>
         
-        {/* Flying BOGX coins - start from score widget, fly UP */}
+        {/* Flying BOGX coins to header - start from center, fly to header */}
         {coins.map((coin) => (
           <div
             key={coin.id}
-            className="absolute top-12"
+            className="absolute left-1/2 top-1/2"
             style={{
-              left: 'calc(50% - 80px)', // Start near the BOGX coin display in header
               animation: 'desktopCoinUp 1.2s ease-out forwards',
               animationDelay: `${coin.delay}s`,
               marginLeft: `${coin.x}px`,
@@ -154,13 +150,13 @@ export default function CoinAnimation({ amount, variant, onComplete, isDesktop =
           @keyframes desktopCoinUp {
             0% { transform: translateY(0) scale(0.6) rotate(0deg); opacity: 0; }
             20% { opacity: 1; transform: translateY(-20px) scale(1.2) rotate(30deg); }
-            100% { transform: translateY(-300px) scale(0.5) rotate(360deg); opacity: 0; }
+            100% { transform: translateY(-45vh) scale(0.5) rotate(360deg); opacity: 0; }
           }
-          @keyframes desktopAmountFlyUp {
-            0% { transform: scale(0.5); opacity: 0; }
-            15% { transform: translateY(-20px) scale(1.3); opacity: 1; }
-            40% { transform: translateY(-60px) scale(1); opacity: 1; }
-            100% { transform: translateY(-150px) scale(0.8); opacity: 0; }
+          @keyframes desktopAmountPop {
+            0% { transform: translate(-50%, 0) scale(0.5); opacity: 0; }
+            15% { transform: translate(-50%, -40px) scale(1.3); opacity: 1; }
+            40% { transform: translate(-50%, -70px) scale(1); opacity: 1; }
+            100% { transform: translate(-50%, -120px) scale(0.8); opacity: 0; }
           }
         `}</style>
       </div>

@@ -35,10 +35,10 @@ export default function StaticPageLayout({ title, children }: StaticPageLayoutPr
       {/* Footer */}
       <footer className="border-t border-[#E5DDD0] bg-[#F5F0E8] px-4 py-6 text-center">
         <div className="flex flex-wrap justify-center gap-x-5 gap-y-1.5 text-xs text-gray-400 mb-3">
-          <a href="/impressum" className="hover:text-[#E36B11] transition-colors">Impressum</a>
-          <a href="/datenschutz" className="hover:text-[#E36B11] transition-colors">Datenschutz</a>
-          <a href="/agb" className="hover:text-[#E36B11] transition-colors">AGB</a>
-          <a href="/kontakt" className="hover:text-[#E36B11] transition-colors">Kontakt</a>
+          <a href="/impressum" className="hover:text-[#E36B11] transition-colors">Imprint</a>
+          <a href="/datenschutz" className="hover:text-[#E36B11] transition-colors">Privacy</a>
+          <a href="/agb" className="hover:text-[#E36B11] transition-colors">Terms</a>
+          <a href="/kontakt" className="hover:text-[#E36B11] transition-colors">Contact</a>
         </div>
         <p className="text-xs text-gray-300">© {new Date().getFullYear()} Best of GenX</p>
       </footer>

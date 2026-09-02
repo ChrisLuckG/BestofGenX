@@ -985,10 +985,10 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
               <div className="space-y-0.5">
                 {[
                   { slug: 'about', title: 'About Us' },
-                  { slug: 'impressum', title: 'Impressum' },
-                  { slug: 'datenschutz', title: 'Datenschutz' },
-                  { slug: 'agb', title: 'AGB' },
-                  { slug: 'kontakt', title: 'Kontakt' },
+                  { slug: 'impressum', title: 'Imprint' },
+                  { slug: 'datenschutz', title: 'Privacy Policy' },
+                  { slug: 'agb', title: 'Terms & Conditions' },
+                  { slug: 'kontakt', title: 'Contact' },
                 ].map((page) => (
                   <a
                     key={page.slug}

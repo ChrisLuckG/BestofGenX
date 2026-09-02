@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Bell, Crown, Radio, Tv, User, ArrowUp, ArrowDown, Lock } from "lucide-react";
 import Image from "next/image";
 import { formatCurrency, getCurrencySymbol } from "@/utils/currency";
+import { type RankPeriod, rankUnrankedTip, rankUnrankedGuestTip } from "@/lib/rankPeriod";
 
 interface HeaderProps {
   coins: number;
@@ -34,9 +35,12 @@ interface HeaderProps {
   onWagerClick?: () => void;
   // Loading state
   isLoadingRanks?: boolean;
+  // Unranked-period tooltip
+  isLoggedIn?: boolean;
+  onShowLogin?: () => void;
 }
 
-export default function Header({ coins, userAvatar, userRank, hasPendingWager = false, rankingsOpen, onCoinsClick, onLogoClick, onNotificationClick, onProfileClick, onRadioClick, onTVClick, notificationOpen, profileOpen, radioOpen = false, tvOpen = false, notificationsEnabled, unreadCount = 0, coinAnimation, dailyRank = 0, monthlyRank = 0, yearlyRank = 0, pendingAmount = 0, onWagerClick, isLoadingRanks = false }: HeaderProps) {
+export default function Header({ coins, userAvatar, userRank, hasPendingWager = false, rankingsOpen, onCoinsClick, onLogoClick, onNotificationClick, onProfileClick, onRadioClick, onTVClick, notificationOpen, profileOpen, radioOpen = false, tvOpen = false, notificationsEnabled, unreadCount = 0, coinAnimation, dailyRank = 0, monthlyRank = 0, yearlyRank = 0, pendingAmount = 0, onWagerClick, isLoadingRanks = false, isLoggedIn = true, onShowLogin }: HeaderProps) {
   const [displayCoins, setDisplayCoins] = useState(coins);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isNegative, setIsNegative] = useState(false);
@@ -49,6 +53,15 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
   const [wagerVisible, setWagerVisible] = useState(pendingAmount > 0);
   const [wagerAnim, setWagerAnim] = useState<'in' | 'out' | null>(null);
   const prevPendingRef = useRef(pendingAmount);
+
+  // Which unranked period was tapped - drives the explanation tooltip.
+  // Touch has no mouseleave, so the tip closes itself after a few seconds.
+  const [tipFor, setTipFor] = useState<RankPeriod | null>(null);
+  useEffect(() => {
+    if (!tipFor) return;
+    const timer = setTimeout(() => setTipFor(null), 5000);
+    return () => clearTimeout(timer);
+  }, [tipFor]);
   
   // Track wager changes for fade in/out
   useEffect(() => {
@@ -223,10 +236,10 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
             {/* Wager overlay - shows instead of ranks when active - Desktop style with fade in/out */}
             {wagerVisible ? (
               <div 
-                className={`group/wager relative flex items-center gap-2 px-2 py-1 rounded-lg cursor-pointer transition-all duration-300 border hover:from-[#6366F1] hover:to-[#4F46E5] hover:border-[#6366F1] ${
-                  wagerAnim === 'in' ? 'bg-gradient-to-b from-[#A855F7]/20 to-[#A855F7]/30 border-[#A855F7]/40' :
-                  wagerAnim === 'out' ? 'bg-gradient-to-b from-green-500/20 to-green-500/30 border-green-500/40' :
-                  'bg-gradient-to-b from-[#6366F1]/10 to-[#6366F1]/20 border-[#6366F1]/30'
+                className={`group/wager relative flex items-center gap-2 px-2 py-1 rounded-lg cursor-pointer transition-all duration-300 border hover:bg-[#6366F1] hover:border-[#6366F1] ${
+                  wagerAnim === 'in' ? 'bg-[#A855F7]/25 border-[#A855F7]/40' :
+                  wagerAnim === 'out' ? 'bg-green-500/25 border-green-500/40' :
+                  'bg-[#6366F1]/15 border-[#6366F1]/30'
                 }`}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -259,68 +272,47 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
               </div>
             ) : (
               <div className="flex items-center gap-1.5">
-                {/* Day - no arrow, colored number */}
-                <div className="flex flex-col items-center">
-                  {isLoadingRanks ? (
-                    <div className="w-8 h-6 bg-gray-200 rounded animate-pulse" />
-                  ) : (
-                    <span 
-                      className={`font-display font-bold tabular-nums leading-none ${
-                        rankingsOpen ? 'text-white' : dailyRank > 0 ? 'text-green-500' : 'text-[#E36B11]'
-                      }`}
-                      style={{ fontSize: '20px' }}
-                    >
-                      {dailyRank > 0 ? dailyRank.toString().padStart(2, '0') : '?'}
-                    </span>
-                  )}
-                  <span className={`text-[8px] font-display uppercase ${
-                    rankingsOpen ? 'text-white/60' : 'text-gray-400'
-                  }`}>Day</span>
-                </div>
-                
-                {/* Separator */}
-                <div className={`w-px h-6 ${rankingsOpen ? 'bg-white/20' : 'bg-gray-300'}`} />
-                
-                {/* Month - no arrow, colored number */}
-                <div className="flex flex-col items-center">
-                  {isLoadingRanks ? (
-                    <div className="w-8 h-6 bg-gray-200 rounded animate-pulse" />
-                  ) : (
-                    <span 
-                      className={`font-display font-bold tabular-nums leading-none ${
-                        rankingsOpen ? 'text-white' : monthlyRank > 0 ? 'text-green-500' : 'text-gray-400'
-                      }`}
-                      style={{ fontSize: '20px' }}
-                    >
-                      {monthlyRank > 0 ? monthlyRank.toString().padStart(2, '0') : '—'}
-                    </span>
-                  )}
-                  <span className={`text-[8px] font-display uppercase ${
-                    rankingsOpen ? 'text-white/60' : 'text-gray-400'
-                  }`}>Mon</span>
-                </div>
-                
-                {/* Separator */}
-                <div className={`w-px h-6 ${rankingsOpen ? 'bg-white/20' : 'bg-gray-300'}`} />
-                
-                {/* Year - no arrow, colored number */}
-                <div className="flex flex-col items-center">
-                  {isLoadingRanks ? (
-                    <div className="w-8 h-6 bg-gray-200 rounded animate-pulse" />
-                  ) : (
-                    <span 
-                      className={`font-display font-bold tabular-nums leading-none ${
-                        rankingsOpen ? 'text-white' : yearlyRank > 0 ? 'text-green-500' : 'text-gray-400'
-                      }`}
-                      style={{ fontSize: '20px' }}
-                    >
-                      {yearlyRank > 0 ? yearlyRank.toString().padStart(2, '0') : '—'}
-                    </span>
-                  )}
-                  <span className={`text-[8px] font-display uppercase ${
-                    rankingsOpen ? 'text-white/60' : 'text-gray-400'
-                  }`}>Year</span>
-                </div>
+                {/* One column per period. An unranked period shows an orange "?" that
+                    opens the explanation instead of the rankings overlay - a bare "—"
+                    made "played 35 games, net negative" look like "never played".
+                    A span, not a button: the whole widget already is a <button>. */}
+                {([
+                  { key: 'day', label: 'Day', value: dailyRank },
+                  { key: 'month', label: 'Mon', value: monthlyRank },
+                  { key: 'year', label: 'Year', value: yearlyRank },
+                ] as const).map(({ key, label, value }, i) => {
+                  const hasRank = value > 0;
+                  return (
+                    <div key={key} className="flex items-center gap-1.5">
+                      {i > 0 && <div className={`w-px h-6 ${rankingsOpen ? 'bg-white/20' : 'bg-gray-300'}`} />}
+                      <div className="flex flex-col items-center">
+                        {isLoadingRanks ? (
+                          <div className="w-8 h-6 bg-gray-200 rounded animate-pulse" />
+                        ) : (
+                          <span
+                            onClick={hasRank ? undefined : (e) => {
+                              e.stopPropagation();
+                              setTipFor(prev => (prev === key ? null : key));
+                            }}
+                            className={`font-display font-bold tabular-nums leading-none transition-transform ${
+                              rankingsOpen
+                                ? 'text-white'
+                                : hasRank
+                                  ? 'text-green-500'
+                                  : 'text-[#E36B11] cursor-pointer active:scale-125'
+                            }`}
+                            style={{ fontSize: '20px' }}
+                          >
+                            {hasRank ? value.toString().padStart(2, '0') : '?'}
+                          </span>
+                        )}
+                        <span className={`text-[8px] font-display uppercase ${
+                          rankingsOpen ? 'text-white/60' : 'text-gray-400'
+                        }`}>{label}</span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -340,7 +332,21 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
             </span>
           )}
         </button>
-        
+
+        {/* Explanation for an unranked period. Rendered as a sibling of the score
+            widget because that widget is overflow-hidden and would clip it. */}
+        {tipFor && (
+          <div className="absolute top-full right-2 mt-1 w-[240px] p-3 bg-[#FFF8E7] border border-[#E36B11]/30 rounded-lg shadow-xl z-[100]">
+            <p className="text-[11px] text-gray-700 leading-relaxed">
+              <strong className="text-[#E36B11]">Tip:</strong> {isLoggedIn ? (
+                rankUnrankedTip(tipFor)
+              ) : (
+                <><span onClick={(e) => { e.stopPropagation(); setTipFor(null); onShowLogin?.(); }} className="text-[#E36B11] underline cursor-pointer">Log in</span>{rankUnrankedGuestTip(tipFor)}</>
+              )}
+            </p>
+          </div>
+        )}
+
         {/* Keyframes for animations - same as Desktop */}
         <style>{`
           @keyframes scoreWin {

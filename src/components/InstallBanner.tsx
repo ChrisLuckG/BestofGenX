@@ -204,7 +204,7 @@ export default function InstallBanner() {
       }`}
       style={{ bottom: '64px' }}
     >
-      <div className="bg-gradient-to-r from-[#E36B11] via-[#E5994A] to-[#E36B11] shadow-xl border-t border-white/20">
+      <div className="bg-[#E36B11] shadow-xl border-t border-white/20">
         <div className="flex items-center gap-4 px-4 py-3.5">
           {/* Icon */}
           <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center flex-shrink-0 shadow-inner">

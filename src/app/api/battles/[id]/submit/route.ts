@@ -2,44 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import Battle from '@/models/Battle';
 import User from '@/models/User';
-import GameResult from '@/models/GameResult';
 import Notification from '@/models/Notification';
 import { sendPushNotification } from '@/lib/webpush';
 // Email imports removed - only push/in-app notifications for battles
 import { compareBattleResults } from '@/utils/battleWinner';
-
-// Helper: save battle result for ranking system
-async function saveBattleGameResult(userId: string, opponentName: string, pointsChange: number, won: boolean) {
-  try {
-    const user = await User.findById(userId).select('username bogxCoins');
-    if (!user) return;
-    const today = new Date().toLocaleString('en-CA', { 
-      timeZone: 'Europe/Berlin',
-      year: 'numeric',
-      month: '2-digit', 
-      day: '2-digit'
-    }).split(',')[0];
-    await GameResult.create({
-      userId,
-      username: user.username,
-      cardId: 'quizzbattle',
-      question: `QuizzBattle vs ${opponentName}`,
-      userAnswer: null,
-      correctAnswer: '-',
-      isCorrect: won,
-      pointsChange,
-      pointsBefore: (user.bogxCoins || 0) - pointsChange,
-      pointsAfter: user.bogxCoins || 0,
-      timeUsed: 0,
-      difficulty: 1,
-      skipped: false,
-      timedOut: false,
-      gameDate: today,
-    });
-  } catch (e) {
-    console.error('Failed to save battle GameResult:', e);
-  }
-}
+import { saveBattleGameResult } from '@/lib/battleLedger';
 
 // POST - Submit results for a battle round or complete game
 export async function POST(
@@ -99,6 +66,7 @@ export async function POST(
           await User.findByIdAndUpdate(battle.creator, { $inc: { bogxCoins: wager, gamesPlayed: 1 } });
           await User.findByIdAndUpdate(battle.opponent, { $inc: { bogxCoins: wager, gamesPlayed: 1 } });
           await saveBattleGameResult(battle.creator.toString(), opponentUser.username || 'bot', 0, false);
+          if (battle.opponent) await saveBattleGameResult(battle.opponent.toString(), creator?.username || 'creator', 0, false);
           await Notification.create({
             userId: battle.creator,
             type: 'battle_result',

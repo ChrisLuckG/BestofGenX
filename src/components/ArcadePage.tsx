@@ -5,7 +5,7 @@ import { Users, User, HelpCircle, Trophy, BarChart3, Coins, Zap, Play, Swords, B
 import OpenBattlesModal from "./OpenBattlesModal";
 
 interface ArcadePageProps {
-  onSelectGame: (game: 'quizzbattle' | 'trivia' | 'spacegenx' | 'memory' | 'prediction' | 'genxmen' | 'nextplay' | 'faceblur' | 'bogxinvaders') => void;
+  onSelectGame: (game: 'quizzbattle' | 'trivia' | 'spacegenx' | 'memory' | 'genxmen' | 'nextplay' | 'faceblur' | 'bogxinvaders') => void;
   onShowRankings?: () => void;
   onShowBattles?: () => void;
   battleAlertCount?: number;
@@ -56,7 +56,7 @@ export default function ArcadePage({ onSelectGame, onShowRankings, onShowBattles
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-cream">
       {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
+      <div className="px-4 pt-4 pb-3 border-b border-warm bg-[#E36B11]/5">
         <div className="relative flex items-center gap-3">
           <Brain className="w-5 h-5 text-[#E36B11]" />
           <div>

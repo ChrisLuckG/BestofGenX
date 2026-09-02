@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
     const aliveStatus = searchParams.get('aliveStatus');
     const birthdayToday = searchParams.get('birthdayToday');
     const birthMonth = searchParams.get('birthMonth'); // 1-12 for filtering by birth month
+    const deathMonth = searchParams.get('deathMonth'); // 1-12 for filtering by death month
     
     if (type === 'people') {
       const query: any = {};
@@ -63,6 +64,11 @@ export async function GET(request: NextRequest) {
       if (birthMonth) {
         const mm = String(parseInt(birthMonth)).padStart(2, '0');
         query.born = { ...(query.born || {}), $regex: `-${mm}-` };
+      }
+      // Filter by death month (1-12) - for deceased filter
+      if (deathMonth) {
+        const mm = String(parseInt(deathMonth)).padStart(2, '0');
+        query.died = { ...(query.died || {}), $regex: `-${mm}-` };
       }
       
       const people = await Person.find(query).lean();

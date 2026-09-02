@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Play, Tv, Search, Clock, Globe, Film, ChevronLeft, ChevronRight } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Play, Tv, Search, Clock, Globe, Film, ChevronLeft, ChevronRight, X, ExternalLink } from "lucide-react";
 import CountryFlag from "@/components/CountryFlag";
 import { TVSkeleton } from "@/components/desktop/DesktopSkeletons";
 
@@ -116,9 +117,12 @@ function CategoryRow({ category, videos, showSeparator, onVideoClick }: {
                 alt={video.title}
                 className="w-full aspect-video object-cover transition-transform duration-300 group-hover:scale-105"
               />
-              {/* Play icon on hover */}
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30">
-                <Play className="w-10 h-10 text-white drop-shadow-lg" />
+
+              {/* Play icon - subtle */}
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="w-8 h-8 rounded-full bg-black/50 flex items-center justify-center">
+                  <Play className="w-4 h-4 text-white fill-white ml-0.5" />
+                </div>
               </div>
               {/* Duration badge */}
               {video.duration && (
@@ -161,15 +165,12 @@ export default function TVPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [languageFilter, setLanguageFilter] = useState<'all' | 'de' | 'en'>('all');
+  const [playingVideo, setPlayingVideo] = useState<TVVideo | null>(null);
+  const [heroIndex, setHeroIndex] = useState(0);
 
   const openVideo = (video: TVVideo) => {
-    // Open directly on YouTube
-    const url = video.youtubeId 
-      ? `https://www.youtube.com/watch?v=${video.youtubeId}`
-      : video.youtubeUrl;
-    if (url) {
-      window.open(url, '_blank');
-    }
+    // Open in internal player modal
+    setPlayingVideo(video);
   };
 
   const [categoryOrder, setCategoryOrder] = useState<string[]>([]);
@@ -219,7 +220,7 @@ export default function TVPage() {
   return (
     <div className="h-full min-h-full bg-cream overflow-y-auto">
       {/* Header - always visible */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-[#E36B11]/5">
         <div className="flex items-center gap-3">
           <Tv className="w-5 h-5 text-[#E36B11]" />
           <div>
@@ -236,25 +237,43 @@ export default function TVPage() {
         </div>
       ) : (
       <div className="p-4 space-y-6">
-        {/* Featured Video - Hero Card (Position 1) */}
+        {/* Featured Videos - Hero Carousel (Position 1, 2, 3) */}
         {(() => {
-          const featuredVideo = videos.find(v => v.featuredPosition === 1);
-          if (!featuredVideo) return null;
+          const featuredVideos = videos
+            .filter(v => v.featuredPosition && v.featuredPosition >= 1 && v.featuredPosition <= 3)
+            .sort((a, b) => (a.featuredPosition || 0) - (b.featuredPosition || 0));
+          if (featuredVideos.length === 0) return null;
+          
+          const currentVideo = featuredVideos[heroIndex % featuredVideos.length];
+          
+          const activeIdx = heroIndex % featuredVideos.length;
+
           return (
             <div 
-              onClick={() => openVideo(featuredVideo)}
+              onClick={() => openVideo(currentVideo)}
               className="relative rounded-2xl overflow-hidden cursor-pointer group shadow-2xl"
             >
-              <img
-                src={featuredVideo.thumbnail}
-                alt={featuredVideo.title}
-                className="w-full aspect-video object-cover transition-transform duration-500 group-hover:scale-105"
-              />
+              {/* Backdrop stack: every slide is mounted and cross-fades, so switching
+                  never flashes a blank frame while the next thumbnail loads. */}
+              <div className="relative w-full aspect-video bg-black">
+                {featuredVideos.map((v, idx) => (
+                  <img
+                    key={v._id}
+                    src={v.thumbnail}
+                    alt={idx === activeIdx ? v.title : ''}
+                    aria-hidden={idx !== activeIdx}
+                    className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${
+                      idx === activeIdx ? 'opacity-100' : 'opacity-0'
+                    }`}
+                  />
+                ))}
+              </div>
+
               {/* Gradient overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
-              
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent pointer-events-none" />
+
               {/* Content */}
-              <div className="absolute bottom-0 left-0 right-0 p-5">
+              <div className="absolute bottom-0 left-0 right-0 p-5 pr-5 md:pr-52">
                 {/* Badges row */}
                 <div className="flex items-center gap-2 mb-3">
                   <span className="bg-[#E36B11] text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
@@ -262,43 +281,88 @@ export default function TVPage() {
                   </span>
                   <span className="bg-white/20 backdrop-blur-sm text-white text-[10px] font-medium px-2.5 py-1 rounded-full flex items-center gap-1">
                     <Film className="w-3 h-3" />
-                    {featuredVideo.category}
+                    {currentVideo.category}
                   </span>
                 </div>
-                
+
                 {/* Title */}
-                <h2 className="text-white font-display text-2xl uppercase tracking-wide mb-2">
-                  {featuredVideo.title}
+                <h2 className="text-white font-display text-2xl uppercase tracking-wide mb-2 line-clamp-2">
+                  {currentVideo.title}
                 </h2>
-                
+
                 {/* Description */}
-                {featuredVideo.description && (
+                {currentVideo.description && (
                   <p className="text-white/70 text-sm line-clamp-2 mb-3 max-w-lg">
-                    {featuredVideo.description}
+                    {currentVideo.description}
                   </p>
                 )}
-                
+
                 {/* Meta info */}
                 <div className="flex items-center gap-4 text-white/80 text-xs">
-                  {featuredVideo.duration && (
+                  {currentVideo.duration && (
                     <span className="flex items-center gap-1.5">
                       <Clock className="w-3.5 h-3.5" />
-                      {featuredVideo.duration}
+                      {currentVideo.duration}
                     </span>
                   )}
                   <span className="flex items-center gap-1.5">
                     <Globe className="w-3.5 h-3.5" />
-                    {featuredVideo.language === 'de' ? 'German' : 'English'}
+                    {currentVideo.language === 'de' ? 'German' : 'English'}
                   </span>
                 </div>
               </div>
-              
-              {/* Play button overlay */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-20 h-20 bg-[#E36B11]/90 rounded-full flex items-center justify-center shadow-xl transform transition-all duration-300 group-hover:scale-110 group-hover:bg-[#E36B11]">
-                  <Play className="w-10 h-10 text-white fill-current ml-1" />
+
+              {/* Play button overlay - subtle */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-16 h-16 rounded-full bg-black/50 flex items-center justify-center shadow-xl transform transition-all duration-300 group-hover:scale-110">
+                  <Play className="w-8 h-8 text-white fill-white ml-1" />
                 </div>
               </div>
+
+              {/* Thumbnail selector - sits ON the hero, bottom right */}
+              {featuredVideos.length > 1 && (
+                <div className="absolute bottom-4 right-4 flex gap-2">
+                  {featuredVideos.map((v, idx) => (
+                    <button
+                      key={v._id}
+                      onMouseEnter={() => setHeroIndex(idx)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Already showing this slide? Then the click means "play it".
+                        if (idx === activeIdx) openVideo(v);
+                        else setHeroIndex(idx);
+                      }}
+                      title={v.title}
+                      className={`relative w-24 aspect-video rounded-md overflow-hidden transition-all duration-300 ${
+                        idx === activeIdx
+                          ? 'ring-2 ring-[#E36B11] scale-105 opacity-100'
+                          : 'ring-1 ring-white/30 opacity-60 hover:opacity-100'
+                      }`}
+                    >
+                      <img src={v.thumbnail} alt="" className="w-full h-full object-cover" />
+                      {idx !== activeIdx && <div className="absolute inset-0 bg-black/40" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Navigation Arrows */}
+              {featuredVideos.length > 1 && (
+                <>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setHeroIndex(prev => (prev - 1 + featuredVideos.length) % featuredVideos.length); }}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white transition-all opacity-0 group-hover:opacity-100"
+                  >
+                    <ChevronLeft className="w-6 h-6" />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setHeroIndex(prev => (prev + 1) % featuredVideos.length); }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white transition-all opacity-0 group-hover:opacity-100"
+                  >
+                    <ChevronRight className="w-6 h-6" />
+                  </button>
+                </>
+              )}
             </div>
           );
         })()}
@@ -328,6 +392,75 @@ export default function TVPage() {
           </div>
         )}
       </div>
+      )}
+
+      {/* Video Player Modal - portal escapes the page's stacking contexts */}
+      {playingVideo && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 bg-black/95 z-[9999] flex items-center justify-center p-4"
+          onClick={() => setPlayingVideo(null)}
+        >
+          <div 
+            className="relative w-full max-w-5xl bg-black rounded-xl overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button 
+              onClick={() => setPlayingVideo(null)}
+              className="absolute top-3 right-3 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            
+            {/* YouTube Embed */}
+            <div className="aspect-video">
+              <iframe
+                src={`https://www.youtube.com/embed/${playingVideo.youtubeId}?autoplay=1&rel=0`}
+                title={playingVideo.title}
+                className="w-full h-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+            
+            {/* Video Info */}
+            <div className="p-4 bg-gray-900">
+              <div className="flex items-start gap-3">
+                <div className="flex-1">
+                  <h3 className="text-white font-display text-lg tracking-wide">{playingVideo.title}</h3>
+                  {playingVideo.description && (
+                    <p className="text-gray-400 text-sm mt-1 line-clamp-2">{playingVideo.description}</p>
+                  )}
+                  <div className="flex items-center gap-3 mt-2">
+                    {playingVideo.category && (
+                      <span className="text-[#E36B11] text-xs font-display">{playingVideo.category}</span>
+                    )}
+                    {playingVideo.duration && (
+                      <span className="text-gray-500 text-xs flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {playingVideo.duration}
+                      </span>
+                    )}
+                    <span className="text-gray-500 text-xs flex items-center gap-1">
+                      <Globe className="w-3 h-3" />
+                      {playingVideo.language === 'de' ? 'German' : 'English'}
+                    </span>
+                  </div>
+                </div>
+                <a
+                  href={`https://www.youtube.com/watch?v=${playingVideo.youtubeId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  YouTube
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

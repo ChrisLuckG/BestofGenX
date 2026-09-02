@@ -1,6 +1,54 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { searchYouTubeVideo } from "@/lib/youtubeSearch";
+import { countryNameToCode } from "@/lib/countryFlags";
+
+const WIKIDATA_ENDPOINT = 'https://query.wikidata.org/sparql';
+
+// Fetch country from Wikidata if missing
+async function fetchCountryFromWikidata(name: string, birthYear?: string): Promise<{ country?: string; countryCode?: string } | null> {
+  const sparql = `
+    SELECT ?countryLabel WHERE {
+      ?person wdt:P31 wd:Q5 .
+      ?person rdfs:label "${name.replace(/"/g, '\\"')}"@en .
+      ${birthYear ? `?person wdt:P569 ?birthDate . FILTER(YEAR(?birthDate) = ${birthYear})` : ''}
+      ?person wdt:P27 ?country .
+      SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+    }
+    LIMIT 1
+  `;
+  
+  try {
+    const url = `${WIKIDATA_ENDPOINT}?query=${encodeURIComponent(sparql)}&format=json`;
+    const res = await fetch(url, {
+      headers: { 
+        'User-Agent': 'BestOfGenX/1.0',
+        'Accept': 'application/sparql-results+json'
+      },
+      signal: AbortSignal.timeout(8000)
+    });
+    
+    if (!res.ok) return null;
+    
+    const data = await res.json();
+    const results = data.results?.bindings || [];
+    
+    if (results.length === 0) return null;
+    
+    let country = results[0].countryLabel?.value || '';
+    // Normalize common country names
+    if (country === 'United States of America' || country === 'United States') country = 'USA';
+    if (country === 'United Kingdom of Great Britain and Northern Ireland' || country === 'United Kingdom') country = 'UK';
+    
+    return {
+      country,
+      countryCode: countryNameToCode(country) || ''
+    };
+  } catch (e) {
+    console.error('[Almanac] Wikidata country fetch error:', e);
+    return null;
+  }
+}
 
 // Build YouTube iframe HTML
 function buildYoutubeIframe(videoId: string): string {

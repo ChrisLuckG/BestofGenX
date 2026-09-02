@@ -2,31 +2,24 @@
   "crons": [
     {
       "path": "/api/cron/daily-snapshot",
-      "schedule": "0 7 * * *"
+      "schedule": "55 7 * * *"
     },
     {
       "path": "/api/cron/daily-winners-article",
-      "schedule": "1 7 * * *"
+      "schedule": "56 7 * * *"
     },
     {
       "path": "/api/cron/game-ending",
-      "schedule": "0 7 * * *"
+      "schedule": "55 7 * * *"
     },
-        {
-      "path": "/api/cron/resolve-predictions",
-      "schedule": "5 7 * * *"
-    },
-    {
-      "path": "/api/cron/generate-predictions",
-      "schedule": "15 7 * * *"
-    },
+
     {
       "path": "/api/cron/bot-activity",
-      "schedule": "20 7 * * *"
+      "schedule": "59 7 * * *"
     },
     {
       "path": "/api/cron/bot-battles",
-      "schedule": "25 7 * * *"
+      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/cron/game-start",

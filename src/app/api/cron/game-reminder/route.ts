@@ -4,8 +4,8 @@ import User from '@/models/User';
 import { sendPushNotification } from '@/lib/webpush';
 import { sendEmail, createReminderEmail } from '@/lib/email';
 
-// This endpoint is called by Vercel Cron at 9:00 AM German time (7:00 UTC in winter, 8:00 UTC in summer)
-// Sends push notification 1 hour before game starts at 10:00 AM
+// This endpoint is called by Vercel Cron at 10:05 AM German time (8:05 UTC)
+// Sends push notification 5 minutes after game starts at 10:00 AM
 export async function GET(request: Request) {
   try {
     // Verify cron request

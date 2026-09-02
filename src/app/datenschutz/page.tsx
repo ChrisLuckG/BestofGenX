@@ -20,12 +20,12 @@ export default function DatenschutzPage() {
   }, []);
 
   const defaultContent = `
-    <h2 class="text-xl font-bold text-gray-900 mb-4">Datenschutzerklärung</h2>
-    <p class="mb-4 text-sm">Bitte konfigurieren Sie diese Seite im Admin-Bereich.</p>
+    <h2 class="text-xl font-bold text-gray-900 mb-4">Privacy Policy</h2>
+    <p class="mb-4 text-sm">This page has not been configured yet.</p>
   `;
 
   return (
-    <StaticPageLayout title={page?.title || 'Datenschutz'}>
+    <StaticPageLayout title={page?.title || 'Privacy Policy'}>
       {page?.coverImage && (
         <div className="w-full h-40 overflow-hidden rounded-xl mb-6">
           <img src={page.coverImage} alt="" className="w-full h-full object-cover" />

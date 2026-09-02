@@ -51,8 +51,8 @@ async function saveSnapshotForDate(targetDate: Date): Promise<{ success: boolean
   return { success: true, dateString, message: `Created with ${rankings.length} users` };
 }
 
-// This endpoint should be called by Vercel Cron at 9:00 Berlin time (7:00 or 8:00 UTC depending on DST)
-// This is right before the 9:00-10:00 break, so we capture the final state of the previous "ranking day"
+// This endpoint should be called by Vercel Cron at 9:55 Berlin time (7:55 UTC)
+// This is at the start of the 9:55-10:00 break, so we capture the final state of the previous "ranking day"
 export async function GET(request: Request) {
   const startTime = Date.now();
   
@@ -64,7 +64,7 @@ export async function GET(request: Request) {
     console.log('[CRON] Database connected');
     
     // Save snapshot for yesterday (Berlin time)
-    // The "ranking day" ends at 9:00 Berlin time, so we save the previous day's final state
+    // The "ranking day" ends at 9:55 Berlin time, so we save the previous day's final state
     const results: { dateString: string; message: string }[] = [];
     
     // Check for any missing days in the last 7 days and fill them (using Berlin dates)

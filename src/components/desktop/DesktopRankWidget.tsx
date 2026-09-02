@@ -2,6 +2,7 @@
 
 import { ArrowUp, ArrowDown, Lock } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { type RankPeriod, rankUnrankedTip, rankUnrankedGuestTip } from "@/lib/rankPeriod";
 
 interface DesktopRankWidgetProps {
   rank: number | null;
@@ -21,43 +22,50 @@ interface DesktopRankWidgetProps {
   animateDelta?: number;   // Explicit delta to animate (bypasses internal diff calculation)
   animateKey?: number;     // Key to trigger animation
   isBreakTime?: boolean;   // Whether we're in the daily reset break
-  breakCountdown?: string; // Countdown string like "01:37:40"
+  breakCountdown?: string; // Countdown string like "01:37:40" or "04:32" (MM:SS when under 1 hour)
+  countdownMs?: number;    // Centiseconds (0-99) for fast timer when under 1 hour
   isLoggedIn?: boolean;    // Whether user is logged in
   onShowLogin?: () => void; // Callback to show login modal
 }
 
 // Direction of a rank position compared to the last value we ever saw for it.
-// The comparison value is persisted so a fresh login still gets a direction
-// instead of a neutral state - there is always an arrow.
-function useRankDirection(label: string, value: number): 'up' | 'down' {
+// Returns null if the position hasn't changed (neutral).
+function useRankDirection(label: string, value: number): 'up' | 'down' | null {
   const storageKey = `rank-dir-${label.toLowerCase()}`;
-  const [direction, setDirection] = useState<'up' | 'down'>('up');
+  const [direction, setDirection] = useState<'up' | 'down' | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    let stored: { rank: number; dir: 'up' | 'down' } | null = null;
+    let stored: { rank: number; dir: 'up' | 'down' | null } | null = null;
     try {
       const raw = localStorage.getItem(storageKey);
       if (raw) stored = JSON.parse(raw);
     } catch { /* ignore */ }
 
-    // Unranked (no points in this period yet) counts as being down.
+    // Unranked (no points in this period yet) - no arrow
     if (value <= 0) {
-      setDirection(stored?.dir ?? 'down');
+      setDirection(null);
       return;
     }
 
     // Lower rank number = better position.
-    const dir: 'up' | 'down' = !stored
-      ? 'up'
-      : value < stored.rank ? 'up'
-      : value > stored.rank ? 'down'
-      : stored.dir;
+    // null = no change (same position)
+    let dir: 'up' | 'down' | null = null;
+    if (stored && stored.rank > 0) {
+      if (value < stored.rank) {
+        dir = 'up';
+      } else if (value > stored.rank) {
+        dir = 'down';
+      }
+      // else: same position = null (no arrow)
+    }
+    // First time seeing this rank = null (no arrow)
 
     setDirection(dir);
     try {
-      localStorage.setItem(storageKey, JSON.stringify({ rank: value, dir }));
+      // Only store the rank, not the direction - direction is computed fresh each time
+      localStorage.setItem(storageKey, JSON.stringify({ rank: value }));
     } catch { /* ignore */ }
   }, [storageKey, value]);
 
@@ -66,7 +74,6 @@ function useRankDirection(label: string, value: number): 'up' | 'down' {
 
 function RankPosition({ value, label, isActive, change, onHoverChange }: { value: number; label: string; isActive?: boolean; change?: 'up' | 'down' | null; onHoverChange?: (hovering: boolean) => void }) {
   const hasRank = value > 0;
-  const isDay = label === 'Day';
 
   // A live change from the rankings hook wins, otherwise fall back to the
   // persisted comparison so an arrow is always shown.
@@ -105,24 +112,24 @@ function RankPosition({ value, label, isActive, change, onHoverChange }: { value
   return (
     <div 
       className="relative flex items-center gap-0.5 group/rank"
-      onMouseEnter={() => !hasRank && isDay && onHoverChange?.(true)}
-      onMouseLeave={() => !hasRank && isDay && onHoverChange?.(false)}
+      onMouseEnter={() => !hasRank && onHoverChange?.(true)}
+      onMouseLeave={() => !hasRank && onHoverChange?.(false)}
     >
-      {hasRank ? (
-        // Show arrow when ranked
-        shown === 'up' ? (
-          <ArrowUp style={arrowAnim} className={`w-3 h-3 shrink-0 transition-colors ${isActive ? 'text-green-300' : 'text-green-500 group-hover/main:text-green-300'}`} />
-        ) : (
-          <ArrowDown style={arrowAnim} className={`w-3 h-3 shrink-0 transition-colors ${isActive ? 'text-red-300' : 'text-red-500 group-hover/main:text-red-300'}`} />
-        )
+      {!hasRank ? (
+        // No rank ("?" or "—") - no arrow, just spacing
+        <span className="w-3 h-3 shrink-0" />
+      ) : shown === 'up' ? (
+        <ArrowUp style={arrowAnim} className={`w-3 h-3 shrink-0 transition-colors animate-bounce-subtle-up ${isActive ? 'text-white' : 'text-green-500 group-hover/main:text-white'}`} />
+      ) : shown === 'down' ? (
+        <ArrowDown style={arrowAnim} className={`w-3 h-3 shrink-0 transition-colors animate-bounce-subtle-down ${isActive ? 'text-white' : 'text-red-500 group-hover/main:text-white'}`} />
       ) : (
-        // Show down arrow when not ranked
-        <ArrowDown className={`w-3 h-3 shrink-0 transition-colors ${isActive ? 'text-red-300' : 'text-red-500 group-hover/main:text-red-300'}`} />
+        // Has rank but neutral (no change) - show green up arrow (you're ranked!)
+        <ArrowUp className={`w-3 h-3 shrink-0 transition-colors animate-bounce-subtle-up ${isActive ? 'text-white' : 'text-green-500 group-hover/main:text-white'}`} />
       )}
       <div className="flex flex-col justify-center">
         {/* Clipping wrapper: the incoming number slides in from outside it, which is
             what makes it read as a flip-clock rather than a fade. */}
-        <span className={`block h-[18px] ${!hasRank && isDay ? 'overflow-visible' : 'overflow-hidden'}`}>
+        <span className={`block h-[18px] text-center ${!hasRank ? 'overflow-visible' : 'overflow-hidden'}`}>
           <span
             // Remounts on change so the CSS animation restarts.
             key={`${value}-${roll ?? 'idle'}-${justPlaced ? 'placed' : ''}`}
@@ -133,17 +140,19 @@ function RankPosition({ value, label, isActive, change, onHoverChange }: { value
                   ? { animation: `rankRoll${roll === 'up' ? 'Up' : 'Down'} 0.5s cubic-bezier(0.22, 1, 0.36, 1)` } 
                   : undefined
             }
-            className={`block text-lg font-display tabular-nums leading-none transition-all origin-center ${
+            // inline-block, not block: as a block the box spans the whole column
+            // and is taller than the glyph, so scaling the "?" around the BOX
+            // centre visibly shifted it up and to the left. An inline-block box
+            // hugs the glyph, so it grows in place.
+            className={`inline-block align-top text-lg font-display tabular-nums leading-none transition-all origin-center ${
               isActive
                 ? 'text-white'
                 : hasRank 
                   ? 'text-gray-800 group-hover/main:text-white' 
-                  : isDay 
-                    ? 'text-[#E36B11] cursor-pointer group-hover/main:text-white group-hover/rank:scale-150' 
-                    : 'text-gray-400 group-hover/main:text-white/60'
+                  : 'text-[#E36B11] cursor-pointer group-hover/main:text-white group-hover/rank:scale-150'
             }`}
           >
-            {hasRank ? value.toString().padStart(2, '0') : (isDay ? '?' : '—')}
+            {hasRank ? value.toString().padStart(2, '0') : '?'}
           </span>
         </span>
         <span className={`text-[9px] font-display uppercase transition-colors ${isActive ? 'text-white/60' : 'text-gray-400 group-hover/main:text-white/60'}`}>{label}</span>
@@ -172,6 +181,7 @@ export default function DesktopRankWidget({
   animateKey,
   isBreakTime = false,
   breakCountdown = '',
+  countdownMs = 0,
   isLoggedIn = true,
   onShowLogin
 }: DesktopRankWidgetProps) {
@@ -179,7 +189,8 @@ export default function DesktopRankWidget({
   const prevCoinsRef = useRef(coins);
   const prevWagerRef = useRef(pendingAmount);
   const [coinAnim, setCoinAnim] = useState<'up' | 'down' | null>(null);
-  const [showDayTip, setShowDayTip] = useState(false);
+  // Which unranked period is being hovered - drives the explanation tooltip.
+  const [tipFor, setTipFor] = useState<RankPeriod | null>(null);
   const [coinDelta, setCoinDelta] = useState(0);
   const [wagerAnim, setWagerAnim] = useState<'in' | 'out' | null>(null);
   const [wagerVisible, setWagerVisible] = useState(pendingAmount > 0);
@@ -387,14 +398,17 @@ export default function DesktopRankWidget({
         }
       `}</style>
       
-      {/* Tooltip for unranked Day - outside overflow-hidden so it's visible */}
-      {showDayTip && dailyRank <= 0 && (
+      {/* Tooltip for an unranked period - outside overflow-hidden so it's visible.
+          Every period needs it, not only the day: a negative net balance drops you
+          out of that leaderboard entirely, so a month can read "?" while the day
+          and the year both show a rank. */}
+      {tipFor && (
         <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-72 p-3 bg-[#FFF8E7] border border-[#E36B11]/30 rounded-lg shadow-xl z-[100]">
           <p className="text-xs text-gray-700 leading-relaxed">
             <strong className="text-[#E36B11]">Tip:</strong> {isLoggedIn ? (
-              <>You appear in the daily ranking once you've earned positive points today. Wrong answers and lost battles reduce your daily score.</>
+              rankUnrankedTip(tipFor)
             ) : (
-              <><button onClick={onShowLogin} className="text-[#E36B11] underline hover:no-underline">Log in</button> to appear in the daily ranking and compete with other players.</>
+              <><button onClick={onShowLogin} className="text-[#E36B11] underline hover:no-underline">Log in</button>{rankUnrankedGuestTip(tipFor)}</>
             )}
           </p>
         </div>
@@ -441,25 +455,37 @@ export default function DesktopRankWidget({
         <div className={`relative flex items-center gap-3 px-3 py-2 transition-colors ${active ? 'border-white/20' : 'border-[#E36B11]/10 group-hover/main:border-white/20'}`}>
           {isBreakTime && breakCountdown ? (
             // Show countdown timer during break
-            <>
-              <div className={`flex items-center gap-1.5 ${active ? 'text-white/60' : 'text-[#E36B11]'}`}>
-                <span className="text-[10px] font-display uppercase">Next Game In</span>
-              </div>
-              <div className="flex items-center gap-1">
-                {breakCountdown.split(':').map((part, i) => (
-                  <div key={i} className="flex flex-col items-center">
-                    <span className={`font-display text-lg font-bold leading-none ${active ? 'text-white' : 'text-[#E36B11]'}`}>{part}</span>
-                    <span className={`text-[8px] uppercase ${active ? 'text-white/50' : 'text-gray-400'}`}>{['Min', 'Sec', 'Ms'][i]}</span>
+            (() => {
+              const parts = breakCountdown.split(':');
+              const [h, m, s] = parts.map(v => parseInt(v, 10) || 0);
+              const isUnderOneHour = h === 0;
+              // When under 1 hour: show MIN:SEC:MS, otherwise HRS:MIN:SEC
+              const displayParts = isUnderOneHour 
+                ? [m.toString().padStart(2, '0'), s.toString().padStart(2, '0'), (99 - countdownMs).toString().padStart(2, '0')]
+                : parts;
+              const labels = isUnderOneHour ? ['Min', 'Sec', 'Ms'] : ['Hrs', 'Min', 'Sec'];
+              return (
+                <>
+                  <div className={`flex items-center gap-1.5 transition-colors ${active ? 'text-white/60' : 'text-amber-500 group-hover/main:text-white/60'}`}>
+                    <span className="text-[10px] font-display uppercase">Next Game In</span>
                   </div>
-                ))}
-              </div>
-            </>
+                  <div className="flex items-center gap-1">
+                    {displayParts.map((part, i) => (
+                      <div key={i} className="flex flex-col items-center">
+                        <span className={`font-display text-lg font-bold leading-none transition-colors ${active ? 'text-white' : 'text-amber-500 group-hover/main:text-white'}`}>{part}</span>
+                        <span className={`text-[8px] uppercase transition-colors ${active ? 'text-white/50' : 'text-gray-400 group-hover/main:text-white/50'}`}>{labels[i]}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              );
+            })()
           ) : (
             // Normal rank positions
             <>
-              <RankPosition value={dailyRank} label="Day" isActive={active} change={dailyChange} onHoverChange={setShowDayTip} />
-              <RankPosition value={monthlyRank} label="Month" isActive={active} change={monthlyChange} />
-              <RankPosition value={yearlyRank} label="Year" isActive={active} change={yearlyChange} />
+              <RankPosition value={dailyRank} label="Day" isActive={active} change={dailyChange} onHoverChange={(h) => setTipFor(h ? 'day' : null)} />
+              <RankPosition value={monthlyRank} label="Month" isActive={active} change={monthlyChange} onHoverChange={(h) => setTipFor(h ? 'month' : null)} />
+              <RankPosition value={yearlyRank} label="Year" isActive={active} change={yearlyChange} onHoverChange={(h) => setTipFor(h ? 'year' : null)} />
             </>
           )}
         </div>
@@ -480,7 +506,7 @@ export default function DesktopRankWidget({
             : wagerAnim ? { animation: 'wagerIn 0.55s cubic-bezier(0.22, 1, 0.36, 1)' }
             : undefined
           }
-          className={`group/wager relative flex items-center gap-2 px-3 py-2 rounded-r-lg border border-l-2 border-[#6366F1]/30 shadow-sm transition-all duration-300 cursor-pointer bg-gradient-to-b from-[#FFFDF9] to-[#FDF8F0] origin-left hover:from-[#6366F1] hover:to-[#4F46E5] hover:border-[#6366F1]`}
+          className={`group/wager relative flex items-center gap-2 px-3 py-2 rounded-r-lg border border-l-2 border-[#6366F1]/30 shadow-sm transition-all duration-300 cursor-pointer bg-[#FFFDF9] origin-left hover:from-[#6366F1] hover:to-[#4F46E5] hover:border-[#6366F1]`}
         >
           {/* Wager background */}
           <div className={`absolute inset-0 rounded-r-lg transition-all group-hover/wager:opacity-0 ${

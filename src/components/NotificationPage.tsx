@@ -10,18 +10,13 @@ import LogoLoader from "./LogoLoader";
 import BackButton from "./BackButton";
 import WelcomeNewsPanel from "./WelcomeNewsPanel";
 import { BattleResultScreen } from "./battles";
-import PredictionResultModal, { PredictionResultData } from "./PredictionResultModal";
+
 import { NewsSkeleton } from "@/components/desktop/DesktopSkeletons";
 import CoinAnimation from "./CoinAnimation";
 
-interface PredictionOption {
-  id: string;
-  label: string;
-}
-
 interface Notification {
   id: string;
-  type: 'battle_result' | 'battle_accepted' | 'battle_challenge' | 'ranking' | 'test' | 'system' | 'prediction_result' | 'song_approved' | 'song_rejected' | 'song_in_progress' | 'comment_like' | 'welcome';
+  type: 'battle_result' | 'battle_accepted' | 'battle_challenge' | 'ranking' | 'test' | 'system' | 'song_approved' | 'song_rejected' | 'song_in_progress' | 'comment_like' | 'welcome';
   title: string;
   message: string;
   avatar?: string;
@@ -31,18 +26,6 @@ interface Notification {
   topic?: string;
   createdAt: string;
   read: boolean;
-  // Prediction-result fields (populated by /api/notifications when type === 'prediction_result')
-  predictionId?: string;
-  predictionQuestion?: string;
-  predictionOptions?: PredictionOption[];
-  predictionCorrectOptionId?: string | null;
-  userOptionId?: string;
-  userOptionLabel?: string;
-  correctOptionLabel?: string;
-  pointsAwarded?: number;
-  pointsReward?: number;
-  resolvedAt?: string;
-  won?: boolean;
 }
 
 interface BattleQuestion {
@@ -221,22 +204,18 @@ function NotificationItem({
             <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
               notif.type === 'battle_result' 
                 ? (notif.title.includes('Won') ? 'bg-green-500/20' : notif.title.includes('Lost') ? 'bg-red-500/20' : 'bg-yellow-500/20')
-                : notif.type === 'prediction_result'
-                  ? (notif.won ? 'bg-green-500/20' : 'bg-red-500/20')
-                  : notif.type === 'song_approved'
-                    ? 'bg-green-500/20'
-                    : notif.type === 'song_rejected'
-                      ? 'bg-red-500/20'
-                      : notif.type === 'song_in_progress'
-                        ? 'bg-blue-500/20'
-                        : 'bg-[#E36B11]/20'
+                : notif.type === 'song_approved'
+                  ? 'bg-green-500/20'
+                  : notif.type === 'song_rejected'
+                    ? 'bg-red-500/20'
+                    : notif.type === 'song_in_progress'
+                      ? 'bg-blue-500/20'
+                      : 'bg-[#E36B11]/20'
             }`}>
               {notif.type === 'battle_result' ? (
                 <Trophy className={`w-5 h-5 transition-colors group-hover:text-white ${
                   notif.title.includes('Won') ? 'text-green-400' : notif.title.includes('Lost') ? 'text-red-400' : 'text-yellow-400'
                 }`} />
-              ) : notif.type === 'prediction_result' ? (
-                <Target className={`w-5 h-5 transition-colors group-hover:text-white ${notif.won ? 'text-green-500' : 'text-red-500'}`} />
               ) : notif.type === 'song_approved' ? (
                 <Music className="w-5 h-5 text-green-500 transition-colors group-hover:text-white" />
               ) : notif.type === 'song_rejected' ? (
@@ -309,7 +288,6 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [selectedBattle, setSelectedBattle] = useState<BattleResult | null>(null);
   const [selectedChallenge, setSelectedChallenge] = useState<any | null>(null);
-  const [selectedPredictionResult, setSelectedPredictionResult] = useState<PredictionResultData | null>(null);
   const [selectedWelcome, setSelectedWelcome] = useState(false); // Show welcome message in body
 
   // The widget sets a flag before navigating here, because this instance is not
@@ -888,7 +866,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
     setNotifications(prev => prev.filter(n => n.id !== notif.id));
     
     try {
-      // Delete notification - pass userId for virtual notifications (battle-result, prediction-result)
+      // Delete notification - pass userId for virtual notifications (battle-result)
       // The API will handle both DB notifications and virtual ones
       const res = await fetch(`/api/notifications/${encodeURIComponent(notif.id)}?userId=${user.id}`, { 
         method: 'DELETE' 
@@ -1026,7 +1004,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
           onClick={onViewAll}
           className="w-full flex items-center justify-center py-2.5 border-t border-warm hover:bg-[#E36B11]/5 transition-colors"
         >
-          <span className="text-xs font-semibold text-[#E36B11] uppercase">View All</span>
+          <span className="text-xs font-display text-[#E36B11]">View All</span>
         </button>
         
         {/* Battle Challenge Modal - same as full version */}
@@ -1185,15 +1163,6 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
                   <div>
                     <span className="text-sm font-semibold text-gray-900">Battle results</span>
                     <p className="text-xs text-gray-500">Get notified when battles end</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-cream rounded-xl border border-warm">
-                  <div className="w-10 h-10 bg-[#E36B11]/10 rounded-xl flex items-center justify-center">
-                    <Target className="w-5 h-5 text-[#E36B11]" />
-                  </div>
-                  <div>
-                    <span className="text-sm font-semibold text-gray-900">Prediction outcomes</span>
-                    <p className="text-xs text-gray-500">See if your predictions were correct</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 p-3 bg-cream rounded-xl border border-warm">
@@ -1361,17 +1330,6 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
                   // Just show the notification - points already awarded on server
                 } else if (notif.type === 'welcome') {
                   setSelectedWelcome(true);
-                } else if (notif.type === 'prediction_result' && notif.predictionQuestion && notif.predictionOptions) {
-                  setSelectedPredictionResult({
-                    question: notif.predictionQuestion,
-                    options: notif.predictionOptions,
-                    userOptionId: notif.userOptionId || '',
-                    correctOptionId: notif.predictionCorrectOptionId ?? null,
-                    pointsAwarded: notif.pointsAwarded || 0,
-                    pointsReward: notif.pointsReward || 0,
-                    resolvedAt: notif.resolvedAt,
-                    won: !!notif.won,
-                  });
                 } else if (notif.type === 'comment_like' && notif.articleId) {
                   onOpenArticle?.(String(notif.articleId));
                 } else if (notif.battleId) {
@@ -1500,14 +1458,6 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
       )}
       
       </div>{/* End Scrollable Content */}
-
-      {/* Prediction Result Modal */}
-      <PredictionResultModal
-        isOpen={selectedPredictionResult !== null}
-        data={selectedPredictionResult}
-        onClose={() => setSelectedPredictionResult(null)}
-        onPointsAwarded={onPointsAwarded}
-      />
 
       {/* Challenge Modal - rendered via portal so they always
           escape any ancestor stacking context (e.g. Desktop's <main> is capped

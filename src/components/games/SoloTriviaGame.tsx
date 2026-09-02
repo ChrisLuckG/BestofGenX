@@ -81,7 +81,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
   const [phase, setPhase] = useState<GamePhase>('setup');
   const [maxPoints, setMaxPoints] = useState<number>(0.30);
   const [wrongPenalty, setWrongPenalty] = useState<number>(0.06); // 20% of 0.30
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null); // null = not selected yet
   const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
   const [categoriesLoading, setCategoriesLoading] = useState(true);
@@ -492,7 +492,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
         count: String(QUESTION_COUNT),
         context: 'game',
       });
-      if (selectedCategory !== 'all') {
+      if (selectedCategory && selectedCategory !== 'all') {
         params.set('theme', selectedCategory.toUpperCase());
       }
       
@@ -536,8 +536,8 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
       } else {
         setLoading(false);
         setPhase('setup');
-        const categoryName = selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1);
-        setError(`No questions available for "${categoryName}". Try "All" or another category.`);
+        const categoryName = selectedCategory ? selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1) : 'selected category';
+        setError(`No questions available for "${categoryName}". Try "Mixed" or another category.`);
       }
     } catch (e) {
       console.error('Failed to generate trivia:', e);
@@ -957,10 +957,11 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
 
   // Preparing Phase - same screen as QuizzBattle, not an overlay
   if (phase === 'preparing') {
+    const cat = selectedCategory || 'all';
     const CategoryIcon =
-      CATEGORY_ICONS[selectedCategory] || CATEGORY_ICONS[selectedCategory.toUpperCase()] || HelpCircle;
+      CATEGORY_ICONS[cat] || CATEGORY_ICONS[cat.toUpperCase()] || HelpCircle;
     const categoryName =
-      selectedCategory === 'all' ? 'All categories' : selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1);
+      cat === 'all' ? 'Mixed questions' : cat.charAt(0).toUpperCase() + cat.slice(1);
 
     return (
       <div className="w-full h-full min-h-full flex-1 flex flex-col" style={{ backgroundColor: '#F5F0E8' }}>
@@ -970,7 +971,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
         <PreparingScreen
           topicColor={TRIVIA_ACCENT}
           TopicIcon={CategoryIcon}
-          topicId={selectedCategory}
+          topicId={selectedCategory || undefined}
           subtitle={`Loading ${QUESTION_COUNT} questions · ${categoryName}`}
           readySubtitle={`${QUESTION_COUNT} questions ready · ${categoryName}`}
           // Holds the ring short of full until the questions have really arrived.
@@ -1023,7 +1024,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
             <div className="flex gap-2 overflow-x-auto pb-2 sm:grid sm:grid-cols-4 sm:overflow-visible sm:pb-0" style={{ scrollbarWidth: 'none' }}>
               {(categories.length > 0 ? categories : DEFAULT_CATEGORIES).map((cat: string) => {
                 const Icon = CATEGORY_ICONS[cat] || CATEGORY_ICONS[cat.toUpperCase()] || HelpCircle;
-                const displayName = cat === 'all' ? 'All' : cat.charAt(0).toUpperCase() + cat.slice(1);
+                const displayName = cat === 'all' ? 'Mixed' : cat.charAt(0).toUpperCase() + cat.slice(1);
                 const imageUrl = CATEGORY_IMAGES[cat.toLowerCase()] || CATEGORY_IMAGES['all'];
                 return (
                   <button
@@ -1057,10 +1058,10 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
             </div>
           </div>
 
-          {/* Step 2: Choose Points Value */}
-          <div className="mt-4">
+          {/* Step 2: Choose Points Value - disabled until category selected */}
+          <div className={`mt-4 transition-opacity ${selectedCategory ? '' : 'opacity-40 pointer-events-none'}`}>
             <div className="flex items-center gap-2 mb-3">
-              <span className="w-5 h-5 bg-[#E36B11] rounded-full text-white text-[10px] font-bold flex items-center justify-center">2</span>
+              <span className={`w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center ${selectedCategory ? 'bg-[#E36B11]' : 'bg-gray-400'}`}>2</span>
               <span className="font-display text-base text-gray-900 uppercase">Choose Correct Answer Value</span>
             </div>
             <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
@@ -1074,6 +1075,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
                       setWrongPenalty(penalty);
                       setCurrentPoints(points);
                     }}
+                    disabled={!selectedCategory}
                     className={`flex-1 min-w-[60px] rounded-xl border-2 p-2 sm:p-3 flex flex-col items-center text-center transition-all ${
                       maxPoints === points
                         ? 'border-[#E36B11] bg-[#E36B11]/10'
@@ -1199,18 +1201,18 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
             </div>
           </div>
 
-          {/* Start Button - centered, narrower */}
+          {/* Start Button - centered, narrower - disabled until category selected */}
           <div className="flex flex-col items-center mt-4 gap-3">
             <button
               onClick={startGame}
-              disabled={loading || !canPlay || limitLoading}
+              disabled={loading || !canPlay || limitLoading || !selectedCategory}
               className={`px-20 py-4 rounded-2xl text-white font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2 ${
-                canPlay ? 'hover:scale-[1.02] active:scale-[0.98]' : 'opacity-50 cursor-not-allowed'
+                canPlay && selectedCategory ? 'hover:scale-[1.02] active:scale-[0.98]' : 'opacity-50 cursor-not-allowed'
               } disabled:opacity-50`}
-              style={{ background: canPlay ? 'linear-gradient(135deg, #E8A54B 0%, #E36B11 50%, #C4772A 100%)' : '#9CA3AF' }}
+              style={{ background: canPlay && selectedCategory ? 'linear-gradient(135deg, #E8A54B 0%, #E36B11 50%, #C4772A 100%)' : '#9CA3AF' }}
             >
               <Play className="w-5 h-5" />
-              {canPlay ? 'START GAME' : 'COME BACK TOMORROW'}
+              {!selectedCategory ? 'SELECT CATEGORY FIRST' : canPlay ? 'START GAME' : 'COME BACK TOMORROW'}
             </button>
             {error && (
               <p className="text-red-500 text-sm text-center px-4">{error}</p>

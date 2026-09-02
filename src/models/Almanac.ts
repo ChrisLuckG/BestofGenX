@@ -85,6 +85,15 @@ export interface IPerson {
   discoveredFor?: 'birthday' | 'rip';
   discoveredAt?: Date;
   
+  // Videos (documentaries, interviews, etc.)
+  videos?: {
+    videoId: string;
+    title: string;
+    duration?: string; // e.g. "45:32"
+    type?: 'documentary' | 'interview' | 'performance' | 'other';
+  }[];
+  featuredVideoIndex?: number; // Which video to show on Welcome Reel (0, 1, or 2)
+  
   // Verification status
   isVerified?: boolean;
   isRejected?: boolean;
@@ -158,6 +167,15 @@ const PersonSchema = new mongoose.Schema({
   discoveredByName: String,
   discoveredFor: { type: String, enum: ['birthday', 'rip'] },
   discoveredAt: { type: Date, default: Date.now },
+  
+  // Videos (documentaries, interviews, etc.)
+  videos: [{
+    videoId: String,
+    title: String,
+    duration: String,
+    type: { type: String, enum: ['documentary', 'interview', 'performance', 'other'] },
+  }],
+  featuredVideoIndex: { type: Number, default: 0 },
   
   // Verification status
   isVerified: { type: Boolean, default: false },

@@ -21,7 +21,7 @@ import BattlesPage from "@/components/BattlesPage";
 import ArcadePage from "@/components/ArcadePage";
 import GenXManGame from "@/components/games/GenXManGame";
 import BogxInvadersGame from "@/components/games/BogxInvadersGame";
-import PredictionsGame from "@/components/games/PredictionsGame";
+
 import SoloTriviaGame from "@/components/games/SoloTriviaGame";
 import ArticlesListPage from "@/components/ArticlesListPage";
 import CoinAnimation from "@/components/CoinAnimation";
@@ -30,7 +30,7 @@ import WelcomeBonusCard from "@/components/games/WelcomeBonusCard";
 import BonusAdCard from "@/components/games/BonusAdCard";
 import JustForFunModal from "@/components/JustForFunModal";
 import LoginPage from "@/components/LoginPage";
-import LoginRequiredModal from "@/components/LoginRequiredModal";
+
 import JoinChallengePage from "@/components/JoinChallengePage";
 import NotificationPage from "@/components/NotificationPage";
 import SwipeWarningModal from "@/components/SwipeWarningModal";
@@ -215,7 +215,7 @@ export default function MobilePage() {
   const [coinAnimKey, setCoinAnimKey] = useState(0);
   const [showJustForFun, setShowJustForFun] = useState(false);
     const [showLoginPage, setShowLoginPage] = useState(false);
-  const [showLoginRequired, setShowLoginRequired] = useState(false);
+
   const [loginInitialView, setLoginInitialView] = useState<'login' | 'signup'>('login');
   const [showJoinChallengePage, setShowJoinChallengePage] = useState(false);
   // showNotificationPage removed - now using activeTab === 'notifications'
@@ -725,7 +725,7 @@ export default function MobilePage() {
   const closeAllOverlays = () => {
     setShowRewards(false);
     setShowLoginPage(false);
-    setShowLoginRequired(false);
+
     setShowNoFunds(false);
     setShowJoinChallengePage(false);
     setOpenArticleId(null);
@@ -1215,7 +1215,7 @@ export default function MobilePage() {
         // Arcade banners
         '/images/Hintergund/quizzbattle.png',
         '/images/Hintergund/solo.png',
-        '/images/Hintergund/prediction.png',
+
         '/images/Hintergund/faceblur.png',
         '/images/Hintergund/nextplay.png',
         // Icons
@@ -1498,7 +1498,7 @@ export default function MobilePage() {
         key="landing"
         onOpenArticle={handleOpenArticle}
         readArticles={rewardedArticles}
-        onShowLogin={() => { closeAllOverlays(); setShowLoginRequired(true); }}
+        onShowLogin={() => { closeAllOverlays(); setShowLoginPage(true); }}
         onOpenStaticPage={(slug) => setStaticPageSlug(slug)}
         onOpenCommunitySound={() => setShowCommunitySound(true)}
         onCoinAnimation={triggerCoinGain}
@@ -1841,6 +1841,8 @@ export default function MobilePage() {
         yearlyRank={yearlyUserEntry?.rank || 0}
         pendingAmount={pendingAmount}
         isLoadingRanks={isLoadingRanks}
+        isLoggedIn={isLoggedIn}
+        onShowLogin={() => { closeAllOverlays(); setShowLoginPage(true); }}
         onWagerClick={() => setShowOpenBattlesModal(prev => !prev)}
       />
       </div>
@@ -1867,7 +1869,7 @@ export default function MobilePage() {
       {rankrollLoading && (
         <div className="absolute inset-x-0 bottom-0 top-16 z-[60] bg-cream overflow-y-auto">
           {/* Header skeleton */}
-          <div className="sticky top-0 z-10 flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-cream">
+          <div className="sticky top-0 z-10 flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-[#E36B11]/5">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-skeleton-light animate-pulse" />
               <div className="space-y-1">
@@ -1999,6 +2001,7 @@ export default function MobilePage() {
             <CommunitySoundPage
               onBack={() => setShowCommunitySound(false)}
               onOpenRadio={() => { setShowCommunitySound(false); setActiveTab('radio'); }}
+              onShowLogin={() => { setShowCommunitySound(false); setShowLoginPage(true); }}
             />
           </div>
         )}
@@ -2021,7 +2024,7 @@ export default function MobilePage() {
                     .catch(() => {});
                 }
               }}
-              onShowLogin={() => { closeAllOverlays(); setShowLoginRequired(true); }}
+              onShowLogin={() => { closeAllOverlays(); setShowLoginPage(true); }}
               onOpenAuthor={(authorName) => setOpenAuthorName(authorName)}
               onOpenArticle={(id) => setOpenArticleId(id)}
               onOpenRadio={() => { setOpenArticleId(null); setActiveTab('radio'); }}
@@ -2086,7 +2089,7 @@ export default function MobilePage() {
         {/* Articles Tab - shows list of all articles */}
         <div className={`absolute inset-0 transition-opacity duration-150 ${activeTab === "articles" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"}`}>
           {activeTab === "articles" && (
-            <ArticlesListPage onOpenArticle={handleOpenArticle} onShowLogin={() => { closeAllOverlays(); setShowLoginRequired(true); }} initialCategory={articlesCategoryFilter} />
+            <ArticlesListPage onOpenArticle={handleOpenArticle} onShowLogin={() => { closeAllOverlays(); setShowLoginPage(true); }} initialCategory={articlesCategoryFilter} />
           )}
         </div>
         
@@ -2113,11 +2116,6 @@ export default function MobilePage() {
                 onScoreUpdate={(score) => {
                   // Could add coins based on score
                 }}
-              />
-            ) : arcadeGame === 'prediction' ? (
-              <PredictionsGame 
-                onBack={() => setArcadeGame(null)}
-                onShowLogin={() => setShowLoginPage(true)}
               />
             ) : arcadeGame === 'trivia' ? (
               <SoloTriviaGame 
@@ -2197,7 +2195,7 @@ export default function MobilePage() {
         
         {/* Radio Tab */}
         <div className={`absolute inset-0 transition-opacity duration-150 ${activeTab === "radio" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"}`}>
-          {activeTab === "radio" && <CommunitySoundPage />}
+          {activeTab === "radio" && <CommunitySoundPage onShowLogin={() => setShowLoginPage(true)} />}
         </div>
         
         {/* TV Tab */}
@@ -2343,17 +2341,6 @@ export default function MobilePage() {
         onLogin={handleJustForFunLogin}
       />
 
-      {/* Login Modal - for inline use */}
-
-    <LoginRequiredModal
-      isOpen={showLoginRequired}
-      onClose={() => setShowLoginRequired(false)}
-      onLogin={() => { setShowLoginRequired(false); setLoginInitialView('login'); setShowLoginPage(true); }}
-      onRegister={() => { setShowLoginRequired(false); setLoginInitialView('signup'); setShowLoginPage(true); }}
-      title="Ready to join?"
-      message="Let's get you set up..."
-    />
-
     {/* Login Page - Slide in from right */}
     <LoginPage 
       isOpen={showLoginPage}
@@ -2471,7 +2458,7 @@ export default function MobilePage() {
           }`}
           style={{ bottom: '64px' }}
         >
-          <div className="bg-gradient-to-r from-[#E36B11] via-[#E5994A] to-[#E36B11] shadow-xl border-t border-white/20">
+          <div className="bg-[#E36B11] shadow-xl border-t border-white/20">
             <div className="flex items-center gap-4 px-4 py-3.5">
               {/* Icon */}
               <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center flex-shrink-0 shadow-inner">
@@ -2530,7 +2517,7 @@ export default function MobilePage() {
             }
           }}
         >
-          <div className="bg-gradient-to-r from-[#1a1a1a] to-[#252525] backdrop-blur-md border border-[#E36B11]/50 rounded-xl p-4 shadow-2xl flex items-start gap-3">
+          <div className="bg-[#1a1a1a] backdrop-blur-md border border-[#E36B11]/50 rounded-xl p-4 shadow-2xl flex items-start gap-3">
             <div className="w-10 h-10 rounded-full bg-[#E36B11]/20 flex items-center justify-center flex-shrink-0">
               <img src="/images/genxlogo1.png" alt="" className="w-6 h-6" />
             </div>

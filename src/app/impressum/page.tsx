@@ -21,17 +21,16 @@ export default function ImpressumPage() {
 
   // Default content if no DB entry
   const defaultContent = `
-    <h2 class="text-xl font-bold text-gray-900 mb-4">Angaben gemäß § 5 TMG</h2>
-    <p class="mb-4"><strong>Best of GenX</strong><br/>Ein Projekt für die Generation X<br/>80s, 90s & Early 2000s Entertainment</p>
-    <h3 class="text-lg font-bold text-gray-900 mt-6 mb-3">Kontakt</h3>
-    <p class="mb-4">E-Mail: <a href="mailto:contact@bestofgenx.com" class="text-[#E36B11] hover:underline">contact@bestofgenx.com</a></p>
-    <h3 class="text-lg font-bold text-gray-900 mt-6 mb-3">Verantwortlich für den Inhalt</h3>
-    <p class="mb-4">Best of GenX Team<br/>E-Mail: <a href="mailto:contact@bestofgenx.com" class="text-[#E36B11] hover:underline">contact@bestofgenx.com</a></p>
-    <p class="text-xs text-gray-500 mt-8">Stand: Juni 2026</p>
+    <h2 class="text-xl font-bold text-gray-900 mb-4">Imprint</h2>
+    <p class="mb-4"><strong>Best of GenX</strong><br/>A project for Generation X<br/>80s, 90s &amp; Early 2000s Entertainment</p>
+    <h3 class="text-lg font-bold text-gray-900 mt-6 mb-3">Contact</h3>
+    <p class="mb-4">Email: <a href="mailto:contact@bestofgenx.com" class="text-[#E36B11] hover:underline">contact@bestofgenx.com</a></p>
+    <h3 class="text-lg font-bold text-gray-900 mt-6 mb-3">Responsible for content</h3>
+    <p class="mb-4">Best of GenX Team<br/>Email: <a href="mailto:contact@bestofgenx.com" class="text-[#E36B11] hover:underline">contact@bestofgenx.com</a></p>
   `;
 
   return (
-    <StaticPageLayout title={page?.title || 'Impressum'}>
+    <StaticPageLayout title={page?.title || 'Imprint'}>
       {page?.coverImage && (
         <div className="w-full h-40 overflow-hidden rounded-xl mb-6">
           <img src={page.coverImage} alt="" className="w-full h-full object-cover" />

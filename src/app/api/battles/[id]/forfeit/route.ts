@@ -4,6 +4,7 @@ import Battle from '@/models/Battle';
 import User from '@/models/User';
 import Notification from '@/models/Notification';
 import { sendPushNotification } from '@/lib/webpush';
+import { saveBattleGameResult } from '@/lib/battleLedger';
 
 // POST - Forfeit an active battle (user gives up, opponent wins)
 export async function POST(
@@ -128,6 +129,14 @@ export async function POST(
     battle.forfeitedBy = loserId;
     battle.completedAt = new Date();
     await battle.save();
+    
+    // Journal the settlement. A forfeit is a real result - without these entries
+    // the pot moves in the wallet but never in the rankings, and the two views
+    // drift apart for good.
+    await saveBattleGameResult(winnerId.toString(), loser?.username || 'opponent', battle.wager, true);
+    if (loserId) {
+      await saveBattleGameResult(loserId.toString(), winner?.username || 'opponent', -battle.wager, false);
+    }
     
     // In-app notifications for BOTH sides. Without these the loser only saw the
     // notification derived from the battle document, which compared two empty result

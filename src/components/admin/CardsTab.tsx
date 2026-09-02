@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Trash2, Loader2, Sparkles, ChevronUp, ChevronDown, Wand2 } from "lucide-react";
 import ImagePickerModal from "./ImagePickerModal";
-import PredictionsTab from "./PredictionsTab";
+
 import QuestionsTab from "./QuestionsTab";
 
 interface QuestionVariant {
@@ -75,7 +75,7 @@ const topicPools: Record<string, string[]> = {
 };
 
 // Arcade subtabs
-type ArcadeSubTab = 'quizbattle' | 'trivia' | 'othergames' | 'predictions' | 'questions' | 'questions-legacy';
+type ArcadeSubTab = 'quizbattle' | 'trivia' | 'othergames' | 'questions' | 'questions-legacy';
 
 export default function ArcadeTab() {
   const [activeSubTab, setActiveSubTab] = useState<ArcadeSubTab>('questions');
@@ -559,13 +559,12 @@ export default function ArcadeTab() {
     { id: 'quizbattle' as const, label: 'Quiz Battle' },
     { id: 'trivia' as const, label: 'Trivia' },
     { id: 'othergames' as const, label: 'Other Games' },
-    { id: 'predictions' as const, label: 'Predictions' },
     { id: 'questions' as const, label: 'Questions' },
   ];
 
   return (
     <div>
-      {/* Header like Predictions */}
+      {/* Header */}
       <div className="flex items-center gap-2 mb-4">
         <Sparkles className="w-4 h-4 text-[#E36B11]" />
         <h2 className="text-sm font-bold">Arcade</h2>
@@ -862,11 +861,6 @@ export default function ArcadeTab() {
         <div className="bg-gray-800 rounded-xl p-6 border border-gray-700 text-center">
           <p className="text-gray-400">More games coming soon...</p>
         </div>
-      )}
-
-      {/* Predictions Content - embedded PredictionsTab */}
-      {activeSubTab === 'predictions' && (
-        <PredictionsTab />
       )}
 
       {/* Questions Content - New simplified component */}

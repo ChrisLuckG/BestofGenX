@@ -3,8 +3,7 @@ import dbConnect from '@/lib/mongoose';
 import Battle from '@/models/Battle';
 import User from '@/models/User';
 import Notification from '@/models/Notification';
-import Prediction from '@/models/Prediction';
-import UserPrediction from '@/models/UserPrediction';
+
 import { compareBattleResults } from '@/utils/battleWinner';
 import { WELCOME_NOTIFICATION_ID, WELCOME_TITLE, welcomeMessage } from '@/lib/welcomeNotification';
 
@@ -157,47 +156,6 @@ export async function GET(request: NextRequest) {
     // created in the DB when the creator finishes playing (in submit route)
     // This prevents showing challenges before creator played and duplicate notifications
     
-    // Add resolved-prediction results for this user
-    const userPicks = await UserPrediction.find({ userId }).sort({ updatedAt: -1 }).limit(30).lean();
-    if (userPicks.length > 0) {
-      const predictionIds = userPicks.map((up) => up.predictionId);
-      const resolvedPredictions = await Prediction.find({
-        _id: { $in: predictionIds },
-        status: 'resolved',
-      }).lean();
-      const byId = new Map(resolvedPredictions.map((p) => [String(p._id), p]));
-      for (const up of userPicks) {
-        const pred = byId.get(String(up.predictionId));
-        if (!pred) continue;
-        const correctOption = pred.options.find((o) => o.id === pred.correctOptionId);
-        const userOption = pred.options.find((o) => o.id === up.optionId);
-        const won = up.isCorrect === true;
-        const notifId = `prediction-result-${pred._id}`;
-        notifications.push({
-          id: notifId,
-          type: 'prediction_result',
-          title: won ? 'Prediction won' : 'Prediction lost',
-          message: won
-            ? `You called "${pred.question}" right! +${up.pointsAwarded || pred.pointsReward}P earned.`
-            : `"${pred.question}" was "${correctOption?.label || 'revealed'}". Better luck next time!`,
-          avatar: '/images/genxlogo1.png',
-          predictionId: String(pred._id),
-          predictionQuestion: pred.question,
-          predictionOptions: pred.options,
-          predictionCorrectOptionId: pred.correctOptionId,
-          userOptionId: up.optionId,
-          userOptionLabel: userOption?.label,
-          correctOptionLabel: correctOption?.label,
-          pointsAwarded: up.pointsAwarded || 0,
-          pointsReward: pred.pointsReward,
-          resolvedAt: pred.resolvedAt,
-          won,
-          createdAt: pred.resolvedAt || pred.updatedAt || new Date(),
-          read: readIds.has(notifId),
-        });
-      }
-    }
-
     // Add system notifications from Notification collection
     notifications.push(...systemNotifications);
 

@@ -3,42 +3,9 @@ import dbConnect from '@/lib/mongoose';
 import Battle from '@/models/Battle';
 import User from '@/models/User';
 import Notification from '@/models/Notification';
-import GameResult from '@/models/GameResult';
 import { sendPushNotification } from '@/lib/webpush';
 import { compareBattleResults } from '@/utils/battleWinner';
-
-// Helper: save battle result for ranking system
-async function saveBattleGameResult(userId: string, opponentName: string, pointsChange: number, won: boolean) {
-  try {
-    const user = await User.findById(userId).select('username bogxCoins');
-    if (!user) return;
-    const today = new Date().toLocaleString('en-CA', { 
-      timeZone: 'Europe/Berlin',
-      year: 'numeric',
-      month: '2-digit', 
-      day: '2-digit'
-    }).split(',')[0];
-    await GameResult.create({
-      userId,
-      username: user.username,
-      cardId: 'quizzbattle',
-      question: `QuizzBattle vs ${opponentName}`,
-      userAnswer: null,
-      correctAnswer: '-',
-      isCorrect: won,
-      pointsChange,
-      pointsBefore: (user.bogxCoins || 0) - pointsChange,
-      pointsAfter: user.bogxCoins || 0,
-      timeUsed: 0,
-      difficulty: 1,
-      skipped: false,
-      timedOut: false,
-      gameDate: today,
-    });
-  } catch (e) {
-    console.error('Failed to save battle GameResult:', e);
-  }
-}
+import { saveBattleGameResult } from '@/lib/battleLedger';
 
 interface RoundResult {
   round: number;

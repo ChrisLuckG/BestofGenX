@@ -737,6 +737,22 @@ body {
   animation: timer-pulse 0.5s ease-in-out infinite;
 }
 
+/* Subtle bounce animations for rank arrows */
+@keyframes bounce-subtle-up {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+@keyframes bounce-subtle-down {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(2px); }
+}
+.animate-bounce-subtle-up {
+  animation: bounce-subtle-up 1.5s ease-in-out infinite;
+}
+.animate-bounce-subtle-down {
+  animation: bounce-subtle-down 1.5s ease-in-out infinite;
+}
+
 /* BOGX Invaders starfield - animated space, flying-through-space effect.
    Two tileable layers scroll downward at different speeds for parallax. */
 .bogx-starfield,

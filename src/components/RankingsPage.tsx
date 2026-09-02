@@ -49,12 +49,50 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
       .catch(() => {});
   }, [isLoggedIn, user?.id]);
 
-  // Check if game is on break (9:00-10:00 CET)
+  // Countdown state
+  const [countdown, setCountdown] = useState('');
+  
+  // Countdown to 9:55 Berlin time (end of game day / start of break)
+  useEffect(() => {
+    const updateCountdown = () => {
+      const now = new Date();
+      const berlinTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+      const berlinHour = berlinTime.getHours();
+      const berlinMinute = berlinTime.getMinutes();
+      const berlinSecond = berlinTime.getSeconds();
+      
+      let totalSeconds;
+      const targetHour = 9;
+      const targetMinute = 55;
+      
+      if (berlinHour < targetHour || (berlinHour === targetHour && berlinMinute < targetMinute)) {
+        const targetMinutes = targetHour * 60 + targetMinute;
+        const currentMinutes = berlinHour * 60 + berlinMinute;
+        totalSeconds = (targetMinutes - currentMinutes - 1) * 60 + (60 - berlinSecond);
+      } else {
+        totalSeconds = (24 - berlinHour + targetHour) * 3600 + (targetMinute - berlinMinute - 1) * 60 + (60 - berlinSecond);
+      }
+      
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      
+      setCountdown(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+    };
+    
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Check if game is on break (9:55-10:00 CET - only 5 minutes)
   const isOnBreak = () => {
     const now = new Date();
     const germanTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
     const hour = germanTime.getHours();
-    return hour >= 9 && hour < 10;
+    const minute = germanTime.getMinutes();
+    // Break is only 5 minutes: 9:55-10:00
+    return hour === 9 && minute >= 55;
   };
 
   // Check if selected date is today
@@ -170,7 +208,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-cream">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-[#E36B11]/5">
         <div className="flex items-center gap-2">
           <Trophy className="w-5 h-5 text-[#E36B11]" />
           <span className="font-display text-lg tracking-wider text-gray-900">Rankings</span>
@@ -220,7 +258,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
         ) : isLoggedIn && currentUserRank ? (
           <div className="mx-4 mt-3 mb-3">
             {/* Main Card */}
-            <div className="bg-gradient-to-r from-[#F5EDE4] to-[#EDE5DC] border border-[#E36B11]/20 rounded-xl overflow-hidden">
+            <div className="bg-[#F5EDE4] border border-[#E36B11]/20 rounded-xl overflow-hidden">
               {/* Row 1: Avatar+Name (left) | Rank (right) */}
               <div className="p-3 flex items-center justify-between">
                 {/* LEFT: Avatar + Name + Country */}
@@ -235,7 +273,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                     </div>
                     <div className="text-[9px] text-gray-500 flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                      EUROPE
+                      {(currentUserRank.country || 'World').toUpperCase()}
                     </div>
                   </div>
                 </div>
@@ -401,34 +439,88 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
 
           {/* Date Navigation */}
           <div className="flex items-center justify-between px-5 py-3 border-b border-warm">
-          <button onClick={goToPrevious} className="w-7 h-7 bg-cream border border-warm rounded-lg flex items-center justify-center">
-            <ChevronLeft className="w-4 h-4 text-gray-500" />
-          </button>
-          <div className="text-center">
-            {isToday() && (
-              <div className="flex items-center justify-center gap-1.5 mb-1">
-                {isOnBreak() ? (
-                  <>
-                    <img src="/images/coffee-break.svg" alt="" className="w-5 h-5" />
-                    <span className="text-[9px] font-semibold tracking-widest text-[#E36B11] uppercase">Break</span>
-                  </>
-                ) : isLive ? (
-                  <>
-                    <div className="w-1.5 h-1.5 bg-[#E36B11] rounded-full animate-pulse" />
-                    <span className="text-[9px] font-semibold tracking-widest text-[#E36B11] uppercase">Live</span>
-                  </>
-                ) : null}
-              </div>
+            <button onClick={goToPrevious} className="w-7 h-7 bg-cream border border-warm rounded-lg flex items-center justify-center">
+              <ChevronLeft className="w-4 h-4 text-gray-500" />
+            </button>
+            <div className="text-center">
+              {/* Date on top */}
+              <div className="font-display text-lg font-bold leading-none tracking-wide text-[#1A2238]">{getDateDisplay()}</div>
+              {/* Countdown indicator below - format depends on tab */}
+              {isToday() && (
+                <div className="flex items-center justify-center gap-2 mt-1 h-5">
+                  {activeTab === 'day' ? (
+                    isOnBreak() ? (
+                      <>
+                        <img src="/images/coffee-break.svg" alt="" className="w-4 h-4" />
+                        <span className="text-[9px] font-semibold tracking-widest text-[#E36B11] uppercase">Break</span>
+                      </>
+                    ) : isLive ? (
+                      (() => {
+                        const [h, m, s] = countdown.split(':');
+                        return (
+                          <>
+                            <Clock className="w-4 h-4 text-[#E36B11] animate-pulse" />
+                            <span className="font-display text-sm font-normal text-[#E36B11] tabular-nums tracking-wide">
+                              {h}H : {m}M : {s}S
+                            </span>
+                          </>
+                        );
+                      })()
+                    ) : null
+                  ) : activeTab === 'month' ? (
+                    (() => {
+                      const now = new Date();
+                      const berlinTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+                      const lastDay = new Date(berlinTime.getFullYear(), berlinTime.getMonth() + 1, 0, 9, 55, 0);
+                      const diff = lastDay.getTime() - berlinTime.getTime();
+                      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                      return (
+                        <>
+                          <Clock className="w-4 h-4 text-[#E36B11] animate-pulse" />
+                          <span className="font-display text-sm font-normal text-[#E36B11] tabular-nums tracking-wide">
+                            {days}D : {hours.toString().padStart(2, '0')}H : {minutes.toString().padStart(2, '0')}M : {seconds.toString().padStart(2, '0')}S
+                          </span>
+                        </>
+                      );
+                    })()
+                  ) : (
+                    (() => {
+                      const now = new Date();
+                      const berlinTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Berlin' }));
+                      const lastDay = new Date(berlinTime.getFullYear(), 11, 31, 9, 55, 0);
+                      const diff = lastDay.getTime() - berlinTime.getTime();
+                      const months = Math.floor(diff / (1000 * 60 * 60 * 24 * 30));
+                      const days = Math.floor((diff % (1000 * 60 * 60 * 24 * 30)) / (1000 * 60 * 60 * 24));
+                      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                      return (
+                        <>
+                          <Clock className="w-4 h-4 text-[#E36B11] animate-pulse" />
+                          <span className="font-display text-sm font-normal text-[#E36B11] tabular-nums tracking-wide">
+                            {months}M : {days}D : {hours.toString().padStart(2, '0')}H : {minutes.toString().padStart(2, '0')}M : {seconds.toString().padStart(2, '0')}S
+                          </span>
+                        </>
+                      );
+                    })()
+                  )}
+                </div>
+              )}
+            </div>
+            {/* Right arrow - hidden when viewing today */}
+            {canGoNext() ? (
+              <button 
+                onClick={goToNext}
+                className="w-7 h-7 bg-cream border border-warm rounded-lg flex items-center justify-center"
+              >
+                <ChevronRight className="w-4 h-4 text-gray-500" />
+              </button>
+            ) : (
+              <div className="w-7 h-7" />
             )}
-            <div className="text-sm font-medium text-gray-900">{getDateDisplay()}</div>
-          </div>
-          <button 
-            onClick={goToNext}
-            disabled={!canGoNext()}
-            className={`w-7 h-7 bg-cream border border-warm rounded-lg flex items-center justify-center ${!canGoNext() ? 'opacity-30' : ''}`}
-          >
-            <ChevronRight className="w-4 h-4 text-gray-500" />
-          </button>
           </div>
         </div>
 
@@ -586,14 +678,26 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                 );
               })}
               
-              {/* View More Button - shows when there are more rankings */}
+              {/* Infinite scroll trigger */}
               {hasMoreToShow && (
-                <button
-                  onClick={() => setVisibleCount(prev => Math.min(prev + 10, rankings.length))}
-                  className="w-full py-3 text-center text-sm font-semibold text-[#E36B11] hover:bg-[#E36B11]/5 transition-colors"
+                <div 
+                  ref={(el) => {
+                    if (!el) return;
+                    const observer = new IntersectionObserver(
+                      (entries) => {
+                        if (entries[0].isIntersecting) {
+                          setVisibleCount(prev => Math.min(prev + 10, rankings.length));
+                        }
+                      },
+                      { threshold: 0.1 }
+                    );
+                    observer.observe(el);
+                    return () => observer.disconnect();
+                  }}
+                  className="h-10 flex items-center justify-center"
                 >
-                  View More
-                </button>
+                  <div className="w-5 h-5 border-2 border-[#E36B11]/30 border-t-[#E36B11] rounded-full animate-spin" />
+                </div>
               )}
             </div>
           </>

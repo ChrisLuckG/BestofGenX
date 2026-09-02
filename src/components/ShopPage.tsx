@@ -96,7 +96,7 @@ export default function ShopPage({ coins = 0, onCoinsUsed }: ShopPageProps) {
   return (
     <div className="w-full h-full min-h-full flex flex-col overflow-hidden bg-cream">
       {/* Header - exactly like Rankings */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-[#E36B11]/5">
         <div className="flex items-center gap-3">
           <ShoppingBag className="w-5 h-5 text-[#E36B11]" />
           <div>

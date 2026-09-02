@@ -874,22 +874,6 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       className={`w-full rounded-none overflow-hidden bg-cream border border-warm text-left shadow-md hover:shadow-lg hover:border-[#E36B11]/30 transition-all duration-200 group cursor-pointer relative ${loadingArticleId === article._id ? 'pointer-events-none' : ''}`}
     >
       <LoadingOverlay articleId={article._id} />
-      {/* Social Header: Avatar + Name + Time + Menu */}
-      <div className="flex items-center gap-2 p-3 border-b border-warm/50">
-        <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border border-warm">
-          {article.authorAvatar ? (
-            <img src={article.authorAvatar} alt={article.authorName || 'Author'} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full bg-[#E36B11]/20 flex items-center justify-center text-[#E36B11] font-bold text-sm">
-              {(article.authorName || 'A')[0].toUpperCase()}
-            </div>
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-[14px] font-bold text-gray-900 truncate">{article.authorName || 'Author'}</div>
-          <div className="text-[11px] text-gray-500">{article.createdAt ? new Date(article.createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}</div>
-        </div>
-      </div>
       
       {/* Large Image/Video - Full width, fixed height with cover + Title overlay */}
       <div className="w-full h-[200px] md:h-[280px] lg:h-[320px] relative overflow-hidden">
@@ -1097,22 +1081,6 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       className={`w-full rounded-none overflow-hidden ${bgClass} border ${cardTheme.border} text-left shadow-md hover:shadow-lg ${cardTheme.hoverBorder} transition-all duration-200 group cursor-pointer relative touch-manipulation ${loadingArticleId === article._id ? 'pointer-events-none' : ''}`}
     >
       <LoadingOverlay articleId={article._id} />
-      {/* Header: Avatar + Name + Time + Menu */}
-      <div className="flex items-center gap-2 p-3 pb-2 md:border-b md:border-warm/50">
-        <div className="w-9 h-9 md:w-10 md:h-10 rounded-full overflow-hidden flex-shrink-0 border border-warm">
-          {article.authorAvatar ? (
-            <img src={article.authorAvatar} alt={article.authorName || 'Author'} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full bg-[#E36B11]/20 flex items-center justify-center text-[#E36B11] font-bold text-xs md:text-sm">
-              {(article.authorName || 'A')[0].toUpperCase()}
-            </div>
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-[13px] md:text-[14px] font-bold text-gray-900 truncate">{article.authorName || 'Author'}</div>
-          <div className="text-[10px] md:text-[11px] text-gray-500">{article.createdAt ? new Date(article.createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}</div>
-        </div>
-      </div>
       
       {/* Image/Video with Title Overlay */}
       {article.coverImage && (
@@ -1326,7 +1294,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
     return (
       <div className="w-full h-full flex flex-col overflow-hidden bg-cream">
         {/* Header - exactly like Rankings */}
-        <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
+        <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-[#E36B11]/5">
           <div className="flex items-center gap-3">
             <Play className="w-5 h-5 text-[#E36B11]" />
             <div>
@@ -1452,7 +1420,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-cream">
       {/* Header - exactly like Rankings */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-[#E36B11]/5">
         <div className="flex items-center gap-3">
           <Play className="w-5 h-5 text-[#E36B11]" />
           <div>
@@ -1657,6 +1625,18 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                     culture: { bg: 'bg-pink-800', border: 'border-pink-500', titleColor: 'text-[#F5F0E8]' },
                     gaming: { bg: 'bg-indigo-800', border: 'border-indigo-500', titleColor: 'text-[#F5F0E8]' },
                     retro: { bg: 'bg-teal-800', border: 'border-teal-500', titleColor: 'text-[#F5F0E8]' },
+                    // Additional colors from Admin
+                    red: { bg: 'bg-red-700', border: 'border-red-500', titleColor: 'text-[#F5F0E8]' },
+                    rose: { bg: 'bg-rose-700', border: 'border-rose-500', titleColor: 'text-[#F5F0E8]' },
+                    fuchsia: { bg: 'bg-fuchsia-700', border: 'border-fuchsia-500', titleColor: 'text-[#F5F0E8]' },
+                    violet: { bg: 'bg-violet-700', border: 'border-violet-500', titleColor: 'text-[#F5F0E8]' },
+                    sky: { bg: 'bg-sky-700', border: 'border-sky-500', titleColor: 'text-[#F5F0E8]' },
+                    cyan: { bg: 'bg-cyan-700', border: 'border-cyan-500', titleColor: 'text-[#F5F0E8]' },
+                    emerald: { bg: 'bg-emerald-700', border: 'border-emerald-500', titleColor: 'text-[#F5F0E8]' },
+                    lime: { bg: 'bg-lime-700', border: 'border-lime-500', titleColor: 'text-[#F5F0E8]' },
+                    yellow: { bg: 'bg-yellow-600', border: 'border-yellow-400', titleColor: 'text-[#F5F0E8]' },
+                    slate: { bg: 'bg-slate-700', border: 'border-slate-500', titleColor: 'text-[#F5F0E8]' },
+                    zinc: { bg: 'bg-zinc-800', border: 'border-zinc-600', titleColor: 'text-[#F5F0E8]' },
                   };
                   const isCustomTheme = item.containerTheme === 'custom' && item.customColor;
                   const theme = isCustomTheme 
@@ -1678,15 +1658,17 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                           : n.includes('rip') || n.includes('memorial') ? Cross
                           : n.includes('movie') || n.includes('cinema') || n.includes('tv') || n.includes('film') ? Clapperboard
                           : Newspaper;
+                        // Colors from categories.ts - SINGLE SOURCE OF TRUTH
                         const accentColor = n.includes('birthday') || n.includes('happy') ? '#F4B400'
-                          : n.includes('history') ? '#E36B11'
-                          : n.includes('music') ? '#6db94c'
-                          : n.includes('arcade') || n.includes('gaming') || n.includes('trivia') ? '#7C3AED'
-                          : n.includes('sport') ? '#E53935'
-                          : n.includes('eastercorn') ? '#000000'
-                          : n.includes('lifestyle') || n.includes('culture') ? '#EC4899'
-                          : n.includes('rip') || n.includes('memorial') ? '#6B7280'
-                          : n.includes('movie') || n.includes('cinema') || n.includes('tv') || n.includes('film') ? '#F97316'
+                          : n.includes('history') ? '#E36B11'        // history
+                          : n.includes('music') ? '#15803D'          // music
+                          : n.includes('arcade') || n.includes('gaming') || n.includes('trivia') ? '#A21CAF'  // gaming
+                          : n.includes('sport') ? '#C0392B'          // sports
+                          : n.includes('eastercorn') ? '#1E3A8A'     // eastercorn
+                          : n.includes('lifestyle') || n.includes('culture') ? '#db2777'  // lifestyle
+                          : n.includes('rip') || n.includes('memorial') ? '#4b5563'       // rip
+                          : n.includes('movie') || n.includes('cinema') || n.includes('tv') || n.includes('film') ? '#1D4ED8'  // movies-tv
+                          : n.includes('news') || n.includes('politic') ? '#334155'       // news
                           : '#374151';
                         return (
                           <div className="flex items-center gap-2.5 mb-2 pl-3 py-1.5" style={{ borderLeft: `4px solid ${accentColor}` }}>
@@ -1794,7 +1776,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                                   else onOpenStaticPage?.(bannerLink.replace(/^\//, ''));
                                 }
                               }}
-                              className={`block w-full rounded-none overflow-hidden shadow-md hover:shadow-lg transition-all cursor-pointer ${autoCategory === 'music' ? 'border-4 border-[#6db94c]' : 'bg-[#F5F0E8] p-1 border border-[#E5DDD0] hover:border-[#E36B11]/30'}`}
+                              className={`block w-full rounded-none overflow-hidden shadow-md hover:shadow-lg transition-all cursor-pointer ${autoCategory === 'music' ? 'border-4 border-[#15803D]' : 'bg-[#F5F0E8] p-1 border border-[#E5DDD0] hover:border-[#E36B11]/30'}`}
                             >
                               <div className="relative w-full aspect-[2/1] md:aspect-[2.5/1] lg:aspect-[2.7/1] overflow-hidden bg-gray-800">
                                 {fixedImg ? (
@@ -1807,28 +1789,19 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                                   <div className="w-full h-full bg-gradient-to-r from-gray-800 to-gray-700" />
                                 )}
                                 {fixedArticle && (autoCategory === 'history' || autoCategory === 'arcade' || autoCategory === 'gaming') && (() => {
-                                  const dateStr = fixedArticle.createdAt
-                                    ? new Date(fixedArticle.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                                    : new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                                   // Use cream color for arcade/gaming, orange for history
                                   const isArcade = autoCategory === 'arcade' || autoCategory === 'gaming';
                                   const accentColor = isArcade ? '#F5F0E8' : '#E36B11';
-                                  const bgTint = isArcade ? 'rgba(107, 33, 168, 0.3)' : `${accentColor}20`;
                                   return (
                                     <div className="absolute bottom-0 left-0 right-0 flex items-stretch bg-black/55 backdrop-blur-sm">
-                                      {/* Date block left - category accent color */}
-                                      <div className="flex flex-row items-center justify-center gap-1.5 px-4 py-3 border-r border-white/20 whitespace-nowrap" style={{ backgroundColor: bgTint }}>
-                                        <span className="text-sm font-bold uppercase tracking-widest leading-none" style={{ color: accentColor }}>{dateStr.split(' ')[0]}</span>
-                                        <span className="font-black text-2xl leading-none" style={{ color: accentColor }}>{dateStr.split(' ')[1]}</span>
-                                      </div>
-                                      {/* Title + subtitle right */}
+                                      {/* Title + subtitle */}
                                       <div className="flex flex-col justify-center px-4 py-3 min-w-0 gap-0.5 text-left flex-1">
                                         <div className="text-[#F5F0E8] font-bold text-base leading-tight line-clamp-1">{fixedArticle.title}</div>
                                         {fixedArticle.subtitle && <div className="text-[#F5F0E8]/65 text-xs leading-tight line-clamp-1 pl-0">{fixedArticle.subtitle}</div>}
                                       </div>
                                       {/* Read More button - desktop only */}
                                       <div className="hidden md:flex items-center px-4 py-3 flex-shrink-0">
-                                        <span className="flex items-center gap-1.5 px-3 py-1.5 border text-xs font-bold uppercase tracking-wider rounded transition-colors whitespace-nowrap" style={{ borderColor: `${accentColor}99`, color: accentColor }}>
+                                        <span className="flex items-center gap-1.5 px-3 py-1.5 border text-xs font-display rounded transition-colors whitespace-nowrap" style={{ borderColor: `${accentColor}99`, color: accentColor }}>
                                           Read More →
                                         </span>
                                       </div>
@@ -1911,7 +1884,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                                 <div className="pt-2 pb-4 mb-2 border-b border-warm">
                                   <button 
                                     onClick={() => window.dispatchEvent(new CustomEvent('openArticles', { detail: { category: cat } }))}
-                                    className="flex items-center justify-center gap-1.5 w-full py-1.5 text-xs text-gray-400 uppercase tracking-wider hover:text-gray-600"
+                                    className="flex items-center justify-center gap-1.5 w-full py-1.5 text-xs font-display text-gray-400 hover:text-gray-600"
                                   >
                                     {cat === 'music' && <Music className="w-3.5 h-3.5" />}
                                     {cat === 'movies-tv' && <Clapperboard className="w-3.5 h-3.5" />}
@@ -2011,7 +1984,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                   return (
                     <div key={index} className="col-span-6 space-y-2">
                       {/* Title */}
-                      <span className="text-xs font-bold text-[#E36B11] uppercase tracking-wider">More Articles</span>
+                      <span className="text-xs font-display text-[#E36B11]">More Articles</span>
                       {vertArticles.slice(0, 3).map((art, i) => (
                         <FullWidthBanner key={i} article={art} />
                       ))}
@@ -2076,10 +2049,10 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
             
             {/* Links */}
             <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-xs text-gray-500 mb-4">
-              <button onClick={() => onOpenStaticPage?.('impressum')} className="hover:text-[#E36B11] transition-colors">Impressum</button>
-              <button onClick={() => onOpenStaticPage?.('datenschutz')} className="hover:text-[#E36B11] transition-colors">Datenschutz</button>
-              <button onClick={() => onOpenStaticPage?.('agb')} className="hover:text-[#E36B11] transition-colors">AGB</button>
-              <button onClick={() => onOpenStaticPage?.('kontakt')} className="hover:text-[#E36B11] transition-colors">Kontakt</button>
+              <button onClick={() => onOpenStaticPage?.('impressum')} className="hover:text-[#E36B11] transition-colors">Imprint</button>
+              <button onClick={() => onOpenStaticPage?.('datenschutz')} className="hover:text-[#E36B11] transition-colors">Privacy</button>
+              <button onClick={() => onOpenStaticPage?.('agb')} className="hover:text-[#E36B11] transition-colors">Terms</button>
+              <button onClick={() => onOpenStaticPage?.('kontakt')} className="hover:text-[#E36B11] transition-colors">Contact</button>
             </div>
             
             {/* Social Links */}

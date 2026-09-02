@@ -1559,7 +1559,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   const renderSetupScreen = () => (
     <div className="flex flex-col h-full min-h-full flex-1" style={{ backgroundColor: '#F5F0E8' }}>
       {/* Header - exact copy from ArcadePage */}
-      <div className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#6B7280]/5 to-transparent">
+      <div className="px-4 pt-4 pb-3 border-b border-warm bg-gray-500/5">
         <div className="flex items-center gap-3">
           {onBack && (
             <button onClick={onBack} className="p-1 hover:bg-[#6B7280]/10 rounded transition-colors">
@@ -1661,7 +1661,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   const renderPoolScreen = () => (
     <div className="relative flex flex-col h-full min-h-full overflow-hidden" style={{ backgroundColor: '#F5F0E8' }}>
       {/* Header - same style as Solo Trivia */}
-      <div className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#6B7280]/5 to-transparent">
+      <div className="px-4 pt-4 pb-3 border-b border-warm bg-gray-500/5">
         <div className="relative flex items-center gap-3">
           {onBack && (
             <button onClick={onBack} className="p-1 hover:bg-[#6B7280]/10 rounded transition-colors">
@@ -2877,7 +2877,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     return (
       <div className="flex flex-col h-full bg-cream">
         {/* Header - same style as Pool Screen */}
-        <div className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#6B7280]/5 to-transparent">
+        <div className="px-4 pt-4 pb-3 border-b border-warm bg-gray-500/5">
           <div className="flex items-center gap-3">
             <button onClick={backToPool} className="p-1 hover:bg-[#6B7280]/10 rounded transition-colors">
               <ChevronLeft className="w-5 h-5 text-gray-600" />

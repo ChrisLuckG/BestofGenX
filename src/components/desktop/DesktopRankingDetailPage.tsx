@@ -195,7 +195,7 @@ export default function DesktopRankingDetailPage({ poll, onBack, onOpenArticle, 
     return (
       <div className="h-full flex flex-col bg-[#F5F0E8] overflow-hidden animate-pulse">
         {/* Header Skeleton */}
-        <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
+        <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-warm bg-[#E36B11]/5">
           <div className="w-8 h-8 rounded-lg bg-skeleton" />
           <div className="flex-1">
             <div className="h-3 w-16 bg-skeleton rounded mb-2" />
@@ -237,7 +237,7 @@ export default function DesktopRankingDetailPage({ poll, onBack, onOpenArticle, 
   return (
     <div className="h-full flex flex-col bg-[#F5F0E8] overflow-hidden">
       {/* Header - sticky like other pages */}
-      <div className="sticky top-0 z-10 flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-[#F5F0E8]">
+      <div className="sticky top-0 z-10 flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-[#E36B11]/5">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
