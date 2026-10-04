@@ -1,4 +1,4 @@
-================================================================================
+﻿================================================================================
 GENX ALMANACH - AI GENERATION
 ================================================================================
 
@@ -92,50 +92,32 @@ LENGTH:
 
 AUTHOR STYLES (tone parameter) - IMITATE THEIR ACTUAL WRITING STYLE:
 
-- informative: Factual, objective, encyclopedia-style. Just the facts.
+The authoritative briefs live in src/lib/authorStylePrompts.ts and are injected into
+the system prompt by the generation route. Only FOUR voices exist, chosen because all
+four are funny; the summaries below are for orientation and must not contradict the
+briefs. Do NOT add names here without adding a brief there.
 
-- irvine-welsh: Raw, gritty, savagely FUNNY working-class Scottish voice — the real thing, not a watered-down imitation.
-  Bold Scottish swagger and rhythm. Salty language welcome where it lands a punch. Take the piss out of everything and everyone.
-  Punchy, cynical, street-smart. Short brutal paragraphs. Strong opinions you'd defend in a pub brawl.
-  You love underdogs. You despise corporate nonsense, fakes, and pompous gits. You talk like a sharp bastard after four pints who's funnier and smarter than everyone in the room.
-  MANDATORY HUMOR: Every piece must make the reader laugh out loud — filthy metaphors, savage asides, unexpected gut-punches of comedy.
-  FORBIDDEN: Clean corporate prose, greeting-card sentiment, bland Wikipedia summaries. If it reads safe, you've failed.
+- informative: Factual, plain, one claim per sentence. Dry aside welcome, cheerleading never.
 
-- charles-bukowski: Short sentences. Then shorter. Cynical boozy poetry that's darkly FUNNY.
-  Dry, savage humour. Self-ironic. Emotionally honest without an ounce of sentimentality. Lowlife beauty.
-  Beautiful observations about ugly truths. Deadpan jokes that sneak up and floor you.
-  "He made it. Most of us don't. That's the joke. Nobody's laughing, which makes it funnier."
+- irvine-welsh: Raw, gritty, savagely FUNNY working-class voice. Take the piss out of
+  everything. Punchy, cynical, street-smart. Short brutal paragraphs.
+  MANDATORY HUMOR: filthy metaphors, savage asides, unexpected gut-punches of comedy.
+  FORBIDDEN: clean corporate prose, greeting-card sentiment, bland Wikipedia summaries.
 
-- benjamin-stuckrad-barre: EVERYTHING is pop culture! Brand names, references, speed.
-  Short sentences. Then a longer one that hits differently. MTV aesthetic.
+- benjamin-stuckrad-barre: EVERYTHING is pop culture. Name-drops, parentheses, em-dashes.
+  Interrupt your own sentence to mock it. Lists that derail by item three.
   Self-irony turned up to eleven. "Of course it was genius. Obviously."
-  Latin American magical realism meets pop culture explosion. High energy. Unexpected angles.
-  
-- hunter-thompson: GONZO! You're there. You're wasted. You're taking notes.
-  "We were somewhere around Barstow when the drugs began to take hold..."
-  Paranoia. Conspiracy. The American Dream is dead and this person killed it. Or saved it.
-  
-- nick-hornby: Lists. God, the lists. Top 5 reasons why this matters:
-  1. That album. You know the one.
-  Self-deprecating. "I'm not saying I cried, but..."
-  Music, feelings, 80s/90s connections. It's all connected. Smart but never cool.
+  FORBIDDEN: earnestness, writing like you mean it.
 
 - nora-ephron: Warm, funny, sharp. Never sentimental — but genuinely human.
-  Elegant sentences that feel effortless. Wit without cruelty.
-  Makes you smile instead of cry — even about sad things.
-  "Everything is copy." The personal is universal.
+  Wit without cruelty. Makes you smile instead of cry, even about sad things.
+  The unglamorous detail next to the famous one. Vary your openings every time.
+  FORBIDDEN: maudlin grief porn, "he touched so many lives".
 
 - slavenka-drakulic: Sharp, precise, no-nonsense. Eastern European analytical lens.
-  No emotional manipulation. Facts and observation first, then the uncomfortable conclusion.
-  Challenges lazy thinking. European perspective. Intellectually rigorous.
-
-- murakami: Minimalistic. Quiet. Thoughtful. Finds beauty in precise, simple observation.
-  Jazz references, cats, lonely heroes, the space between things.
-  Never loud. Intelligent humour that doesn't announce itself.
-
-- bret-easton-ellis: Surface. Brand names. Armani. Versace. Empty.
-  "He was wearing a..." Describe everything. Feel nothing.
-  The 80s. Cocaine. Success. Hollow. Beautiful. Dead inside.
+  Dry ironic humour — the humour of survival, the joke that is also an indictment.
+  Small domestic fact first, political conclusion second. Never announce the turn.
+  FORBIDDEN: American optimism, "everything happens for a reason".
 
 TIMEFRAME:
 - week: Focus on LATEST news from last week

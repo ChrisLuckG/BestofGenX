@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Trash2, Loader2, Sparkles, ChevronUp, ChevronDown, Wand2 } from "lucide-react";
 import ImagePickerModal from "./ImagePickerModal";
-
+import { useConfirm } from "./ConfirmModal";
 import QuestionsTab from "./QuestionsTab";
 
 interface QuestionVariant {
@@ -108,6 +108,7 @@ export default function ArcadeTab() {
   const [sortBy, setSortBy] = useState<'diff' | 'pts' | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [isSplitting, setIsSplitting] = useState(false);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   const fetchCards = async () => {
     try {
@@ -313,7 +314,13 @@ export default function ArcadeTab() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this question?")) return;
+    const ok = await confirm({
+      title: 'Delete Question',
+      message: 'Delete this question?',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
     setIsDeleting(id);
     try {
       const res = await fetch(`/api/cards/${id}`, { method: "DELETE" });
@@ -346,7 +353,14 @@ export default function ArcadeTab() {
   };
 
   const handleDeleteSelected = async () => {
-    if (selectedCards.size === 0 || !confirm(`Delete ${selectedCards.size} questions?`)) return;
+    if (selectedCards.size === 0) return;
+    const ok = await confirm({
+      title: 'Delete Questions',
+      message: `Delete ${selectedCards.size} questions?`,
+      confirmLabel: 'Delete All',
+      variant: 'danger',
+    });
+    if (!ok) return;
     setIsDeletingSelected(true);
     try {
       await Promise.all(Array.from(selectedCards).map(id => fetch(`/api/cards/${id}`, { method: "DELETE" })));
@@ -466,7 +480,13 @@ export default function ArcadeTab() {
         return;
       }
       setGermanCount(checkData.found);
-      if (!confirm(`Found ${checkData.found} German cards. Delete them all?`)) return;
+      const ok = await confirm({
+        title: 'Delete German Cards',
+        message: `Found ${checkData.found} German cards. Delete them all?`,
+        confirmLabel: 'Delete All',
+        variant: 'danger',
+      });
+      if (!ok) return;
       
       // Delete them
       const deleteRes = await fetch(`/api/admin/cleanup-german?userId=${localStorage.getItem('userId') || ''}`, { method: 'DELETE' });
@@ -529,7 +549,13 @@ export default function ArcadeTab() {
         alert('All cards already have single questions!');
         return;
       }
-      if (!confirm(`Found ${checkData.cardsToSplit} cards with multiple questions.\nThis will create ${checkData.willCreate} new cards.\n\nContinue?`)) return;
+      const ok = await confirm({
+        title: 'Split Cards',
+        message: `Found ${checkData.cardsToSplit} cards with multiple questions.\nThis will create ${checkData.willCreate} new cards.\n\nContinue?`,
+        confirmLabel: 'Split',
+        variant: 'warning',
+      });
+      if (!ok) return;
       
       // Split them
       const splitRes = await fetch('/api/admin/split-cards', { method: 'POST' });
@@ -550,7 +576,7 @@ export default function ArcadeTab() {
   if (loading) return (
     <div className="flex flex-col items-center justify-center py-12 gap-3">
       <Loader2 className="w-8 h-8 animate-spin text-[#E36B11]" />
-      <p className="text-gray-400 text-sm">Loading cards...</p>
+      <p className="text-gray-500 text-sm">Loading cards...</p>
     </div>
   );
 
@@ -579,7 +605,7 @@ export default function ArcadeTab() {
               key={tab.id}
               onClick={() => setActiveSubTab(tab.id)}
               className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                activeSubTab === tab.id ? 'bg-[#E36B11] text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                activeSubTab === tab.id ? 'bg-[#E36B11] text-gray-900' : 'bg-paper text-gray-500 hover:bg-gray-100'
               }`}
             >
               {tab.label}
@@ -589,7 +615,7 @@ export default function ArcadeTab() {
         {activeSubTab === 'questions' && (
           <button
             onClick={handleCreate}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#E36B11] text-white hover:bg-[#C4772A] transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#E36B11] text-gray-900 hover:bg-[#C4772A] transition-colors"
           >
             <Wand2 className="w-3 h-3" />
             Question
@@ -604,30 +630,30 @@ export default function ArcadeTab() {
           <div className="grid grid-cols-4 gap-3">
             <div className="bg-gradient-to-br from-purple-900/50 to-purple-800/30 rounded-xl p-4 border border-purple-700/50">
               <p className="text-purple-400 text-[10px] font-bold uppercase tracking-wider mb-1">Total Battles</p>
-              <p className="text-2xl font-bold text-white">--</p>
+              <p className="text-2xl font-bold text-gray-900">--</p>
               <p className="text-[10px] text-purple-300 mt-1">All time</p>
             </div>
             <div className="bg-gradient-to-br from-green-900/50 to-green-800/30 rounded-xl p-4 border border-green-700/50">
               <p className="text-green-400 text-[10px] font-bold uppercase tracking-wider mb-1">Today</p>
-              <p className="text-2xl font-bold text-white">--</p>
+              <p className="text-2xl font-bold text-gray-900">--</p>
               <p className="text-[10px] text-green-300 mt-1">Battles played</p>
             </div>
             <div className="bg-gradient-to-br from-[#E36B11]/30 to-[#E36B11]/10 rounded-xl p-4 border border-[#E36B11]/50">
               <p className="text-[#E36B11] text-[10px] font-bold uppercase tracking-wider mb-1">BOGX Spent</p>
-              <p className="text-2xl font-bold text-white">--</p>
+              <p className="text-2xl font-bold text-gray-900">--</p>
               <p className="text-[10px] text-[#E36B11]/70 mt-1">Entry fees collected</p>
             </div>
             <div className="bg-gradient-to-br from-blue-900/50 to-blue-800/30 rounded-xl p-4 border border-blue-700/50">
               <p className="text-blue-400 text-[10px] font-bold uppercase tracking-wider mb-1">Active Players</p>
-              <p className="text-2xl font-bold text-white">--</p>
+              <p className="text-2xl font-bold text-gray-900">--</p>
               <p className="text-[10px] text-blue-300 mt-1">This week</p>
             </div>
           </div>
 
           {/* Charts Row */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-              <h3 className="text-xs font-bold text-gray-300 mb-3">Battles per Day (Last 7 Days)</h3>
+            <div className="bg-paper rounded-xl p-4 border border-gray-200">
+              <h3 className="text-xs font-bold text-gray-600 mb-3">Battles per Day (Last 7 Days)</h3>
               <div className="flex items-end gap-1 h-24">
                 {[40, 65, 45, 80, 55, 70, 90].map((h, i) => (
                   <div key={i} className="flex-1 flex flex-col items-center gap-1">
@@ -639,8 +665,8 @@ export default function ArcadeTab() {
                 ))}
               </div>
             </div>
-            <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-              <h3 className="text-xs font-bold text-gray-300 mb-3">Win Rate Distribution</h3>
+            <div className="bg-paper rounded-xl p-4 border border-gray-200">
+              <h3 className="text-xs font-bold text-gray-600 mb-3">Win Rate Distribution</h3>
               <div className="flex items-center justify-center h-24 gap-4">
                 <div className="relative w-20 h-20">
                   <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
@@ -660,44 +686,44 @@ export default function ArcadeTab() {
           </div>
 
           {/* Recent Battles */}
-          <div className="bg-gray-800 rounded-xl border border-gray-700">
-            <div className="px-4 py-3 border-b border-gray-700">
-              <h3 className="text-xs font-bold text-gray-300">Recent Battles</h3>
+          <div className="bg-paper rounded-xl border border-gray-200">
+            <div className="px-4 py-3 border-b border-gray-200">
+              <h3 className="text-xs font-bold text-gray-600">Recent Battles</h3>
             </div>
-            <div className="divide-y divide-gray-700">
+            <div className="divide-y divide-gray-200">
               {[1,2,3,4,5].map((_, i) => (
                 <div key={i} className="px-4 py-2 flex items-center gap-3 text-xs">
-                  <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-gray-500">?</div>
+                  <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">?</div>
                   <div className="flex-1">
-                    <span className="text-gray-400">Player vs Player</span>
+                    <span className="text-gray-500">Player vs Player</span>
                   </div>
                   <span className="text-gray-500">--:--</span>
-                  <span className="px-2 py-0.5 rounded bg-gray-700 text-gray-400">--</span>
+                  <span className="px-2 py-0.5 rounded bg-gray-100 text-gray-500">--</span>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Most Pulled Questions */}
-          <div className="bg-gray-800 rounded-xl border border-gray-700">
-            <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
-              <h3 className="text-xs font-bold text-gray-300">🔥 Most Pulled Questions (Top 10)</h3>
+          <div className="bg-paper rounded-xl border border-gray-200">
+            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-xs font-bold text-gray-600">🔥 Most Pulled Questions (Top 10)</h3>
               <span className="text-[10px] text-gray-500">Adjust difficulty if too easy</span>
             </div>
-            <div className="divide-y divide-gray-700">
+            <div className="divide-y divide-gray-200">
               {cards.slice(0, 10).map((card, i) => (
-                <div key={card._id} className="px-4 py-2 flex items-center gap-3 text-xs hover:bg-gray-700/30">
+                <div key={card._id} className="px-4 py-2 flex items-center gap-3 text-xs hover:bg-gray-100/30">
                   <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] ${
                     i === 0 ? 'bg-yellow-500/20 text-yellow-400' :
-                    i === 1 ? 'bg-gray-400/20 text-gray-300' :
+                    i === 1 ? 'bg-gray-400/20 text-gray-600' :
                     i === 2 ? 'bg-orange-500/20 text-orange-400' :
-                    'bg-gray-700 text-gray-500'
+                    'bg-gray-100 text-gray-500'
                   }`}>#{i + 1}</span>
                   {card.previewImage && (
                     <img src={card.previewImage} alt="" className="w-8 h-8 rounded object-cover" />
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-gray-300 truncate">{card.questions?.[0]?.question || card.topic}</p>
+                    <p className="text-gray-600 truncate">{card.questions?.[0]?.question || card.topic}</p>
                     <p className="text-[10px] text-gray-500">{card.theme} · {card.topic}</p>
                   </div>
                   <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
@@ -727,30 +753,30 @@ export default function ArcadeTab() {
           <div className="grid grid-cols-4 gap-3">
             <div className="bg-gradient-to-br from-cyan-900/50 to-cyan-800/30 rounded-xl p-4 border border-cyan-700/50">
               <p className="text-cyan-400 text-[10px] font-bold uppercase tracking-wider mb-1">Games Played</p>
-              <p className="text-2xl font-bold text-white">--</p>
+              <p className="text-2xl font-bold text-gray-900">--</p>
               <p className="text-[10px] text-cyan-300 mt-1">All time</p>
             </div>
             <div className="bg-gradient-to-br from-pink-900/50 to-pink-800/30 rounded-xl p-4 border border-pink-700/50">
               <p className="text-pink-400 text-[10px] font-bold uppercase tracking-wider mb-1">Today</p>
-              <p className="text-2xl font-bold text-white">--</p>
+              <p className="text-2xl font-bold text-gray-900">--</p>
               <p className="text-[10px] text-pink-300 mt-1">Sessions</p>
             </div>
             <div className="bg-gradient-to-br from-yellow-900/50 to-yellow-800/30 rounded-xl p-4 border border-yellow-700/50">
               <p className="text-yellow-400 text-[10px] font-bold uppercase tracking-wider mb-1">BOGX Earned</p>
-              <p className="text-2xl font-bold text-white">--</p>
+              <p className="text-2xl font-bold text-gray-900">--</p>
               <p className="text-[10px] text-yellow-300 mt-1">By players</p>
             </div>
             <div className="bg-gradient-to-br from-indigo-900/50 to-indigo-800/30 rounded-xl p-4 border border-indigo-700/50">
               <p className="text-indigo-400 text-[10px] font-bold uppercase tracking-wider mb-1">Avg Score</p>
-              <p className="text-2xl font-bold text-white">--</p>
+              <p className="text-2xl font-bold text-gray-900">--</p>
               <p className="text-[10px] text-indigo-300 mt-1">Per game</p>
             </div>
           </div>
 
           {/* Charts Row */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-              <h3 className="text-xs font-bold text-gray-300 mb-3">Sessions per Day (Last 7 Days)</h3>
+            <div className="bg-paper rounded-xl p-4 border border-gray-200">
+              <h3 className="text-xs font-bold text-gray-600 mb-3">Sessions per Day (Last 7 Days)</h3>
               <div className="flex items-end gap-1 h-24">
                 {[30, 50, 70, 45, 85, 60, 75].map((h, i) => (
                   <div key={i} className="flex-1 flex flex-col items-center gap-1">
@@ -762,8 +788,8 @@ export default function ArcadeTab() {
                 ))}
               </div>
             </div>
-            <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
-              <h3 className="text-xs font-bold text-gray-300 mb-3">Category Popularity</h3>
+            <div className="bg-paper rounded-xl p-4 border border-gray-200">
+              <h3 className="text-xs font-bold text-gray-600 mb-3">Category Popularity</h3>
               <div className="space-y-2">
                 {[
                   { name: 'Music', pct: 35, color: 'bg-pink-500' },
@@ -772,8 +798,8 @@ export default function ArcadeTab() {
                   { name: 'Gaming', pct: 17, color: 'bg-green-500' },
                 ].map((cat) => (
                   <div key={cat.name} className="flex items-center gap-2">
-                    <span className="text-[10px] text-gray-400 w-16">{cat.name}</span>
-                    <div className="flex-1 h-2 bg-gray-700 rounded-full overflow-hidden">
+                    <span className="text-[10px] text-gray-500 w-16">{cat.name}</span>
+                    <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
                       <div className={`h-full ${cat.color} rounded-full`} style={{ width: `${cat.pct}%` }} />
                     </div>
                     <span className="text-[10px] text-gray-500 w-8">{cat.pct}%</span>
@@ -784,22 +810,22 @@ export default function ArcadeTab() {
           </div>
 
           {/* Top Players */}
-          <div className="bg-gray-800 rounded-xl border border-gray-700">
-            <div className="px-4 py-3 border-b border-gray-700">
-              <h3 className="text-xs font-bold text-gray-300">Top Trivia Players This Week</h3>
+          <div className="bg-paper rounded-xl border border-gray-200">
+            <div className="px-4 py-3 border-b border-gray-200">
+              <h3 className="text-xs font-bold text-gray-600">Top Trivia Players This Week</h3>
             </div>
-            <div className="divide-y divide-gray-700">
+            <div className="divide-y divide-gray-200">
               {[1,2,3,4,5].map((rank) => (
                 <div key={rank} className="px-4 py-2 flex items-center gap-3 text-xs">
                   <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold ${
                     rank === 1 ? 'bg-yellow-500/20 text-yellow-400' :
-                    rank === 2 ? 'bg-gray-400/20 text-gray-300' :
+                    rank === 2 ? 'bg-gray-400/20 text-gray-600' :
                     rank === 3 ? 'bg-orange-500/20 text-orange-400' :
-                    'bg-gray-700 text-gray-500'
+                    'bg-gray-100 text-gray-500'
                   }`}>#{rank}</span>
-                  <div className="w-8 h-8 rounded-full bg-gray-700" />
+                  <div className="w-8 h-8 rounded-full bg-gray-100" />
                   <div className="flex-1">
-                    <span className="text-gray-400">Loading...</span>
+                    <span className="text-gray-500">Loading...</span>
                   </div>
                   <span className="text-gray-500">-- pts</span>
                   <span className="text-green-400">-- games</span>
@@ -809,24 +835,24 @@ export default function ArcadeTab() {
           </div>
 
           {/* Trivia Questions Overview */}
-          <div className="bg-gray-800 rounded-xl border border-gray-700">
-            <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
-              <h3 className="text-xs font-bold text-gray-300">📊 Question Performance</h3>
+          <div className="bg-paper rounded-xl border border-gray-200">
+            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-xs font-bold text-gray-600">📊 Question Performance</h3>
               <span className="text-[10px] text-gray-500">Correct answer rate</span>
             </div>
-            <div className="divide-y divide-gray-700">
+            <div className="divide-y divide-gray-200">
               {cards.slice(0, 10).map((card, i) => {
                 // Mock correct rate for now
                 const correctRate = Math.floor(Math.random() * 60) + 20;
                 return (
-                  <div key={card._id} className="px-4 py-2 flex items-center gap-3 text-xs hover:bg-gray-700/30">
+                  <div key={card._id} className="px-4 py-2 flex items-center gap-3 text-xs hover:bg-gray-100/30">
                     <div className="flex-1 min-w-0">
-                      <p className="text-gray-300 truncate text-[11px]">{card.questions?.[0]?.question || card.topic}</p>
+                      <p className="text-gray-600 truncate text-[11px]">{card.questions?.[0]?.question || card.topic}</p>
                       <p className="text-[10px] text-gray-500">{card.theme}</p>
                     </div>
                     {/* Correct Rate Bar */}
                     <div className="w-24 flex items-center gap-2">
-                      <div className="flex-1 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                         <div 
                           className={`h-full rounded-full ${
                             correctRate > 70 ? 'bg-green-500' : 
@@ -858,8 +884,8 @@ export default function ArcadeTab() {
 
       {/* Other Games Content */}
       {activeSubTab === 'othergames' && (
-        <div className="bg-gray-800 rounded-xl p-6 border border-gray-700 text-center">
-          <p className="text-gray-400">More games coming soon...</p>
+        <div className="bg-paper rounded-xl p-6 border border-gray-200 text-center">
+          <p className="text-gray-500">More games coming soon...</p>
         </div>
       )}
 
@@ -872,19 +898,19 @@ export default function ArcadeTab() {
       {activeSubTab === 'questions-legacy' && (
       <>
       {/* Stats Bar */}
-      <div className="bg-gray-800 rounded-lg px-3 py-2 mb-3 border border-gray-700">
+      <div className="bg-paper rounded-lg px-3 py-2 mb-3 border border-gray-200">
         <div className="flex justify-center gap-4 text-xs">
-          <span className="text-gray-400">Total: <strong className="text-white">{cards.length * 3}</strong></span>
+          <span className="text-gray-500">Total: <strong className="text-gray-900">{cards.length * 3}</strong></span>
           <span className="text-purple-400">Guest: <strong>{cards.filter(c => c.guestCard).length * 3}</strong></span>
           <span className="text-blue-400">Login: <strong>{cards.filter(c => !c.guestCard).length * 3}</strong></span>
           {cards.filter(c => !c.previewImage).length > 0 && <span className="text-red-400">No img: <strong>{cards.filter(c => !c.previewImage).length}</strong></span>}
         </div>
         {/* Theme Filter Buttons with Generate Options */}
-        <div className="flex flex-wrap justify-center gap-1 mt-2 pt-2 border-t border-gray-700">
+        <div className="flex flex-wrap justify-center gap-1 mt-2 pt-2 border-t border-gray-200">
           <button
             onClick={() => setThemeFilter(null)}
             className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${
-              themeFilter === null ? 'bg-[#E36B11] text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+              themeFilter === null ? 'bg-[#E36B11] text-gray-900' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
             }`}
           >
             ALL
@@ -897,7 +923,7 @@ export default function ArcadeTab() {
                 <button
                   onClick={() => setThemeFilter(isSelected ? null : theme)}
                   className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${
-                    isSelected ? 'bg-[#E36B11] text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                    isSelected ? 'bg-[#E36B11] text-gray-900' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                   } ${count === 0 ? 'opacity-40' : ''}`}
                 >
                   {theme} {count > 0 && <span className="text-[8px] opacity-70">({count})</span>}
@@ -926,11 +952,11 @@ export default function ArcadeTab() {
           const sortedSubs = Object.entries(subCatStats).sort((a, b) => b[1].total - a[1].total);
           
           return (
-            <div className="mt-2 pt-2 border-t border-gray-700">
+            <div className="mt-2 pt-2 border-t border-gray-200">
               <div className="flex flex-wrap justify-center gap-1 text-[9px]">
                 {sortedSubs.map(([sub, stats]) => (
                   <div key={sub} className="bg-gray-700/50 rounded px-2 py-1 flex items-center gap-1">
-                    <span className="text-gray-300 font-medium">{sub}</span>
+                    <span className="text-gray-600 font-medium">{sub}</span>
                     <span className="text-gray-500">({stats.total})</span>
                     <span className="text-green-400">{stats.easy}E</span>
                     <span className="text-yellow-400">{stats.medium}M</span>
@@ -944,14 +970,14 @@ export default function ArcadeTab() {
         
         {/* Generate Options - shows when theme is selected OR for ALL (Mix) */}
         {(themeFilter || themeFilter === null) && (
-          <div className="flex items-center justify-center gap-2 mt-2 pt-2 border-t border-gray-700 flex-wrap">
-            <span className="text-xs text-gray-400">{themeFilter || 'MIX'}:</span>
+          <div className="flex items-center justify-center gap-2 mt-2 pt-2 border-t border-gray-200 flex-wrap">
+            <span className="text-xs text-gray-500">{themeFilter || 'MIX'}:</span>
             {/* SubCategory dropdown for SPORTS */}
             {themeFilter === 'SPORTS' && (
               <select 
                 value={bulkConfig.subCategory} 
                 onChange={e => setBulkConfig({...bulkConfig, subCategory: e.target.value})}
-                className="px-2 py-1 bg-gray-700 rounded text-xs text-cyan-400"
+                className="px-2 py-1 bg-gray-100 rounded text-xs text-cyan-400"
               >
                 <option value="">All Sports</option>
                 <option value="Basketball">Basketball</option>
@@ -977,7 +1003,7 @@ export default function ArcadeTab() {
               <select 
                 value={bulkConfig.subCategory} 
                 onChange={e => setBulkConfig({...bulkConfig, subCategory: e.target.value})}
-                className="px-2 py-1 bg-gray-700 rounded text-xs text-cyan-400"
+                className="px-2 py-1 bg-gray-100 rounded text-xs text-cyan-400"
               >
                 <option value="">All Genres</option>
                 <option value="Rock">Rock</option>
@@ -995,7 +1021,7 @@ export default function ArcadeTab() {
               <select 
                 value={bulkConfig.subCategory} 
                 onChange={e => setBulkConfig({...bulkConfig, subCategory: e.target.value})}
-                className="px-2 py-1 bg-gray-700 rounded text-xs text-cyan-400"
+                className="px-2 py-1 bg-gray-100 rounded text-xs text-cyan-400"
               >
                 <option value="">All Genres</option>
                 <option value="Action">Action</option>
@@ -1012,7 +1038,7 @@ export default function ArcadeTab() {
               <select 
                 value={bulkConfig.subCategory} 
                 onChange={e => setBulkConfig({...bulkConfig, subCategory: e.target.value})}
-                className="px-2 py-1 bg-gray-700 rounded text-xs text-cyan-400"
+                className="px-2 py-1 bg-gray-100 rounded text-xs text-cyan-400"
               >
                 <option value="">All Platforms</option>
                 <option value="Nintendo">Nintendo</option>
@@ -1026,7 +1052,7 @@ export default function ArcadeTab() {
             <select 
               value={bulkConfig.count} 
               onChange={e => setBulkConfig({...bulkConfig, count: parseInt(e.target.value)})}
-              className="px-2 py-1 bg-gray-700 rounded text-xs"
+              className="px-2 py-1 bg-gray-100 rounded text-xs"
             >
               <option value={5}>5</option>
               <option value={10}>10</option>
@@ -1035,13 +1061,13 @@ export default function ArcadeTab() {
             <select 
               value={bulkConfig.difficulty} 
               onChange={e => setBulkConfig({...bulkConfig, difficulty: e.target.value as 'Easy' | 'Medium' | 'Hard'})}
-              className="px-2 py-1 bg-gray-700 rounded text-xs"
+              className="px-2 py-1 bg-gray-100 rounded text-xs"
             >
               <option value="Easy">Easy</option>
               <option value="Medium">Medium</option>
               <option value="Hard">Hard</option>
             </select>
-            <label className="flex items-center gap-1 text-xs text-gray-400">
+            <label className="flex items-center gap-1 text-xs text-gray-500">
               <input 
                 type="checkbox" 
                 checked={bulkConfig.guestCard} 
@@ -1084,11 +1110,11 @@ export default function ArcadeTab() {
       )}
 
       {/* Cards List - Inline editable */}
-      <div className="bg-gray-800 rounded-xl overflow-hidden">
+      <div className="bg-paper rounded-xl overflow-hidden">
         <table className="w-full text-xs">
-          <thead className="bg-gray-700">
+          <thead className="bg-gray-100">
             <tr>
-              <th className="px-2 py-2 text-left text-gray-300 w-6">
+              <th className="px-2 py-2 text-left text-gray-600 w-6">
                 <input 
                   type="checkbox" 
                   checked={selectedCards.size === cards.length && cards.length > 0}
@@ -1096,19 +1122,19 @@ export default function ArcadeTab() {
                   className="w-3 h-3 cursor-pointer"
                 />
               </th>
-              <th className="px-2 py-2 text-left text-gray-300 w-8">#</th>
-              <th className="px-2 py-2 text-left text-gray-300 w-12">Img</th>
-              <th className="px-2 py-2 text-left text-gray-300">Theme</th>
-              <th className="px-2 py-2 text-left text-gray-300">Sub</th>
-              <th className="px-2 py-2 text-left text-gray-300 cursor-pointer hover:text-white" onClick={() => toggleSort('diff')}>
+              <th className="px-2 py-2 text-left text-gray-600 w-8">#</th>
+              <th className="px-2 py-2 text-left text-gray-600 w-12">Img</th>
+              <th className="px-2 py-2 text-left text-gray-600">Theme</th>
+              <th className="px-2 py-2 text-left text-gray-600">Sub</th>
+              <th className="px-2 py-2 text-left text-gray-600 cursor-pointer hover:text-gray-900" onClick={() => toggleSort('diff')}>
                 <span className="flex items-center gap-0.5">Diff {sortBy === 'diff' && (sortDir === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</span>
               </th>
-              <th className="px-2 py-2 text-left text-gray-300">Question</th>
-              <th className="px-2 py-2 text-left text-gray-300">Answer</th>
-              <th className="px-2 py-2 text-left text-gray-300 w-16 cursor-pointer hover:text-white" onClick={() => toggleSort('pts')}>
+              <th className="px-2 py-2 text-left text-gray-600">Question</th>
+              <th className="px-2 py-2 text-left text-gray-600">Answer</th>
+              <th className="px-2 py-2 text-left text-gray-600 w-16 cursor-pointer hover:text-gray-900" onClick={() => toggleSort('pts')}>
                 <span className="flex items-center gap-0.5">Pts {sortBy === 'pts' && (sortDir === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}</span>
               </th>
-                            <th className="px-2 py-2 text-right text-gray-300 w-10">Del</th>
+                            <th className="px-2 py-2 text-right text-gray-600 w-10">Del</th>
             </tr>
           </thead>
           <tbody>
@@ -1134,7 +1160,7 @@ export default function ArcadeTab() {
                 const showMenuHere = !shownMenuForCard.has(card._id);
                 if (showMenuHere) shownMenuForCard.add(card._id);
                   return (
-                    <tr key={`${card._id}-${qIdx}`} className={`border-t border-gray-700 hover:bg-gray-750 ${selectedCards.has(card._id) ? 'bg-red-900/20' : ''}`}>
+                    <tr key={`${card._id}-${qIdx}`} className={`border-t border-gray-200 hover:bg-gray-50 ${selectedCards.has(card._id) ? 'bg-red-900/20' : ''}`}>
                       <td className="px-2 py-1">
                         <input 
                           type="checkbox" 
@@ -1146,7 +1172,7 @@ export default function ArcadeTab() {
                       <td className="px-2 py-1 text-gray-500 font-mono cursor-help" title={`ID: ${q._id || card._id}`}>{rowNum + 1}</td>
                       <td className="px-2 py-1 relative">
                         {generatingImageFor === card._id ? (
-                          <div className="w-8 h-8 rounded bg-gray-700 flex items-center justify-center">
+                          <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center">
                             <Loader2 className="w-4 h-4 animate-spin text-[#E36B11]" />
                           </div>
                         ) : (
@@ -1154,12 +1180,12 @@ export default function ArcadeTab() {
                             {card.previewImage ? (
                               <img src={card.previewImage} alt="" className="w-8 h-8 rounded object-cover hover:ring-2 hover:ring-[#E36B11]" />
                             ) : (
-                              <div className="w-8 h-8 rounded bg-gray-700 flex items-center justify-center text-gray-500 text-[8px] hover:bg-gray-600">+</div>
+                              <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center text-gray-500 text-[8px] hover:bg-gray-200">+</div>
                             )}
                           </button>
                         )}
                       </td>
-                      <td className="px-2 py-1 font-medium text-gray-400">{card.theme}</td>
+                      <td className="px-2 py-1 font-medium text-gray-500">{card.theme}</td>
                       <td className="px-2 py-1">
                         <select
                           value={card.subCategory || ''}
@@ -1172,8 +1198,8 @@ export default function ArcadeTab() {
                             });
                             fetchCards();
                           }}
-                          className={`px-1 py-0.5 rounded text-[10px] cursor-pointer bg-gray-700 border border-gray-600 ${
-                            card.subCategory ? 'text-gray-300' : 'text-red-400'
+                          className={`px-1 py-0.5 rounded text-[10px] cursor-pointer bg-gray-100 border border-gray-300 ${
+                            card.subCategory ? 'text-gray-600' : 'text-red-400'
                           }`}
                         >
                           <option value="">-- wählen --</option>
@@ -1204,7 +1230,7 @@ export default function ArcadeTab() {
                           <option value={5}>Hard</option>
                         </select>
                       </td>
-                      <td className="px-2 py-1 text-gray-300 max-w-[250px] truncate" title={q.question}>{q.question}</td>
+                      <td className="px-2 py-1 text-gray-600 max-w-[250px] truncate" title={q.question}>{q.question}</td>
                       <td className="px-2 py-1 relative">
                         <button 
                           onClick={() => setEditingAnswer({ 
@@ -1220,8 +1246,8 @@ export default function ArcadeTab() {
                         </button>
                         {/* Answer Edit Popup */}
                         {editingAnswer?.cardId === card._id && editingAnswer?.qIdx === qIdx && (
-                          <div className="absolute top-full left-0 mt-1 z-50 bg-gray-800 border border-gray-600 rounded-lg shadow-xl p-3 min-w-[200px]">
-                            <div className="text-[10px] text-gray-400 mb-2">Options (click to set correct):</div>
+                          <div className="absolute top-full left-0 mt-1 z-50 bg-paper border border-gray-300 rounded-lg shadow-xl p-3 min-w-[200px]">
+                            <div className="text-[10px] text-gray-500 mb-2">Options (click to set correct):</div>
                             {editingAnswer.options.map((opt, optIdx) => (
                               <div key={optIdx} className="flex items-center gap-2 mb-1">
                                 <button
@@ -1229,7 +1255,7 @@ export default function ArcadeTab() {
                                   className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${
                                     editingAnswer.correctAnswer === opt 
                                       ? 'bg-green-500 border-green-500' 
-                                      : 'border-gray-500 hover:border-green-400'
+                                      : 'border-gray-300 hover:border-green-400'
                                   }`}
                                 />
                                 <input
@@ -1245,7 +1271,7 @@ export default function ArcadeTab() {
                                       correctAnswer: editingAnswer.correctAnswer === oldVal ? e.target.value : editingAnswer.correctAnswer
                                     });
                                   }}
-                                  className="flex-1 bg-gray-700 rounded px-2 py-1 text-xs text-white"
+                                  className="flex-1 bg-gray-100 rounded px-2 py-1 text-xs text-gray-900"
                                 />
                               </div>
                             ))}
@@ -1272,7 +1298,7 @@ export default function ArcadeTab() {
                               </button>
                               <button
                                 onClick={() => setEditingAnswer(null)}
-                                className="flex-1 bg-gray-600 hover:bg-gray-700 rounded px-2 py-1 text-xs"
+                                className="flex-1 bg-gray-200 hover:bg-gray-100 rounded px-2 py-1 text-xs"
                               >
                                 Cancel
                               </button>
@@ -1291,12 +1317,12 @@ export default function ArcadeTab() {
                             await fetch('/api/cards', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ _id: card._id, questions: newQuestions }) });
                             fetchCards();
                           }}
-                          className="w-12 bg-gray-700 rounded px-1 py-0.5 text-yellow-400 text-xs text-center"
+                          className="w-12 bg-gray-100 rounded px-1 py-0.5 text-yellow-400 text-xs text-center"
                         />
                       </td>
                                             <td className="px-2 py-1 text-right">
                         <button onClick={() => handleDelete(card._id)} disabled={isDeleting === card._id} className="p-1 rounded hover:bg-red-900/50 disabled:opacity-50">
-                          {isDeleting === card._id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3 text-gray-400 hover:text-red-400" />}
+                          {isDeleting === card._id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3 text-gray-500 hover:text-red-400" />}
                         </button>
                       </td>
                     </tr>
@@ -1304,7 +1330,7 @@ export default function ArcadeTab() {
               });
             })()}
             {cards.length === 0 && (
-              <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-400">No cards yet. Use Generate above.</td></tr>
+              <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-500">No cards yet. Use Generate above.</td></tr>
             )}
           </tbody>
         </table>
@@ -1343,6 +1369,7 @@ export default function ArcadeTab() {
       />
       </>
       )}
+      <ConfirmDialog />
     </div>
   );
 }

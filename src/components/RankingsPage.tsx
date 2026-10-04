@@ -208,7 +208,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-cream">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-[#E36B11]/5">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
         <div className="flex items-center gap-2">
           <Trophy className="w-5 h-5 text-[#E36B11]" />
           <span className="font-display text-lg tracking-wider text-gray-900">Rankings</span>

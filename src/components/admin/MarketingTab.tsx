@@ -94,14 +94,14 @@ export default function MarketingTab() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-white">Marketing</h2>
+          <h2 className="text-xl font-bold text-paper">Marketing</h2>
           <p className="text-gray-400 text-sm">Upload videos and distribute to social media platforms</p>
         </div>
       </div>
 
       {/* Upload Section */}
       <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-        <h3 className="text-white font-semibold mb-4">New Post</h3>
+        <h3 className="text-paper font-semibold mb-4">New Post</h3>
         
         {/* Video Upload */}
         <div className="mb-6">
@@ -125,7 +125,7 @@ export default function MarketingTab() {
                 onClick={clearVideo}
                 className="absolute top-2 right-2 p-1.5 bg-black/70 rounded-full hover:bg-black"
               >
-                <X className="w-4 h-4 text-white" />
+                <X className="w-4 h-4 text-paper" />
               </button>
               <p className="text-gray-400 text-sm mt-2">{selectedFile?.name}</p>
             </div>
@@ -146,7 +146,7 @@ export default function MarketingTab() {
             value={caption}
             onChange={(e) => setCaption(e.target.value)}
             placeholder="Write your caption here..."
-            className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white placeholder-gray-500 resize-none h-24 focus:outline-none focus:border-[#E36B11]"
+            className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-paper placeholder-gray-500 resize-none h-24 focus:outline-none focus:border-[#E36B11]"
           />
         </div>
 
@@ -163,7 +163,7 @@ export default function MarketingTab() {
                   onClick={() => togglePlatform(platform.id)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all ${
                     isSelected 
-                      ? 'border-[#E36B11] bg-[#E36B11]/20 text-white' 
+                      ? 'border-[#E36B11] bg-[#E36B11]/20 text-paper' 
                       : 'border-gray-600 bg-gray-900 text-gray-400 hover:border-gray-500'
                   }`}
                 >
@@ -183,13 +183,13 @@ export default function MarketingTab() {
               type="date"
               value={scheduleDate}
               onChange={(e) => setScheduleDate(e.target.value)}
-              className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#E36B11]"
+              className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-paper focus:outline-none focus:border-[#E36B11]"
             />
             <input
               type="time"
               value={scheduleTime}
               onChange={(e) => setScheduleTime(e.target.value)}
-              className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#E36B11]"
+              className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-paper focus:outline-none focus:border-[#E36B11]"
             />
           </div>
           <p className="text-gray-500 text-xs mt-1">Leave empty to save as draft</p>
@@ -199,11 +199,11 @@ export default function MarketingTab() {
         <button
           onClick={handleSubmit}
           disabled={!selectedFile || selectedPlatforms.length === 0 || isUploading}
-          className="w-full bg-[#E36B11] hover:bg-[#C4772A] disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors"
+          className="w-full bg-[#E36B11] hover:bg-[#C4772A] disabled:bg-gray-700 disabled:cursor-not-allowed text-paper font-semibold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors"
         >
           {isUploading ? (
             <>
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <div className="w-5 h-5 border-2 border-paper/30 border-t-white rounded-full animate-spin" />
               Uploading...
             </>
           ) : (
@@ -218,7 +218,7 @@ export default function MarketingTab() {
       {/* Scheduled Posts */}
       {posts.length > 0 && (
         <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-          <h3 className="text-white font-semibold mb-4">Recent Posts</h3>
+          <h3 className="text-paper font-semibold mb-4">Recent Posts</h3>
           <div className="space-y-3">
             {posts.map(post => (
               <div key={post.id} className="bg-gray-900 rounded-lg p-4 flex items-center gap-4">
@@ -226,7 +226,7 @@ export default function MarketingTab() {
                   <video src={post.videoUrl} className="w-full h-full object-cover" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-white font-medium truncate">{post.videoName}</p>
+                  <p className="text-paper font-medium truncate">{post.videoName}</p>
                   <p className="text-gray-400 text-sm truncate">{post.caption || 'No caption'}</p>
                   <div className="flex items-center gap-2 mt-1">
                     {post.platforms.map(platformId => {

@@ -39,7 +39,11 @@ interface PlayerCardProps {
   isOpen: boolean;
   playerId: string | null;
   onClose: () => void;
-  onChallenge?: (playerId: string, username: string) => void;
+  // avatar/countryFlag are already loaded on this page - passing them along
+  // means the invite flow (player preview, VS banner, preparing screen) can
+  // show the real photo/flag instead of falling back to an initial letter for
+  // every step after the challenge button is clicked.
+  onChallenge?: (playerId: string, username: string, avatar?: string, countryFlag?: string) => void;
   currentUserId?: string;
   isDesktop?: boolean;
 }
@@ -91,7 +95,7 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
       }
     >
       {/* Header - consistent style like other pages */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-[#E36B11]/5">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
         <BackButton onClick={onClose} />
         <div className="flex items-center gap-2">
           <User className="w-5 h-5 text-[#E36B11]" />
@@ -109,17 +113,21 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
           <ProfileSkeleton />
         ) : player ? (
           <>
-            {/* Profile Header Card */}
-            <div className={`mx-4 mt-4 rounded-2xl shadow-sm border border-warm overflow-hidden ${isDesktop ? 'bg-[#F5F0E8]' : 'bg-white'}`}>
+            {/* Profile Header Card. Sizing below is deliberately smaller on
+                desktop (isDesktop) - this page was using the exact same
+                phone-sized avatar, gradient band and paddings on desktop, which
+                just meant more empty space, not more content. Mobile is
+                untouched. */}
+            <div className={`mx-4 ${isDesktop ? 'mt-3' : 'mt-4'} rounded-2xl shadow-sm border border-warm overflow-hidden ${isDesktop ? 'bg-[#F5F0E8]' : 'bg-white'}`}>
               {/* Background Gradient */}
-              <div className="h-20 bg-gradient-to-br from-[#E36B11]/25 via-[#E36B11]/10 to-transparent" />
+              <div className={isDesktop ? 'h-14' : 'h-20'} style={{ background: 'linear-gradient(to bottom right, rgba(227,107,17,0.25), rgba(227,107,17,0.1), transparent)' }} />
               
               {/* Avatar & Name */}
-              <div className="px-5 pb-5 -mt-12 relative">
-                <div className="flex items-end gap-4">
-                  <div className="relative">
+              <div className={`px-5 relative ${isDesktop ? 'pb-3 -mt-8' : 'pb-5 -mt-12'}`}>
+                <div className="flex items-end gap-3">
+                  <div className="relative flex-shrink-0">
                     {/* Outer orange ring */}
-                    <div className="w-[100px] h-[100px] rounded-full p-1 bg-gradient-to-br from-[#E36B11] to-[#E36B11]/70 shadow-lg">
+                    <div className={`rounded-full p-1 bg-gradient-to-br from-[#E36B11] to-[#E36B11]/70 shadow-lg ${isDesktop ? 'w-16 h-16' : 'w-[100px] h-[100px]'}`}>
                       <div className="w-full h-full rounded-full overflow-hidden border-[3px] border-white bg-white">
                         <img 
                           src={player.avatar || `https://i.pravatar.cc/200?u=${player._id}`} 
@@ -130,19 +138,19 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
                     </div>
                     {/* Rank Badge */}
                     {player.rank && (
-                      <div className={`absolute -top-1 -right-1 w-9 h-9 rounded-full flex items-center justify-center shadow-md border-2 border-white ${
+                      <div className={`absolute -top-1 -right-1 rounded-full flex items-center justify-center shadow-md border-2 border-white ${isDesktop ? 'w-6 h-6' : 'w-9 h-9'} ${
                         player.rank === 1 ? 'bg-gradient-to-br from-yellow-400 to-amber-600' :
                         player.rank === 2 ? 'bg-gradient-to-br from-gray-300 to-gray-500' :
                         player.rank === 3 ? 'bg-gradient-to-br from-amber-600 to-amber-800' :
                         'bg-[#E36B11]'
                       }`}>
-                        <span className="text-xs font-black text-white">#{player.rank}</span>
+                        <span className={`font-black text-white ${isDesktop ? 'text-[9px]' : 'text-xs'}`}>#{player.rank}</span>
                       </div>
                     )}
                   </div>
                   <div className="pb-1 flex-1 min-w-0">
-                    <h2 className="text-xl font-black text-gray-900 truncate">{player.username}</h2>
-                    <div className="flex items-center gap-1.5 mt-1">
+                    <h2 className={`font-black text-gray-900 truncate ${isDesktop ? 'text-base' : 'text-xl'}`}>{player.username}</h2>
+                    <div className="flex items-center gap-1.5 mt-0.5">
                       <CountryFlag flag={player.countryFlag} className="w-5 h-4 rounded-[2px]" />
                       <span className="text-sm text-gray-500">{player.country || 'World'}</span>
                     </div>
@@ -150,9 +158,9 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
                   {/* BOGX Balance - prominent on right */}
                   <div className="flex flex-col items-end justify-center">
                     <div className="flex items-center gap-2">
-                      <img src="/images/bogxcoin.png" alt="" className="w-8 h-8" />
+                      <img src="/images/bogxcoin.png" alt="" className={isDesktop ? 'w-6 h-6' : 'w-8 h-8'} />
                       <div className="text-right">
-                        <span className="text-2xl font-black text-[#E36B11]">{formatCurrency(player.points)}</span>
+                        <span className={`font-black text-[#E36B11] ${isDesktop ? 'text-lg' : 'text-2xl'}`}>{formatCurrency(player.points)}</span>
                         <div className="text-[9px] font-bold tracking-widest uppercase text-gray-400">BOGX</div>
                       </div>
                     </div>
@@ -160,11 +168,11 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
                 </div>
 
                 {/* Rankings Row - Daily / Monthly / Annually */}
-                <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-warm/50">
+                <div className={`grid grid-cols-3 gap-2 border-t border-warm/50 ${isDesktop ? 'mt-2 pt-2' : 'mt-4 pt-4'}`}>
                   <div className="text-center">
                     <div className="text-[9px] font-bold tracking-widest uppercase text-gray-400 mb-1">Day</div>
                     <div className="flex items-center justify-center gap-0.5">
-                      <span className="text-lg font-black text-gray-900">
+                      <span className={`font-black text-gray-900 ${isDesktop ? 'text-sm' : 'text-lg'}`}>
                         {player.dailyRank ? `${player.dailyRank}` : '—'}
                       </span>
                     </div>
@@ -175,7 +183,7 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
                   <div className="text-center border-x border-warm/50">
                     <div className="text-[9px] font-bold tracking-widest uppercase text-gray-400 mb-1">Month</div>
                     <div className="flex items-center justify-center gap-0.5">
-                      <span className="text-lg font-black text-gray-900">
+                      <span className={`font-black text-gray-900 ${isDesktop ? 'text-sm' : 'text-lg'}`}>
                         {player.monthlyRank ? `${player.monthlyRank}` : '—'}
                       </span>
                     </div>
@@ -186,7 +194,7 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
                   <div className="text-center">
                     <div className="text-[9px] font-bold tracking-widest uppercase text-gray-400 mb-1">Year</div>
                     <div className="flex items-center justify-center gap-0.5">
-                      <span className="text-lg font-black text-gray-900">
+                      <span className={`font-black text-gray-900 ${isDesktop ? 'text-sm' : 'text-lg'}`}>
                         {player.annuallyRank ? `${player.annuallyRank}` : '—'}
                       </span>
                     </div>
@@ -208,16 +216,16 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
               const nextName = getNextLevelName(playerBogx);
               
               return (
-                <div className={`mx-4 mt-3 rounded-2xl shadow-sm border border-warm overflow-hidden ${isDesktop ? 'bg-[#F5F0E8]' : 'bg-white'}`}>
-                  <div className="p-4">
+                <div className={`mx-4 mt-2.5 rounded-2xl shadow-sm border border-warm overflow-hidden ${isDesktop ? 'bg-[#F5F0E8]' : 'bg-white'}`}>
+                  <div className={isDesktop ? 'px-4 py-2.5' : 'p-4'}>
                     <div style={{ color: level.color }} className="font-bold text-sm">{level.name.toUpperCase()}</div>
-                    <div className="flex items-center gap-3 mt-2">
+                    <div className={`flex items-center gap-3 ${isDesktop ? 'mt-1.5' : 'mt-2'}`}>
                       {/* Segmented Progress Bar - Animated */}
                       <div className="flex gap-1 flex-1">
                         {[...Array(10)].map((_, i) => (
                           <div 
                             key={i} 
-                            className="flex-1 h-2.5 rounded-sm"
+                            className={`flex-1 rounded-sm ${isDesktop ? 'h-2' : 'h-2.5'}`}
                             style={{
                               backgroundColor: i < segments ? level.color : '#D1D5DB',
                               transformOrigin: 'left',
@@ -238,52 +246,58 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
                       )}
                     </div>
                     
-                    {/* Level Steps - Animated */}
-                    <div className="flex items-center gap-1.5 mt-2 text-[8px] text-gray-500 flex-wrap">
-                      {LEVELS.map((l, i) => (
-                        <span key={l.name} className="animate-fade-in-up" style={{ animationDelay: `${i * 50}ms` }}>
-                          {i > 0 && <span className="mx-0.5">•</span>}
-                          <span style={{ color: l.name === level.name ? level.color : undefined, fontWeight: l.name === level.name ? 'bold' : undefined }}>
-                            {l.name.toUpperCase()}
+                    {/* Level Steps - Animated. Desktop drops this row entirely - it
+                        is decorative context that repeats the level name already
+                        shown above, and cutting it is real vertical space back. */}
+                    {!isDesktop && (
+                      <div className="flex items-center gap-1.5 mt-2 text-[8px] text-gray-500 flex-wrap">
+                        {LEVELS.map((l, i) => (
+                          <span key={l.name} className="animate-fade-in-up" style={{ animationDelay: `${i * 50}ms` }}>
+                            {i > 0 && <span className="mx-0.5">•</span>}
+                            <span style={{ color: l.name === level.name ? level.color : undefined, fontWeight: l.name === level.name ? 'bold' : undefined }}>
+                              {l.name.toUpperCase()}
+                            </span>
                           </span>
-                        </span>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
             })()}
 
             {/* Main Stats - Card */}
-            <div className={`mx-4 mt-3 rounded-2xl shadow-sm border border-warm overflow-hidden ${isDesktop ? 'bg-[#F5F0E8]' : 'bg-white'}`}>
+            <div className={`mx-4 mt-2.5 rounded-2xl shadow-sm border border-warm overflow-hidden ${isDesktop ? 'bg-[#F5F0E8]' : 'bg-white'}`}>
               <div className="grid grid-cols-3 divide-x divide-warm">
-                <div className="p-4 text-center">
-                  <p className="text-2xl font-black text-gray-900">{player.points.toLocaleString()}</p>
+                <div className={`text-center ${isDesktop ? 'p-2.5' : 'p-4'}`}>
+                  <p className={`font-black text-gray-900 ${isDesktop ? 'text-lg' : 'text-2xl'}`}>{player.points.toLocaleString()}</p>
                   <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mt-1">BOGX</p>
                 </div>
-                <div className="p-4 text-center">
-                  <p className="text-2xl font-black text-gray-900">{player.wins}</p>
+                <div className={`text-center ${isDesktop ? 'p-2.5' : 'p-4'}`}>
+                  <p className={`font-black text-gray-900 ${isDesktop ? 'text-lg' : 'text-2xl'}`}>{player.wins}</p>
                   <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mt-1">Wins</p>
                 </div>
-                <div className="p-4 text-center">
-                  <p className="text-2xl font-black text-gray-900">{player.gamesPlayed}</p>
+                <div className={`text-center ${isDesktop ? 'p-2.5' : 'p-4'}`}>
+                  <p className={`font-black text-gray-900 ${isDesktop ? 'text-lg' : 'text-2xl'}`}>{player.gamesPlayed}</p>
                   <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mt-1">Games</p>
                 </div>
               </div>
             </div>
 
-            {/* Performance Stats - Card */}
-            <div className={`mx-4 mt-3 rounded-2xl shadow-sm border border-warm overflow-hidden ${isDesktop ? 'bg-[#F5F0E8]' : 'bg-white'}`}>
-              <div className="px-4 py-3 border-b border-warm/60">
+            {/* Performance Stats - Card. Two columns on desktop instead of one
+                long list - same rows, half the height, and it now fits above the
+                fold next to a compact header instead of needing a scroll. */}
+            <div className={`mx-4 mt-2.5 rounded-2xl shadow-sm border border-warm overflow-hidden ${isDesktop ? 'bg-[#F5F0E8]' : 'bg-white'}`}>
+              <div className={`border-b border-warm/60 ${isDesktop ? 'px-4 py-2' : 'px-4 py-3'}`}>
                 <h3 className="text-[10px] font-bold tracking-widest uppercase text-gray-500 flex items-center gap-1.5">
                   <TrendingUp className="w-3 h-3 text-[#E36B11]" />
                   Performance Stats
                 </h3>
               </div>
               
-              <div className="divide-y divide-warm/60">
+              <div className={isDesktop ? 'grid grid-cols-2 divide-x divide-y divide-warm/60' : 'divide-y divide-warm/60'}>
                 {/* Average Answer Time */}
-                <div className="flex items-center justify-between px-4 py-3">
+                <div className={`flex items-center justify-between ${isDesktop ? 'px-3 py-2' : 'px-4 py-3'}`}>
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-[#E36B11]/10 flex items-center justify-center">
                       <Clock className="w-4 h-4 text-[#E36B11]/70" />
@@ -299,7 +313,7 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
                 </div>
 
                 {/* Accuracy */}
-                <div className="flex items-center justify-between px-4 py-3">
+                <div className={`flex items-center justify-between ${isDesktop ? 'px-3 py-2' : 'px-4 py-3'}`}>
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-[#E36B11]/10 flex items-center justify-center">
                       <Target className="w-4 h-4 text-[#E36B11]/70" />
@@ -315,7 +329,7 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
                 </div>
 
                 {/* Win Rate */}
-                <div className="flex items-center justify-between px-4 py-3">
+                <div className={`flex items-center justify-between ${isDesktop ? 'px-3 py-2' : 'px-4 py-3'}`}>
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-[#E36B11]/10 flex items-center justify-center">
                       <Trophy className="w-4 h-4 text-[#E36B11]/70" />
@@ -332,7 +346,7 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
                 </div>
 
                 {/* Current Streak */}
-                <div className="flex items-center justify-between px-4 py-3">
+                <div className={`flex items-center justify-between ${isDesktop ? 'px-3 py-2' : 'px-4 py-3'}`}>
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-[#E36B11]/10 flex items-center justify-center">
                       <TrendingUp className="w-4 h-4 text-[#E36B11]/70" />
@@ -347,8 +361,10 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
                   </p>
                 </div>
 
-                {/* Best Streak */}
-                <div className="flex items-center justify-between px-4 py-3">
+                {/* Best Streak - spans both columns on desktop: 5 rows in a
+                    2-column grid would otherwise leave this one alone, looking
+                    like a layout mistake rather than an intentional summary row. */}
+                <div className={`flex items-center justify-between ${isDesktop ? 'px-3 py-2 col-span-2' : 'px-4 py-3'}`}>
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-[#E36B11]/10 flex items-center justify-center">
                       <Award className="w-4 h-4 text-[#E36B11]/70" />
@@ -366,17 +382,17 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
             </div>
 
             {/* Member Since */}
-            <div className="flex items-center justify-center gap-1.5 py-4 text-gray-400 text-xs">
+            <div className={`flex items-center justify-center gap-1.5 text-gray-400 text-xs ${isDesktop ? 'py-2.5' : 'py-4'}`}>
               <Calendar className="w-3.5 h-3.5" />
               <span>Member since {formatDate(player.createdAt)}</span>
             </div>
 
             {/* Challenge Button - only show if not viewing own profile */}
             {onChallenge && currentUserId && player._id !== currentUserId && (
-              <div className="px-4 pb-6">
+              <div className={`px-4 ${isDesktop ? 'pb-4' : 'pb-6'}`}>
                 <button
-                  onClick={() => onChallenge(player._id, player.username)}
-                  className="w-full py-3.5 bg-[#E36B11] hover:bg-[#C4772A] rounded-2xl text-white font-bold text-base flex items-center justify-center gap-2 transition-colors shadow-sm"
+                  onClick={() => onChallenge(player._id, player.username, player.avatar, player.countryFlag)}
+                  className={`w-full bg-[#E36B11] hover:bg-[#C4772A] rounded-2xl text-white font-bold flex items-center justify-center gap-2 transition-colors shadow-sm ${isDesktop ? 'py-3 text-sm' : 'py-3.5 text-base'}`}
                 >
                   <Swords className="w-5 h-5" />
                   Challenge {player.username}
@@ -385,7 +401,7 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
             )}
 
             {/* Bottom spacer */}
-            <div className="h-6" />
+            <div className={isDesktop ? 'h-3' : 'h-6'} />
           </>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center p-6">

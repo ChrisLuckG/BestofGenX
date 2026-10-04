@@ -7,6 +7,7 @@ import {
   Rocket, Send, Loader2, Trash2, Edit3, Save, X, RefreshCw,
   MessageCircle, Ticket, User, Paperclip, Play, ArrowUp, ArrowDown, Copy, Check
 } from "lucide-react";
+import { useConfirm } from "./ConfirmModal";
 
 interface ChatMessage {
   role: 'user' | 'mike';
@@ -71,15 +72,15 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  'Draft': 'bg-gray-600 text-gray-200',
-  'Ready for Review': 'bg-blue-600 text-white',
-  'Approved': 'bg-green-600 text-white',
-  'Backlog': 'bg-purple-600 text-white',
-  'In Progress': 'bg-[#E36B11] text-white',
-  'Waiting for Budget': 'bg-yellow-600 text-white',
-  'Testing': 'bg-cyan-600 text-white',
-  'Completed': 'bg-emerald-600 text-white',
-  'Rejected': 'bg-red-600 text-white',
+  'Draft': 'bg-gray-200 text-gray-700',
+  'Ready for Review': 'bg-blue-600 text-paper',
+  'Approved': 'bg-green-600 text-paper',
+  'Backlog': 'bg-purple-600 text-paper',
+  'In Progress': 'bg-[#E36B11] text-gray-900',
+  'Waiting for Budget': 'bg-yellow-600 text-paper',
+  'Testing': 'bg-cyan-600 text-gray-900',
+  'Completed': 'bg-emerald-600 text-gray-900',
+  'Rejected': 'bg-red-600 text-paper',
 };
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -127,6 +128,7 @@ export default function MikeTab() {
   const [queue, setQueue] = useState<string[]>([]); // Task IDs in order
   const [queueStatus, setQueueStatus] = useState<'idle' | 'waiting' | 'feedback'>('idle');
   const [cascadeFeedback, setCascadeFeedback] = useState<string>('');
+  const { confirm, ConfirmDialog } = useConfirm();
 
   useEffect(() => { fetchTasks(); }, []);
   
@@ -233,7 +235,13 @@ export default function MikeTab() {
   };
 
   const deleteTask = async (taskId: string) => {
-    if (!confirm('Delete this task?')) return;
+    const ok = await confirm({
+      title: 'Delete Task',
+      message: 'Delete this task?',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
     try {
       await fetch(`/api/admin/mike/tasks/${taskId}`, { method: 'DELETE' });
       setTasks(tasks.filter(t => t._id !== taskId));
@@ -463,15 +471,15 @@ export default function MikeTab() {
   return (
     <div className="space-y-4">
       {/* Chat Section */}
-      <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
-        <div className="p-3 border-b border-gray-700 flex items-center gap-2">
+      <div className="bg-paper rounded-xl border border-gray-200 overflow-hidden">
+        <div className="p-3 border-b border-gray-200 flex items-center gap-2">
           <Brain className="w-5 h-5 text-[#E36B11]" />
-          <span className="font-medium text-white">Mike</span>
-          <span className="text-xs text-gray-400">- Dev Manager & Product Owner</span>
+          <span className="font-medium text-gray-900">Mike</span>
+          <span className="text-xs text-gray-500">- Dev Manager & Product Owner</span>
         </div>
         
         {/* Chat Messages */}
-        <div className="h-64 overflow-y-auto p-4 space-y-3 bg-gray-900/50">
+        <div className="h-64 overflow-y-auto p-4 space-y-3 bg-paper/50">
           {chatMessages.map((msg, i) => (
             <div key={i} className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               {msg.role === 'mike' && (
@@ -481,15 +489,15 @@ export default function MikeTab() {
               )}
               <div className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
                 msg.role === 'user' 
-                  ? 'bg-[#E36B11] text-white' 
-                  : 'bg-gray-800 text-gray-200 border border-gray-700'
+                  ? 'bg-[#E36B11] text-gray-900' 
+                  : 'bg-paper text-gray-700 border border-gray-200'
               }`}>
                 {msg.image && <img src={msg.image} alt="" className="max-h-32 rounded mb-2" />}
                 {msg.content}
               </div>
               {msg.role === 'user' && (
-                <div className="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0">
-                  <User className="w-4 h-4 text-gray-400" />
+                <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                  <User className="w-4 h-4 text-gray-500" />
                 </div>
               )}
             </div>
@@ -499,7 +507,7 @@ export default function MikeTab() {
               <div className="w-7 h-7 rounded-full bg-[#E36B11]/20 flex items-center justify-center">
                 <Brain className="w-4 h-4 text-[#E36B11]" />
               </div>
-              <div className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2">
+              <div className="bg-paper border border-gray-200 rounded-lg px-3 py-2">
                 <Loader2 className="w-4 h-4 animate-spin text-[#E36B11]" />
               </div>
             </div>
@@ -518,26 +526,26 @@ export default function MikeTab() {
               <button
                 onClick={createTicket}
                 disabled={saving}
-                className="px-3 py-1 bg-[#E36B11] text-white text-xs rounded-lg hover:bg-[#C4772A] disabled:opacity-50"
+                className="px-3 py-1 bg-[#E36B11] text-gray-900 text-xs rounded-lg hover:bg-[#C4772A] disabled:opacity-50"
               >
                 {saving ? 'Creating...' : 'Create Ticket'}
               </button>
             </div>
-            <div className="text-sm text-white font-medium">{pendingTicket.title}</div>
+            <div className="text-sm text-gray-900 font-medium">{pendingTicket.title}</div>
             <div className="flex gap-2 mt-1">
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">{pendingTicket.category}</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">{pendingTicket.priority}</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">{pendingTicket.complexity}</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{pendingTicket.category}</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{pendingTicket.priority}</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{pendingTicket.complexity}</span>
             </div>
           </div>
         )}
         
         {/* Pending Image Preview */}
         {pendingImage && (
-          <div className="p-2 border-t border-gray-700 bg-gray-900/50">
+          <div className="p-2 border-t border-gray-200 bg-paper/50">
             <div className="flex items-center gap-2">
               <img src={pendingImage} alt="Upload" className="h-16 rounded-lg" />
-              <button onClick={() => setPendingImage(null)} className="p-1 text-gray-400 hover:text-red-400">
+              <button onClick={() => setPendingImage(null)} className="p-1 text-gray-500 hover:text-red-400">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -545,7 +553,7 @@ export default function MikeTab() {
         )}
         
         {/* Chat Input */}
-        <div className="p-3 border-t border-gray-700 flex gap-2">
+        <div className="p-3 border-t border-gray-200 flex gap-2">
           <input
             type="file"
             ref={fileInputRef}
@@ -555,7 +563,7 @@ export default function MikeTab() {
           />
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="p-2 bg-gray-800 border border-gray-700 rounded-lg hover:bg-gray-700 text-gray-400"
+            className="p-2 bg-paper border border-gray-200 rounded-lg hover:bg-gray-100 text-gray-500"
           >
             <Paperclip className="w-4 h-4" />
           </button>
@@ -565,12 +573,12 @@ export default function MikeTab() {
             onChange={(e) => setChatInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
             placeholder="Frag Mike..."
-            className="flex-1 px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:border-[#E36B11] outline-none"
+            className="flex-1 px-3 py-2 bg-paper border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-500 focus:border-[#E36B11] outline-none"
           />
           <button
             onClick={sendMessage}
             disabled={(!chatInput.trim() && !pendingImage) || chatLoading}
-            className="px-4 py-2 bg-[#E36B11] text-white rounded-lg hover:bg-[#C4772A] disabled:opacity-50"
+            className="px-4 py-2 bg-[#E36B11] text-gray-900 rounded-lg hover:bg-[#C4772A] disabled:opacity-50"
           >
             <Send className="w-4 h-4" />
           </button>
@@ -589,13 +597,13 @@ export default function MikeTab() {
               <div className="flex gap-2">
                 <button
                   onClick={requestEstimates}
-                  className="px-3 py-1 bg-yellow-600 text-white text-xs rounded-lg hover:bg-yellow-500 flex items-center gap-1"
+                  className="px-3 py-1 bg-yellow-600 text-paper text-xs rounded-lg hover:bg-yellow-500 flex items-center gap-1"
                 >
                   💰 Get Estimates
                 </button>
                 <button
                   onClick={copyQueueForCascade}
-                  className="px-3 py-1 bg-green-600 text-white text-xs rounded-lg hover:bg-green-500 flex items-center gap-1"
+                  className="px-3 py-1 bg-green-600 text-paper text-xs rounded-lg hover:bg-green-500 flex items-center gap-1"
                 >
                   <Copy className="w-3 h-3" /> GO - Start Dev
                 </button>
@@ -604,7 +612,7 @@ export default function MikeTab() {
             {queueStatus === 'waiting' && (
               <button
                 onClick={() => { setQueueStatus('idle'); setCascadeFeedback(''); }}
-                className="px-3 py-1 bg-gray-600 text-white text-xs rounded-lg hover:bg-gray-500"
+                className="px-3 py-1 bg-gray-200 text-gray-900 text-xs rounded-lg hover:bg-gray-500"
               >
                 Cancel
               </button>
@@ -613,7 +621,7 @@ export default function MikeTab() {
           
           {/* Progress Display - Compact */}
           {queueStatus === 'waiting' && cascadeFeedback && (
-            <div className="p-3 bg-gray-900/80 rounded-lg border border-[#E36B11]/20">
+            <div className="p-3 bg-paper/80 rounded-lg border border-[#E36B11]/20">
               {(() => {
                 const stepMatch = cascadeFeedback.match(/Step (\d+)\/(\d+)/);
                 const currentStep = stepMatch ? parseInt(stepMatch[1]) : 1;
@@ -626,11 +634,11 @@ export default function MikeTab() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Loader2 className="w-4 h-4 text-[#E36B11] animate-spin" />
-                        <span className="text-white text-sm">{stepDesc}</span>
+                        <span className="text-gray-900 text-sm">{stepDesc}</span>
                       </div>
                       <span className="text-[#E36B11] text-xs font-mono">{currentStep}/{totalSteps}</span>
                     </div>
-                    <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                    <div className="h-1.5 bg-paper rounded-full overflow-hidden">
                       <div 
                         className="h-full bg-gradient-to-r from-[#E36B11] to-[#E5A55A] transition-all duration-700"
                         style={{ width: `${progress}%` }}
@@ -652,12 +660,12 @@ export default function MikeTab() {
                 </div>
                 <button
                   onClick={() => { setQueueStatus('idle'); setCascadeFeedback(''); setQueue([]); fetchTasks(); }}
-                  className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-500"
+                  className="px-2 py-1 bg-green-600 text-paper text-xs rounded hover:bg-green-500"
                 >
                   Clear
                 </button>
               </div>
-              <p className="text-gray-400 text-xs mt-2 line-clamp-2">{cascadeFeedback}</p>
+              <p className="text-gray-500 text-xs mt-2 line-clamp-2">{cascadeFeedback}</p>
             </div>
           )}
           
@@ -669,17 +677,17 @@ export default function MikeTab() {
                   return (
                     <div key={task._id} className="flex items-center gap-2 bg-gray-800/50 rounded-lg px-2 py-1">
                       <span className="text-green-400 font-bold text-sm w-5">{i + 1}</span>
-                      <span className="text-white text-sm flex-1 truncate">{task.title}</span>
+                      <span className="text-gray-900 text-sm flex-1 truncate">{task.title}</span>
                       <span className="text-yellow-400 text-xs">~{est.cost}€</span>
-                      <button onClick={() => moveInQueue(task._id, 'up')} className="p-1 text-gray-400 hover:text-white"><ArrowUp className="w-3 h-3" /></button>
-                      <button onClick={() => moveInQueue(task._id, 'down')} className="p-1 text-gray-400 hover:text-white"><ArrowDown className="w-3 h-3" /></button>
+                      <button onClick={() => moveInQueue(task._id, 'up')} className="p-1 text-gray-500 hover:text-gray-900"><ArrowUp className="w-3 h-3" /></button>
+                      <button onClick={() => moveInQueue(task._id, 'down')} className="p-1 text-gray-500 hover:text-gray-900"><ArrowDown className="w-3 h-3" /></button>
                       <button onClick={() => removeFromQueue(task._id)} className="p-1 text-red-400 hover:text-red-300"><X className="w-3 h-3" /></button>
                     </div>
                   );
                 })}
               </div>
               <div className="mt-2 pt-2 border-t border-green-700/50 flex justify-between text-sm">
-                <span className="text-gray-400">Total Estimate:</span>
+                <span className="text-gray-500">Total Estimate:</span>
                 <span className="text-yellow-400 font-bold">~{queuedTasks.reduce((sum, t) => sum + getEstimate(t.complexity).cost, 0)}€</span>
               </div>
             </>
@@ -690,9 +698,9 @@ export default function MikeTab() {
       {/* Stats */}
       <div className="flex gap-2 overflow-x-auto pb-1">
         {['Draft', 'Backlog', 'In Progress', 'Testing', 'Completed'].map(s => (
-          <div key={s} className="bg-gray-800 rounded-lg px-3 py-2 min-w-[80px]">
-            <div className="text-lg font-bold text-white">{counts[s] || 0}</div>
-            <div className="text-[10px] text-gray-400 truncate">{s}</div>
+          <div key={s} className="bg-paper rounded-lg px-3 py-2 min-w-[80px]">
+            <div className="text-lg font-bold text-gray-900">{counts[s] || 0}</div>
+            <div className="text-[10px] text-gray-500 truncate">{s}</div>
           </div>
         ))}
       </div>
@@ -706,33 +714,33 @@ export default function MikeTab() {
             placeholder="Search..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:border-[#E36B11] outline-none"
+            className="w-full pl-8 pr-3 py-1.5 bg-paper border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-500 focus:border-[#E36B11] outline-none"
           />
         </div>
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:border-[#E36B11] outline-none"
+          className="px-3 py-1.5 bg-paper border border-gray-200 rounded-lg text-sm text-gray-900 focus:border-[#E36B11] outline-none"
         >
           <option value="all">All Status</option>
           {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        <button onClick={fetchTasks} className="p-1.5 bg-gray-800 border border-gray-700 rounded-lg hover:bg-gray-700">
-          <RefreshCw className="w-4 h-4 text-gray-400" />
+        <button onClick={fetchTasks} className="p-1.5 bg-paper border border-gray-200 rounded-lg hover:bg-gray-100">
+          <RefreshCw className="w-4 h-4 text-gray-500" />
         </button>
         {/* New Ticket Dropdown */}
         <div className="relative">
           <button 
             onClick={() => setShowNewMenu(!showNewMenu)}
-            className="px-3 py-1.5 bg-[#E36B11] text-white text-sm rounded-lg hover:bg-[#C4772A] flex items-center gap-1"
+            className="px-3 py-1.5 bg-[#E36B11] text-gray-900 text-sm rounded-lg hover:bg-[#C4772A] flex items-center gap-1"
           >
             <Ticket className="w-4 h-4" /> New
           </button>
           {showNewMenu && (
-            <div className="absolute right-0 top-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl overflow-hidden z-50 min-w-[140px]">
+            <div className="absolute right-0 top-full mt-1 bg-paper border border-gray-200 rounded-lg shadow-xl overflow-hidden z-50 min-w-[140px]">
               <button
                 onClick={() => { setShowManualCreate(true); setShowNewMenu(false); }}
-                className="w-full px-3 py-2 text-left text-sm text-white hover:bg-gray-700 flex items-center gap-2"
+                className="w-full px-3 py-2 text-left text-sm text-gray-900 hover:bg-gray-100 flex items-center gap-2"
               >
                 <Edit3 className="w-4 h-4" /> Manual
               </button>
@@ -742,7 +750,7 @@ export default function MikeTab() {
                   setPendingTicket(null);
                   setShowNewMenu(false);
                 }}
-                className="w-full px-3 py-2 text-left text-sm text-white hover:bg-gray-700 flex items-center gap-2"
+                className="w-full px-3 py-2 text-left text-sm text-gray-900 hover:bg-gray-100 flex items-center gap-2"
               >
                 <Brain className="w-4 h-4 text-[#E36B11]" /> With Mike
               </button>
@@ -759,12 +767,12 @@ export default function MikeTab() {
           <div className="text-center py-8 text-gray-500">No tasks yet. Chat with Mike to create one!</div>
         ) : (
           filteredTasks.map(task => (
-            <div key={task._id} className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+            <div key={task._id} className="bg-paper rounded-xl border border-gray-200 overflow-hidden">
               {/* Ticket Header - Always visible */}
               <div
                 onClick={() => setSelectedTask(selectedTask?._id === task._id ? null : task)}
-                className={`p-4 cursor-pointer transition-all hover:bg-gray-750 ${
-                  selectedTask?._id === task._id ? 'bg-gray-750 border-b border-gray-700' : ''
+                className={`p-4 cursor-pointer transition-all hover:bg-gray-50 ${
+                  selectedTask?._id === task._id ? 'bg-gray-50 border-b border-gray-200' : ''
                 }`}
               >
                 <div className="flex items-center gap-3">
@@ -780,7 +788,7 @@ export default function MikeTab() {
                       <span className="text-[10px] text-gray-600">•</span>
                       <span className="text-[10px] text-gray-500">{task.complexity}</span>
                     </div>
-                    <h3 className="text-sm font-medium text-white">{task.title}</h3>
+                    <h3 className="text-sm font-medium text-gray-900">{task.title}</h3>
                   </div>
                   <div className="flex items-center gap-2">
                     {queue.includes(task._id) ? (
@@ -803,13 +811,13 @@ export default function MikeTab() {
               
               {/* Expanded Details */}
               {selectedTask?._id === task._id && (
-                <div className="p-4 bg-gray-900/50 space-y-4">
+                <div className="p-4 bg-paper/50 space-y-4">
                   {/* Quick Actions */}
                   <div className="flex items-center justify-between">
                     <div className="flex gap-2">
                       <button 
                         onClick={() => { setEditMode(true); setEditedTask(task); }}
-                        className="px-3 py-1.5 bg-gray-700 text-gray-300 text-xs rounded-lg hover:bg-gray-600 flex items-center gap-1"
+                        className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs rounded-lg hover:bg-gray-200 flex items-center gap-1"
                       >
                         <Edit3 className="w-3 h-3" /> Edit
                       </button>
@@ -832,33 +840,33 @@ export default function MikeTab() {
 
                   {/* Edit Mode */}
                   {editMode && selectedTask._id === task._id ? (
-                    <div className="space-y-3 p-3 bg-gray-800 rounded-lg border border-gray-700">
+                    <div className="space-y-3 p-3 bg-paper rounded-lg border border-gray-200">
                       <input
                         value={editedTask.title || ''}
                         onChange={(e) => setEditedTask({ ...editedTask, title: e.target.value })}
-                        className="w-full p-2 bg-gray-900 border border-gray-700 rounded-lg text-sm text-white"
+                        className="w-full p-2 bg-paper border border-gray-200 rounded-lg text-sm text-gray-900"
                         placeholder="Title"
                       />
                       <textarea
                         value={editedTask.description || ''}
                         onChange={(e) => setEditedTask({ ...editedTask, description: e.target.value })}
-                        className="w-full h-20 p-2 bg-gray-900 border border-gray-700 rounded-lg text-sm text-white resize-none"
+                        className="w-full h-20 p-2 bg-paper border border-gray-200 rounded-lg text-sm text-gray-900 resize-none"
                         placeholder="Description"
                       />
                       <div className="grid grid-cols-3 gap-2">
-                        <select value={editedTask.status || ''} onChange={(e) => setEditedTask({ ...editedTask, status: e.target.value })} className="p-2 bg-gray-900 border border-gray-700 rounded-lg text-xs text-white">
+                        <select value={editedTask.status || ''} onChange={(e) => setEditedTask({ ...editedTask, status: e.target.value })} className="p-2 bg-paper border border-gray-200 rounded-lg text-xs text-gray-900">
                           {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
-                        <select value={editedTask.priority || ''} onChange={(e) => setEditedTask({ ...editedTask, priority: e.target.value })} className="p-2 bg-gray-900 border border-gray-700 rounded-lg text-xs text-white">
+                        <select value={editedTask.priority || ''} onChange={(e) => setEditedTask({ ...editedTask, priority: e.target.value })} className="p-2 bg-paper border border-gray-200 rounded-lg text-xs text-gray-900">
                           {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
                         </select>
-                        <select value={editedTask.category || ''} onChange={(e) => setEditedTask({ ...editedTask, category: e.target.value })} className="p-2 bg-gray-900 border border-gray-700 rounded-lg text-xs text-white">
+                        <select value={editedTask.category || ''} onChange={(e) => setEditedTask({ ...editedTask, category: e.target.value })} className="p-2 bg-paper border border-gray-200 rounded-lg text-xs text-gray-900">
                           {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                       </div>
                       <div className="flex gap-2">
-                        <button onClick={() => setEditMode(false)} className="px-3 py-1.5 bg-gray-700 text-gray-300 text-xs rounded-lg">Cancel</button>
-                        <button onClick={() => updateTask(task._id, editedTask)} disabled={saving} className="px-3 py-1.5 bg-[#E36B11] text-white text-xs rounded-lg flex items-center gap-1">
+                        <button onClick={() => setEditMode(false)} className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs rounded-lg">Cancel</button>
+                        <button onClick={() => updateTask(task._id, editedTask)} disabled={saving} className="px-3 py-1.5 bg-[#E36B11] text-gray-900 text-xs rounded-lg flex items-center gap-1">
                           {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Save
                         </button>
                       </div>
@@ -866,21 +874,21 @@ export default function MikeTab() {
                   ) : (
                     <>
                       {/* Specification Section */}
-                      <div className="bg-gray-800 rounded-lg p-3 border border-gray-700">
+                      <div className="bg-paper rounded-lg p-3 border border-gray-200">
                         <div className="text-[10px] text-[#E36B11] font-medium mb-2 uppercase tracking-wider">📋 Specification</div>
-                        <p className="text-sm text-gray-300 mb-3">{task.description || 'No description provided'}</p>
+                        <p className="text-sm text-gray-600 mb-3">{task.description || 'No description provided'}</p>
                         
                         {/* Meta Info */}
                         <div className="grid grid-cols-3 gap-2 text-xs">
-                          <div className="bg-gray-900/50 rounded-lg p-2">
+                          <div className="bg-paper/50 rounded-lg p-2">
                             <div className="text-gray-500 text-[10px]">Priority</div>
-                            <div className={`font-medium ${task.priority === 'Critical' ? 'text-red-400' : task.priority === 'High' ? 'text-orange-400' : 'text-gray-300'}`}>{task.priority}</div>
+                            <div className={`font-medium ${task.priority === 'Critical' ? 'text-red-400' : task.priority === 'High' ? 'text-orange-400' : 'text-gray-600'}`}>{task.priority}</div>
                           </div>
-                          <div className="bg-gray-900/50 rounded-lg p-2">
+                          <div className="bg-paper/50 rounded-lg p-2">
                             <div className="text-gray-500 text-[10px]">Complexity</div>
-                            <div className="text-gray-300 font-medium">{task.complexity}</div>
+                            <div className="text-gray-600 font-medium">{task.complexity}</div>
                           </div>
-                          <div className="bg-gray-900/50 rounded-lg p-2">
+                          <div className="bg-paper/50 rounded-lg p-2">
                             <div className="text-gray-500 text-[10px]">Est. Cost</div>
                             <div className="text-[#E36B11] font-medium">~{getEstimate(task.complexity).cost}€</div>
                           </div>
@@ -909,12 +917,12 @@ export default function MikeTab() {
 
                       {/* Original Chat - Collapsed */}
                       {task.chatHistory && (
-                        <details className="bg-gray-800 rounded-lg border border-gray-700">
+                        <details className="bg-paper rounded-lg border border-gray-200">
                           <summary className="p-3 cursor-pointer text-[10px] text-gray-500 uppercase tracking-wider flex items-center gap-1">
                             <MessageCircle className="w-3 h-3" /> Original Chat
                           </summary>
                           <div className="px-3 pb-3">
-                            <p className="text-xs text-gray-400 whitespace-pre-wrap">{task.chatHistory}</p>
+                            <p className="text-xs text-gray-500 whitespace-pre-wrap">{task.chatHistory}</p>
                           </div>
                         </details>
                       )}
@@ -930,36 +938,36 @@ export default function MikeTab() {
       {/* Manual Create Modal */}
       {showManualCreate && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-xl border border-gray-700 w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="p-4 border-b border-gray-700 flex items-center justify-between">
-              <h3 className="text-white font-medium flex items-center gap-2">
+          <div className="bg-paper rounded-xl border border-gray-200 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-gray-900 font-medium flex items-center gap-2">
                 <Ticket className="w-5 h-5 text-[#E36B11]" /> New Ticket (Manual)
               </h3>
-              <button onClick={() => setShowManualCreate(false)} className="text-gray-400 hover:text-white">
+              <button onClick={() => setShowManualCreate(false)} className="text-gray-500 hover:text-gray-900">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-4 space-y-4">
               {/* Title */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Title *</label>
+                <label className="block text-xs text-gray-500 mb-1">Title *</label>
                 <input
                   type="text"
                   value={manualTicket.title || ''}
                   onChange={(e) => setManualTicket({ ...manualTicket, title: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#E36B11] outline-none"
+                  className="w-full px-3 py-2 bg-paper border border-gray-200 rounded-lg text-gray-900 text-sm focus:border-[#E36B11] outline-none"
                   placeholder="Feature: Campaign Manager in Articles"
                 />
               </div>
               
               {/* Description / Spec */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Specification</label>
+                <label className="block text-xs text-gray-500 mb-1">Specification</label>
                 <textarea
                   value={manualTicket.description || ''}
                   onChange={(e) => setManualTicket({ ...manualTicket, description: e.target.value })}
                   rows={5}
-                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#E36B11] outline-none resize-none"
+                  className="w-full px-3 py-2 bg-paper border border-gray-200 rounded-lg text-gray-900 text-sm focus:border-[#E36B11] outline-none resize-none"
                   placeholder="Files: ArticlesTab.tsx, ArticleEditor.tsx&#10;UI: Add Campaign Manager section...&#10;Backend: Store campaign assets..."
                 />
               </div>
@@ -967,21 +975,21 @@ export default function MikeTab() {
               {/* Row: Category + Priority */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Category</label>
+                  <label className="block text-xs text-gray-500 mb-1">Category</label>
                   <select
                     value={manualTicket.category || 'Future Features'}
                     onChange={(e) => setManualTicket({ ...manualTicket, category: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#E36B11] outline-none"
+                    className="w-full px-3 py-2 bg-paper border border-gray-200 rounded-lg text-gray-900 text-sm focus:border-[#E36B11] outline-none"
                   >
                     {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Priority</label>
+                  <label className="block text-xs text-gray-500 mb-1">Priority</label>
                   <select
                     value={manualTicket.priority || 'Medium'}
                     onChange={(e) => setManualTicket({ ...manualTicket, priority: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#E36B11] outline-none"
+                    className="w-full px-3 py-2 bg-paper border border-gray-200 rounded-lg text-gray-900 text-sm focus:border-[#E36B11] outline-none"
                   >
                     {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
@@ -991,21 +999,21 @@ export default function MikeTab() {
               {/* Row: Status + Complexity */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Status</label>
+                  <label className="block text-xs text-gray-500 mb-1">Status</label>
                   <select
                     value={manualTicket.status || 'Draft'}
                     onChange={(e) => setManualTicket({ ...manualTicket, status: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#E36B11] outline-none"
+                    className="w-full px-3 py-2 bg-paper border border-gray-200 rounded-lg text-gray-900 text-sm focus:border-[#E36B11] outline-none"
                   >
                     {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Complexity</label>
+                  <label className="block text-xs text-gray-500 mb-1">Complexity</label>
                   <select
                     value={manualTicket.complexity || 'Medium'}
                     onChange={(e) => setManualTicket({ ...manualTicket, complexity: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#E36B11] outline-none"
+                    className="w-full px-3 py-2 bg-paper border border-gray-200 rounded-lg text-gray-900 text-sm focus:border-[#E36B11] outline-none"
                   >
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
@@ -1017,27 +1025,27 @@ export default function MikeTab() {
 
               {/* Notes */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Notes</label>
+                <label className="block text-xs text-gray-500 mb-1">Notes</label>
                 <textarea
                   value={manualTicket.notes || ''}
                   onChange={(e) => setManualTicket({ ...manualTicket, notes: e.target.value })}
                   rows={2}
-                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#E36B11] outline-none resize-none"
+                  className="w-full px-3 py-2 bg-paper border border-gray-200 rounded-lg text-gray-900 text-sm focus:border-[#E36B11] outline-none resize-none"
                   placeholder="Additional notes..."
                 />
               </div>
             </div>
-            <div className="p-4 border-t border-gray-700 flex justify-end gap-2">
+            <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
               <button
                 onClick={() => setShowManualCreate(false)}
-                className="px-4 py-2 text-gray-400 hover:text-white text-sm"
+                className="px-4 py-2 text-gray-500 hover:text-gray-900 text-sm"
               >
                 Cancel
               </button>
               <button
                 onClick={createManualTicket}
                 disabled={!manualTicket.title?.trim() || saving}
-                className="px-4 py-2 bg-[#E36B11] text-white text-sm rounded-lg hover:bg-[#C4772A] disabled:opacity-50 flex items-center gap-2"
+                className="px-4 py-2 bg-[#E36B11] text-gray-900 text-sm rounded-lg hover:bg-[#C4772A] disabled:opacity-50 flex items-center gap-2"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 Create Ticket
@@ -1046,6 +1054,7 @@ export default function MikeTab() {
           </div>
         </div>
       )}
+      <ConfirmDialog />
     </div>
   );
 }

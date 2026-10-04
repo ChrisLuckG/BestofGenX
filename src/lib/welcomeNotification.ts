@@ -6,6 +6,12 @@ export const WELCOME_NOTIFICATION_ID = 'welcome-message';
 // Guests cannot store a dismissal server-side, so it lives in localStorage
 export const WELCOME_GUEST_DISMISSED_KEY = 'bogx-welcome-dismissed';
 
+// Read and dismissed are NOT the same thing: reading only clears the unread
+// badge and the highlight, the message stays in the list. Dismissing removes it.
+// Members get this via the server's `readIds`; guests have no row, so it is
+// remembered locally.
+export const WELCOME_GUEST_READ_KEY = 'bogx-welcome-read';
+
 export const WELCOME_TITLE = 'Welcome to Best of GenX!';
 
 export function welcomeMessage(username?: string): string {

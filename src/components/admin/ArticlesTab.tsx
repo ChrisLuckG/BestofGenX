@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Plus, Edit2, Trash2, Save, X, Eye, EyeOff, Loader2, Sparkles, Upload, RefreshCw, MoreVertical, Copy, Archive, Calendar, MessageSquare, Link, Wand2, Image as ImageIcon, Star, ChevronUp, ChevronDown } from "lucide-react";
-import { UI_CATEGORIES, getCategoryLabel } from "@/lib/categories";
+import { Plus, Edit2, Trash2, Save, X, Eye, EyeOff, Loader2, Sparkles, Upload, RefreshCw, MoreVertical, Copy, Archive, Calendar, MessageSquare, Link, Wand2, Image as ImageIcon, Star, ChevronUp, ChevronDown, Users, BookOpen } from "lucide-react";
+import { getCategoryLabel } from "@/lib/categories";
+import { useConfirm } from "./ConfirmModal";
 import { computeContainerExcludes, computeBannerCategories } from "@/lib/containerFill";
-const SUB_CATEGORIES = UI_CATEGORIES;
+import { useCategories } from "@/hooks/useCategories";
 import BlockEditor from "./BlockEditor";
 import ContainerBlock from "./ContainerBlock";
 import ImagePickerModal from "./ImagePickerModal";
+import HistoryModal from "./HistoryModal";
 
 interface ArticleData {
   _id?: string;
@@ -73,6 +75,7 @@ const MAIN_CATEGORIES = [
 
 interface ArticlesTabProps {
   userId?: string;
+  onGoToMenschen?: () => void;
 }
 
 function getSectionAiPrompt(category?: string, _title?: string): string {
@@ -94,8 +97,12 @@ function getSectionAiPrompt(category?: string, _title?: string): string {
   return 'Nostalgic Gen X editorial photo. Vintage objects, warm cinematic lighting, film grain texture. NO people, NO faces, NO text.';
 }
 
-export default function ArticlesTab({ userId }: ArticlesTabProps) {
+export default function ArticlesTab({ userId, onGoToMenschen }: ArticlesTabProps) {
   console.log('[ArticlesTab] COMPONENT MOUNTED, userId:', userId);
+  // Merged static + dynamically created categories. Refetches itself on the
+  // 'categories-updated' event, so a category created by renaming a container
+  // shows up in these dropdowns without a reload.
+  const categories = useCategories();
   const [articles, setArticles] = useState<ArticleData[]>([]);
   const [articlesLoading, setArticlesLoading] = useState(false);
   const [editingArticle, setEditingArticle] = useState<Partial<ArticleData> | null>(null);
@@ -149,8 +156,6 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
   const [hoveredListArticle, setHoveredListArticle] = useState<string | null>(null);
   const [selectedArticles, setSelectedArticles] = useState<Set<string>>(new Set());
   const [bulkPublishing, setBulkPublishing] = useState(false);
-  const [viewMode, setViewMode] = useState<'cards' | 'list'>('list');
-  const [templateZoom, setTemplateZoom] = useState(100); // 50-150%
   const [viewsModal, setViewsModal] = useState<{ 
     articleId: string; 
     title: string; 
@@ -180,6 +185,10 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageManagerFileRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const { confirm, ConfirmDialog } = useConfirm();
+  // "On This Day" flow, kept in its own file (HistoryModal) so this component
+  // does not grow further.
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -388,7 +397,13 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
   };
 
   const deleteArticle = async (id: string, title: string) => {
-    if (!confirm(`Delete article "${title}"?`)) return;
+    const ok = await confirm({
+      title: 'Delete Article',
+      message: `Delete article "${title}"?`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
     try {
       const res = await fetch(`/api/articles/${id}?userId=${userId}`, {
         method: "DELETE",
@@ -403,7 +418,13 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
 
   const bulkDelete = async (articleIds: string[]) => {
     if (!articleIds.length || bulkPublishing) return;
-    if (!confirm(`Delete ${articleIds.length} selected article${articleIds.length !== 1 ? 's' : ''}? This cannot be undone.`)) return;
+    const ok = await confirm({
+      title: 'Delete Articles',
+      message: `Delete ${articleIds.length} selected article${articleIds.length !== 1 ? 's' : ''}? This cannot be undone.`,
+      confirmLabel: 'Delete All',
+      variant: 'danger',
+    });
+    if (!ok) return;
     setBulkPublishing(true);
     let deleted = 0;
     for (const id of articleIds) {
@@ -580,7 +601,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
     }
     setIsGeneratingArticleText(true);
     try {
-      const category = SUB_CATEGORIES.find(c => c.value === editingArticle?.category)?.label || 'Culture';
+      const category = categories.find(c => c.slug === editingArticle?.category)?.label || 'Culture';
       const tone = editingArticle?.aiTone || 'nostalgic';
       const length = editingArticle?.aiLength || 'medium';
       const instructions = editingArticle?.aiInstructions || '';
@@ -858,85 +879,93 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
   return (
     <>
       {/* Combined Articles & Layout Editor - Full Width */}
-      <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+      <div className="bg-paper rounded-xl p-4 border border-gray-200">
+        {/* The block-type legend that used to sit here (MAIN · SOCIAL · MED ·
+            SM · FULL · HALF · SLIDER, each in its own colour) is gone: every
+            type now explains itself where you use it, via the coloured dot and
+            the hover tooltip on ContainerBlock's add-block buttons. A legend
+            repeating the same seven names in seven more colours was the single
+            busiest element on the page. */}
         <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-bold">📱 Articles & Layout</h2>
-            <p className="text-sm text-gray-400">
-              Drag articles into slots · Click size label to change · <span className="text-[#E36B11]">MAIN</span> · <span className="text-teal-400">SOCIAL</span> · <span className="text-purple-400">MED</span> · <span className="text-blue-400">SM</span> · <span className="text-orange-400">FULL</span> · <span className="text-pink-400">HALF</span> · <span className="text-cyan-400">SLIDER</span>
-            </p>
-          </div>
-          {savingTemplate && (
-            <div className="flex items-center gap-2 text-xs text-gray-400">
-              <Loader2 className="w-3 h-3 animate-spin" />
-              Saving...
-            </div>
-          )}
-        </div>
-
-        {/* Add Container Button */}
-        <div className="mb-3 flex items-center gap-2">
-          <span className="text-[9px] text-gray-500 uppercase tracking-wider">Add:</span>
-          <button onClick={() => addTemplateItem(12)} className="px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded font-bold text-[9px] hover:bg-amber-500/30 border border-amber-500/30 border-dashed">Container</button>
-        </div>
-
-        <div className="flex gap-8">
-          {/* Template Grid Preview - Phone Emulator Frame */}
-          <div className="flex-shrink-0">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] text-gray-500">Drag slots to reorder (6 cols per row)</p>
-              {/* Zoom Controls */}
-              <div className="flex items-center gap-1 bg-gray-700 rounded-lg px-1 py-0.5">
-                <button
-                  onClick={() => setTemplateZoom(Math.max(50, templateZoom - 10))}
-                  className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-600 rounded transition-colors text-sm font-bold"
-                  disabled={templateZoom <= 50}
-                >
-                  −
-                </button>
-                <span className="text-[10px] text-gray-400 w-8 text-center">{templateZoom}%</span>
-                <button
-                  onClick={() => setTemplateZoom(Math.min(150, templateZoom + 10))}
-                  className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-600 rounded transition-colors text-sm font-bold"
-                  disabled={templateZoom >= 150}
-                >
-                  +
-                </button>
+          <h2 className="text-sm font-semibold text-gray-900">Articles &amp; Layout</h2>
+          <div className="flex items-center gap-1.5">
+            {savingTemplate && (
+              <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Saving...
               </div>
+            )}
+            <button
+              onClick={async () => {
+                const ok = await confirm({
+                  title: 'Generate Article',
+                  message: 'Generate Daily Facts Article for today?',
+                  confirmLabel: 'Generate',
+                  variant: 'info',
+                });
+                if (!ok) return;
+                setLoadingArticleId('auto-gen');
+                try {
+                  const res = await fetch('/api/cron/daily-facts-article');
+                  const data = await res.json();
+                  if (data.success) {
+                    alert(`Article created: ${data.title}`);
+                    fetchArticles();
+                  } else {
+                    alert(data.error || data.message || 'Failed');
+                  }
+                } catch (e) {
+                  alert('Error generating article');
+                } finally {
+                  setLoadingArticleId(null);
+                }
+              }}
+              disabled={loadingArticleId === 'auto-gen'}
+              className="flex items-center gap-1 px-2 py-1 bg-purple-600 text-paper text-xs font-medium rounded hover:bg-purple-500 disabled:opacity-50"
+            >
+              {loadingArticleId === 'auto-gen' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+              Daily Auto
+            </button>
+            {onGoToMenschen && (
+              <button
+                onClick={onGoToMenschen}
+                className="flex items-center gap-1 px-2 py-1 bg-paper text-gray-700 border border-gray-200 text-xs font-medium rounded hover:bg-gray-50"
+              >
+                <Users className="w-3 h-3" />
+                Menschen
+              </button>
+            )}
+            <button
+              onClick={() => setShowHistoryModal(true)}
+              className="flex items-center gap-1 px-2 py-1 bg-paper text-gray-700 border border-gray-200 text-xs font-medium rounded hover:bg-gray-50"
+            >
+              <BookOpen className="w-3 h-3" />
+              History
+            </button>
+            <button
+              onClick={handleCreateArticle}
+              className="flex items-center gap-1 px-2 py-1 bg-[#E36B11] text-paper text-xs font-medium rounded hover:bg-[#c85c0e]"
+            >
+              <Plus className="w-3 h-3" />
+              New
+            </button>
+          </div>
+        </div>
+
+        <div className="flex gap-6">
+          {/* Layout editor. This used to be a 356px-wide phone emulator
+              (notch, status bar, mock header/bottom nav, zoom slider) and the
+              containers were edited INSIDE it - which is why every control in
+              ContainerBlock had shrunk to 6-8px type. It is a plain
+              fixed-width column now, so blocks have room and can use normal
+              control sizes. The phone preview was the only thing lost; the
+              container theme colour still previews the live section colour. */}
+          <div className="w-[480px] flex-shrink-0">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm text-gray-700 font-semibold">Layout</p>
+              <p className="text-[10px] text-gray-400">Drag articles from the list onto a block</p>
             </div>
-            <div className="phone-frame inline-block" style={{ width: 380 }}>
-              <div className="phone-screen relative" style={{ width: 356, height: 900 }}>
-                {/* Status bar */}
-                <div className="absolute top-0 left-0 right-0 h-7 flex items-center justify-between px-6 z-50 text-white text-[11px] font-semibold">
-                  <span>9:41</span>
-                  <div className="flex items-center gap-1">
-                    <svg width="14" height="10" viewBox="0 0 14 10" fill="currentColor"><rect x="0" y="6" width="2" height="4" rx="0.5"/><rect x="4" y="4" width="2" height="6" rx="0.5"/><rect x="8" y="2" width="2" height="8" rx="0.5"/><rect x="12" y="0" width="2" height="10" rx="0.5"/></svg>
-                    <svg width="14" height="10" viewBox="0 0 14 10" fill="currentColor"><path d="M7 1.5C4.2 1.5 1.6 2.5 0 4.2L7 11l7-6.8c-1.6-1.7-4.2-2.7-7-2.7z"/></svg>
-                    <svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="currentColor" strokeWidth="1"><rect x="0.5" y="0.5" width="18" height="9" rx="2"/><rect x="2" y="2" width="14" height="6" rx="1" fill="currentColor"/><rect x="20" y="3" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
-                  </div>
-                </div>
-                {/* Notch */}
-                <div className="phone-notch" />
-
-                {/* Mock header bar (matches app) */}
-                <div className="absolute top-7 left-0 right-0 h-10 bg-cream border-b border-warm flex items-center justify-between px-3 z-40">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-md bg-[#E36B11]/15 flex items-center justify-center">
-                      <span className="text-[10px] font-display font-bold text-[#E36B11]">BX</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <div className="px-2 py-0.5 bg-[#E36B11]/15 rounded-full text-[10px] font-bold text-[#E36B11]">0 ⚡</div>
-                    <div className="w-6 h-6 rounded-full bg-gray-200" />
-                  </div>
-                </div>
-
-                {/* Scrollable layout area (the actual editable grid) */}
-                <div className="absolute top-[68px] bottom-[56px] left-0 right-0 overflow-y-auto px-3 py-3 bg-cream">
-                  <div 
-                    className="grid grid-cols-6 gap-2 auto-rows-auto transition-transform origin-top-left"
-                    style={{ transform: `scale(${templateZoom / 100})`, width: `${10000 / templateZoom}%` }}
-                  >
+            <div className="space-y-3">
               {(() => {
                 // Cross-container waterfall dedup — excludeIds per container index
                 const containerExcludes = computeContainerExcludes(templateItems as any, articles as any);
@@ -977,12 +1006,24 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                 return null;
                 });
               })()}
+
+              {/* Empty state. The per-container "+ Container" button only
+                  exists INSIDE a container, so without this there is no way to
+                  create the first one. */}
+              {templateItems.filter(it => it.size === 12).length === 0 && (
+                <button
+                  onClick={() => addTemplateItem(12)}
+                  className="w-full text-center text-gray-400 text-sm py-12 border border-dashed border-gray-300 rounded-xl hover:border-[#E36B11] hover:text-[#E36B11] hover:bg-[#E36B11]/5 transition-colors"
+                >
+                  + Click here to add your first container
+                </button>
+              )}
             </div>
             
-            {/* Static Pages in Phone */}
-            <div className="mt-3 pt-2 border-t border-gray-300">
-              <div className="text-[8px] text-gray-500 uppercase tracking-wider mb-1 px-1">Static Pages</div>
-              <div className="space-y-0.5">
+            {/* Static page shortcuts */}
+            <div className="mt-4 pt-3 border-t border-gray-200">
+              <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-1.5">Static Pages</div>
+              <div className="space-y-1">
                 {[
                   { slug: 'about', title: 'About Us' },
                   { slug: 'impressum', title: 'Imprint' },
@@ -993,71 +1034,20 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                   <a
                     key={page.slug}
                     href={`/admin/pages/${page.slug}`}
-                    className="flex items-center justify-between px-2 py-1 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
+                    className="flex items-center justify-between px-2.5 py-1.5 bg-paper border border-gray-200 rounded hover:bg-gray-50 transition-colors"
                   >
-                    <span className="text-[9px] text-gray-700">{page.title}</span>
-                    <Edit2 className="w-2.5 h-2.5 text-gray-400" />
+                    <span className="text-xs text-gray-700">{page.title}</span>
+                    <Edit2 className="w-3 h-3 text-gray-400" />
                   </a>
                 ))}
               </div>
             </div>
-                </div>
-                {/* End of scrollable area */}
-
-                {/* Mock bottom navigation */}
-                <div className="absolute bottom-0 left-0 right-0 h-14 bg-cream border-t border-warm flex items-center justify-around z-40 pb-2">
-                  {['Home', 'Articles', 'Notif.', 'Profile'].map((label, i) => (
-                    <div key={label} className="flex flex-col items-center gap-0.5">
-                      <div className={`w-5 h-5 rounded ${i === 0 ? 'bg-[#E36B11]' : 'bg-gray-300'}`} />
-                      <span className={`text-[8px] ${i === 0 ? 'text-[#E36B11] font-bold' : 'text-gray-400'}`}>{label}</span>
-                    </div>
-                  ))}
-                </div>
-                {/* Home indicator */}
-                <div className="phone-home-indicator" />
-              </div>
-            </div>
-
             </div>
           
           {/* Articles List - Drag to slots + Edit/Delete */}
           <div className="flex-1">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm text-gray-400 font-medium">📰 Post Manager ({articles.length})</div>
-              <div className="flex gap-2">
-                <button
-                  onClick={async () => {
-                    if (!confirm('Generate Daily Facts Article for today?')) return;
-                    setLoadingArticleId('auto-gen');
-                    try {
-                      const res = await fetch('/api/cron/daily-facts-article');
-                      const data = await res.json();
-                      if (data.success) {
-                        alert(`Article created: ${data.title}`);
-                        fetchArticles();
-                      } else {
-                        alert(data.error || data.message || 'Failed');
-                      }
-                    } catch (e) {
-                      alert('Error generating article');
-                    } finally {
-                      setLoadingArticleId(null);
-                    }
-                  }}
-                  disabled={loadingArticleId === 'auto-gen'}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-500 transition-colors disabled:opacity-50"
-                >
-                  {loadingArticleId === 'auto-gen' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                  Daily Auto
-                </button>
-                <button
-                  onClick={handleCreateArticle}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#E36B11] text-white text-sm rounded-lg hover:bg-[#d10445] transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  New
-                </button>
-              </div>
+            <div className="flex items-center mb-2">
+              <div className="text-xs text-gray-500 font-medium">Post Manager ({articles.length})</div>
             </div>
             
             {/* Status Filter Tabs + Sort */}
@@ -1074,8 +1064,8 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                     onClick={() => setStatusFilter(opt.value as typeof statusFilter)}
                     className={`px-2 py-1 rounded text-[10px] font-medium transition-colors ${
                       statusFilter === opt.value
-                        ? 'bg-[#E36B11] text-white'
-                        : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                        ? 'bg-[#E36B11] text-gray-900'
+                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                     }`}
                   >
                     {opt.label}
@@ -1086,34 +1076,13 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="px-2 py-1 rounded text-[10px] font-medium bg-gray-700 text-gray-300 border border-gray-600 hover:bg-gray-600 transition-colors"
+                className="px-2 py-1 rounded text-[10px] font-medium bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200 transition-colors"
               >
                 <option value="all">All Cats</option>
-                {SUB_CATEGORIES.map(c => (
-                  <option key={c.value} value={c.value}>{c.label}</option>
+                {categories.map(c => (
+                  <option key={c.slug} value={c.slug}>{c.label}</option>
                 ))}
               </select>
-              {/* View Mode Toggle */}
-              <div className="flex bg-gray-700 rounded overflow-hidden">
-                <button
-                  onClick={() => setViewMode('cards')}
-                  className={`px-2 py-1 text-[10px] font-medium transition-colors ${
-                    viewMode === 'cards' ? 'bg-[#E36B11] text-white' : 'text-gray-400 hover:bg-gray-600'
-                  }`}
-                  title="Card view"
-                >
-                  ▦
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`px-2 py-1 text-[10px] font-medium transition-colors ${
-                    viewMode === 'list' ? 'bg-[#E36B11] text-white' : 'text-gray-400 hover:bg-gray-600'
-                  }`}
-                  title="List view"
-                >
-                  ☰
-                </button>
-              </div>
             </div>
             
             {articlesLoading ? (
@@ -1149,17 +1118,17 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                 <div className="text-center py-8 text-gray-500 text-sm">
                   No {statusFilter !== 'all' ? statusFilter : ''} articles yet
                 </div>
-              ) : viewMode === 'list' ? (
+              ) : (
               /* LIST VIEW */
               <div className="space-y-0">
                 {/* Bulk action bar */}
                 {selectedArticles.size > 0 && (
                   <div className="flex items-center gap-3 px-4 py-2 bg-[#E36B11]/20 border border-[#E36B11]/40 rounded-lg mb-2">
-                    <span className="text-[11px] text-[#E36B11] font-bold">{selectedArticles.size} selected</span>
+                    <span className="text-xs text-[#E36B11] font-bold">{selectedArticles.size} selected</span>
                     <button
                       onClick={() => bulkPublish(Array.from(selectedArticles))}
                       disabled={bulkPublishing}
-                      className="flex items-center gap-1.5 px-3 py-1 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white text-[11px] font-bold rounded transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-paper text-xs font-bold rounded transition-colors"
                     >
                       {bulkPublishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />}
                       Publish All
@@ -1167,18 +1136,18 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                     <button
                       onClick={() => bulkDelete(Array.from(selectedArticles))}
                       disabled={bulkPublishing}
-                      className="flex items-center gap-1.5 px-3 py-1 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-[11px] font-bold rounded transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-paper text-xs font-bold rounded transition-colors"
                     >
                       {bulkPublishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
                       Remove All
                     </button>
-                    <button onClick={() => setSelectedArticles(new Set())} className="text-[10px] text-gray-400 hover:text-white ml-auto">
+                    <button onClick={() => setSelectedArticles(new Set())} className="text-[10px] text-gray-500 hover:text-gray-900 ml-auto">
                       Clear
                     </button>
                   </div>
                 )}
                 {/* Header */}
-                <div className="grid grid-cols-[28px_75px_40px_55px_75px_1fr_40px_70px_55px_70px_55px_105px] gap-2 px-4 py-2 text-[9px] text-gray-500 uppercase tracking-wider border-b border-gray-700 bg-gray-800/50">
+                <div className="grid grid-cols-[28px_75px_40px_55px_75px_1fr_40px_70px_55px_70px_55px_105px] gap-2 px-4 py-2 text-[10px] text-gray-400 uppercase tracking-wider border-b border-gray-200 bg-gray-50">
                   <div>
                     <input
                       type="checkbox"
@@ -1196,7 +1165,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                     />
                   </div>
                   <button
-                    className="flex items-center gap-0.5 hover:text-white transition-colors"
+                    className="flex items-center gap-0.5 hover:text-gray-900 transition-colors"
                     onClick={() => setDateSort(d => d === 'desc' ? 'asc' : 'desc')}
                     title="Toggle date sort"
                   >
@@ -1223,7 +1192,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                     }}
                     onDragOver={(e) => handleDragOver(e, article._id!)}
                     onDragEnd={handleDragEnd}
-                    className={`grid grid-cols-[28px_75px_40px_55px_75px_1fr_40px_70px_55px_70px_55px_105px] gap-2 items-center px-4 py-1 rounded cursor-move hover:bg-gray-700/50 transition-all ${
+                    className={`grid grid-cols-[28px_75px_40px_55px_75px_1fr_40px_70px_55px_70px_55px_105px] gap-2 items-center px-4 py-1.5 text-xs border-b border-gray-100 cursor-move hover:bg-gray-50 transition-all ${
                       draggedArticle === article._id ? 'opacity-50' : ''
                     } ${hoveredTemplateArticle && hoveredTemplateArticle.split(',').includes(article._id!) ? 'bg-[#E36B11]/10 ring-1 ring-[#E36B11]/50' : ''}`}
                     onMouseEnter={() => setHoveredListArticle(article._id!)}
@@ -1245,7 +1214,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                       />
                     </div>
                     {/* Date - with time */}
-                    <div className="text-[9px] text-gray-400">
+                    <div className="text-gray-500 whitespace-nowrap">
                       {article.scheduledAt 
                         ? new Date(article.scheduledAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) + ' ' + new Date(article.scheduledAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
                         : (article as any).createdAt 
@@ -1266,11 +1235,21 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                             <img src={article.coverImage} alt="" className="w-8 h-6 rounded object-cover hover:ring-2 hover:ring-[#E36B11]" style={{ objectPosition: `${article.imagePosX ?? 50}% ${article.imagePosY ?? 50}%` }} />
                           )
                         ) : (
-                          <div className="w-8 h-6 rounded bg-gray-700 flex items-center justify-center text-gray-500 text-[8px] hover:bg-gray-600">+</div>
+                          <div className="w-8 h-6 rounded bg-gray-100 flex items-center justify-center text-gray-500 text-[10px] hover:bg-gray-200">+</div>
                         )}
                       </button>
                     </div>
-                    {/* Type - Editable Dropdown */}
+                    {/* Type - editable dropdown. contentType is 'article' for
+                        190 of 197 rows, so a saturated badge on every line was
+                        96% noise; the default renders muted and only the values
+                        that actually change behaviour (banner-page, rankroll,
+                        arcade, tv, radio, shop, music-community) keep a
+                        coloured badge. Still a <select>, so the type remains
+                        changeable from the row - presentation only, nothing was
+                        removed. contentType is NOT redundant with category:
+                        5 of 10 categories contain more than one type, and
+                        banner-page/music-community inherit the FIXED block's
+                        banner image in /api/articles. */}
                     <div>
                       <select
                         value={article.contentType || 'article'}
@@ -1289,18 +1268,20 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                             console.error('Failed to update type:', err);
                           }
                         }}
-                        className={`w-full px-1 py-0.5 rounded text-[7px] font-bold cursor-pointer border-0 outline-none uppercase ${
-                          CONTENT_TYPE_BADGES[article.contentType || 'article']?.color || 'bg-blue-500'
-                        } text-white`}
+                        className={`w-full px-1 py-0.5 rounded text-[9px] font-bold cursor-pointer border-0 outline-none uppercase ${
+                          (article.contentType || 'article') === 'article'
+                            ? 'bg-transparent text-gray-400 hover:text-gray-700'
+                            : `${CONTENT_TYPE_BADGES[article.contentType!]?.color || 'bg-blue-500'} text-paper`
+                        }`}
                       >
-                        <option value="article" className="bg-gray-800 text-white">Art</option>
-                        <option value="rankroll" className="bg-gray-800 text-white">Rnkr</option>
-                        <option value="tv" className="bg-gray-800 text-white">TV</option>
-                        <option value="radio" className="bg-gray-800 text-white">Radio</option>
-                        <option value="arcade" className="bg-gray-800 text-white">Arc</option>
-                        <option value="shop" className="bg-gray-800 text-white">Shop</option>
-                        <option value="music-community" className="bg-gray-800 text-white">Music</option>
-                        <option value="banner-page" className="bg-gray-800 text-white">Page</option>
+                        <option value="article" className="bg-paper text-gray-900">Art</option>
+                        <option value="rankroll" className="bg-paper text-gray-900">Rnkr</option>
+                        <option value="tv" className="bg-paper text-gray-900">TV</option>
+                        <option value="radio" className="bg-paper text-gray-900">Radio</option>
+                        <option value="arcade" className="bg-paper text-gray-900">Arc</option>
+                        <option value="shop" className="bg-paper text-gray-900">Shop</option>
+                        <option value="music-community" className="bg-paper text-gray-900">Music</option>
+                        <option value="banner-page" className="bg-paper text-gray-900">Page</option>
                       </select>
                     </div>
                     {/* Category - Editable Dropdown */}
@@ -1322,24 +1303,24 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                             console.error('Failed to update category:', err);
                           }
                         }}
-                        className="w-full px-1 py-0.5 rounded text-[7px] cursor-pointer border-0 outline-none bg-gray-600 text-white"
+                        className="w-full px-1 py-0.5 rounded text-[9px] cursor-pointer border-0 outline-none bg-gray-200 text-gray-900"
                       >
-                        <option value="" className="bg-gray-800 text-white">—</option>
-                        {SUB_CATEGORIES.map(sub => (
-                          <option key={sub.value} value={sub.value} className="bg-gray-800 text-white">{sub.label}</option>
+                        <option value="" className="bg-paper text-gray-900">—</option>
+                        {categories.map(sub => (
+                          <option key={sub.slug} value={sub.slug} className="bg-paper text-gray-900">{sub.label}</option>
                         ))}
                       </select>
                     </div>
                     {/* Title */}
-                    <div className="min-w-0 text-[11px] text-gray-200 truncate">
+                    <div className="min-w-0 text-xs text-gray-700 truncate">
                       {article.title}
                     </div>
                     {/* Source - AI generated or manually edited */}
                     <div>
                       {article.autoGenerated ? (
-                        <span className="px-1 py-0.5 bg-purple-600 text-white text-[7px] font-bold rounded">AI</span>
+                        <span className="px-1 py-0.5 bg-purple-600 text-paper text-[9px] font-bold rounded">AI</span>
                       ) : (
-                        <span className="text-gray-500 text-[8px]">—</span>
+                        <span className="text-gray-500 text-[10px]">—</span>
                       )}
                     </div>
                     {/* Status */}
@@ -1354,7 +1335,13 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                           
                           // Confirm when publishing
                           if (newStatus === 'published' && currentStatus !== 'published') {
-                            if (!confirm(`Publish "${article.title}"?\n\nThis article will be visible to all users.`)) {
+                            const ok = await confirm({
+                              title: 'Publish Article',
+                              message: `Publish "${article.title}"?\n\nThis article will be visible to all users.`,
+                              confirmLabel: 'Publish',
+                              variant: 'warning',
+                            });
+                            if (!ok) {
                               e.target.value = currentStatus; // Reset dropdown
                               return;
                             }
@@ -1371,15 +1358,15 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                             console.error('Failed to update status:', err);
                           }
                         }}
-                        className={`w-full px-1 py-0.5 rounded text-[7px] font-bold cursor-pointer border-0 outline-none ${
-                          article.status === 'published' ? 'bg-green-600 text-white' :
-                          article.status === 'archived' ? 'bg-gray-600 text-white' :
-                          'bg-orange-600 text-white'
+                        className={`w-full px-1 py-0.5 rounded text-[9px] font-bold cursor-pointer border-0 outline-none ${
+                          article.status === 'published' ? 'bg-green-600 text-paper' :
+                          article.status === 'archived' ? 'bg-gray-200 text-gray-900' :
+                          'bg-orange-600 text-paper'
                         }`}
                       >
-                        <option value="draft" className="bg-gray-800 text-white">Draft</option>
-                        <option value="published" className="bg-gray-800 text-white">Live</option>
-                        <option value="archived" className="bg-gray-800 text-white">Arc</option>
+                        <option value="draft" className="bg-paper text-gray-900">Draft</option>
+                        <option value="published" className="bg-paper text-gray-900">Live</option>
+                        <option value="archived" className="bg-paper text-gray-900">Arc</option>
                       </select>
                     </div>
                     {/* Views - Clickable */}
@@ -1410,7 +1397,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                           setLoadingViewers(false);
                         }
                       }}
-                      className="text-[10px] text-gray-400 text-center hover:text-[#E36B11] hover:underline cursor-pointer"
+                      className="text-[10px] text-gray-500 text-center hover:text-[#E36B11] hover:underline cursor-pointer"
                     >
                       {article.views || 0}
                     </button>
@@ -1437,7 +1424,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                         {article.totalReactions || 0}
                       </span>
                       {/* Tooltip with breakdown */}
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col bg-gray-900 border border-gray-700 rounded-lg p-2 shadow-xl z-50 min-w-[120px]">
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col bg-paper border border-gray-200 rounded-lg p-2 shadow-xl z-50 min-w-[120px]">
                         {[
                           { id: 'whatever', img: 'goth', label: 'Whatever' },
                           { id: 'meh', img: 'grunge', label: 'Meh' },
@@ -1447,12 +1434,12 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                         ].map((mood) => (
                           <div key={mood.id} className="flex items-center gap-2 py-0.5">
                             <img src={`/images/moods/${mood.img}.png`} alt={mood.label} className="w-4 h-4" />
-                            <span className="text-[10px] text-gray-400 flex-1">{mood.label}</span>
-                            <span className="text-[10px] text-white font-medium">{article.reactions?.[mood.id] || 0}</span>
+                            <span className="text-[10px] text-gray-500 flex-1">{mood.label}</span>
+                            <span className="text-[10px] text-gray-900 font-medium">{article.reactions?.[mood.id] || 0}</span>
                           </div>
                         ))}
-                        <div className="border-t border-gray-700 mt-1 pt-1 flex items-center justify-between">
-                          <span className="text-[10px] text-gray-400">Total</span>
+                        <div className="border-t border-gray-200 mt-1 pt-1 flex items-center justify-between">
+                          <span className="text-[10px] text-gray-500">Total</span>
                           <span className="text-[10px] text-[#E36B11] font-bold">{article.totalReactions || 0}</span>
                         </div>
                         {/* Arrow */}
@@ -1501,7 +1488,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                           setLoadingComments(false);
                         }
                       }}
-                      className="text-[10px] text-gray-400 text-center hover:text-[#E36B11] hover:underline cursor-pointer"
+                      className="text-[10px] text-gray-500 text-center hover:text-[#E36B11] hover:underline cursor-pointer"
                     >
                       {(article as any).commentsCount || 0}
                     </button>
@@ -1523,14 +1510,14 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                             setLoadingArticleId(null);
                           }
                         }}
-                        className="p-1 text-gray-400 hover:text-white hover:bg-gray-600 rounded transition-colors"
+                        className="p-1 text-gray-500 hover:text-gray-900 hover:bg-gray-200 rounded transition-colors"
                       >
                         <Edit2 className="w-3 h-3" />
                       </button>
-                      <button title="Duplicate" onClick={(e) => { e.stopPropagation(); duplicateArticle(article); }} className="p-1 text-gray-400 hover:text-white hover:bg-gray-600 rounded transition-colors">
+                      <button title="Duplicate" onClick={(e) => { e.stopPropagation(); duplicateArticle(article); }} className="p-1 text-gray-500 hover:text-gray-900 hover:bg-gray-200 rounded transition-colors">
                         <Copy className="w-3 h-3" />
                       </button>
-                      <button title="Archive" onClick={(e) => { e.stopPropagation(); archiveArticle(article._id!); }} className="p-1 text-gray-400 hover:text-white hover:bg-gray-600 rounded transition-colors">
+                      <button title="Archive" onClick={(e) => { e.stopPropagation(); archiveArticle(article._id!); }} className="p-1 text-gray-500 hover:text-gray-900 hover:bg-gray-200 rounded transition-colors">
                         <Archive className="w-3 h-3" />
                       </button>
                       {article.status === 'published' && (
@@ -1545,170 +1532,11 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                   </div>
                 ))}
               </div>
-              ) : (
-              /* CARD VIEW */
-              <div className="grid grid-cols-5 gap-2">
-                {filteredArticles.map((article) => (
-                  <div
-                    key={article._id}
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData('articleId', article._id!);
-                      handleDragStart(article._id!);
-                    }}
-                    onDragOver={(e) => handleDragOver(e, article._id!)}
-                    onDragEnd={handleDragEnd}
-                    onMouseEnter={() => setHoveredListArticle(article._id!)}
-                    onMouseLeave={() => setHoveredListArticle(null)}
-                    className={`bg-gray-800/80 border rounded-xl overflow-hidden cursor-move hover:bg-gray-700/80 hover:border-gray-600 transition-all group ${
-                      draggedArticle === article._id ? 'opacity-50' : ''
-                    } ${hoveredTemplateArticle && hoveredTemplateArticle.split(',').includes(article._id!) ? 'border-[#E36B11] bg-[#E36B11]/10 ring-2 ring-[#E36B11]/50' : 'border-gray-700/50'}`}
-                  >
-                    {/* Cover Image */}
-                    <div className="relative aspect-[16/10] bg-gray-700">
-                      {article.coverImage ? (
-                        isVideoUrl(article.coverImage) ? (
-                          <video src={article.coverImage} className="w-full h-full object-cover" style={{ objectPosition: `${article.imagePosX ?? 50}% ${article.imagePosY ?? 50}%` }} muted autoPlay loop playsInline />
-                        ) : (
-                          <img src={article.coverImage} alt="" className="w-full h-full object-cover" style={{ objectPosition: `${article.imagePosX ?? 50}% ${article.imagePosY ?? 50}%` }} />
-                        )
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-600 text-[9px]">No img</div>
-                      )}
-                      {/* Badges overlay */}
-                      <div className="absolute top-1 left-1 flex gap-0.5">
-                        {article.contentType && article.contentType !== 'article' && (
-                          <span className={`px-1 py-0.5 ${CONTENT_TYPE_BADGES[article.contentType]?.color || 'bg-gray-500'} text-white text-[7px] font-bold rounded uppercase`}>
-                            {CONTENT_TYPE_BADGES[article.contentType]?.label || article.contentType}
-                          </span>
-                        )}
-                        {article.autoGenerated && (
-                          <span className="px-1 py-0.5 bg-purple-600 text-white text-[7px] font-bold rounded uppercase">AI</span>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* Content */}
-                    <div className="p-1.5">
-                      {/* Title */}
-                      <div className="text-[10px] font-medium text-gray-100 line-clamp-2 mb-1 min-h-[2rem] leading-tight">{article.title}</div>
-                      
-                      {/* Meta Row */}
-                      <div className="text-[9px] text-gray-400 flex items-center gap-1 flex-wrap">
-                        {article.scheduledAt ? (
-                          <span className="text-blue-400 flex items-center gap-1">
-                            <Calendar className="w-2.5 h-2.5" />
-                            {new Date(article.scheduledAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} {new Date(article.scheduledAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
-                            <button
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                try {
-                                  await fetch(`/api/articles/${article._id}`, {
-                                    method: 'PUT',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ userId, status: 'published', scheduledAt: null }),
-                                  });
-                                  setArticles(prev => prev.map(a => a._id === article._id ? { ...a, status: 'published', scheduledAt: undefined } : a));
-                                  setToast({ message: 'Published!', articleId: article._id! });
-                                  setTimeout(() => setToast(null), 1500);
-                                } catch (err) {
-                                  console.error('Failed to publish:', err);
-                                }
-                              }}
-                              className="ml-1 px-1.5 py-0.5 bg-green-600 hover:bg-green-500 text-white text-[8px] font-bold rounded"
-                            >
-                              NOW
-                            </button>
-                          </span>
-                        ) : (
-                          <select
-                            value={article.status || 'draft'}
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={async (e) => {
-                              e.stopPropagation();
-                              const newStatus = e.target.value as 'draft' | 'published' | 'archived';
-                              try {
-                                await fetch(`/api/articles/${article._id}`, {
-                                  method: 'PUT',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ userId, status: newStatus }),
-                                });
-                                setArticles(prev => prev.map(a => a._id === article._id ? { ...a, status: newStatus } : a));
-                                setToast({ message: newStatus === 'published' ? 'Published!' : newStatus, articleId: article._id! });
-                                setTimeout(() => setToast(null), 1500);
-                              } catch (err) {
-                                console.error('Failed to update status:', err);
-                              }
-                            }}
-                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold cursor-pointer border-0 outline-none ${
-                              article.status === 'published' ? 'bg-green-600 text-white' :
-                              article.status === 'archived' ? 'bg-gray-600 text-white' :
-                              'bg-orange-600 text-white'
-                            }`}
-                            style={{ WebkitAppearance: 'none', MozAppearance: 'none' }}
-                          >
-                            <option value="draft" className="bg-gray-800 text-white">Draft</option>
-                            <option value="published" className="bg-gray-800 text-white">Published</option>
-                            <option value="archived" className="bg-gray-800 text-white">Archived</option>
-                          </select>
-                        )}
-                        <span className="text-gray-500">•</span>
-                        <span>{article.views || 0}</span>
-                        <MessageSquare className={`w-2.5 h-2.5 ${article.commentsEnabled === false ? 'text-gray-600' : 'text-gray-400'}`} />
-                        <span>{(article as any).commentsCount || 0}</span>
-                      </div>
-                      
-                      {/* Action Buttons */}
-                      <div className="flex items-center gap-0.5 mt-1.5 pt-1.5 border-t border-gray-700/50">
-                        <button
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            if (loadingArticleId) return;
-                            setLoadingArticleId(article._id!);
-                            setIsCreatingArticle(false);
-                            setArticleTagInput("");
-                            try {
-                              const res = await fetch(`/api/articles/${article._id}?includeContent=true`);
-                              const data = await res.json();
-                              setEditingArticle({ ...(data.article || article), layout: (data.article?.layout || article.layout) || 'standard' });
-                            } catch {
-                              setEditingArticle({ ...article, layout: article.layout || 'standard' });
-                            } finally {
-                              setLoadingArticleId(null);
-                            }
-                          }}
-                          className="flex-1 py-0.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors flex items-center justify-center"
-                        >
-                          {loadingArticleId === article._id ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Edit2 className="w-2.5 h-2.5" />}
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); duplicateArticle(article); }}
-                          className="flex-1 py-0.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors flex items-center justify-center"
-                        >
-                          <Copy className="w-2.5 h-2.5" />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); archiveArticle(article._id!); }}
-                          className="flex-1 py-0.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors flex items-center justify-center"
-                        >
-                          <Archive className="w-2.5 h-2.5" />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); deleteArticle(article._id!, article.title); }}
-                          className="flex-1 py-0.5 text-red-400/70 hover:text-red-400 hover:bg-red-900/30 rounded transition-colors flex items-center justify-center"
-                        >
-                          <Trash2 className="w-2.5 h-2.5" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
               );
             })()}
             
             {savingOrder && (
-              <div className="w-full mt-3 py-2 text-gray-400 text-center text-sm flex items-center justify-center gap-2">
+              <div className="w-full mt-3 py-2 text-gray-500 text-center text-sm flex items-center justify-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 Saving...
               </div>
@@ -1717,17 +1545,17 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
         </div>
 
         {templateItems.length === 0 && (
-          <div className="text-center text-gray-400 py-8 text-sm">Click buttons above to add template slots, then drag articles into them</div>
+          <div className="text-center text-gray-500 py-8 text-sm">Click buttons above to add template slots, then drag articles into them</div>
         )}
       </div>
 
       {/* Article Editor Modal - Full Width for Desktop */}
       {editingArticle && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-2">
-          <div className="bg-gray-800 rounded-xl w-full max-w-[95vw] max-h-[95vh] overflow-hidden flex flex-col">
-            <div className="px-4 py-2.5 border-b border-gray-700 flex items-center justify-between sticky top-0 bg-gray-800 z-10">
+          <div className="bg-paper rounded-xl w-full max-w-[95vw] max-h-[95vh] overflow-hidden flex flex-col">
+            <div className="px-4 py-2.5 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-paper z-10">
               <h3 className="text-sm font-bold">{editingArticle._id ? 'Edit Article' : 'New Article'}</h3>
-              <button onClick={() => { setEditingArticle(null); setIsCreatingArticle(false); }} className="text-gray-400 hover:text-white">
+              <button onClick={() => { setEditingArticle(null); setIsCreatingArticle(false); }} className="text-gray-500 hover:text-gray-900">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1741,7 +1569,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                     value={articleTopicInput}
                     onChange={(e) => setArticleTopicInput(e.target.value)}
                     placeholder="AI topic (e.g. 'Best 90s sitcoms')"
-                    className="flex-1 bg-gray-700 px-2 py-1.5 rounded text-xs"
+                    className="flex-1 bg-gray-100 px-2 py-1.5 rounded text-xs"
                   />
                   <button
                     onClick={generateArticleText}
@@ -1757,7 +1585,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                   <select
                     value={editingArticle?.aiTone || 'nostalgic'}
                     onChange={(e) => setEditingArticle(prev => prev ? { ...prev, aiTone: e.target.value } : null)}
-                    className="bg-gray-700 px-2 py-1 rounded text-[10px] text-gray-300"
+                    className="bg-gray-100 px-2 py-1 rounded text-[10px] text-gray-600"
                   >
                     <option value="nostalgic">Nostalgic & Fun</option>
                     <option value="informative">Informative</option>
@@ -1768,7 +1596,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                   <select
                     value={editingArticle?.aiLength || 'medium'}
                     onChange={(e) => setEditingArticle(prev => prev ? { ...prev, aiLength: e.target.value } : null)}
-                    className="bg-gray-700 px-2 py-1 rounded text-[10px] text-gray-300"
+                    className="bg-gray-100 px-2 py-1 rounded text-[10px] text-gray-600"
                   >
                     <option value="short">Short (~300 words)</option>
                     <option value="medium">Medium (~500 words)</option>
@@ -1779,7 +1607,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                     value={editingArticle?.aiInstructions || ''}
                     onChange={(e) => setEditingArticle(prev => prev ? { ...prev, aiInstructions: e.target.value } : null)}
                     placeholder="Special instructions (e.g. 'focus on music', 'include quotes')"
-                    className="flex-1 min-w-[150px] bg-gray-700 px-2 py-1 rounded text-[10px] text-gray-300 placeholder-gray-500"
+                    className="flex-1 min-w-[150px] bg-gray-100 px-2 py-1 rounded text-[10px] text-gray-600 placeholder-gray-500"
                   />
                 </div>
               </div>
@@ -1787,21 +1615,21 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
               {/* Title & Subtitle - full width */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Title *</label>
+                  <label className="block text-xs text-gray-500 mb-1">Title *</label>
                   <input
                     type="text"
                     value={editingArticle.title || ''}
                     onChange={(e) => setEditingArticle({ ...editingArticle, title: e.target.value })}
-                    className="w-full bg-gray-700 px-2 py-1.5 rounded text-sm"
+                    className="w-full bg-gray-100 px-2 py-1.5 rounded text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Subtitle</label>
+                  <label className="block text-xs text-gray-500 mb-1">Subtitle</label>
                   <input
                     type="text"
                     value={editingArticle.subtitle || ''}
                     onChange={(e) => setEditingArticle({ ...editingArticle, subtitle: e.target.value })}
-                    className="w-full bg-gray-700 px-2 py-1.5 rounded text-sm"
+                    className="w-full bg-gray-100 px-2 py-1.5 rounded text-sm"
                   />
                 </div>
               </div>
@@ -1826,11 +1654,11 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                   {/* Categories - stacked in sidebar */}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-xs text-gray-400 mb-1">Main</label>
+                      <label className="block text-xs text-gray-500 mb-1">Main</label>
                       <select
                         value={editingArticle.mainCategory || 'articles'}
                         onChange={(e) => setEditingArticle({ ...editingArticle, mainCategory: e.target.value })}
-                        className="w-full bg-gray-700 px-2 py-1.5 rounded text-xs"
+                        className="w-full bg-gray-100 px-2 py-1.5 rounded text-xs"
                       >
                         {MAIN_CATEGORIES.map(cat => (
                           <option key={cat.value} value={cat.value}>{cat.label}</option>
@@ -1838,21 +1666,21 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-400 mb-1">Sub</label>
+                      <label className="block text-xs text-gray-500 mb-1">Sub</label>
                       <select
                         value={editingArticle.category || 'culture'}
                         onChange={(e) => setEditingArticle({ ...editingArticle, category: e.target.value })}
-                        className="w-full bg-gray-700 px-2 py-1.5 rounded text-xs"
+                        className="w-full bg-gray-100 px-2 py-1.5 rounded text-xs"
                       >
-                        {SUB_CATEGORIES.map(cat => (
-                          <option key={cat.value} value={cat.value}>{cat.label}</option>
+                        {categories.map(cat => (
+                          <option key={cat.slug} value={cat.slug}>{cat.label}</option>
                         ))}
                       </select>
                     </div>
                   </div>
                   {/* Schedule Date/Time - Separate inputs */}
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1.5 flex items-center gap-1">
+                    <label className="block text-xs text-gray-500 mb-1.5 flex items-center gap-1">
                       <Calendar className="w-3 h-3" /> Schedule Release
                     </label>
                     <div className="flex gap-2">
@@ -1866,7 +1694,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                           const newDate = e.target.value ? new Date(`${e.target.value}T${currentTime}`).toISOString() : undefined;
                           setEditingArticle({ ...editingArticle, scheduledAt: newDate });
                         }}
-                        className="flex-1 bg-gray-700 px-2 py-1.5 rounded text-xs [color-scheme:dark]"
+                        className="flex-1 bg-gray-100 px-2 py-1.5 rounded text-xs [color-scheme:dark]"
                       />
                       <input
                         type="time"
@@ -1878,7 +1706,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                           const newDate = new Date(`${currentDate}T${e.target.value}`).toISOString();
                           setEditingArticle({ ...editingArticle, scheduledAt: newDate });
                         }}
-                        className="w-20 bg-gray-700 px-2 py-1.5 rounded text-xs [color-scheme:dark]"
+                        className="w-20 bg-gray-100 px-2 py-1.5 rounded text-xs [color-scheme:dark]"
                       />
                     </div>
                     {editingArticle.scheduledAt && (
@@ -1894,26 +1722,26 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                   {/* Comments Toggle */}
                   <div className="flex items-center justify-between">
                     <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                      <MessageSquare className="w-3 h-3 text-gray-400" />
+                      <MessageSquare className="w-3 h-3 text-gray-500" />
                       Comments
                     </label>
                     <button
                       onClick={() => setEditingArticle({ ...editingArticle, commentsEnabled: !editingArticle.commentsEnabled })}
-                      className={`w-10 h-5 rounded-full transition-colors relative ${editingArticle.commentsEnabled !== false ? 'bg-green-500' : 'bg-gray-600'}`}
+                      className={`w-10 h-5 rounded-full transition-colors relative ${editingArticle.commentsEnabled !== false ? 'bg-green-500' : 'bg-gray-200'}`}
                     >
-                      <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${editingArticle.commentsEnabled !== false ? 'left-5' : 'left-0.5'}`} />
+                      <div className={`absolute top-0.5 w-4 h-4 bg-paper rounded-full transition-transform ${editingArticle.commentsEnabled !== false ? 'left-5' : 'left-0.5'}`} />
                     </button>
                   </div>
 
                   {/* Author */}
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">Author</label>
-                    <input type="text" value={editingArticle.authorName || ''} onChange={(e) => setEditingArticle({ ...editingArticle, authorName: e.target.value })} className="w-full bg-gray-700 px-2 py-1.5 rounded text-xs" />
+                    <label className="block text-xs text-gray-500 mb-1">Author</label>
+                    <input type="text" value={editingArticle.authorName || ''} onChange={(e) => setEditingArticle({ ...editingArticle, authorName: e.target.value })} className="w-full bg-gray-100 px-2 py-1.5 rounded text-xs" />
                   </div>
 
                   {/* Title Styling - collapsible */}
-                  <details className="bg-gray-900/40 rounded-lg p-2 group">
-                    <summary className="text-xs text-gray-400 cursor-pointer select-none flex items-center justify-between">
+                  <details className="bg-paper/40 rounded-lg p-2 group">
+                    <summary className="text-xs text-gray-500 cursor-pointer select-none flex items-center justify-between">
                       <span>Title Styling</span>
                       <span className="text-gray-500 group-open:rotate-180 transition-transform">▾</span>
                     </summary>
@@ -1932,7 +1760,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                             value={editingArticle.titleColor || '#ffffff'}
                             onChange={(e) => setEditingArticle({ ...editingArticle, titleColor: e.target.value })}
                             placeholder="#ffffff"
-                            className="flex-1 bg-gray-700 px-2 py-1 rounded text-xs"
+                            className="flex-1 bg-gray-100 px-2 py-1 rounded text-xs"
                           />
                         </div>
                       </div>
@@ -1941,7 +1769,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                         <select
                           value={editingArticle.titleFont || 'default'}
                           onChange={(e) => setEditingArticle({ ...editingArticle, titleFont: e.target.value as any })}
-                          className="w-full bg-gray-700 px-2 py-1.5 rounded text-xs"
+                          className="w-full bg-gray-100 px-2 py-1.5 rounded text-xs"
                         >
                           <option value="default">Default</option>
                           <option value="display">Display</option>
@@ -1954,17 +1782,17 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
 
                   {/* Tags */}
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">Tags</label>
+                    <label className="block text-xs text-gray-500 mb-1">Tags</label>
                     <div className="flex flex-wrap gap-1 mb-1.5">
                       {(editingArticle.tags || []).map((tag, i) => (
-                        <span key={i} className="px-2 py-0.5 bg-gray-700 rounded text-xs flex items-center gap-1">
+                        <span key={i} className="px-2 py-0.5 bg-gray-100 rounded text-xs flex items-center gap-1">
                           {tag}
                           <button
                             onClick={() => setEditingArticle({
                               ...editingArticle,
                               tags: editingArticle.tags?.filter((_, j) => j !== i)
                             })}
-                            className="text-gray-400 hover:text-white"
+                            className="text-gray-500 hover:text-gray-900"
                           >
                             ×
                           </button>
@@ -1982,18 +1810,18 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                         }
                       }}
                       placeholder="Add tag (Enter)"
-                      className="w-full bg-gray-700 px-2 py-1.5 rounded text-xs"
+                      className="w-full bg-gray-100 px-2 py-1.5 rounded text-xs"
                     />
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="px-3 py-2 border-t border-gray-700 flex justify-end gap-2 sticky bottom-0 bg-gray-800">
+            <div className="px-3 py-2 border-t border-gray-200 flex justify-end gap-2 sticky bottom-0 bg-paper">
               <button 
                 onClick={() => setShowPreview(true)} 
                 disabled={!editingArticle.title} 
-                className="px-3 py-1.5 bg-gray-700 rounded hover:bg-gray-600 text-sm disabled:opacity-50 flex items-center gap-1.5"
+                className="px-3 py-1.5 bg-gray-100 rounded hover:bg-gray-200 text-sm disabled:opacity-50 flex items-center gap-1.5"
               >
                 <Eye className="w-3.5 h-3.5" />
                 Preview
@@ -2016,9 +1844,9 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
         <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-[60] p-4">
           <div className="bg-black rounded-xl w-full max-w-[375px] max-h-[90vh] overflow-hidden flex flex-col shadow-2xl border border-gray-800">
             {/* Preview Header */}
-            <div className="px-3 py-2 flex items-center justify-between bg-gray-900 border-b border-gray-800 shrink-0">
-              <span className="text-xs font-medium text-gray-400">Preview</span>
-              <button onClick={() => setShowPreview(false)} className="text-gray-500 hover:text-white">
+            <div className="px-3 py-2 flex items-center justify-between bg-paper border-b border-gray-800 shrink-0">
+              <span className="text-xs font-medium text-gray-500">Preview</span>
+              <button onClick={() => setShowPreview(false)} className="text-gray-500 hover:text-gray-900">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -2055,13 +1883,13 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                 {/* Title & Category - Bottom of Hero */}
                 <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
                   {/* Category Badge */}
-                  <span className="inline-block px-2 py-0.5 text-[10px] font-bold text-white uppercase tracking-wider rounded bg-[#E36B11] mb-2">
+                  <span className="inline-block px-2 py-0.5 text-[10px] font-bold text-gray-900 uppercase tracking-wider rounded bg-[#E36B11] mb-2">
                     {getCategoryLabel(editingArticle.category || '')}
                   </span>
                   
                   {/* Title */}
                   <h1 
-                    className="font-display text-xl font-bold text-white leading-tight tracking-wide uppercase"
+                    className="font-display text-xl font-bold text-gray-900 leading-tight tracking-wide uppercase"
                     style={{ 
                       color: editingArticle.titleColor || '#ffffff',
                       textShadow: '0 2px 8px rgba(0,0,0,0.5)'
@@ -2072,7 +1900,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                   
                   {/* Subtitle */}
                   {editingArticle.subtitle && (
-                    <p className="text-sm text-white/80 mt-1">{editingArticle.subtitle}</p>
+                    <p className="text-sm text-paper/80 mt-1">{editingArticle.subtitle}</p>
                   )}
                 </div>
               </div>
@@ -2117,10 +1945,10 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
       {/* Views Analytics Modal */}
       {viewsModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setViewsModal(null)}>
-          <div className="bg-gray-800 rounded-xl p-5 max-w-3xl w-full mx-4 max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="bg-paper rounded-xl p-5 max-w-3xl w-full mx-4 max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-bold text-white">📊 Analytics: {viewsModal.title}</h3>
-              <button onClick={() => setViewsModal(null)} className="text-gray-400 hover:text-white">
+              <h3 className="text-base font-bold text-gray-900">📊 Analytics: {viewsModal.title}</h3>
+              <button onClick={() => setViewsModal(null)} className="text-gray-500 hover:text-gray-900">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -2128,7 +1956,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
             {loadingViewers ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin text-[#E36B11]" />
-                <span className="ml-3 text-gray-400">Loading analytics...</span>
+                <span className="ml-3 text-gray-500">Loading analytics...</span>
               </div>
             ) : (
               <div className="overflow-y-auto max-h-[70vh]">
@@ -2136,7 +1964,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                 <div className="grid grid-cols-5 gap-3 mb-4">
                   <div className="bg-gray-700/50 rounded-lg p-3 text-center">
                     <div className="text-2xl font-bold text-[#E36B11]">{viewsModal.totalViews}</div>
-                    <div className="text-[10px] text-gray-400 uppercase">Total Views</div>
+                    <div className="text-[10px] text-gray-500 uppercase">Total Views</div>
                   </div>
                   <div className="bg-gradient-to-br from-green-600/20 to-green-800/20 border border-green-500/30 rounded-lg p-3 text-center">
                     <div className="text-2xl font-bold text-green-400">€{(viewsModal.totalViews * 0.05).toFixed(2)}</div>
@@ -2144,15 +1972,15 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                   </div>
                   <div className="bg-gray-700/50 rounded-lg p-3 text-center">
                     <div className="text-2xl font-bold text-blue-400">{viewsModal.analytics?.loggedIn || 0}</div>
-                    <div className="text-[10px] text-gray-400 uppercase">Logged In</div>
+                    <div className="text-[10px] text-gray-500 uppercase">Logged In</div>
                   </div>
                   <div className="bg-gray-700/50 rounded-lg p-3 text-center">
-                    <div className="text-2xl font-bold text-gray-400">{viewsModal.analytics?.anonymous || 0}</div>
-                    <div className="text-[10px] text-gray-400 uppercase">Anonymous</div>
+                    <div className="text-2xl font-bold text-gray-500">{viewsModal.analytics?.anonymous || 0}</div>
+                    <div className="text-[10px] text-gray-500 uppercase">Anonymous</div>
                   </div>
                   <div className="bg-gray-700/50 rounded-lg p-3 text-center">
                     <div className="text-2xl font-bold text-purple-400">{viewsModal.analytics?.countries?.length || 0}</div>
-                    <div className="text-[10px] text-gray-400 uppercase">Countries</div>
+                    <div className="text-[10px] text-gray-500 uppercase">Countries</div>
                   </div>
                 </div>
                 
@@ -2160,19 +1988,19 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                 <div className="grid grid-cols-4 gap-3 mb-3">
                   {/* Countries */}
                   <div className="bg-gray-700/30 rounded-lg p-3">
-                    <div className="text-xs font-bold text-gray-300 mb-2">🌍 Countries</div>
+                    <div className="text-xs font-bold text-gray-600 mb-2">🌍 Countries</div>
                     <div className="space-y-1">
                       {(viewsModal.analytics?.countries || []).slice(0, 5).map((c, i) => (
                         <div key={i} className="flex items-center justify-between text-xs">
-                          <span className="text-gray-300">{c.name || 'Unknown'}</span>
+                          <span className="text-gray-600">{c.name || 'Unknown'}</span>
                           <div className="flex items-center gap-2">
-                            <div className="w-12 h-1.5 bg-gray-600 rounded-full overflow-hidden">
+                            <div className="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                               <div 
                                 className="h-full bg-[#E36B11] rounded-full" 
                                 style={{ width: `${(c.count / (viewsModal.analytics?.total || 1)) * 100}%` }}
                               />
                             </div>
-                            <span className="text-gray-400 w-5 text-right">{c.count}</span>
+                            <span className="text-gray-500 w-5 text-right">{c.count}</span>
                           </div>
                         </div>
                       ))}
@@ -2184,12 +2012,12 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                   
                   {/* Cities */}
                   <div className="bg-gray-700/30 rounded-lg p-3">
-                    <div className="text-xs font-bold text-gray-300 mb-2">🏙️ Cities</div>
+                    <div className="text-xs font-bold text-gray-600 mb-2">🏙️ Cities</div>
                     <div className="space-y-1">
                       {(viewsModal.analytics?.cities || []).slice(0, 5).map((c, i) => (
                         <div key={i} className="flex items-center justify-between text-xs">
-                          <span className="text-gray-300 truncate max-w-[80px]">{c.name || 'Unknown'}</span>
-                          <span className="text-gray-400">{c.count}</span>
+                          <span className="text-gray-600 truncate max-w-[80px]">{c.name || 'Unknown'}</span>
+                          <span className="text-gray-500">{c.count}</span>
                         </div>
                       ))}
                       {(!viewsModal.analytics?.cities?.length) && (
@@ -2200,19 +2028,19 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                   
                   {/* Devices */}
                   <div className="bg-gray-700/30 rounded-lg p-3">
-                    <div className="text-xs font-bold text-gray-300 mb-2">📱 Devices</div>
+                    <div className="text-xs font-bold text-gray-600 mb-2">📱 Devices</div>
                     <div className="space-y-1">
                       {(viewsModal.analytics?.devices || []).map((d, i) => (
                         <div key={i} className="flex items-center justify-between text-xs">
-                          <span className="text-gray-300 capitalize">{d.name}</span>
+                          <span className="text-gray-600 capitalize">{d.name}</span>
                           <div className="flex items-center gap-2">
-                            <div className="w-12 h-1.5 bg-gray-600 rounded-full overflow-hidden">
+                            <div className="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                               <div 
                                 className={`h-full rounded-full ${d.name === 'mobile' ? 'bg-green-500' : d.name === 'desktop' ? 'bg-blue-500' : 'bg-purple-500'}`}
                                 style={{ width: `${(d.count / (viewsModal.analytics?.total || 1)) * 100}%` }}
                               />
                             </div>
-                            <span className="text-gray-400 w-5 text-right">{d.count}</span>
+                            <span className="text-gray-500 w-5 text-right">{d.count}</span>
                           </div>
                         </div>
                       ))}
@@ -2224,12 +2052,12 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                   
                   {/* Browsers */}
                   <div className="bg-gray-700/30 rounded-lg p-3">
-                    <div className="text-xs font-bold text-gray-300 mb-2">🌐 Browsers</div>
+                    <div className="text-xs font-bold text-gray-600 mb-2">🌐 Browsers</div>
                     <div className="space-y-1">
                       {(viewsModal.analytics?.browsers || []).slice(0, 5).map((b, i) => (
                         <div key={i} className="flex items-center justify-between text-xs">
-                          <span className="text-gray-300">{b.name}</span>
-                          <span className="text-gray-400">{b.count}</span>
+                          <span className="text-gray-600">{b.name}</span>
+                          <span className="text-gray-500">{b.count}</span>
                         </div>
                       ))}
                       {(!viewsModal.analytics?.browsers?.length) && (
@@ -2243,12 +2071,12 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                 <div className="grid grid-cols-4 gap-3 mb-4">
                   {/* Operating Systems */}
                   <div className="bg-gray-700/30 rounded-lg p-3">
-                    <div className="text-xs font-bold text-gray-300 mb-2">💻 OS</div>
+                    <div className="text-xs font-bold text-gray-600 mb-2">💻 OS</div>
                     <div className="space-y-1">
                       {(viewsModal.analytics?.os || []).slice(0, 5).map((o, i) => (
                         <div key={i} className="flex items-center justify-between text-xs">
-                          <span className="text-gray-300">{o.name}</span>
-                          <span className="text-gray-400">{o.count}</span>
+                          <span className="text-gray-600">{o.name}</span>
+                          <span className="text-gray-500">{o.count}</span>
                         </div>
                       ))}
                       {(!viewsModal.analytics?.os?.length) && (
@@ -2259,12 +2087,12 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                   
                   {/* Referrers */}
                   <div className="bg-gray-700/30 rounded-lg p-3">
-                    <div className="text-xs font-bold text-gray-300 mb-2">🔗 Referrers</div>
+                    <div className="text-xs font-bold text-gray-600 mb-2">🔗 Referrers</div>
                     <div className="space-y-1">
                       {(viewsModal.analytics?.referrers || []).slice(0, 5).map((r, i) => (
                         <div key={i} className="flex items-center justify-between text-xs">
-                          <span className="text-gray-300 truncate max-w-[80px]">{r.name || 'Direct'}</span>
-                          <span className="text-gray-400">{r.count}</span>
+                          <span className="text-gray-600 truncate max-w-[80px]">{r.name || 'Direct'}</span>
+                          <span className="text-gray-500">{r.count}</span>
                         </div>
                       ))}
                       {(!viewsModal.analytics?.referrers?.length) && (
@@ -2275,19 +2103,19 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                   
                   {/* Time of Day */}
                   <div className="bg-gray-700/30 rounded-lg p-3">
-                    <div className="text-xs font-bold text-gray-300 mb-2">🕐 Peak Hours</div>
+                    <div className="text-xs font-bold text-gray-600 mb-2">🕐 Peak Hours</div>
                     <div className="space-y-1">
                       {(viewsModal.analytics?.hourly || []).slice(0, 5).map((h, i) => (
                         <div key={i} className="flex items-center justify-between text-xs">
-                          <span className="text-gray-300">{h.hour}:00</span>
+                          <span className="text-gray-600">{h.hour}:00</span>
                           <div className="flex items-center gap-2">
-                            <div className="w-12 h-1.5 bg-gray-600 rounded-full overflow-hidden">
+                            <div className="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                               <div 
                                 className="h-full bg-yellow-500 rounded-full" 
                                 style={{ width: `${(h.count / Math.max(...(viewsModal.analytics?.hourly || []).map(x => x.count), 1)) * 100}%` }}
                               />
                             </div>
-                            <span className="text-gray-400 w-5 text-right">{h.count}</span>
+                            <span className="text-gray-500 w-5 text-right">{h.count}</span>
                           </div>
                         </div>
                       ))}
@@ -2299,12 +2127,12 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                   
                   {/* Regions */}
                   <div className="bg-gray-700/30 rounded-lg p-3">
-                    <div className="text-xs font-bold text-gray-300 mb-2">📍 Regions</div>
+                    <div className="text-xs font-bold text-gray-600 mb-2">📍 Regions</div>
                     <div className="space-y-1">
                       {(viewsModal.analytics?.regions || []).slice(0, 5).map((r, i) => (
                         <div key={i} className="flex items-center justify-between text-xs">
-                          <span className="text-gray-300 truncate max-w-[80px]">{r.name || 'Unknown'}</span>
-                          <span className="text-gray-400">{r.count}</span>
+                          <span className="text-gray-600 truncate max-w-[80px]">{r.name || 'Unknown'}</span>
+                          <span className="text-gray-500">{r.count}</span>
                         </div>
                       ))}
                       {(!viewsModal.analytics?.regions?.length) && (
@@ -2316,7 +2144,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                 
                 {/* Recent Viewers */}
                 <div className="bg-gray-700/30 rounded-lg p-3">
-                  <div className="text-xs font-bold text-gray-300 mb-2">👥 Recent Viewers ({viewsModal.viewers.length})</div>
+                  <div className="text-xs font-bold text-gray-600 mb-2">👥 Recent Viewers ({viewsModal.viewers.length})</div>
                   <div className="max-h-40 overflow-y-auto space-y-1">
                     {viewsModal.viewers.length === 0 ? (
                       <div className="text-gray-500 text-xs py-2 text-center">No viewer data yet</div>
@@ -2325,12 +2153,12 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                         <div key={i} className="flex items-center justify-between py-1 px-2 bg-gray-700/50 rounded text-xs">
                           <div className="flex items-center gap-2">
                             <span className={`w-2 h-2 rounded-full ${v.isLoggedIn ? 'bg-green-500' : 'bg-gray-500'}`} />
-                            <span className="text-white">{v.name}</span>
+                            <span className="text-gray-900">{v.name}</span>
                             {v.country && v.country !== 'Unknown' && (
                               <span className="text-gray-500">{v.country}</span>
                             )}
                           </div>
-                          <div className="flex items-center gap-3 text-gray-400">
+                          <div className="flex items-center gap-3 text-gray-500">
                             <span className="capitalize">{v.device}</span>
                             <span>{v.date}</span>
                           </div>
@@ -2349,18 +2177,18 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
       {commentsModal && (
         <div className="fixed inset-0 bg-black/50 z-50" onClick={() => setCommentsModal(null)}>
           <div 
-            className="absolute right-0 top-0 bottom-0 w-[600px] bg-gray-900 border-l border-gray-700 shadow-2xl flex flex-col"
+            className="absolute right-0 top-0 bottom-0 w-[600px] bg-paper border-l border-gray-200 shadow-2xl flex flex-col"
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-700 bg-gray-800">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-paper">
               <div>
-                <h3 className="text-lg font-bold text-white">💬 Comments</h3>
-                <p className="text-sm text-gray-400 truncate max-w-[400px]">{commentsModal.title}</p>
+                <h3 className="text-lg font-bold text-gray-900">💬 Comments</h3>
+                <p className="text-sm text-gray-500 truncate max-w-[400px]">{commentsModal.title}</p>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-sm text-gray-400">{commentsModal.comments.length} comments</span>
-                <button onClick={() => setCommentsModal(null)} className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg">
+                <span className="text-sm text-gray-500">{commentsModal.comments.length} comments</span>
+                <button onClick={() => setCommentsModal(null)} className="p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -2371,7 +2199,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
               {loadingComments ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-8 h-8 animate-spin text-[#E36B11]" />
-                  <span className="ml-3 text-gray-400">Loading comments...</span>
+                  <span className="ml-3 text-gray-500">Loading comments...</span>
                 </div>
               ) : commentsModal.comments.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-gray-500">
@@ -2381,14 +2209,14 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
               ) : (
                 <div className="space-y-3">
                   {commentsModal.comments.map((c, i) => (
-                    <div key={i} className={`bg-gray-800 rounded-lg p-4 border transition-colors group ${
+                    <div key={i} className={`bg-paper rounded-lg p-4 border transition-colors group ${
                       c.flagged ? 'border-red-500/50 bg-red-900/10' : 
-                      c.hidden ? 'border-gray-600 opacity-50' : 
-                      'border-gray-700 hover:border-gray-600'
+                      c.hidden ? 'border-gray-300 opacity-50' : 
+                      'border-gray-200 hover:border-gray-300'
                     }`}>
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-gray-900 font-bold ${
                             c.flagged ? 'bg-gradient-to-br from-red-500 to-red-700' : 
                             'bg-gradient-to-br from-[#E36B11] to-orange-600'
                           }`}>
@@ -2396,14 +2224,14 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="font-medium text-white">{c.user || 'Unknown'}</span>
+                              <span className="font-medium text-gray-900">{c.user || 'Unknown'}</span>
                               {c.flagged && (
                                 <span className="px-1.5 py-0.5 bg-red-500/20 text-red-400 text-[9px] font-bold rounded uppercase">
                                   ⚠️ Flagged
                                 </span>
                               )}
                               {c.hidden && (
-                                <span className="px-1.5 py-0.5 bg-gray-500/20 text-gray-400 text-[9px] font-bold rounded uppercase">
+                                <span className="px-1.5 py-0.5 bg-gray-500/20 text-gray-500 text-[9px] font-bold rounded uppercase">
                                   Hidden
                                 </span>
                               )}
@@ -2440,7 +2268,13 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                           </button>
                           <button
                             onClick={async () => {
-                              if (!confirm('Delete this comment?')) return;
+                              const ok = await confirm({
+                                title: 'Delete Comment',
+                                message: 'Delete this comment?',
+                                confirmLabel: 'Delete',
+                                variant: 'danger',
+                              });
+                              if (!ok) return;
                               try {
                                 await fetch(`/api/articles/${commentsModal.articleId}/comments?commentId=${commentsModal.commentIds[i]}&userId=${userId}`, {
                                   method: 'DELETE',
@@ -2461,7 +2295,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                           </button>
                         </div>
                       </div>
-                      <p className="mt-3 text-gray-300 leading-relaxed">{c.text}</p>
+                      <p className="mt-3 text-gray-600 leading-relaxed">{c.text}</p>
                     </div>
                   ))}
                 </div>
@@ -2488,9 +2322,9 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
             const data = await res.json();
             console.log('🖼️ API response:', data);
             if (data.success) {
-              alert(`✅ Bild gespeichert!\nPosition: ${posX}% / ${posY}%`);
+              alert(`✅ Image saved!\nPosition: ${posX}% / ${posY}%`);
             } else {
-              alert(`❌ Fehler: ${data.error}`);
+              alert(`❌ Error: ${data.error}`);
             }
             setArticles(prev => prev.map(a => a._id === imageManagerArticle._id ? { ...a, coverImage: url, imagePosX: posX, imagePosY: posY } : a));
             setImageManagerArticle(null);
@@ -2506,10 +2340,10 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
       {/* Legacy Image Manager Modal - only for detailed thumbnail editing */}
       {imageManagerArticle && imageManagerType && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-xl border border-gray-700 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-4 border-b border-gray-700 flex items-center justify-between">
-              <h3 className="text-white font-medium">Manage Images: {imageManagerArticle.title?.slice(0, 30)}...</h3>
-              <button onClick={() => { setImageManagerArticle(null); setImageManagerType(null); setImageUrlInput(''); }} className="text-gray-400 hover:text-white">
+          <div className="bg-paper rounded-xl border border-gray-200 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-gray-900 font-medium">Manage Images: {imageManagerArticle.title?.slice(0, 30)}...</h3>
+              <button onClick={() => { setImageManagerArticle(null); setImageManagerType(null); setImageUrlInput(''); }} className="text-gray-500 hover:text-gray-900">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -2518,14 +2352,14 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
               {imageManagerType && (
                 /* Image Upload Options */
                 <div>
-                  <button onClick={() => setImageManagerType(null)} className="text-sm text-gray-400 hover:text-white mb-4 flex items-center gap-1">
+                  <button onClick={() => setImageManagerType(null)} className="text-sm text-gray-500 hover:text-gray-900 mb-4 flex items-center gap-1">
                     ← Back to image types
                   </button>
                   
-                  <h4 className="text-white font-medium mb-4 capitalize">{imageManagerType} Image</h4>
+                  <h4 className="text-gray-900 font-medium mb-4 capitalize">{imageManagerType} Image</h4>
                   
                   {/* Current Image Preview */}
-                  <div className="bg-gray-900 rounded-lg p-4 mb-4">
+                  <div className="bg-paper rounded-lg p-4 mb-4">
                     {imageManagerType === 'thumbnail' && (imageManagerArticle.thumbnailUrl || imageManagerArticle.coverImage) && (
                       <img src={imageManagerArticle.thumbnailUrl || imageManagerArticle.coverImage} alt="" className="max-h-40 mx-auto rounded" />
                     )}
@@ -2550,7 +2384,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                           setImageManagerArticle({ ...imageManagerArticle, coverImage: thumbnailUrl });
                           setArticles(prev => prev.map(a => a._id === imageManagerArticle._id ? { ...a, coverImage: thumbnailUrl } : a));
                         }}
-                        className="mt-3 w-full py-2 bg-purple-600 hover:bg-purple-700 rounded text-white text-xs flex items-center justify-center gap-1"
+                        className="mt-3 w-full py-2 bg-purple-600 hover:bg-purple-700 rounded text-paper text-xs flex items-center justify-center gap-1"
                       >
                         📋 Copy to Cover Image
                       </button>
@@ -2561,13 +2395,13 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                   <div className="grid grid-cols-3 gap-3">
                     {/* URL */}
                     <div className="bg-gray-700/50 rounded-lg p-3">
-                      <h5 className="text-white text-xs font-medium mb-2 flex items-center gap-1"><Link className="w-3 h-3" /> URL</h5>
+                      <h5 className="text-gray-900 text-xs font-medium mb-2 flex items-center gap-1"><Link className="w-3 h-3" /> URL</h5>
                       <input
                         type="text"
                         value={imageUrlInput}
                         onChange={(e) => setImageUrlInput(e.target.value)}
                         placeholder="https://..."
-                        className="w-full px-2 py-1 bg-gray-900 border border-gray-600 rounded text-xs text-white mb-2"
+                        className="w-full px-2 py-1 bg-paper border border-gray-300 rounded text-xs text-gray-900 mb-2"
                       />
                       <button
                         onClick={async () => {
@@ -2583,7 +2417,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                           setImageUrlInput('');
                         }}
                         disabled={!imageUrlInput.trim()}
-                        className="w-full py-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded text-xs text-white"
+                        className="w-full py-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded text-xs text-paper"
                       >
                         Set URL
                       </button>
@@ -2591,7 +2425,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                     
                     {/* Upload */}
                     <div className="bg-gray-700/50 rounded-lg p-3">
-                      <h5 className="text-white text-xs font-medium mb-2 flex items-center gap-1"><Upload className="w-3 h-3" /> Upload</h5>
+                      <h5 className="text-gray-900 text-xs font-medium mb-2 flex items-center gap-1"><Upload className="w-3 h-3" /> Upload</h5>
                       <input
                         ref={imageManagerFileRef}
                         type="file"
@@ -2619,7 +2453,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                       />
                       <button
                         onClick={() => imageManagerFileRef.current?.click()}
-                        className="w-full py-4 border-2 border-dashed border-gray-600 hover:border-[#E36B11] rounded text-gray-400 hover:text-[#E36B11] text-xs"
+                        className="w-full py-4 border-2 border-dashed border-gray-300 hover:border-[#E36B11] rounded text-gray-500 hover:text-[#E36B11] text-xs"
                       >
                         Choose File
                       </button>
@@ -2627,7 +2461,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                     
                     {/* AI Generate */}
                     <div className="bg-gray-700/50 rounded-lg p-3">
-                      <h5 className="text-white text-xs font-medium mb-2 flex items-center gap-1"><Wand2 className="w-3 h-3" /> AI Generate</h5>
+                      <h5 className="text-gray-900 text-xs font-medium mb-2 flex items-center gap-1"><Wand2 className="w-3 h-3" /> AI Generate</h5>
                       <button
                         onClick={async () => {
                           setImageManagerGenerating(true);
@@ -2654,7 +2488,7 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
                           }
                         }}
                         disabled={imageManagerGenerating}
-                        className="w-full py-4 bg-[#E36B11] hover:bg-[#C4772A] disabled:opacity-50 rounded text-white text-xs flex items-center justify-center gap-1"
+                        className="w-full py-4 bg-[#E36B11] hover:bg-[#C4772A] disabled:opacity-50 rounded text-gray-900 text-xs flex items-center justify-center gap-1"
                       >
                         {imageManagerGenerating ? (
                           <><Loader2 className="w-3 h-3 animate-spin" /> Generating...</>
@@ -2670,6 +2504,13 @@ export default function ArticlesTab({ userId }: ArticlesTabProps) {
           </div>
         </div>
       )}
+      {showHistoryModal && (
+        <HistoryModal
+          onClose={() => setShowHistoryModal(false)}
+          onCreated={fetchArticles}
+        />
+      )}
+      <ConfirmDialog />
     </>
   );
 }

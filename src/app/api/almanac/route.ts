@@ -2,6 +2,32 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import { Person, AlmanacItem } from '@/models/Almanac';
 
+// Fields the Menschen list actually renders - exactly the `Person` interface in
+// MenschenTab.tsx. Person documents carry ~35 fields (description, shortBio,
+// social, savedNews, wikiUrl, birthYear, isGenX, discoveredAt/By, createdAt,
+// updatedAt, ...), none of which the list reads.
+//
+// Measured on 125,396 rows: the full documents are 67.5 MB and take 9.1s,
+// versus 27.1 MB projected. createdAt+updatedAt alone were 19% of the payload
+// and are never displayed. Dropping a field removes its KEY NAME from every
+// row too, which is why the saving is larger than the values suggest.
+const LIST_FIELDS = {
+  firstname: 1,
+  lastname: 1,
+  born: 1,
+  died: 1,
+  causeOfDeath: 1,
+  profession: 1,
+  subcat: 1,
+  knownfor: 1,
+  countryBorn: 1,
+  cityBorn: 1,
+  countryDied: 1,
+  cityDied: 1,
+  nationality: 1,
+  image: 1,
+} as const;
+
 // GET - Fetch items
 export async function GET(request: NextRequest) {
   try {
@@ -71,7 +97,20 @@ export async function GET(request: NextRequest) {
         query.died = { ...(query.died || {}), $regex: `-${mm}-` };
       }
       
-      const people = await Person.find(query).lean();
+      // `limit` is opt-in: without it the behaviour is unchanged. The client
+      // only sets it for the "All Months" case, which is the one that used to
+      // ship 122k rows at once. `total` is always the unlimited count, so the
+      // header can say "showing X of Y" instead of silently under-reporting.
+      const limitParam = parseInt(searchParams.get('limit') || '0', 10);
+      const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 0;
+
+      const findQuery = Person.find(query, LIST_FIELDS).lean();
+      if (limit) findQuery.limit(limit);
+
+      const [people, total] = await Promise.all([
+        findQuery,
+        limit ? Person.countDocuments(query) : Promise.resolve(0),
+      ]);
       
       // Sort by upcoming birthday (today first, then next days)
       const today = new Date();
@@ -109,7 +148,12 @@ export async function GET(request: NextRequest) {
         return getDaysUntilBirthday(dateA) - getDaysUntilBirthday(dateB);
       });
       
-      return NextResponse.json({ success: true, data: sortedPeople });
+      return NextResponse.json({
+        success: true,
+        data: sortedPeople,
+        total: limit ? total : sortedPeople.length,
+        limited: limit ? total > sortedPeople.length : false,
+      });
     }
     
     // Other categories

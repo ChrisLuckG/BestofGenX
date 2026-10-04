@@ -136,7 +136,7 @@ export default function DesktopArcadePage({ onSelectGame, userId, battleAlertCou
   return (
     <div className="w-full h-full flex flex-col overflow-hidden">
       {/* Header - same style as Feed/Articles */}
-      <div className="px-4 pt-4 pb-3 border-b border-warm bg-[#E36B11]/5">
+      <div className="px-4 pt-4 pb-3 border-b border-warm bg-cream">
         <div className="relative flex items-center gap-3">
           <Brain className="w-5 h-5 text-[#E36B11]" />
           <div>

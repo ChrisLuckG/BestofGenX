@@ -62,9 +62,12 @@ export async function POST(request: Request) {
       country: user.country,
       countryFlag: user.countryFlag,
       points: user.points,
+      bogxCoins: user.bogxCoins || 0,
       wins: user.wins,
       gamesPlayed: user.gamesPlayed,
       isAdmin: user.isAdmin || false,
+      isAuthor: user.isAuthor || false,
+      authorEarnings: user.authorEarnings || 0,
     };
     
     return NextResponse.json({ success: true, user: userResponse });

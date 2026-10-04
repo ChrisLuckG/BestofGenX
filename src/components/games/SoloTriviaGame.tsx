@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Check, X, HelpCircle, Clock, Trophy, Dumbbell, Music, Film, Landmark, Gamepad2, Tv, Timer, Play, ChevronLeft, ArrowRight } from "lucide-react";
+import { Check, X, HelpCircle, Clock, Trophy, Dumbbell, Music, Film, Landmark, Gamepad2, Tv, Timer, Play, ChevronLeft, ArrowRight, Brain } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import GenXLoader from "@/components/GenXLoader";
@@ -9,6 +9,8 @@ import BackButton from "@/components/BackButton";
 // Shared with QuizzBattle so both games start the same way.
 import PreparingScreen from "@/components/games/PreparingScreen";
 import { formatCurrency } from "@/utils/currency";
+import { rankingDayKey } from "@/lib/berlinTime";
+import { getTopicColor } from "@/lib/categories";
 
 interface SoloTriviaGameProps {
   onBack: () => void;
@@ -70,11 +72,11 @@ const POINT_OPTIONS = [0.10, 0.20, 0.30, 0.40, 0.50] as const;
 const PENALTY_RATE = 0.20; // 20% of max points
 const DAILY_GAME_LIMIT = 5; // Max games per day
 
-// Helper to get today's date key for localStorage
-const getTodayKey = () => {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-};
+// Key for the localStorage counter. Must be the same ranking day the server
+// counts, otherwise the guest allowance and the logged-in allowance reset at
+// different moments - this used to be the browser's local midnight, so simply
+// changing the system timezone handed out a fresh set of games.
+const getTodayKey = () => rankingDayKey();
 
 export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation, embedded = false }: SoloTriviaGameProps) {
   const { user, isLoggedIn } = useAuth();
@@ -92,6 +94,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
   const [correctCount, setCorrectCount] = useState(0);
   const [wrongCount, setWrongCount] = useState(0);
   const [answerHistory, setAnswerHistory] = useState<('correct' | 'wrong')[]>([]);
+  const [reviewingQuestion, setReviewingQuestion] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(3);
@@ -665,15 +668,25 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
 
   const currentQuestion = questions[currentIndex];
 
-  // Unified Header Component - same as QuizzBattle (no online indicator for single player)
+  // Unified Header Component - same structure as QuizzBattle's header (back
+  // arrow + accent icon + title/subtitle). It was missing the icon that Battle,
+  // Arcade and every other section header carry, which is a big part of why this
+  // screen read as plainer/less "game-like" next to Battle Setup.
+  // Color adapts to selected category.
+  const headerColor = selectedCategory ? getTopicColor(selectedCategory) : TRIVIA_ACCENT;
   const GameHeader = ({ showBack = true, onBackOverride }: { showBack?: boolean; onBackOverride?: () => void }) => (
-    <div className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b from-[#E36B11]/5 to-transparent">
+    <div className="px-4 pt-4 pb-3 border-b border-warm bg-cream">
       <div className="flex items-center gap-3">
         {showBack && (
-          <button onClick={onBackOverride || onBack} className="p-1 hover:bg-[#E36B11]/10 rounded transition-colors">
-            <ChevronLeft className="w-5 h-5 text-gray-600" />
+          <button 
+            onClick={onBackOverride || onBack} 
+            className="p-1 rounded transition-colors"
+            style={{ backgroundColor: `${headerColor}15` }}
+          >
+            <ChevronLeft className="w-5 h-5" style={{ color: headerColor }} />
           </button>
         )}
+        <Brain className="w-5 h-5" style={{ color: headerColor }} />
         <div>
           <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Solo Trivia</span>
           <span className="text-[10px] text-gray-500 -mt-0.5 block">Answer fast, earn coins.</span>
@@ -682,71 +695,162 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
     </div>
   );
 
-  // Result Phase - Same container size as quiz
+  // Result Phase - with question review
   if (phase === 'result') {
     const accuracy = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
+    const resultColor = accuracy >= 80 ? '#10b981' : accuracy >= 50 ? '#E36B11' : '#ef4444';
+    const resultText = accuracy >= 80 ? 'EXCELLENT!' : accuracy >= 50 ? 'GOOD JOB!' : 'KEEP TRYING!';
+    const lastQuestion = questions[questions.length - 1];
+    const CategoryIcon = lastQuestion ? (CATEGORY_ICONS[lastQuestion.category] || CATEGORY_ICONS[lastQuestion.category?.toUpperCase()] || HelpCircle) : HelpCircle;
+    
+    // Question review view
+    if (reviewingQuestion !== null && questions[reviewingQuestion]) {
+      const q = questions[reviewingQuestion];
+      const wasCorrect = answerHistory[reviewingQuestion] === 'correct';
+      
+      return (
+        <div className="flex flex-col h-full min-h-full bg-cream">
+          <div className="flex-1 m-2 sm:m-4 border border-warm bg-cream rounded-2xl flex flex-col p-4 sm:p-6 shadow-lg min-h-0">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+              <button 
+                onClick={() => setReviewingQuestion(null)}
+                className="px-4 py-2 rounded-lg bg-[#E36B11] text-white font-display text-sm flex items-center gap-2 hover:bg-[#C4772A] transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Results
+              </button>
+              <span className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-sm uppercase tracking-wider font-display">
+                Q{reviewingQuestion + 1}/{questions.length}
+              </span>
+            </div>
+            
+            {/* Question */}
+            <div className="text-center mb-6 px-4">
+              <p className="text-xl sm:text-2xl font-display text-gray-900 leading-relaxed">{q.question}</p>
+            </div>
+            
+            {/* Answers - 2x2 grid */}
+            <div className="grid grid-cols-2 gap-3 flex-1">
+              {q.options.map((option, i) => {
+                const isCorrectAnswer = i === q.correctIndex;
+                const isWrongSelection = !wasCorrect && i === q.correctIndex ? false : (!isCorrectAnswer && answerHistory[reviewingQuestion] !== 'correct');
+                
+                return (
+                  <div 
+                    key={i}
+                    className={`relative p-4 rounded-xl border-2 flex items-center justify-center text-center ${
+                      isCorrectAnswer 
+                        ? 'border-green-500 bg-green-50' 
+                        : 'border-warm bg-white'
+                    }`}
+                  >
+                    <span className={`font-display text-lg ${isCorrectAnswer ? 'text-green-700' : 'text-gray-700'}`}>
+                      {option}
+                    </span>
+                    {isCorrectAnswer && (
+                      <Check className="absolute top-2 right-2 w-5 h-5 text-green-500" />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            
+            {/* Navigation - clickable question numbers */}
+            <div className="flex items-center justify-center gap-2 mt-6">
+              {questions.map((_, i) => {
+                const isActive = reviewingQuestion === i;
+                const isCorrect = answerHistory[i] === 'correct';
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setReviewingQuestion(i)}
+                    className={`w-10 h-10 rounded-xl text-sm font-display flex items-center justify-center transition-all ${
+                      isActive 
+                        ? 'bg-[#E36B11] text-white scale-110 shadow-lg' 
+                        : isCorrect 
+                          ? 'bg-green-100 text-green-600 border-2 border-green-300 hover:scale-105' 
+                          : 'bg-red-100 text-red-600 border-2 border-red-300 hover:scale-105'
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      );
+    }
     
     return (
-      <div className="flex flex-col h-full min-h-full bg-cream p-4">
-        {/* Main Card - Same size as quiz */}
-        <div className="flex-1 border border-warm bg-cream rounded-2xl flex flex-col p-6 shadow-lg min-h-0">
+      <div className="flex flex-col h-full min-h-full bg-cream">
+        <div className="flex-1 m-2 sm:m-4 border border-warm bg-cream rounded-2xl flex flex-col p-4 sm:p-6 shadow-lg min-h-0">
           
-          {/* Result Header */}
-          <div className="text-center mb-6">
-            <span className="inline-block px-4 py-1.5 bg-[#E36B11]/10 border border-[#E36B11]/30 rounded-lg text-xs text-[#E36B11] uppercase tracking-widest font-bold mb-4">
-              Game Complete
-            </span>
-            <h2 className="font-display text-4xl tracking-wider text-gray-900 mb-2">
-              {accuracy >= 80 ? 'EXCELLENT!' : accuracy >= 50 ? 'GOOD JOB!' : 'KEEP TRYING!'}
-            </h2>
-            <p className="text-gray-500 text-sm uppercase tracking-wider">
-              {correctCount} / {questions.length || QUESTION_COUNT} correct · {accuracy}% accuracy
+          {/* Result Banner */}
+          <div 
+            className="flex items-center justify-center gap-3 py-4 rounded-xl mb-4"
+            style={{ background: `linear-gradient(135deg, ${resultColor}dd 0%, ${resultColor} 100%)` }}
+          >
+            <span className="font-display text-2xl text-white tracking-wider">{resultText}</span>
+            <span className="text-white/80 text-sm">{accuracy}%</span>
+          </div>
+
+          {/* Earnings */}
+          <div className="text-center mb-4">
+            <div className="flex items-center justify-center gap-3">
+              <img src="/images/bogxcoin.png" alt="" className="w-10 h-10" />
+              <span className={`font-display text-4xl ${totalEarnings >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                {totalEarnings >= 0 ? '+' : ''}{formatCurrency(totalEarnings)}
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              <span className="text-green-600">+{formatCurrency(totalGains)}</span>
+              {' / '}
+              <span className="text-red-500">-{formatCurrency(totalLosses)}</span>
             </p>
           </div>
 
-          {/* Stats Grid - fills space */}
-          <div className="flex-1 flex flex-col items-center justify-center gap-6">
-            {/* Earnings Card */}
-            <div className={`w-full max-w-sm py-6 px-8 rounded-xl flex items-center justify-center gap-4 ${
-              totalEarnings >= 0 ? 'bg-[#10b981]/10 border-2 border-[#10b981]/30' : 'bg-red-50 border-2 border-red-200'
-            }`}>
-              <img src="/images/bogxcoin.png" alt="" className="w-16 h-16" />
-              <div className="text-left">
-                <span className={`font-display text-5xl block ${
-                  totalEarnings >= 0 ? 'text-[#10b981]' : 'text-red-500'
-                }`}>
-                  {totalEarnings >= 0 ? '+' : ''}{formatCurrency(totalEarnings)}
-                </span>
-                <p className="text-gray-500 text-xs uppercase tracking-wider mt-1">
-                  <span className="text-green-600">+{formatCurrency(totalGains)}</span>
-                  {' / '}
-                  <span className="text-red-500">-{formatCurrency(totalLosses)}</span>
-                </p>
-              </div>
+          {/* Correct/Wrong Stats */}
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="py-4 rounded-xl bg-green-100 border-2 border-green-300 flex flex-col items-center justify-center">
+              <span className="font-display text-3xl text-green-600">{correctCount}</span>
+              <span className="text-xs text-green-700 uppercase tracking-wider font-bold">Correct</span>
             </div>
-            
-            {/* Correct/Wrong Stats */}
-            <div className="flex gap-12">
-              <div className="text-center">
-                <div className="w-20 h-20 rounded-xl bg-green-100 border-2 border-green-300 flex items-center justify-center mb-2">
-                  <span className="font-display text-4xl text-green-600">{correctCount}</span>
-                </div>
-                <p className="text-xs text-gray-500 uppercase tracking-wider font-bold">Correct</p>
-              </div>
-              <div className="text-center">
-                <div className="w-20 h-20 rounded-xl bg-red-100 border-2 border-red-300 flex items-center justify-center mb-2">
-                  <span className="font-display text-4xl text-red-500">{wrongCount}</span>
-                </div>
-                <p className="text-xs text-gray-500 uppercase tracking-wider font-bold">Wrong</p>
-              </div>
+            <div className="py-4 rounded-xl bg-red-100 border-2 border-red-300 flex flex-col items-center justify-center">
+              <span className="font-display text-3xl text-red-500">{wrongCount}</span>
+              <span className="text-xs text-red-600 uppercase tracking-wider font-bold">Wrong</span>
             </div>
           </div>
 
-          {/* Buttons at bottom - same style as quiz */}
-          <div className="flex gap-3 mt-6">
+          {/* Question Review - clickable */}
+          <div className="flex-1 flex flex-col">
+            <p className="text-xs text-gray-500 uppercase tracking-wider text-center mb-2">Tap to review</p>
+            <div className="flex items-center justify-center gap-2">
+              {questions.map((_, i) => {
+                const isCorrect = answerHistory[i] === 'correct';
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setReviewingQuestion(i)}
+                    className={`w-12 h-12 rounded-xl font-display flex items-center justify-center transition-all hover:scale-105 ${
+                      isCorrect 
+                        ? 'bg-green-100 text-green-600 border-2 border-green-300' 
+                        : 'bg-red-100 text-red-600 border-2 border-red-300'
+                    }`}
+                  >
+                    Q{i + 1}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Bottom Buttons */}
+          <div className="flex items-center gap-3 mt-4">
             <button
               onClick={onBack}
-              className="flex-1 py-4 border-2 border-warm bg-cream hover:bg-gray-50 text-gray-700 font-display text-base tracking-widest rounded-xl transition-all"
+              className="px-6 py-3 border-2 border-warm bg-cream hover:bg-gray-50 text-gray-600 font-display text-sm tracking-widest rounded-xl transition-all"
             >
               Back
             </button>
@@ -760,8 +864,10 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
                 setTotalGains(0);
                 setTotalLosses(0);
                 setAnswerHistory([]);
+                setReviewingQuestion(null);
               }}
-              className="flex-1 py-4 bg-gray-500 hover:bg-gray-600 text-white font-display text-base tracking-widest rounded-xl transition-colors flex items-center justify-center gap-2"
+              className="flex-1 py-3 text-white font-display text-sm tracking-widest rounded-xl transition-colors flex items-center justify-center gap-2 hover:opacity-90"
+              style={{ background: `linear-gradient(135deg, ${resultColor}dd 0%, ${resultColor} 100%)` }}
             >
               Play Again
               <Play className="w-5 h-5" />
@@ -972,14 +1078,21 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
           topicColor={TRIVIA_ACCENT}
           TopicIcon={CategoryIcon}
           topicId={selectedCategory || undefined}
+          // Battle shows a "3 ROUNDS" pill under the heading here; Solo Trivia
+          // never passed this prop even though the component supports it, so
+          // the ring looked plainer next to Battle's for no real reason.
+          rounds={QUESTION_COUNT}
           subtitle={`Loading ${QUESTION_COUNT} questions · ${categoryName}`}
           readySubtitle={`${QUESTION_COUNT} questions ready · ${categoryName}`}
           // Holds the ring short of full until the questions have really arrived.
           dataReady={!loading && questions.length > 0}
           onStart={runCountdown}
         >
-          {/* Round Info Card */}
-          <div className="w-full max-w-sm bg-cream border border-warm rounded-xl p-4 mb-6">
+          {/* Round Info Card - sm:max-w-none matches Battle's Players Card exactly.
+              Without it this stayed capped at max-w-sm even on desktop, so it sat
+              at half the width of the orange banner above it while Battle's
+              equivalent card spans the same full width as its banner. */}
+          <div className="w-full max-w-sm sm:max-w-none bg-cream border border-warm rounded-xl p-4 sm:p-5 mb-6">
             <div className="flex items-center gap-3">
               <div
                 className="w-11 h-11 rounded-full flex items-center justify-center shrink-0"
@@ -1009,6 +1122,9 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
 
   // Setup Phase - Redesigned like QuizzBattle
   if (phase === 'setup') {
+    // Accent color based on selected category
+    const accentColor = selectedCategory ? getTopicColor(selectedCategory) : '#E36B11';
+    
     return (
       <div className="w-full h-full min-h-full flex-1 flex flex-col relative" style={{ backgroundColor: '#F5F0E8' }}>
         <GameHeader />
@@ -1017,7 +1133,10 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
           {/* Step 1: Choose Category - 4x4 Grid */}
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <span className="w-5 h-5 bg-[#E36B11] rounded-full text-white text-[10px] font-bold flex items-center justify-center">1</span>
+              <span 
+                className="w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center"
+                style={{ backgroundColor: accentColor }}
+              >1</span>
               <span className="font-display text-base text-gray-900 uppercase">Choose Category</span>
             </div>
             {/* Mobile: horizontal slider, Desktop: 4-column grid */}
@@ -1026,32 +1145,51 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
                 const Icon = CATEGORY_ICONS[cat] || CATEGORY_ICONS[cat.toUpperCase()] || HelpCircle;
                 const displayName = cat === 'all' ? 'Mixed' : cat.charAt(0).toUpperCase() + cat.slice(1);
                 const imageUrl = CATEGORY_IMAGES[cat.toLowerCase()] || CATEGORY_IMAGES['all'];
+                const catColor = getTopicColor(cat);
+                const isSelected = selectedCategory === cat;
                 return (
                   <button
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
-                    className={`group relative flex-shrink-0 px-4 py-2.5 sm:px-0 sm:py-0 sm:h-24 rounded-xl transition-all border-2 overflow-hidden flex items-center justify-center gap-2 ${
-                      selectedCategory === cat
-                        ? 'border-[#E36B11] bg-[#E36B11]/10 ring-2 ring-[#E36B11]/30'
-                        : 'border-transparent sm:border-[#E36B11]/20 bg-[#E36B11]/5 hover:border-[#E36B11]/40'
-                    }`}
+                    className="group relative flex-shrink-0 px-4 py-2.5 sm:px-0 sm:py-0 sm:h-24 rounded-xl transition-all border-2 overflow-hidden flex items-center justify-center gap-2"
+                    style={{
+                      borderColor: isSelected ? catColor : 'transparent',
+                      backgroundColor: isSelected ? `${catColor}15` : `${catColor}08`,
+                      boxShadow: isSelected ? `0 0 0 2px ${catColor}30` : 'none',
+                    }}
                   >
                     {/* Desktop only: background image */}
                     <div 
                       className="absolute inset-0 hidden sm:block bg-cover bg-center transition-transform duration-300 group-hover:scale-110"
                       style={{ backgroundImage: `url(${imageUrl})` }}
                     />
-                    {/* Gradient overlay - darker on hover */}
-                    <div className={`absolute inset-0 hidden sm:block transition-all duration-300 ${
-                      selectedCategory === cat 
-                        ? 'bg-gradient-to-t from-[#E36B11]/90 via-[#E36B11]/40 to-[#E36B11]/20'
-                        : 'bg-gradient-to-t from-black/70 via-black/20 to-transparent group-hover:from-black/80 group-hover:via-black/40 group-hover:to-black/20'
-                    }`} />
-                    {/* Mobile: icon + text, Desktop: bottom-left text only */}
-                    <Icon className="relative z-10 w-5 h-5 sm:hidden text-[#E36B11]" />
-                    <span className={`relative z-10 font-display text-base uppercase tracking-wider text-[#E36B11] sm:absolute sm:bottom-2 sm:left-2 sm:text-white sm:drop-shadow-lg transition-transform duration-300 sm:group-hover:translate-x-1 ${
-                      selectedCategory === cat ? 'sm:text-white' : ''
-                    }`}>{displayName}</span>
+                    {/* Gradient overlay - uses category color when selected */}
+                    <div 
+                      className="absolute inset-0 hidden sm:block transition-all duration-300"
+                      style={{
+                        background: isSelected 
+                          ? `linear-gradient(to top, ${catColor} 0%, ${catColor}cc 40%, ${catColor}99 100%)`
+                          : 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.2) 50%, transparent 100%)'
+                      }}
+                    />
+                    {/* Mobile: icon + text (category color), Desktop: text always white on image */}
+                    <Icon 
+                      className={`relative z-10 sm:hidden ${isSelected ? 'w-6 h-6' : 'w-5 h-5'}`}
+                      style={{ color: isSelected ? 'white' : catColor }}
+                    />
+                    {/* Mobile text - colored */}
+                    <span 
+                      className={`relative z-10 font-display uppercase tracking-wider sm:hidden ${
+                        isSelected ? 'text-lg font-bold' : 'text-base'
+                      }`}
+                      style={{ color: isSelected ? 'white' : catColor }}
+                    >{displayName}</span>
+                    {/* Desktop text - always white on dark overlay, SAME position as before */}
+                    <span 
+                      className={`relative z-10 font-display uppercase tracking-wider hidden sm:absolute sm:bottom-2 sm:left-2 sm:block text-white drop-shadow-lg transition-all duration-300 group-hover:translate-x-1 ${
+                        isSelected ? 'text-xl font-bold' : 'text-base'
+                      }`}
+                    >{displayName}</span>
                   </button>
                 );
               })}
@@ -1061,7 +1199,10 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
           {/* Step 2: Choose Points Value - disabled until category selected */}
           <div className={`mt-4 transition-opacity ${selectedCategory ? '' : 'opacity-40 pointer-events-none'}`}>
             <div className="flex items-center gap-2 mb-3">
-              <span className={`w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center ${selectedCategory ? 'bg-[#E36B11]' : 'bg-gray-400'}`}>2</span>
+              <span 
+                className="w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center"
+                style={{ backgroundColor: selectedCategory ? accentColor : '#9ca3af' }}
+              >2</span>
               <span className="font-display text-base text-gray-900 uppercase">Choose Correct Answer Value</span>
             </div>
             <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
@@ -1076,11 +1217,11 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
                       setCurrentPoints(points);
                     }}
                     disabled={!selectedCategory}
-                    className={`flex-1 min-w-[60px] rounded-xl border-2 p-2 sm:p-3 flex flex-col items-center text-center transition-all ${
-                      maxPoints === points
-                        ? 'border-[#E36B11] bg-[#E36B11]/10'
-                        : 'border-transparent sm:border-[#E36B11]/20 bg-[#E36B11]/5 hover:border-[#E36B11]/40'
-                    }`}
+                    className="flex-1 min-w-[60px] rounded-xl border-2 p-2 sm:p-3 flex flex-col items-center text-center transition-all"
+                    style={{
+                      borderColor: maxPoints === points ? accentColor : 'transparent',
+                      backgroundColor: maxPoints === points ? `${accentColor}15` : `${accentColor}08`,
+                    }}
                   >
                     <div className="flex items-center gap-0.5">
                       <img src="/images/bogxcoin.png" alt="" className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -1093,8 +1234,14 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
             </div>
           </div>
 
-          {/* Info Box - How it Works */}
-          <div className="bg-[#E36B11]/5 rounded-xl border border-[#E36B11]/20 mt-3 p-2 sm:p-5">
+          {/* Info Box - How it Works - disabled until category selected */}
+          <div 
+            className={`rounded-xl border mt-3 p-2 sm:p-5 transition-opacity ${selectedCategory ? '' : 'opacity-40'}`}
+            style={{ 
+              backgroundColor: `${accentColor}08`,
+              borderColor: `${accentColor}30`,
+            }}
+          >
             {/* Mobile: 2 rows with Correct/Wrong side by side, then Max Win/Loss */}
             {/* Desktop: 4 columns */}
             <div className="hidden sm:flex sm:items-center sm:justify-center gap-4 text-center">
@@ -1119,7 +1266,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
               </div>
               
               {/* Separator */}
-              <div className="w-px h-16 bg-[#E36B11]/20 mx-2" />
+              <div className="w-px h-16 mx-2" style={{ backgroundColor: `${accentColor}30` }} />
               
               <div className="flex-1">
                 <span className="font-display text-xs text-gray-500 uppercase">Max Win</span>
@@ -1153,7 +1300,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
                     <img src="/images/bogxcoin.png" alt="" className="w-3 h-3" />
                   </div>
                 </div>
-                <div className="w-px bg-[#E36B11]/20" />
+                <div className="w-px" style={{ backgroundColor: `${accentColor}30` }} />
                 <div className="flex-1 text-center">
                   <span className="text-[9px] text-gray-500 uppercase">Wrong</span>
                   <div className="flex items-center justify-center gap-0.5">
@@ -1165,7 +1312,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
               </div>
               
               {/* Divider */}
-              <div className="border-t border-[#E36B11]/20 mt-1.5 pt-1.5 flex gap-2">
+              <div className="mt-1.5 pt-1.5 flex gap-2" style={{ borderTop: `1px solid ${accentColor}30` }}>
                 <div className="flex-1 text-center">
                   <span className="text-[9px] text-gray-500 uppercase">Max Win</span>
                   <div className="flex items-center justify-center gap-0.5">
@@ -1174,7 +1321,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
                     <img src="/images/bogxcoin.png" alt="" className="w-3 h-3" />
                   </div>
                 </div>
-                <div className="w-px bg-[#E36B11]/20" />
+                <div className="w-px" style={{ backgroundColor: `${accentColor}30` }} />
                 <div className="flex-1 text-center">
                   <span className="text-[9px] text-gray-500 uppercase">Max Loss</span>
                   <div className="flex items-center justify-center gap-0.5">
@@ -1186,16 +1333,15 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
               </div>
             </div>
             
-            <p className="text-[9px] sm:text-xs text-gray-500 text-center mt-1.5 pt-1.5 sm:mt-4 sm:pt-3 border-t border-[#E36B11]/20">5 Questions · 10 sec each · Faster = more points</p>
+            <p className="text-[9px] sm:text-xs text-gray-500 text-center mt-1.5 pt-1.5 sm:mt-4 sm:pt-3" style={{ borderTop: `1px solid ${accentColor}30` }}>5 Questions · 10 sec each · Faster = more points</p>
           </div>
 
           {/* Daily Games Remaining */}
           <div className="flex items-center justify-center gap-2 mt-4">
-            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
-              canPlay 
-                ? 'bg-[#E36B11]/10 text-[#E36B11]' 
-                : 'bg-red-100 text-red-600'
-            }`}>
+            <div 
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium"
+              style={canPlay ? { backgroundColor: `${accentColor}15`, color: accentColor } : { backgroundColor: '#fee2e2', color: '#dc2626' }}
+            >
               <Clock className="w-3.5 h-3.5" />
               {limitLoading ? '...' : canPlay ? `${gamesRemaining} games left today` : 'No games left today'}
             </div>
@@ -1206,13 +1352,17 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
             <button
               onClick={startGame}
               disabled={loading || !canPlay || limitLoading || !selectedCategory}
-              className={`px-20 py-4 rounded-2xl text-white font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2 ${
+              className={`px-12 py-3.5 rounded-2xl text-white font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2 whitespace-nowrap ${
                 canPlay && selectedCategory ? 'hover:scale-[1.02] active:scale-[0.98]' : 'opacity-50 cursor-not-allowed'
               } disabled:opacity-50`}
-              style={{ background: canPlay && selectedCategory ? 'linear-gradient(135deg, #E8A54B 0%, #E36B11 50%, #C4772A 100%)' : '#9CA3AF' }}
+              style={{ 
+                background: canPlay && selectedCategory 
+                  ? `linear-gradient(135deg, ${accentColor}cc 0%, ${accentColor} 50%, ${accentColor}99 100%)` 
+                  : '#9CA3AF' 
+              }}
             >
               <Play className="w-5 h-5" />
-              {!selectedCategory ? 'SELECT CATEGORY FIRST' : canPlay ? 'START GAME' : 'COME BACK TOMORROW'}
+              {!selectedCategory ? 'SELECT CATEGORY' : canPlay ? 'START GAME' : 'TOMORROW'}
             </button>
             {error && (
               <p className="text-red-500 text-sm text-center px-4">{error}</p>
@@ -1225,7 +1375,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
               <Check className="w-3.5 h-3.5 text-green-500" />
               Fair play guaranteed
             </span>
-            <button className="text-[#E36B11] hover:underline">How it works</button>
+            <button style={{ color: accentColor }} className="hover:underline">How it works</button>
           </div>
         </div>
       </div>

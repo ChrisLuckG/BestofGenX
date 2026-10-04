@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Plus, Trash2, Edit2, Save, X, Loader2, Play, Tv, Youtube, Search, ExternalLink, Upload, GripVertical, LayoutGrid, List } from "lucide-react";
+import { useConfirm } from "./ConfirmModal";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -77,7 +78,7 @@ function SortableCategoryTab({
       ref={setNodeRef}
       style={style}
       className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
-        isActive ? 'bg-[#E36B11] text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+        isActive ? 'bg-[#E36B11] text-gray-900' : 'bg-paper text-gray-500 hover:bg-gray-100'
       }`}
       onClick={onClick}
     >
@@ -129,6 +130,7 @@ export default function TVTab() {
   const [categories, setCategories] = useState<TVCategoryType[]>([]);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [showCategoryManager, setShowCategoryManager] = useState(false);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   // DnD sensors
   const sensors = useSensors(
@@ -221,7 +223,13 @@ export default function TVTab() {
   };
 
   const deleteCategory = async (id: string) => {
-    if (!confirm('Delete this category?')) return;
+    const ok = await confirm({
+      title: 'Delete Category',
+      message: 'Delete this category?',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
     try {
       await fetch(`/api/tv/categories?id=${id}`, { method: 'DELETE' });
       fetchCategories();
@@ -391,7 +399,13 @@ export default function TVTab() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this video?')) return;
+    const ok = await confirm({
+      title: 'Delete Video',
+      message: 'Delete this video?',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
     
     try {
       const res = await fetch(`/api/tv?id=${id}`, { method: 'DELETE' });
@@ -481,7 +495,7 @@ export default function TVTab() {
   if (loading) return (
     <div className="flex flex-col items-center justify-center py-12 gap-3">
       <Loader2 className="w-8 h-8 animate-spin text-[#E36B11]" />
-      <p className="text-gray-400 text-sm">Loading videos...</p>
+      <p className="text-gray-500 text-sm">Loading videos...</p>
     </div>
   );
 
@@ -502,21 +516,21 @@ export default function TVTab() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search videos..."
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-9 pr-3 py-1.5 text-sm focus:outline-none focus:border-[#E36B11]"
+              className="w-full bg-paper border border-gray-200 rounded-lg pl-9 pr-3 py-1.5 text-sm focus:outline-none focus:border-[#E36B11]"
             />
           </div>
           {/* View Toggle */}
-          <div className="flex bg-gray-800 rounded-lg p-0.5">
+          <div className="flex bg-paper rounded-lg p-0.5">
             <button
               onClick={() => setViewMode('list')}
-              className={`p-1.5 rounded transition-colors ${viewMode === 'list' ? 'bg-[#E36B11] text-white' : 'text-gray-400 hover:text-white'}`}
+              className={`p-1.5 rounded transition-colors ${viewMode === 'list' ? 'bg-[#E36B11] text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
               title="List View"
             >
               <List className="w-4 h-4" />
             </button>
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded transition-colors ${viewMode === 'grid' ? 'bg-[#E36B11] text-white' : 'text-gray-400 hover:text-white'}`}
+              className={`p-1.5 rounded transition-colors ${viewMode === 'grid' ? 'bg-[#E36B11] text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
               title="Grid View"
             >
               <LayoutGrid className="w-4 h-4" />
@@ -524,7 +538,7 @@ export default function TVTab() {
           </div>
           <button
             onClick={() => setShowCategoryManager(true)}
-            className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap"
+            className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap"
           >
             Categories
           </button>
@@ -541,10 +555,10 @@ export default function TVTab() {
       {/* Category Manager Modal */}
       {showCategoryManager && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-gray-900 rounded-xl p-6 w-full max-w-md border border-gray-700">
+          <div className="bg-paper rounded-xl p-6 w-full max-w-md border border-gray-200">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold">Manage Categories</h3>
-              <button onClick={() => setShowCategoryManager(false)} className="text-gray-400 hover:text-white">
+              <button onClick={() => setShowCategoryManager(false)} className="text-gray-500 hover:text-gray-900">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -556,7 +570,7 @@ export default function TVTab() {
                 value={newCategoryName}
                 onChange={(e) => setNewCategoryName(e.target.value)}
                 placeholder="New category name..."
-                className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E36B11]"
+                className="flex-1 bg-paper border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E36B11]"
                 onKeyDown={(e) => e.key === 'Enter' && addCategory()}
               />
               <button
@@ -570,7 +584,7 @@ export default function TVTab() {
             {/* Category list */}
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {categories.map((cat) => (
-                <div key={cat._id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2">
+                <div key={cat._id} className="flex items-center justify-between bg-paper rounded-lg px-3 py-2">
                   <span className="text-sm">{cat.name}</span>
                   <button
                     onClick={() => deleteCategory(cat._id)}
@@ -588,11 +602,11 @@ export default function TVTab() {
       {/* Filters */}
       <div className="flex gap-4 flex-wrap items-center">
         {/* Active/Inactive Filter */}
-        <div className="flex gap-1 bg-gray-800 rounded-lg p-1">
+        <div className="flex gap-1 bg-paper rounded-lg p-1">
           <button
             onClick={() => setActiveFilter('all')}
             className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-              activeFilter === 'all' ? 'bg-[#E36B11] text-white' : 'text-gray-400 hover:text-white'
+              activeFilter === 'all' ? 'bg-[#E36B11] text-gray-900' : 'text-gray-500 hover:text-gray-900'
             }`}
           >
             All
@@ -600,7 +614,7 @@ export default function TVTab() {
           <button
             onClick={() => setActiveFilter('active')}
             className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-              activeFilter === 'active' ? 'bg-green-600 text-white' : 'text-gray-400 hover:text-white'
+              activeFilter === 'active' ? 'bg-green-600 text-paper' : 'text-gray-400 hover:text-gray-900'
             }`}
           >
             Active
@@ -608,7 +622,7 @@ export default function TVTab() {
           <button
             onClick={() => setActiveFilter('inactive')}
             className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-              activeFilter === 'inactive' ? 'bg-red-600 text-white' : 'text-gray-400 hover:text-white'
+              activeFilter === 'inactive' ? 'bg-red-600 text-paper' : 'text-gray-400 hover:text-gray-900'
             }`}
           >
             Inactive
@@ -620,7 +634,7 @@ export default function TVTab() {
           <button
             onClick={() => setCategoryFilter(null)}
             className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-              !categoryFilter ? 'bg-[#E36B11] text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+              !categoryFilter ? 'bg-[#E36B11] text-gray-900' : 'bg-paper text-gray-500 hover:bg-gray-100'
             }`}
           >
             All Categories
@@ -645,7 +659,7 @@ export default function TVTab() {
 
       {/* Add Video Form */}
       {isCreating && (
-        <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+        <div className="bg-paper rounded-xl p-4 border border-gray-200">
           <h3 className="font-semibold mb-4 flex items-center gap-2">
             <Youtube className="w-5 h-5 text-red-500" />
             Add YouTube Video
@@ -653,17 +667,17 @@ export default function TVTab() {
           
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-gray-400 text-xs mb-1">YouTube URL *</label>
+              <label className="block text-gray-500 text-xs mb-1">YouTube URL *</label>
               <input
                 type="text"
                 value={newVideo.youtubeUrl}
                 onChange={(e) => handleYouTubeUrlChange(e.target.value)}
                 placeholder="https://youtube.com/watch?v=..."
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E36B11]"
+                className="w-full bg-paper border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E36B11]"
               />
             </div>
             <div>
-              <label className="block text-gray-400 text-xs mb-1">
+              <label className="block text-gray-500 text-xs mb-1">
                 Title * {isFetchingMetadata && <span className="text-[#E36B11] text-[10px]">(Auto-fetching...)</span>}
               </label>
               <input
@@ -671,15 +685,15 @@ export default function TVTab() {
                 value={newVideo.title}
                 onChange={(e) => setNewVideo(prev => ({ ...prev, title: e.target.value }))}
                 placeholder={isFetchingMetadata ? "Loading from YouTube..." : "Video title"}
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E36B11]"
+                className="w-full bg-paper border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E36B11]"
               />
             </div>
             <div>
-              <label className="block text-gray-400 text-xs mb-1">Category</label>
+              <label className="block text-gray-500 text-xs mb-1">Category</label>
               <select
                 value={newVideo.category}
                 onChange={(e) => setNewVideo(prev => ({ ...prev, category: e.target.value }))}
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E36B11]"
+                className="w-full bg-paper border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E36B11]"
               >
                 {categoryNames.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
@@ -687,45 +701,45 @@ export default function TVTab() {
               </select>
             </div>
             <div>
-              <label className="block text-gray-400 text-xs mb-1">Duration</label>
+              <label className="block text-gray-500 text-xs mb-1">Duration</label>
               <input
                 type="text"
                 value={newVideo.duration}
                 onChange={(e) => setNewVideo(prev => ({ ...prev, duration: e.target.value }))}
                 placeholder="e.g. 3:45 or 1:23:45"
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E36B11]"
+                className="w-full bg-paper border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E36B11]"
               />
             </div>
             <div>
-              <label className="block text-gray-400 text-xs mb-1">Language</label>
+              <label className="block text-gray-500 text-xs mb-1">Language</label>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => setNewVideo(prev => ({ ...prev, language: 'en' }))}
-                  className={`flex items-center gap-1 px-3 py-2 rounded-lg text-sm ${newVideo.language === 'en' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}
+                  className={`flex items-center gap-1 px-3 py-2 rounded-lg text-sm ${newVideo.language === 'en' ? 'bg-blue-600' : 'bg-gray-100 hover:bg-gray-200'}`}
                 >
                   🇬🇧 EN
                 </button>
                 <button
                   type="button"
                   onClick={() => setNewVideo(prev => ({ ...prev, language: 'de' }))}
-                  className={`flex items-center gap-1 px-3 py-2 rounded-lg text-sm ${newVideo.language === 'de' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}
+                  className={`flex items-center gap-1 px-3 py-2 rounded-lg text-sm ${newVideo.language === 'de' ? 'bg-blue-600' : 'bg-gray-100 hover:bg-gray-200'}`}
                 >
                   🇩🇪 DE
                 </button>
               </div>
             </div>
             <div className="col-span-2">
-              <label className="block text-gray-400 text-xs mb-1">Description</label>
+              <label className="block text-gray-500 text-xs mb-1">Description</label>
               <textarea
                 value={newVideo.description}
                 onChange={(e) => setNewVideo(prev => ({ ...prev, description: e.target.value }))}
                 placeholder="Video description..."
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E36B11] h-20 resize-none"
+                className="w-full bg-paper border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E36B11] h-20 resize-none"
               />
             </div>
             <div className="col-span-2">
-              <label className="block text-gray-400 text-xs mb-1">Custom Thumbnail (optional)</label>
+              <label className="block text-gray-500 text-xs mb-1">Custom Thumbnail (optional)</label>
               <div className="flex items-center gap-2">
                 <input ref={thumbnailInputRef} type="file" accept="image/*" onChange={handleThumbnailUpload} className="hidden" />
                 <button
@@ -754,14 +768,14 @@ export default function TVTab() {
                 onChange={(e) => setNewVideo(prev => ({ ...prev, featured: e.target.checked }))}
                 className="rounded"
               />
-              <label htmlFor="featured" className="text-sm text-gray-400">Featured (show in hero section)</label>
+              <label htmlFor="featured" className="text-sm text-gray-500">Featured (show in hero section)</label>
             </div>
           </div>
 
           {/* Preview */}
           {extractYouTubeId(newVideo.youtubeUrl) && (
             <div className="mt-4">
-              <p className="text-gray-400 text-xs mb-2">Preview:</p>
+              <p className="text-gray-500 text-xs mb-2">Preview:</p>
               <img
                 src={`https://img.youtube.com/vi/${extractYouTubeId(newVideo.youtubeUrl)}/mqdefault.jpg`}
                 alt="Thumbnail preview"
@@ -781,7 +795,7 @@ export default function TVTab() {
             </button>
             <button
               onClick={() => setIsCreating(false)}
-              className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm"
+              className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg text-sm"
             >
               <X className="w-4 h-4" />
               Cancel
@@ -794,7 +808,7 @@ export default function TVTab() {
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
           {filteredVideos.map(video => (
-            <div key={video._id} className={`bg-gray-800 rounded-lg overflow-hidden border border-gray-700 group ${!video.active ? 'opacity-60' : ''}`}>
+            <div key={video._id} className={`bg-paper rounded-lg overflow-hidden border border-gray-200 group ${!video.active ? 'opacity-60' : ''}`}>
               {editingVideo?._id === video._id ? (
               <div className="p-3 space-y-2">
                 <input
@@ -802,7 +816,7 @@ export default function TVTab() {
                   value={editingVideo.title || ''}
                   onChange={(e) => setEditingVideo(prev => ({ ...prev, title: e.target.value }))}
                   placeholder="Title"
-                  className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-sm"
+                  className="w-full bg-paper border border-gray-200 rounded px-2 py-1 text-sm"
                 />
                 <input
                   type="text"
@@ -819,7 +833,7 @@ export default function TVTab() {
                     }));
                   }}
                   placeholder="YouTube URL"
-                  className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-sm"
+                  className="w-full bg-paper border border-gray-200 rounded px-2 py-1 text-sm"
                 />
                 <div className="flex items-center gap-1">
                   <input ref={editThumbnailInputRef} type="file" accept="image/*" onChange={handleEditThumbnailUpload} className="hidden" />
@@ -839,7 +853,7 @@ export default function TVTab() {
                   <select
                     value={editingVideo.category || ''}
                     onChange={(e) => setEditingVideo(prev => ({ ...prev, category: e.target.value }))}
-                    className="flex-1 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-sm"
+                    className="flex-1 bg-paper border border-gray-200 rounded px-2 py-1 text-sm"
                   >
                     {categoryNames.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                   </select>
@@ -848,12 +862,12 @@ export default function TVTab() {
                     value={editingVideo.duration || ''}
                     onChange={(e) => setEditingVideo(prev => ({ ...prev, duration: e.target.value }))}
                     placeholder="Duration"
-                    className="w-16 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-sm"
+                    className="w-16 bg-paper border border-gray-200 rounded px-2 py-1 text-sm"
                   />
                   <button
                     type="button"
                     onClick={() => setEditingVideo(prev => ({ ...prev, language: prev?.language === 'de' ? 'en' : 'de' }))}
-                    className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm"
+                    className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm"
                     title="Toggle language"
                   >
                     {editingVideo.language === 'de' ? '🇩🇪' : '🇬🇧'}
@@ -863,7 +877,7 @@ export default function TVTab() {
                   <button onClick={handleUpdate} className="flex-1 bg-green-600 hover:bg-green-700 py-1 rounded text-xs">
                     {isSaving ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : 'Save'}
                   </button>
-                  <button onClick={() => setEditingVideo(null)} className="flex-1 bg-gray-700 hover:bg-gray-600 py-1 rounded text-xs">
+                  <button onClick={() => setEditingVideo(null)} className="flex-1 bg-gray-100 hover:bg-gray-200 py-1 rounded text-xs">
                     Cancel
                   </button>
                 </div>
@@ -886,20 +900,20 @@ export default function TVTab() {
                     onError={(e) => ytThumbError(e, video.youtubeId)}
                   />
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <Play className="w-10 h-10 text-white fill-current" />
+                    <Play className="w-10 h-10 text-gray-900 fill-current" />
                   </div>
                   {video.featuredPosition && (
-                    <span className="absolute top-2 left-2 bg-[#E36B11] text-white text-sm w-6 h-6 rounded-full flex items-center justify-center font-bold shadow-lg">
+                    <span className="absolute top-2 left-2 bg-[#E36B11] text-gray-900 text-sm w-6 h-6 rounded-full flex items-center justify-center font-bold shadow-lg">
                       {video.featuredPosition}
                     </span>
                   )}
                   {!video.active && (
-                    <span className="absolute top-2 right-2 bg-red-600 text-white text-[10px] px-2 py-0.5 rounded font-medium">
+                    <span className="absolute top-2 right-2 bg-red-600 text-paper text-[10px] px-2 py-0.5 rounded font-medium">
                       INACTIVE
                     </span>
                   )}
                   {video.duration && (
-                    <span className="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] px-1.5 py-0.5 rounded">
+                    <span className="absolute bottom-2 right-2 bg-black/80 text-gray-900 text-[10px] px-1.5 py-0.5 rounded">
                       {video.duration}
                     </span>
                   )}
@@ -927,8 +941,8 @@ export default function TVTab() {
                       onChange={(e) => setFeaturedPosition(video, e.target.value ? Number(e.target.value) : null)}
                       className={`flex-1 py-1 px-2 rounded text-xs cursor-pointer ${
                         video.featuredPosition 
-                          ? 'bg-[#E36B11] text-white font-bold' 
-                          : 'bg-gray-700 text-gray-400'
+                          ? 'bg-[#E36B11] text-gray-900 font-bold' 
+                          : 'bg-gray-100 text-gray-500'
                       }`}
                     >
                       <option value="">☆ Feature</option>
@@ -938,7 +952,7 @@ export default function TVTab() {
                     </select>
                     <button
                       onClick={() => setEditingVideo(video)}
-                      className="p-1 bg-gray-700 hover:bg-gray-600 rounded"
+                      className="p-1 bg-gray-100 hover:bg-gray-200 rounded"
                     >
                       <Edit2 className="w-3 h-3" />
                     </button>
@@ -959,7 +973,7 @@ export default function TVTab() {
         /* List View */
         <div className="space-y-1">
           {/* List Header */}
-          <div className="grid grid-cols-[auto_1fr_120px_80px_60px_100px] gap-3 px-3 py-2 text-[10px] text-gray-500 uppercase tracking-wider border-b border-gray-700">
+          <div className="grid grid-cols-[auto_1fr_120px_80px_60px_100px] gap-3 px-3 py-2 text-[10px] text-gray-500 uppercase tracking-wider border-b border-gray-200">
             <div className="w-16">Thumb</div>
             <div>Title</div>
             <div>Category</div>
@@ -970,7 +984,7 @@ export default function TVTab() {
           {filteredVideos.map(video => (
             <div 
               key={video._id} 
-              className={`grid grid-cols-[auto_1fr_120px_80px_60px_100px] gap-3 items-center px-3 py-2 bg-gray-800/50 hover:bg-gray-800 rounded-lg border border-transparent hover:border-gray-700 transition-colors ${!video.active ? 'opacity-60' : ''}`}
+              className={`grid grid-cols-[auto_1fr_120px_80px_60px_100px] gap-3 items-center px-3 py-2 bg-gray-800/50 hover:bg-paper rounded-lg border border-transparent hover:border-gray-200 transition-colors ${!video.active ? 'opacity-60' : ''}`}
             >
               {/* Thumbnail */}
               <div 
@@ -984,10 +998,10 @@ export default function TVTab() {
               >
                 <img src={ytThumb(video.youtubeId, video.thumbnail)} alt="" className="w-full h-full object-cover" onError={(e) => ytThumbError(e, video.youtubeId)} />
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <Play className="w-4 h-4 text-white fill-current" />
+                  <Play className="w-4 h-4 text-gray-900 fill-current" />
                 </div>
                 {video.featuredPosition && (
-                  <span className="absolute top-0.5 left-0.5 bg-[#E36B11] text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                  <span className="absolute top-0.5 left-0.5 bg-[#E36B11] text-gray-900 text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
                     {video.featuredPosition}
                   </span>
                 )}
@@ -1000,7 +1014,7 @@ export default function TVTab() {
               </div>
               
               {/* Category */}
-              <div className="text-xs text-gray-400 truncate">{video.category}</div>
+              <div className="text-xs text-gray-500 truncate">{video.category}</div>
               
               {/* Duration */}
               <div className="text-xs text-gray-500">{video.duration || '—'}</div>
@@ -1015,8 +1029,8 @@ export default function TVTab() {
                   onChange={(e) => setFeaturedPosition(video, e.target.value ? Number(e.target.value) : null)}
                   className={`w-8 py-1 px-1 rounded text-[10px] cursor-pointer ${
                     video.featuredPosition 
-                      ? 'bg-[#E36B11] text-white font-bold' 
-                      : 'bg-gray-700 text-gray-400'
+                      ? 'bg-[#E36B11] text-gray-900 font-bold' 
+                      : 'bg-gray-100 text-gray-500'
                   }`}
                 >
                   <option value="">☆</option>
@@ -1026,7 +1040,7 @@ export default function TVTab() {
                 </select>
                 <button
                   onClick={() => setEditingVideo(video)}
-                  className="p-1.5 bg-gray-700 hover:bg-gray-600 rounded"
+                  className="p-1.5 bg-gray-100 hover:bg-gray-200 rounded"
                   title="Edit"
                 >
                   <Edit2 className="w-3 h-3" />
@@ -1050,6 +1064,7 @@ export default function TVTab() {
           <p>No videos yet. Add your first video!</p>
         </div>
       )}
+      <ConfirmDialog />
     </div>
   );
 }

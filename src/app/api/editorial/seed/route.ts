@@ -4,19 +4,30 @@ import User from '@/models/User';
 import ReporterProfile from '@/models/ReporterProfile';
 import bcrypt from 'bcryptjs';
 
+// FOUR reporters, one per author voice.
+//
+// This was nine, spread over nine regions, and five of them pointed at writing styles
+// that no longer exist - two ('bill-bryson', and 'chimamanda-ngozi-adichie' in the
+// ranking route) never had a brief at all, so those reporters were writing in the
+// fallback voice while the newsroom listed them as distinct personalities.
+//
+// The four voices are the four kinds of funny (see lib/authorStylePrompts.ts), and each
+// reporter owns one of them plus the beats that came with the retired reporters. Region
+// spread is kept where it costs nothing, but coverage now follows the voice, not the map.
 const DEFAULT_REPORTERS = [
   {
     name: 'Frank Scottish',
     slug: 'frank-scottish',
     nationality: 'Wales, UK',
     country: 'UK',
-    countryFlag: '🏴󠁧󠁢󠁷󠁬󠁳󠁿',
+    countryFlag: '🏴',
     countryCode: 'gb-wls',
     region: 'united-kingdom',
     specialty: 'Sports · Boxing · Football',
     role: 'journalist',
     politicalTendency: 'Slightly right of center',
-    responsibilities: 'Sports, Football, Boxing, MMA, Working-class heroes, Pub culture, British nostalgia. Homepage sport section. Also handles BOGX product feedback from a regular-user perspective.',
+    // Absorbed from Marcus Wellington (rugby, cricket, outdoor culture).
+    responsibilities: 'Sports of every kind: Football, Boxing, MMA, Rugby, Cricket, Olympics. Working-class heroes, pub culture, British nostalgia, the outdoors. Homepage sport section. Also handles BOGX product feedback from a regular-user perspective.',
     writingStyle: 'irvine-welsh',
     personality: 'Sarcastic, street-smart, cynical, brutally honest, working-class humour. Loves underdogs. Hates corporate nonsense. Reads like a bloke telling stories after three beers. No Scottish dialect — clean English.',
   },
@@ -25,13 +36,14 @@ const DEFAULT_REPORTERS = [
     slug: 'kristina-losandra',
     nationality: 'Sydney, Australia',
     country: 'Australia',
-    countryFlag: '��',
+    countryFlag: '🇦🇺',
     countryCode: 'au',
     region: 'oceania',
     specialty: 'RIP · Celebrities · Movies',
     role: 'journalist',
     politicalTendency: 'Center-left',
-    responsibilities: 'RIP articles, Celebrities, TV, Movies, Music. Warm human-interest stories. Social media for lifestyle content. Covers the emotional side of GenX culture — the losses, the comebacks, the nostalgia.',
+    // Absorbed from Amara Okonkwo (music, diaspora culture) - the warm register.
+    responsibilities: 'RIP articles, Celebrities, TV, Movies, Music worldwide including Afrobeat and non-Western scenes. Warm human-interest stories. Social media for lifestyle content. Covers the emotional side of GenX culture — the losses, the comebacks, the nostalgia.',
     writingStyle: 'nora-ephron',
     personality: 'Warm, funny, empathetic, never sentimental. Makes people smile instead of cry. Elegant but accessible.',
   },
@@ -40,15 +52,17 @@ const DEFAULT_REPORTERS = [
     slug: 'robert-crombaker',
     nationality: 'Berlin, Germany',
     country: 'Germany',
-    countryFlag: '��',
+    countryFlag: '🇩🇪',
     countryCode: 'de',
     region: 'europe',
-    specialty: 'Culture · Society · Editor',
+    specialty: 'Culture · Music · Gaming · Editor',
     role: 'journalist',
     politicalTendency: 'Left',
-    responsibilities: 'Culture, Society, Human behaviour. The generalist who can write about anything from a human angle. Also acts as Editor reviewing other reporters\' work. Covers the big picture stuff.',
-    writingStyle: 'charles-bukowski',
-    personality: 'Dry humour, self-ironic, intelligent, emotionally honest. Beautiful observations. Occasionally poetic. Hates fake people and corporate culture.',
+    // Absorbed from Jolie Clarkson (music, indie, gaming), Kazuo Sato (tech, anime,
+    // games) and Gustavo Madrina (lifestyle, travel, food).
+    responsibilities: 'Culture, Society, Music, Indie, Gaming, Tech, Anime, Lifestyle, Travel, Food. The generalist who can write about anything from a human angle. Also acts as Editor reviewing other reporters\' work. Covers the big picture stuff.',
+    writingStyle: 'benjamin-stuckrad-barre',
+    personality: 'Dry humour, self-ironic, intelligent, media-savvy. Name-drops constantly. Mixes high and low culture in the same sentence. Hates fake people and corporate culture.',
   },
   {
     name: 'Katharina Obslewskina',
@@ -63,83 +77,23 @@ const DEFAULT_REPORTERS = [
     politicalTendency: 'Conservative',
     responsibilities: 'Politics, History, Europe, Society. Analytical deep-dives. Fact Checker for the whole team. Covers the harder, more serious side of GenX history and current events.',
     writingStyle: 'slavenka-drakulic',
-    personality: 'Sharp, intelligent, direct. No emotional manipulation. European lens. Challenges lazy thinking.',
+    personality: 'Sharp, intelligent, direct. Dry ironic humour — the joke that is also an indictment. No emotional manipulation. European lens. Challenges lazy thinking.',
   },
-  {
-    name: 'Gustavo Madrina',
-    slug: 'gustavo-madrina',
-    nationality: 'Montevideo, Uruguay',
-    country: 'Uruguay',
-    countryFlag: '🇺🇾',
-    countryCode: 'uy',
-    region: 'south-america',
-    specialty: 'Lifestyle · Travel · Food',
-    role: 'journalist',
-    politicalTendency: 'Neutral',
-    responsibilities: 'Lifestyle, Travel, Food, Latin America. Homepage lifestyle section. Social media posts for travel and culture content. Brings the Latin American and global south perspective to GenX nostalgia.',
-    writingStyle: 'benjamin-stuckrad-barre',
-    personality: 'Fast, funny, observational. Random and unexpected. Latin American magical realism meets pop culture. High energy.',
-  },
-  {
-    name: 'Jolie Clarkson',
-    slug: 'jolie-clarkson',
-    nationality: 'Seattle, USA',
-    country: 'USA',
-    countryFlag: '🇺🇸',
-    countryCode: 'us',
-    region: 'north-america',
-    specialty: 'Music · Gaming · Indie',
-    role: 'journalist',
-    politicalTendency: 'Progressive',
-    responsibilities: 'Music, Alternative Culture, Gaming, Underground, Indie. Connects today with 80s/90s culture. Covers grunge, indie film, underground gaming. Social media for music and gaming content.',
-    writingStyle: 'nick-hornby',
-    personality: 'Smart, nerdy, alternative. Pop-culture obsessed. Always finds the 80s/90s connection. Self-deprecating. Makes lists.',
-  },
-  {
-    name: 'Kazuo Sato',
-    slug: 'kazuo-sato',
-    nationality: 'Osaka, Japan',
-    country: 'Japan',
-    countryFlag: '🇯🇵',
-    countryCode: 'jp',
-    region: 'asia',
-    specialty: 'Tech · Anime · Gaming',
-    role: 'journalist',
-    politicalTendency: 'Conservative',
-    responsibilities: 'Technology, Anime, Japanese culture, Video games, Innovation. Tech analysis for BOGX product decisions. Serves as the team\'s CTO and developer perspective. Bridges East-West GenX tech culture.',
-    writingStyle: 'murakami',
-    personality: 'Minimalistic, thoughtful, quiet humour, never loud. Very intelligent. Finds beauty in technical precision.',
-  },
-  {
-    name: 'Amara Okonkwo',
-    slug: 'amara-okonkwo',
-    nationality: 'Lagos, Nigeria',
-    country: 'Nigeria',
-    countryFlag: '🇳🇬',
-    countryCode: 'ng',
-    region: 'africa',
-    specialty: 'Music · Culture · Afrobeat',
-    role: 'journalist',
-    politicalTendency: 'Center',
-    responsibilities: 'African music, Afrobeat, Nollywood, African diaspora culture, emerging artists. Covers the African GenX experience and its global influence on music and entertainment.',
-    writingStyle: 'chimamanda-ngozi-adichie',
-    personality: 'Vibrant, storytelling, proud of African heritage, globally minded. Brings warmth and depth to every story. Challenges Western-centric narratives with grace.',
-  },
-  {
-    name: 'Marcus Wellington',
-    slug: 'marcus-wellington',
-    nationality: 'Auckland, New Zealand',
-    country: 'New Zealand',
-    countryFlag: '🇳🇿',
-    countryCode: 'nz',
-    region: 'oceania',
-    specialty: 'Sports · Rugby · Outdoors',
-    role: 'journalist',
-    politicalTendency: 'Center-left',
-    responsibilities: 'Rugby, cricket, outdoor culture, Kiwi lifestyle, Pacific Island sports heroes. Covers Oceania sports and the laid-back GenX lifestyle of the Southern Hemisphere.',
-    writingStyle: 'bill-bryson',
-    personality: 'Easygoing, witty, observational, self-deprecating. Makes the mundane fascinating. Loves a good underdog story.',
-  },
+];
+
+/**
+ * Reporters that used to be seeded and are now retired. Their User accounts are kept
+ * (articles reference them as author, and deleting the user would orphan the byline),
+ * but the ReporterProfile is removed and isAIReporter is cleared so they disappear from
+ * the newsroom. Without this the seed - which only ever upserts - would leave all nine
+ * in place and the reduction to four would exist only in this file.
+ */
+const RETIRED_REPORTER_SLUGS = [
+  'gustavo-madrina',
+  'jolie-clarkson',
+  'kazuo-sato',
+  'amara-okonkwo',
+  'marcus-wellington',
 ];
 
 export async function POST() {
@@ -220,6 +174,23 @@ export async function POST() {
       } catch (reporterError: any) {
         console.error(`Seed error for ${reporter.name}:`, reporterError?.message);
         results.push({ name: reporter.name, status: 'error', error: reporterError?.message });
+      }
+    }
+
+    // Retire the reporters that are no longer part of the four. The User survives so
+    // existing bylines keep resolving; only the newsroom presence goes away.
+    for (const slug of RETIRED_REPORTER_SLUGS) {
+      try {
+        const profile = await ReporterProfile.findOne({ slug });
+        if (!profile) continue;
+        if (profile.userId) {
+          await User.findByIdAndUpdate(profile.userId, { $set: { isAIReporter: false } });
+        }
+        await ReporterProfile.deleteOne({ slug });
+        results.push({ name: slug, status: 'retired' });
+      } catch (retireError: any) {
+        console.error(`Retire error for ${slug}:`, retireError?.message);
+        results.push({ name: slug, status: 'error', error: retireError?.message });
       }
     }
 

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Loader2, Trash2, History, CheckCircle, XCircle, Clock, RefreshCw, Edit2, X, Upload, Shield, PenTool, Instagram, Facebook, Linkedin, Globe, MessageSquare, UserPlus, ChevronDown, Check, Play, Pause } from "lucide-react";
 import EditorialChatModal from "@/components/admin/EditorialChatModal";
+import { useConfirm } from "./ConfirmModal";
 
 const COUNTRIES = [
   { name: 'American', flag: '🇺🇸' }, { name: 'British', flag: '🇬🇧' }, { name: 'German', flag: '🇩🇪' },
@@ -113,6 +114,7 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
   const [showRespDropdown, setShowRespDropdown] = useState(false);
   const [togglingBotActive, setTogglingBotActive] = useState<Set<string>>(new Set());
   const avatarInputRef = useRef<HTMLInputElement>(null);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   useEffect(() => {
     fetchUsers();
@@ -284,7 +286,13 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
 
   const deleteSelectedUsers = async () => {
     if (selectedUsers.size === 0) return;
-    if (!confirm(`Delete ${selectedUsers.size} selected user(s)? This cannot be undone!`)) return;
+    const ok = await confirm({
+      title: 'Delete Users',
+      message: `Delete ${selectedUsers.size} selected user(s)? This cannot be undone!`,
+      confirmLabel: 'Delete All',
+      variant: 'danger',
+    });
+    if (!ok) return;
     setIsDeletingUsers(true);
     try {
       const userIds = Array.from(selectedUsers);
@@ -323,7 +331,13 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
   const deleteEditingUser = async () => {
     if (!editingUser) return;
     if (editingUser.isAdmin) return; // Never delete admin
-    if (!confirm(`Permanently delete user "${editingUser.username}"? This cannot be undone!`)) return;
+    const ok = await confirm({
+      title: 'Delete User',
+      message: `Permanently delete user "${editingUser.username}"? This cannot be undone!`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
     setSavingUser(true);
     try {
       const res = await fetch(`/api/users/${editingUser._id}`, { method: 'DELETE' });
@@ -430,24 +444,24 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
     <>
       {/* Success Toast */}
       {saveSuccessToast && (
-        <div className="fixed top-4 right-4 z-[60] flex items-center gap-2 px-4 py-3 bg-green-600 text-white text-sm font-medium rounded-lg shadow-xl animate-in slide-in-from-top">
+        <div className="fixed top-4 right-4 z-[60] flex items-center gap-2 px-4 py-3 bg-green-600 text-paper text-sm font-medium rounded-lg shadow-xl animate-in slide-in-from-top">
           <CheckCircle className="w-4 h-4" />
           {saveSuccessToast}
         </div>
       )}
 
-      <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+      <div className="bg-paper rounded-xl p-4 border border-gray-200">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-sm font-bold">Users ({displayUsers.length})</h2>
-            <p className="text-[11px] text-gray-400">
+            <p className="text-[11px] text-gray-500">
               {realUserCount} real · {botCount} bots · <span className="text-yellow-400">{totalCoins.toFixed(2)} coins</span> · <span className="text-green-400">{totalWins} won</span> · <span className="text-red-400">{totalLost} lost</span> · <span className="text-blue-400">{totalArticles} articles</span> · <span className="text-purple-400">{totalVideos} videos</span> · {totalReactions['❤️'] > 0 && <span>❤️{totalReactions['❤️']} </span>}{totalReactions['😂'] > 0 && <span>😂{totalReactions['😂']} </span>}{totalReactions['😮'] > 0 && <span>😮{totalReactions['😮']} </span>}{totalReactions['😢'] > 0 && <span>😢{totalReactions['😢']} </span>}{totalReactions['😡'] > 0 && <span>😡{totalReactions['😡']} </span>}{totalReactions['👏'] > 0 && <span>👏{totalReactions['👏']}</span>}
             </p>
           </div>
           <div className="flex gap-1.5">
             <button
               onClick={() => fetchUsers()}
-              className="flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded-lg text-xs transition-colors"
+              className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg text-xs transition-colors"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               Refresh
@@ -498,13 +512,13 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
 
         {usersLoading ? (
           <div className="flex justify-center py-8">
-            <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+            <Loader2 className="w-8 h-8 animate-spin text-gray-500" />
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="text-left text-gray-400 border-b border-gray-700 text-[11px] uppercase tracking-wider">
+                <tr className="text-left text-gray-500 border-b border-gray-200 text-[11px] uppercase tracking-wider">
                   <th className="pb-2 pr-3">
                     <input
                       type="checkbox"
@@ -528,7 +542,7 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
               </thead>
               <tbody>
                 {displayUsers.map((user) => (
-                  <tr key={user._id} className="border-b border-gray-700/50 hover:bg-gray-700/30">
+                  <tr key={user._id} className="border-b border-gray-200/50 hover:bg-gray-100/30">
                     <td className="py-2 pr-3">
                       <input
                         type="checkbox"
@@ -540,9 +554,9 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                     <td className="py-2 font-medium">
                       <div className="flex items-center gap-2">
                         {user.avatar ? (
-                          <img src={user.avatar} alt={user.username} className="w-6 h-6 rounded-full object-cover border border-gray-600" />
+                          <img src={user.avatar} alt={user.username} className="w-6 h-6 rounded-full object-cover border border-gray-300" />
                         ) : (
-                          <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold text-white" style={{ background: 'linear-gradient(135deg,#E36B11 0%,#a86b2b 100%)' }}>
+                          <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold text-gray-900" style={{ background: 'linear-gradient(135deg,#E36B11 0%,#a86b2b 100%)' }}>
                             {user.username[0]?.toUpperCase()}
                           </div>
                         )}
@@ -560,7 +574,7 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                         </div>
                       </div>
                     </td>
-                    <td className="py-2 text-gray-400">{user.email || '-'}</td>
+                    <td className="py-2 text-gray-500">{user.email || '-'}</td>
                     <td className="py-2 text-right text-yellow-400">{(user.bogxCoins || user.coins || 0).toFixed(2)}</td>
                     <td className="py-2 text-right text-green-400">{user.wins || 0}</td>
                     <td className="py-2 text-right text-red-400">{(user.gamesPlayed || 0) - (user.wins || 0)}</td>
@@ -598,7 +612,7 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                         )}
                       </div>
                     </td>
-                    <td className="py-2 text-gray-400 text-[11px]">
+                    <td className="py-2 text-gray-500 text-[11px]">
                       {new Date(user.createdAt).toLocaleDateString()}
                     </td>
                     <td className="py-2">
@@ -611,7 +625,7 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                             className={`p-1 rounded transition-colors ${
                               user.botActive !== false
                                 ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-                                : 'bg-gray-600/50 text-gray-500 hover:bg-gray-600'
+                                : 'bg-gray-600/50 text-gray-500 hover:bg-gray-200'
                             }`}
                             title={user.botActive !== false ? 'Bot is playing - click to pause' : 'Bot is paused - click to play'}
                           >
@@ -626,14 +640,14 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                         )}
                         <button
                           onClick={() => setEditingUser(user)}
-                          className="p-1 hover:bg-gray-600 rounded text-gray-400 hover:text-[#E36B11]"
+                          className="p-1 hover:bg-gray-200 rounded text-gray-500 hover:text-[#E36B11]"
                           title="Edit user / author profile"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => openHistoryModal(user._id, user.username)}
-                          className="p-1 hover:bg-gray-600 rounded text-gray-400 hover:text-white"
+                          className="p-1 hover:bg-gray-200 rounded text-gray-500 hover:text-gray-900"
                           title="View game history"
                         >
                           <History className="w-3.5 h-3.5" />
@@ -641,7 +655,7 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                         {reporterProfiles[user._id] && (
                           <button
                             onClick={() => setEditorialChatReporter(reporterProfiles[user._id])}
-                            className="p-1 hover:bg-gray-600 rounded text-[#E36B11] hover:text-[#E36B11]/80"
+                            className="p-1 hover:bg-gray-200 rounded text-[#E36B11] hover:text-[#E36B11]/80"
                             title="Editorial Chat"
                           >
                             <MessageSquare className="w-3.5 h-3.5" />
@@ -660,8 +674,8 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
       {/* History Modal */}
       {historyModal && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-gray-700 flex items-center justify-between">
+          <div className="bg-paper rounded-xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
               <h3 className="text-lg font-bold">Game History: {historyModal.username}</h3>
               <div className="flex items-center gap-3">
                 <input
@@ -671,11 +685,11 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                     setHistoryDate(e.target.value);
                     fetchUserHistory(historyModal.userId, e.target.value);
                   }}
-                  className="bg-gray-700 px-3 py-1.5 rounded text-sm"
+                  className="bg-gray-100 px-3 py-1.5 rounded text-sm"
                 />
                 <button
                   onClick={() => setHistoryModal(null)}
-                  className="text-gray-400 hover:text-white"
+                  className="text-gray-500 hover:text-gray-900"
                 >
                   ✕
                 </button>
@@ -684,10 +698,10 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
             <div className="flex-1 overflow-y-auto p-4">
               {historyLoading ? (
                 <div className="flex justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                  <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
                 </div>
               ) : historyResults.length === 0 ? (
-                <div className="text-center text-gray-400 py-8">No games on this date</div>
+                <div className="text-center text-gray-500 py-8">No games on this date</div>
               ) : (
                 <div className="space-y-2">
                   {historyResults.map((result, i) => (
@@ -696,18 +710,18 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                       className={`p-3 rounded-lg flex items-center justify-between ${
                         result.result === 'win' ? 'bg-green-500/10 border border-green-500/30' :
                         result.result === 'loss' ? 'bg-red-500/10 border border-red-500/30' :
-                        'bg-gray-700/50 border border-gray-600'
+                        'bg-gray-700/50 border border-gray-300'
                       }`}
                     >
                       <div className="flex items-center gap-3">
                         {result.result === 'win' ? <CheckCircle className="w-5 h-5 text-green-400" /> :
                          result.result === 'loss' ? <XCircle className="w-5 h-5 text-red-400" /> :
-                         <Clock className="w-5 h-5 text-gray-400" />}
+                         <Clock className="w-5 h-5 text-gray-500" />}
                         <div>
                           <div className="font-medium">
                             vs {result.opponentName}
                           </div>
-                          <div className="text-sm text-gray-400">
+                          <div className="text-sm text-gray-500">
                             {result.oderscore} - {result.opponentScore}
                             {result.cardTopic && <span className="ml-2">· {result.cardTopic}</span>}
                           </div>
@@ -728,36 +742,36 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
       {/* Edit User Modal */}
       {editingUser && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-paper rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             {/* Header */}
-            <div className="sticky top-0 bg-gray-800 z-10 p-4 border-b border-gray-700 flex items-center justify-between">
+            <div className="sticky top-0 bg-paper z-10 p-4 border-b border-gray-200 flex items-center justify-between">
               <h3 className="text-lg font-bold flex items-center gap-2">
                 <Edit2 className="w-4 h-4 text-[#E36B11]" />
                 Edit User: {editingUser.username}
               </h3>
-              <button onClick={() => setEditingUser(null)} className="text-gray-400 hover:text-white">
+              <button onClick={() => setEditingUser(null)} className="text-gray-500 hover:text-gray-900">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="p-5 space-y-5">
               {/* Avatar Section */}
-              <div className="flex items-center gap-4 p-4 bg-gray-900/50 rounded-lg">
+              <div className="flex items-center gap-4 p-4 bg-paper/50 rounded-lg">
                 {editingUser.avatar ? (
                   <img src={editingUser.avatar} alt={editingUser.username} className="w-20 h-20 rounded-full object-cover border-2 border-[#E36B11]" />
                 ) : (
-                  <div className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold text-white border-2 border-[#E36B11]" style={{ background: 'linear-gradient(135deg,#E36B11 0%,#a86b2b 100%)' }}>
+                  <div className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold text-gray-900 border-2 border-[#E36B11]" style={{ background: 'linear-gradient(135deg,#E36B11 0%,#a86b2b 100%)' }}>
                     {editingUser.username[0]?.toUpperCase()}
                   </div>
                 )}
                 <div className="flex-1">
-                  <label className="block text-xs text-gray-400 mb-2">Avatar</label>
+                  <label className="block text-xs text-gray-500 mb-2">Avatar</label>
                   <div className="flex gap-2">
                     <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
                     <button
                       onClick={() => avatarInputRef.current?.click()}
                       disabled={uploadingAvatar}
-                      className="px-3 py-2 bg-[#E36B11] hover:bg-[#c06a2a] disabled:opacity-50 text-white text-sm rounded-lg font-medium inline-flex items-center gap-2"
+                      className="px-3 py-2 bg-[#E36B11] hover:bg-[#c06a2a] disabled:opacity-50 text-gray-900 text-sm rounded-lg font-medium inline-flex items-center gap-2"
                     >
                       {uploadingAvatar ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                       Upload
@@ -765,7 +779,7 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                     {editingUser.avatar && (
                       <button
                         onClick={() => setEditingUser({ ...editingUser, avatar: '' })}
-                        className="px-3 py-2 bg-red-600 hover:bg-red-500 text-white text-sm rounded-lg font-medium"
+                        className="px-3 py-2 bg-red-600 hover:bg-red-500 text-paper text-sm rounded-lg font-medium"
                       >
                         Remove
                       </button>
@@ -777,7 +791,7 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                     value={editingUser.avatar || ''}
                     onChange={(e) => setEditingUser({ ...editingUser, avatar: e.target.value })}
                     placeholder="https://..."
-                    className="w-full mt-1 px-2 py-1.5 bg-gray-700 border border-gray-600 rounded text-xs"
+                    className="w-full mt-1 px-2 py-1.5 bg-gray-100 border border-gray-300 rounded text-xs"
                   />
                 </div>
               </div>
@@ -785,34 +799,34 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
               {/* Basic Info */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Username</label>
+                  <label className="block text-xs text-gray-500 mb-1">Username</label>
                   <input
                     type="text"
                     value={editingUser.username}
                     onChange={(e) => setEditingUser({ ...editingUser, username: e.target.value })}
-                    className="w-full bg-gray-700 px-3 py-2 rounded text-sm border border-gray-600"
+                    className="w-full bg-gray-100 px-3 py-2 rounded text-sm border border-gray-300"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Email</label>
+                  <label className="block text-xs text-gray-500 mb-1">Email</label>
                   <input
                     type="email"
                     value={editingUser.email}
                     onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
-                    className="w-full bg-gray-700 px-3 py-2 rounded text-sm border border-gray-600"
+                    className="w-full bg-gray-100 px-3 py-2 rounded text-sm border border-gray-300"
                   />
                 </div>
               </div>
 
               {/* Password Change */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">New Password (leave empty to keep current)</label>
+                <label className="block text-xs text-gray-500 mb-1">New Password (leave empty to keep current)</label>
                 <input
                   type="password"
                   value={(editingUser as any).newPassword || ''}
                   onChange={(e) => setEditingUser({ ...editingUser, newPassword: e.target.value } as any)}
                   placeholder="Enter new password..."
-                  className="w-full bg-gray-700 px-3 py-2 rounded text-sm border border-gray-600"
+                  className="w-full bg-gray-100 px-3 py-2 rounded text-sm border border-gray-300"
                 />
               </div>
 
@@ -825,33 +839,33 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
 
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">Display Name (used as Author Name on articles)</label>
+                    <label className="block text-xs text-gray-500 mb-1">Display Name (used as Author Name on articles)</label>
                     <input
                       type="text"
                       value={editingUser.displayName || ''}
                       onChange={(e) => setEditingUser({ ...editingUser, displayName: e.target.value })}
                       placeholder={editingUser.username}
                       maxLength={60}
-                      className="w-full bg-gray-700 px-3 py-2 rounded text-sm border border-gray-600"
+                      className="w-full bg-gray-100 px-3 py-2 rounded text-sm border border-gray-300"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">Bio</label>
+                    <label className="block text-xs text-gray-500 mb-1">Bio</label>
                     <textarea
                       value={editingUser.bio || ''}
                       onChange={(e) => setEditingUser({ ...editingUser, bio: e.target.value })}
                       placeholder="Tell readers about this author..."
                       maxLength={500}
                       rows={3}
-                      className="w-full bg-gray-700 px-3 py-2 rounded text-sm border border-gray-600 resize-none"
+                      className="w-full bg-gray-100 px-3 py-2 rounded text-sm border border-gray-300 resize-none"
                     />
                     <p className="text-[10px] text-gray-500 mt-1 text-right">{(editingUser.bio || '').length}/500</p>
                   </div>
 
                   {/* Social Links */}
                   <div>
-                    <label className="block text-xs text-gray-400 mb-2">Social Links</label>
+                    <label className="block text-xs text-gray-500 mb-2">Social Links</label>
                     <div className="space-y-2">
                       <SocialInput
                         icon={<Facebook className="w-4 h-4 text-[#1877F2]" />}
@@ -872,7 +886,7 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                         onChange={(v) => setEditingUser({ ...editingUser, socialLinks: { ...editingUser.socialLinks, linkedin: v } })}
                       />
                       <SocialInput
-                        icon={<Globe className="w-4 h-4 text-gray-400" />}
+                        icon={<Globe className="w-4 h-4 text-gray-500" />}
                         placeholder="https://yourwebsite.com"
                         value={editingUser.socialLinks?.website || ''}
                         onChange={(v) => setEditingUser({ ...editingUser, socialLinks: { ...editingUser.socialLinks, website: v } })}
@@ -883,14 +897,14 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
               </div>
 
               {/* Permissions */}
-              <div className="p-4 bg-gray-900/50 rounded-lg">
+              <div className="p-4 bg-paper/50 rounded-lg">
                 <div className="flex items-center gap-2 mb-3">
                   <Shield className="w-4 h-4 text-red-400" />
-                  <span className="text-sm font-bold text-gray-300">Permissions</span>
+                  <span className="text-sm font-bold text-gray-600">Permissions</span>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="flex items-center gap-3 p-2 bg-gray-700/50 rounded hover:bg-gray-700 cursor-pointer">
+                  <label className="flex items-center gap-3 p-2 bg-gray-700/50 rounded hover:bg-gray-100 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={!!editingUser.isAdmin}
@@ -899,11 +913,11 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                     />
                     <div className="flex-1">
                       <div className="text-sm font-medium text-red-400">Admin</div>
-                      <div className="text-xs text-gray-400">Full access to admin panel — includes Author rights</div>
+                      <div className="text-xs text-gray-500">Full access to admin panel — includes Author rights</div>
                     </div>
                   </label>
 
-                  <label className={`flex items-center gap-3 p-2 rounded cursor-pointer ${editingUser.isAdmin ? 'bg-gray-700/20 opacity-50' : 'bg-gray-700/50 hover:bg-gray-700'}`}>
+                  <label className={`flex items-center gap-3 p-2 rounded cursor-pointer ${editingUser.isAdmin ? 'bg-gray-700/20 opacity-50' : 'bg-gray-700/50 hover:bg-gray-100'}`}>
                     <input
                       type="checkbox"
                       checked={!!editingUser.isAuthor || !!editingUser.isAdmin}
@@ -913,7 +927,7 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                     />
                     <div className="flex-1">
                       <div className="text-sm font-medium text-[#E36B11]">Author</div>
-                      <div className="text-xs text-gray-400">
+                      <div className="text-xs text-gray-500">
                         {editingUser.isAdmin
                           ? 'Automatically granted via Admin role'
                           : 'Can write and publish articles (without full admin access)'}
@@ -929,13 +943,13 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
             </div>
 
             {/* Footer */}
-            <div className="sticky bottom-0 bg-gray-800 p-4 border-t border-gray-700 flex justify-between gap-3">
+            <div className="sticky bottom-0 bg-paper p-4 border-t border-gray-200 flex justify-between gap-3">
               <div>
                 {!editingUser.isAdmin && (
                   <button
                     onClick={deleteEditingUser}
                     disabled={savingUser}
-                    className="px-4 py-2.5 bg-red-700 hover:bg-red-600 disabled:opacity-50 text-white font-medium text-sm rounded-lg inline-flex items-center gap-2"
+                    className="px-4 py-2.5 bg-red-700 hover:bg-red-600 disabled:opacity-50 text-paper font-medium text-sm rounded-lg inline-flex items-center gap-2"
                   >
                     <Trash2 className="w-4 h-4" />
                     Remove User
@@ -946,14 +960,14 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                 <button
                   onClick={() => setEditingUser(null)}
                   disabled={savingUser}
-                  className="px-5 py-2.5 bg-gray-600 hover:bg-gray-500 disabled:opacity-50 text-white font-medium text-sm rounded-lg"
+                  className="px-5 py-2.5 bg-gray-200 hover:bg-gray-500 disabled:opacity-50 text-gray-900 font-medium text-sm rounded-lg"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={saveUserChanges}
                   disabled={savingUser || uploadingAvatar}
-                  className="px-5 py-2.5 bg-[#E36B11] hover:bg-[#c06a2a] disabled:opacity-50 text-white font-bold text-sm rounded-lg inline-flex items-center gap-2"
+                  className="px-5 py-2.5 bg-[#E36B11] hover:bg-[#c06a2a] disabled:opacity-50 text-gray-900 font-bold text-sm rounded-lg inline-flex items-center gap-2"
                 >
                   {savingUser && <Loader2 className="w-4 h-4 animate-spin" />}
                   Save Changes
@@ -978,76 +992,76 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
       {showCreateEmployee && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowCreateEmployee(false)} />
-          <div className="relative w-full max-w-md bg-gray-800 rounded-2xl shadow-2xl border border-gray-700 overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-700">
+          <div className="relative w-full max-w-md bg-paper rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
               <div className="flex items-center gap-2">
                 <UserPlus className="w-5 h-5 text-green-400" />
-                <span className="font-bold text-white">Create Employee</span>
+                <span className="font-bold text-gray-900">Create Employee</span>
               </div>
-              <button onClick={() => setShowCreateEmployee(false)} className="w-7 h-7 rounded-full hover:bg-gray-700 flex items-center justify-center text-gray-400">
+              <button onClick={() => setShowCreateEmployee(false)} className="w-7 h-7 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500">
                 <X className="w-4 h-4" />
               </button>
             </div>
             <div className="p-5 space-y-3">
               {/* Name */}
               <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1 block">Name *</label>
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1 block">Name *</label>
                 <input
                   value={newEmployee.name}
                   onChange={e => setNewEmployee(p => ({ ...p, name: e.target.value }))}
                   placeholder="e.g. Lisa Müller"
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-green-500"
+                  className="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:border-green-500"
                 />
               </div>
               {/* Nationality dropdown with flags */}
               <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1 block">Nationality</label>
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1 block">Nationality</label>
                 <div className="relative">
                   <select
                     value={newEmployee.nationality}
                     onChange={e => setNewEmployee(p => ({ ...p, nationality: e.target.value }))}
-                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500 appearance-none pr-8"
+                    className="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-green-500 appearance-none pr-8"
                   >
                     <option value="">— Select nationality</option>
                     {COUNTRIES.map(c => (
                       <option key={c.name} value={c.name}>{c.flag} {c.name}</option>
                     ))}
                   </select>
-                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
                 </div>
               </div>
               {/* Role dropdown */}
               <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1 block">Role *</label>
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1 block">Role *</label>
                 <div className="relative">
                   <select
                     value={newEmployee.role}
                     onChange={e => setNewEmployee(p => ({ ...p, role: e.target.value }))}
-                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500 appearance-none pr-8"
+                    className="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-green-500 appearance-none pr-8"
                   >
                     <option value="">— Select role</option>
                     {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                   </select>
-                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
                 </div>
               </div>
               {/* Responsibilities multi-select */}
               <div className="relative">
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1 block">Responsibilities * <span className="text-gray-500 normal-case font-normal">(select all that apply)</span></label>
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1 block">Responsibilities * <span className="text-gray-500 normal-case font-normal">(select all that apply)</span></label>
                 <button
                   type="button"
                   onClick={() => setShowRespDropdown(p => !p)}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-left focus:outline-none focus:border-green-500 flex items-center justify-between gap-2"
+                  className="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-left focus:outline-none focus:border-green-500 flex items-center justify-between gap-2"
                 >
-                  <span className={newEmployee.responsibilities.length ? 'text-white' : 'text-gray-500'}>
+                  <span className={newEmployee.responsibilities.length ? 'text-gray-900' : 'text-gray-500'}>
                     {newEmployee.responsibilities.length
                       ? newEmployee.responsibilities.join(', ')
                       : '— Select topics'}
                   </span>
-                  <ChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${showRespDropdown ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-4 h-4 text-gray-500 flex-shrink-0 transition-transform ${showRespDropdown ? 'rotate-180' : ''}`} />
                 </button>
                 {showRespDropdown && (
-                  <div className="absolute z-50 top-full mt-1 w-full bg-gray-700 border border-gray-600 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                  <div className="absolute z-50 top-full mt-1 w-full bg-gray-100 border border-gray-300 rounded-lg shadow-xl max-h-48 overflow-y-auto">
                     <div className="grid grid-cols-2 p-2 gap-0.5">
                       {RESPONSIBILITY_OPTIONS.map(opt => {
                         const selected = newEmployee.responsibilities.includes(opt);
@@ -1062,7 +1076,7 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
                                 : [...p.responsibilities, opt],
                             }))}
                             className={`flex items-center gap-1.5 px-2 py-1.5 rounded text-xs text-left transition-colors ${
-                              selected ? 'bg-green-600/30 text-green-300' : 'hover:bg-gray-600 text-gray-300'
+                              selected ? 'bg-green-600/30 text-green-300' : 'hover:bg-gray-200 text-gray-300'
                             }`}
                           >
                             {selected ? <Check className="w-3 h-3 flex-shrink-0" /> : <span className="w-3 h-3 flex-shrink-0" />}
@@ -1076,46 +1090,46 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
               </div>
               {/* Writing Style dropdown */}
               <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1 block">Writing Style</label>
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1 block">Writing Style</label>
                 <div className="relative">
                   <select
                     value={newEmployee.writingStyle}
                     onChange={e => setNewEmployee(p => ({ ...p, writingStyle: e.target.value }))}
-                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500 appearance-none pr-8"
+                    className="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-green-500 appearance-none pr-8"
                   >
                     <option value="">— Select writing style</option>
                     {WRITING_STYLES.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
-                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
                 </div>
               </div>
               {/* Personality dropdown */}
               <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1 block">Personality</label>
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1 block">Personality</label>
                 <div className="relative">
                   <select
                     value={newEmployee.personality}
                     onChange={e => setNewEmployee(p => ({ ...p, personality: e.target.value }))}
-                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-green-500 appearance-none pr-8"
+                    className="w-full bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-green-500 appearance-none pr-8"
                   >
                     <option value="">— Select personality</option>
                     {PERSONALITIES.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
-                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
                 </div>
               </div>
             </div>
             <div className="px-5 pb-5 flex gap-3">
               <button
                 onClick={() => setShowCreateEmployee(false)}
-                className="flex-1 py-2.5 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded-lg transition-colors"
+                className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-900 text-sm font-medium rounded-lg transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={createEmployee}
                 disabled={creatingEmployee}
-                className="flex-1 py-2.5 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+                className="flex-1 py-2.5 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-paper text-sm font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
               >
                 {creatingEmployee ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
                 {creatingEmployee ? 'Creating...' : 'Create Employee'}
@@ -1124,20 +1138,21 @@ export default function UsersTab({ onGoToArticles, userId: adminUserId }: { onGo
           </div>
         </div>
       )}
+      <ConfirmDialog />
     </>
   );
 }
 
 function SocialInput({ icon, placeholder, value, onChange }: { icon: React.ReactNode; placeholder: string; value: string; onChange: (v: string) => void }) {
   return (
-    <div className="flex items-center gap-2 bg-gray-700/50 border border-gray-600 rounded px-2 py-1">
+    <div className="flex items-center gap-2 bg-gray-700/50 border border-gray-300 rounded px-2 py-1">
       <span className="flex-shrink-0">{icon}</span>
       <input
         type="url"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="flex-1 bg-transparent text-xs text-white placeholder-gray-500 focus:outline-none"
+        className="flex-1 bg-transparent text-xs text-gray-900 placeholder-gray-500 focus:outline-none"
       />
     </div>
   );

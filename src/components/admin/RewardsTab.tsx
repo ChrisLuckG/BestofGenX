@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Edit2, Trash2, Save, X, Loader2 } from "lucide-react";
+import { useConfirm } from "./ConfirmModal";
 
 interface RewardData {
   _id?: string;
@@ -29,6 +30,7 @@ export default function RewardsTab() {
   const [rewards, setRewards] = useState<RewardData[]>([]);
   const [rewardsLoading, setRewardsLoading] = useState(false);
   const [editingReward, setEditingReward] = useState<Partial<RewardData> | null>(null);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   useEffect(() => {
     fetchRewards();
@@ -72,7 +74,13 @@ export default function RewardsTab() {
   };
 
   const deleteReward = async (id: string, name: string) => {
-    if (!confirm(`Delete reward "${name}"?`)) return;
+    const ok = await confirm({
+      title: 'Delete Reward',
+      message: `Delete reward "${name}"?`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
     try {
       const res = await fetch("/api/rewards", {
         method: "DELETE",
@@ -161,7 +169,7 @@ export default function RewardsTab() {
           <div className="bg-gray-800 rounded-xl w-full max-w-md">
             <div className="p-4 border-b border-gray-700 flex items-center justify-between">
               <h3 className="text-lg font-bold">{editingReward._id ? 'Edit Reward' : 'New Reward'}</h3>
-              <button onClick={() => setEditingReward(null)} className="text-gray-400 hover:text-white">
+              <button onClick={() => setEditingReward(null)} className="text-gray-400 hover:text-paper">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -248,6 +256,7 @@ export default function RewardsTab() {
           </div>
         </div>
       )}
+      <ConfirmDialog />
     </>
   );
 }

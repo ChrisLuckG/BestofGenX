@@ -6,6 +6,46 @@ import Image from "next/image";
 import { formatCurrency, getCurrencySymbol } from "@/utils/currency";
 import { type RankPeriod, rankUnrankedTip, rankUnrankedGuestTip } from "@/lib/rankPeriod";
 
+// Direction of a rank position compared to the last value we ever saw for it.
+// Returns null if the position hasn't changed (neutral).
+function useRankDirection(label: string, value: number): 'up' | 'down' | null {
+  const storageKey = `rank-dir-${label.toLowerCase()}`;
+  const [direction, setDirection] = useState<'up' | 'down' | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let stored: { rank: number } | null = null;
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) stored = JSON.parse(raw);
+    } catch { /* ignore */ }
+
+    // Unranked (no points in this period yet) - no arrow
+    if (value <= 0) {
+      setDirection(null);
+      return;
+    }
+
+    // Lower rank number = better position.
+    let dir: 'up' | 'down' | null = null;
+    if (stored && stored.rank > 0) {
+      if (value < stored.rank) {
+        dir = 'up';
+      } else if (value > stored.rank) {
+        dir = 'down';
+      }
+    }
+
+    setDirection(dir);
+    try {
+      localStorage.setItem(storageKey, JSON.stringify({ rank: value }));
+    } catch { /* ignore */ }
+  }, [storageKey, value]);
+
+  return direction;
+}
+
 interface HeaderProps {
   coins: number;
   username: string;
@@ -48,6 +88,11 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
   const [flyingAmount, setFlyingAmount] = useState<number | null>(null);
   const prevCoinsRef = useRef(coins);
   const lastAnimationRef = useRef<{ amount: number } | null>(null);
+  
+  // Rank direction arrows
+  const dailyDir = useRankDirection('day', dailyRank);
+  const monthlyDir = useRankDirection('month', monthlyRank);
+  const yearlyDir = useRankDirection('year', yearlyRank);
   
   // Wager animation state
   const [wagerVisible, setWagerVisible] = useState(pendingAmount > 0);
@@ -150,16 +195,21 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
     }
     
     // Count EVERY SINGLE CENT: 0,01 -> 0,02 -> 0,03 -> ... -> 0,50
-    const totalCents = Math.abs(diff); // e.g., 50 cents = 50 steps
+    //
+    // `diff` arrives in BOGX (0,50), NOT in cents. Treating it as a step count meant
+    // 0,50 became half a step: the first tick added a whole 1,00 to the balance and the
+    // loop then ended immediately and snapped back to the real value - a visible jump on
+    // every reward.
+    const totalCents = Math.round(Math.abs(diff) * 100);
     const direction = diff > 0 ? 1 : -1;
     let currentCent = 0;
     
-    // 50 cents over 2.5 seconds = 50ms per cent
-    const msPerCent = 50;
+    // 50ms per cent, but capped so a big win doesn't count for half a minute.
+    const msPerCent = Math.max(12, Math.min(50, Math.round(2500 / totalCents)));
 
     const interval = setInterval(() => {
       currentCent++;
-      const newValue = startValue + (currentCent * direction);
+      const newValue = startValue + (currentCent * direction) / 100;
       setDisplayCoins(newValue);
       
       if (currentCent >= totalCents) {
@@ -178,28 +228,32 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
   return (
     <div className="absolute top-0 left-0 right-0 z-50 bg-cream border-b border-warm">
       <div className="relative flex items-center justify-between px-4 h-[72px]">
-        {/* Left - GenX Logo */}
-        <button onClick={onLogoClick} className="flex items-center hover:scale-105 transition-all -ml-1">
+        {/* Left - GenX Logo.
+            Shrinkable on purpose: the score widget next to it is overflow-hidden, so
+            when the row runs out of room it CLIPS its own content instead of wrapping -
+            that is what cut the "22 DAY" column off at the right edge. The logo giving
+            up a few pixels on narrow phones is the cheaper trade. */}
+        <button onClick={onLogoClick} className="flex items-center hover:scale-105 transition-all -ml-1 min-w-0 shrink">
           <Image 
             src="/images/genxlogo1.png" 
             alt="Best of GenX" 
             width={80} 
             height={46} 
-            className="object-contain"
+            className="object-contain h-[46px] w-auto max-w-full"
           />
         </button>
 
         {/* Score Widget - Desktop-like design with animations */}
         <button
           onClick={onCoinsClick}
-          className={`ml-auto flex items-stretch rounded-lg border shadow-sm transition-all relative overflow-hidden ${
-            rankingsOpen 
-              ? 'bg-gradient-to-b from-[#E36B11] to-[#C4772A] border-[#E36B11]' 
-              : isNegative
-                ? 'bg-gradient-to-b from-red-500 to-red-600 border-red-500'
-                : isPositive
-                  ? 'bg-gradient-to-b from-[#E36B11] to-[#C4772A] border-[#E36B11]'
-                  : 'bg-gradient-to-b from-[#FFFDF9] to-[#FDF8F0] border-[#E36B11]/30'
+          // Only the open rankings overlay fills this widget. A win/loss used to flood
+          // it (red, then orange) for 1.4s, which turned the whole header into a
+          // different colour for every reward - the shake/scale animation, the coloured
+          // number and the flying delta are cue enough.
+          className={`ml-auto shrink-0 flex items-stretch rounded-lg border shadow-sm transition-all relative overflow-hidden ${
+            rankingsOpen
+              ? 'bg-gradient-to-b from-[#E36B11] to-[#C4772A] border-[#E36B11]'
+              : 'bg-gradient-to-b from-[#FFFDF9] to-[#FDF8F0] border-[#E36B11]/30'
           }`}
           style={isAnimating ? { 
             animation: isPositive ? 'scoreWin 1.4s ease-out' : 'scoreLoss 1.4s ease-out' 
@@ -207,39 +261,65 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
         >
           {/* Left accent bar */}
           <div className={`absolute left-0 top-1 bottom-1 w-0.5 rounded-full ${
-            rankingsOpen || isPositive ? 'bg-gradient-to-b from-white to-white/80' : 'bg-gradient-to-b from-[#E36B11] to-[#E5A55A]'
+            rankingsOpen ? 'bg-gradient-to-b from-white to-white/80' : 'bg-gradient-to-b from-[#E36B11] to-[#E5A55A]'
           }`} />
           
-          {/* Coins Section - no icon, bigger numbers, fixed min width */}
-          <div className={`flex items-center pl-2 pr-1 py-2 border-r ${
-            rankingsOpen || isPositive || isNegative ? 'border-white/20' : 'border-[#E36B11]/10'
-          }`} style={{ minWidth: '70px' }}>
+          {/* Coins Section - with BOGX coin icon */}
+          <div
+            className={`flex items-center gap-1 pl-1 pr-1 py-2 border-r ${
+              rankingsOpen ? 'border-white/20' : 'border-[#E36B11]/10'
+            }`}
+            style={{ minWidth: '70px' }}
+          >
+            {/* BOGX Coin Icon - same size AND same spin as Desktop. The coinSpin*
+                keyframes were already defined below but nothing used them, so a
+                reward only nudged the icon's scale while desktop spun its coin. */}
+            <img 
+              src="/images/bogxcoin.png" 
+              alt="" 
+              className="w-10 h-10 -my-1 shrink-0"
+              style={isAnimating ? {
+                animation: isPositive
+                  ? 'coinSpinWin 1.1s ease-out'
+                  : 'coinSpinLoss 0.9s ease-in-out',
+              } : undefined}
+            />
             <div className="flex flex-col justify-center">
               <span 
+                // The balance has exactly ONE resting colour (brand orange). Green only
+                // while the counter is actually running: isPositive alone lingers for up
+                // to 3s after the number stopped moving (safety timeout below), which
+                // made the widget look like it had two permanent states.
                 className={`font-display font-bold tabular-nums leading-none transition-all ${
-                  isPositive ? 'text-green-400' : 
-                  isNegative ? 'text-red-300' : 
-                  rankingsOpen ? 'text-white' : 'text-[#E36B11]'
+                  rankingsOpen ? 'text-white' :
+                  isAnimating && isPositive ? 'text-green-600' : 'text-[#E36B11]'
                 }`}
+                // Same size as the rank number next to it - a smaller balance looked
+                // secondary to its own day rank.
                 style={{ fontSize: '26px' }}
               >
                 {displayCoins.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
-              <span className={`text-[7px] font-display uppercase ${
-                rankingsOpen || isPositive || isNegative ? 'text-white/60' : 'text-gray-400'
+              <span className={`text-[8px] font-display uppercase ${
+                rankingsOpen ? 'text-white/60' : 'text-gray-600'
               }`}>Coins</span>
             </div>
           </div>
           
-          {/* Rank Positions OR Wager Section - fixed width to prevent size change */}
-          <div className="flex items-center justify-center px-1 py-2 relative" style={{ minWidth: '100px' }}>
+          {/* Rank Positions OR Wager Section - fixed width in BOTH states on purpose:
+              the wager replaces the rank column, and a content-driven width made the
+              whole score widget resize the moment a wager appeared or was settled. */}
+          <div className="flex items-center justify-center px-0.5 py-2 relative" style={{ minWidth: '72px' }}>
             {/* Wager overlay - shows instead of ranks when active - Desktop style with fade in/out */}
             {wagerVisible ? (
               <div 
-                className={`group/wager relative flex items-center gap-2 px-2 py-1 rounded-lg cursor-pointer transition-all duration-300 border hover:bg-[#6366F1] hover:border-[#6366F1] ${
-                  wagerAnim === 'in' ? 'bg-[#A855F7]/25 border-[#A855F7]/40' :
+                // Gold (#D4A04A tint, #C4772A on hover) instead of the indigo it used
+                // to be: locked coins are still coins, and indigo was the only cool
+                // colour in an otherwise cream/gold header.
+                className={`group/wager relative flex items-center gap-1 px-1 py-1 rounded-lg cursor-pointer transition-all duration-300 border hover:bg-[#C4772A] hover:border-[#C4772A] ${
+                  wagerAnim === 'in' ? 'bg-[#E8A54B]/30 border-[#E8A54B]/55' :
                   wagerAnim === 'out' ? 'bg-green-500/25 border-green-500/40' :
-                  'bg-[#6366F1]/15 border-[#6366F1]/30'
+                  'bg-[#D4A04A]/20 border-[#D4A04A]/45'
                 }`}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -251,68 +331,67 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
                   { animation: 'wagerPulse 2s ease-in-out infinite' }
                 }
               >
-                <Lock className={`w-4 h-4 transition-all group-hover/wager:text-white ${
-                  wagerAnim === 'in' ? 'text-[#A855F7] scale-125' :
+                <Lock className={`w-4 h-4 shrink-0 transition-all group-hover/wager:text-white ${
+                  wagerAnim === 'in' ? 'text-[#E36B11] scale-125' :
                   wagerAnim === 'out' ? 'text-green-500 scale-110' :
-                  'text-[#6366F1]'
+                  'text-[#C4772A]'
                 }`} />
                 <div className="flex flex-col">
                   <span 
                     className={`font-display font-bold tabular-nums leading-none transition-all group-hover/wager:text-white ${
-                      wagerAnim === 'in' ? 'text-[#A855F7] scale-110' :
+                      wagerAnim === 'in' ? 'text-[#E36B11] scale-110' :
                       wagerAnim === 'out' ? 'text-green-500 scale-110' :
-                      'text-[#6366F1]'
+                      'text-[#C4772A]'
                     }`}
                     style={{ fontSize: '20px' }}
                   >
                     {pendingAmount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
-                  <span className="text-[8px] font-display uppercase text-gray-400 transition-colors group-hover/wager:text-white/70">Wager</span>
+                  <span className="text-[8px] font-display uppercase text-gray-600 transition-colors group-hover/wager:text-white/70">Wager</span>
                 </div>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5">
-                {/* One column per period. An unranked period shows an orange "?" that
-                    opens the explanation instead of the rankings overlay - a bare "—"
-                    made "played 35 games, net negative" look like "never played".
-                    A span, not a button: the whole widget already is a <button>. */}
-                {([
-                  { key: 'day', label: 'Day', value: dailyRank },
-                  { key: 'month', label: 'Mon', value: monthlyRank },
-                  { key: 'year', label: 'Year', value: yearlyRank },
-                ] as const).map(({ key, label, value }, i) => {
-                  const hasRank = value > 0;
-                  return (
-                    <div key={key} className="flex items-center gap-1.5">
-                      {i > 0 && <div className={`w-px h-6 ${rankingsOpen ? 'bg-white/20' : 'bg-gray-300'}`} />}
-                      <div className="flex flex-col items-center">
-                        {isLoadingRanks ? (
-                          <div className="w-8 h-6 bg-gray-200 rounded animate-pulse" />
-                        ) : (
-                          <span
-                            onClick={hasRank ? undefined : (e) => {
-                              e.stopPropagation();
-                              setTipFor(prev => (prev === key ? null : key));
-                            }}
-                            className={`font-display font-bold tabular-nums leading-none transition-transform ${
-                              rankingsOpen
-                                ? 'text-white'
-                                : hasRank
-                                  ? 'text-green-500'
-                                  : 'text-[#E36B11] cursor-pointer active:scale-125'
-                            }`}
-                            style={{ fontSize: '20px' }}
-                          >
-                            {hasRank ? value.toString().padStart(2, '0') : '?'}
-                          </span>
-                        )}
-                        <span className={`text-[8px] font-display uppercase ${
-                          rankingsOpen ? 'text-white/60' : 'text-gray-400'
-                        }`}>{label}</span>
-                      </div>
+              <div className="flex items-center">
+                {/* Mobile: only show Day rank for cleaner design */}
+                <div className="flex flex-col items-center">
+                  {isLoadingRanks ? (
+                    <div className="w-8 h-6 bg-gray-200 rounded animate-pulse" />
+                  ) : (
+                    <div className="flex items-center gap-0.5">
+                      {/* Arrow indicator - matches Desktop: green up, red down, green neutral */}
+                      {dailyRank > 0 && dailyDir === 'up' && (
+                        <ArrowUp className={`w-3.5 h-3.5 shrink-0 transition-colors ${rankingsOpen ? 'text-white' : 'text-green-500'}`} />
+                      )}
+                      {dailyRank > 0 && dailyDir === 'down' && (
+                        <ArrowDown className={`w-3.5 h-3.5 shrink-0 transition-colors ${rankingsOpen ? 'text-white' : 'text-red-500'}`} />
+                      )}
+                      {dailyRank > 0 && dailyDir === null && (
+                        <ArrowUp className={`w-3.5 h-3.5 shrink-0 transition-colors ${rankingsOpen ? 'text-white' : 'text-green-500'}`} />
+                      )}
+                      {dailyRank <= 0 && (
+                        <span className="w-3.5 h-3.5 shrink-0" />
+                      )}
+                      <span
+                        onClick={dailyRank > 0 ? undefined : (e) => {
+                          e.stopPropagation();
+                          setTipFor(prev => (prev === 'day' ? null : 'day'));
+                        }}
+                        className={`text-[26px] font-display font-bold tabular-nums leading-none transition-all ${
+                          rankingsOpen
+                            ? 'text-white'
+                            : dailyRank > 0
+                              ? 'text-gray-800'
+                              : 'text-[#E36B11] cursor-pointer active:scale-125'
+                        }`}
+                      >
+                        {dailyRank > 0 ? dailyRank.toString().padStart(2, '0') : '?'}
+                      </span>
                     </div>
-                  );
-                })}
+                  )}
+                  <span className={`text-[9px] font-display uppercase transition-colors ${
+                    rankingsOpen ? 'text-white/60' : 'text-gray-600'
+                  }`}>Day</span>
+                </div>
               </div>
             )}
           </div>
@@ -383,8 +462,8 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
             100% { transform: translate(-50%, -50px) scale(0.9); opacity: 0; }
           }
           @keyframes wagerPulse {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
-            50% { box-shadow: 0 0 0 6px rgba(99, 102, 241, 0); }
+            0%, 100% { box-shadow: 0 0 0 0 rgba(212, 160, 74, 0.45); }
+            50% { box-shadow: 0 0 0 6px rgba(212, 160, 74, 0); }
           }
           /* Revealed left-to-right so it reads as coming out of the score, not fading
              in on top of it. clip-path rather than scaleX: scaling squashed the amount
@@ -403,7 +482,7 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
         <div className="w-px h-6 bg-gray-300 mx-1.5" />
 
         {/* Right side - Notifications + Profile */}
-        <div className="flex items-center gap-0 -mr-1">
+        <div className="flex items-center gap-0 -mr-1 shrink-0">
           {/* Notification Bell */}
           <button 
             onClick={handleNotificationClick}

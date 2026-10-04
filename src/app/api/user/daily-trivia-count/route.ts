@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
+import { rankingDayKey } from '@/lib/berlinTime';
 
-// Get today's date key in UTC
+// The key MUST be the ranking day (10:00 Berlin -> 10:00 Berlin), not a UTC or
+// calendar midnight. UTC midnight is 01:00/02:00 Berlin, i.e. it falls INSIDE a
+// ranking day: the counter reset halfway through and handed out a second set of
+// games that still scored towards the same day - 10 games instead of 5.
 function getTodayKey(): string {
-  const now = new Date();
-  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
+  return rankingDayKey();
 }
 
 // GET: Fetch today's game count for a user

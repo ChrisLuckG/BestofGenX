@@ -65,6 +65,8 @@ interface RoundResult {
   timeMs: number;
   points: number;
   answerIndex?: number;
+  /** Round was opened but never answered (reload / lost connection) - scored as wrong. */
+  abandoned?: boolean;
 }
 
 // Topic config - 5 official categories only.
@@ -131,7 +133,7 @@ interface BattlePageProps {
   onGoToArticles?: () => void; // Navigate to articles
   isDesktop?: boolean; // If true, desktop layout
   skipSetup?: boolean; // If true, skip setup screen and go directly to pool
-  challengeTarget?: { id: string; username: string } | null; // Pre-selected player to challenge
+  challengeTarget?: { id: string; username: string; avatar?: string; countryFlag?: string } | null; // Pre-selected player to challenge
   onChallengeTargetHandled?: () => void; // Callback when challenge target has been handled
 }
 
@@ -161,7 +163,13 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   // Screen state - start with pool if skipSetup is true, or if a battle was passed in via
   // pendingBattleId (e.g. clicking "Play Now" from Open Battles), skip setup
   // and go straight to the intro screen instead of flashing setup first.
-  const [screen, setScreen] = useState<GameScreen>(pendingBattleId ? 'intro' : (skipSetup ? 'pool' : 'setup'));
+  // challengeTarget takes priority: without this, mounting with skipSetup=true
+  // (always true on desktop) briefly showed the Open Battles pool screen before
+  // the challengeTarget effect below could redirect to the invite flow - a
+  // visible flash between clicking "Challenge" and landing on the right step.
+  const [screen, setScreen] = useState<GameScreen>(
+    challengeTarget ? 'invite' : pendingBattleId ? 'intro' : (skipSetup ? 'pool' : 'setup')
+  );
   const [selectedGameType, setSelectedGameType] = useState('quiz');
   const [topicFilter, setTopicFilter] = useState('all');
   const [wagerFilter, setWagerFilter] = useState<number | 'all'>('all');
@@ -171,12 +179,27 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   const [showCreate, setShowCreate] = useState(false);
   const [createWager, setCreateWager] = useState(0.25);
   const [createTopic, setCreateTopic] = useState('sport');
+  // Step 2 of the invite flow picks a topic but does NOT advance on the tap -
+  // the step is confirmed with its own button, like the wager step. `createTopic`
+  // defaults to 'sport', so it cannot double as "has the user chosen yet": null
+  // here means nothing is selected and the Continue button stays disabled.
+  const [pendingTopic, setPendingTopic] = useState<string | null>(null);
+  // Scoreboard player info (rank, wallet, battle record), keyed by user id.
+  const [scoreboardInfo, setScoreboardInfo] = useState<Record<string, {
+    rank: number; coins: number; battleWins: number; battleLosses: number;
+  }>>({});
+  // Direct record between the two players on the scoreboard.
+  const [scoreboardH2H, setScoreboardH2H] = useState<{
+    wins: Record<string, number>; ties: number; total: number;
+  } | null>(null);
   
   // Challenge modal (legacy - now using invite screen)
   const [showChallengeModal, setShowChallengeModal] = useState(false);
   
-  // Invite screen state
-  const [inviteStep, setInviteStep] = useState<1 | 2 | 3 | 4>(1); // 1=player, 2=topic, 3=wager, 4=preparing
+  // Invite screen state. Seeded from challengeTarget for the same reason as
+  // `screen` above - starting at step 1 (pick a player) and only advancing once
+  // the effect below runs would flash the player list for a frame first.
+  const [inviteStep, setInviteStep] = useState<1 | 2 | 3 | 4>(challengeTarget ? 2 : 1); // 1=player, 2=topic, 3=wager, 4=preparing
   const [sentBattleId, setSentBattleId] = useState<string | null>(null);
   const [inviteSearchQuery, setInviteSearchQuery] = useState('');
   const [inviteSearchResults, setInviteSearchResults] = useState<any[]>([]);
@@ -184,7 +207,9 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   const [invitePlayerFilter, setInvitePlayerFilter] = useState<'all' | 'online' | 'country' | 'level'>('all');
   const [inviteIsSearching, setInviteIsSearching] = useState(false);
   const [inviteLoadingOnline, setInviteLoadingOnline] = useState(false);
-  const [selectedInviteUser, setSelectedInviteUser] = useState<any>(null);
+  const [selectedInviteUser, setSelectedInviteUser] = useState<any>(
+    challengeTarget ? { _id: challengeTarget.id, username: challengeTarget.username, avatar: challengeTarget.avatar, countryFlag: challengeTarget.countryFlag } : null
+  );
 
   // Open Battles modal (same as ArcadePage)
   const [showOpenBattles, setShowOpenBattles] = useState(false);
@@ -880,9 +905,52 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
 
     // Determine role correctly instead of assuming opponent
     setIsCreator(iAmCreator);
-    setCurrentRound(0);
-    setMyResults([]);
     setHasStartedBattle(false);
+    
+    // Load MY existing results and resume from where I left off. The server is asked
+    // to reconcile first: a round that was opened but never answered is closed as
+    // wrong there, so it is NOT handed back out. Reading battle.creatorResults
+    // directly would skip that and re-serve the question the player walked out of.
+    let myExistingResults = (iAmCreator ? battle.creatorResults : battle.opponentResults) || [];
+    let myExistingTotalPoints = (iAmCreator ? battle.creatorTotalPoints : battle.opponentTotalPoints) || 0;
+    if (user?.id) {
+      try {
+        const resumeRes = await fetch(`/api/battles/${battle._id}/round`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id, action: 'resume' }),
+        });
+        const resumeData = await resumeRes.json();
+        if (resumeData.success && Array.isArray(resumeData.results)) {
+          myExistingResults = resumeData.results;
+          myExistingTotalPoints = resumeData.totalPoints ?? myExistingTotalPoints;
+        }
+      } catch (err) {
+        console.error('Failed to reconcile abandoned rounds:', err);
+      }
+    }
+    if (myExistingResults.length > 0) {
+      const normalizedMyResults = myExistingResults.map((r: any) => ({
+        correct: r.correct,
+        timeMs: r.timeMs,
+        points: r.points > 1 ? r.points / 1000 : r.points,
+        answerIndex: r.answerIndex,
+        abandoned: r.abandoned,
+      }));
+      setMyResults(normalizedMyResults);
+      myResultsRef.current = normalizedMyResults;
+      setMyTotalPoints(myExistingTotalPoints > 1 ? myExistingTotalPoints / 1000 : myExistingTotalPoints);
+      // Resume at the next unanswered round
+      currentRoundRef.current = normalizedMyResults.length;
+      setCurrentRound(normalizedMyResults.length);
+    } else {
+      setMyResults([]);
+      myResultsRef.current = [];
+      setMyTotalPoints(0);
+      currentRoundRef.current = 0;
+      setCurrentRound(0);
+    }
+    
     // Load the OTHER player's existing results (if any) as "opponent" progress
     // Normalize old points (>1) to BOGX (<1) - legacy data had points like 100, 150
     const otherResults = iAmCreator ? battle.opponentResults : battle.creatorResults;
@@ -894,13 +962,41 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         points: r.points > 1 ? r.points / 1000 : r.points // Convert legacy points to BOGX
       }));
       setOpponentResults(normalizedResults);
+      opponentResultsRef.current = normalizedResults;
       const totalPts = otherTotalPoints || 0;
       setOpponentTotalPoints(totalPts > 1 ? totalPts / 1000 : totalPts);
+    } else if (!iAmCreator && (battle.creator as any)?.isBot && myExistingResults.length > 0) {
+      // Resuming a bot battle. Bot rounds are simulated client-side only, so a reload
+      // loses them - submitting an empty bot scoreboard would hand a 0:0 tie (and a
+      // refund) to a player who walked out of every round. Play the bot's rounds now.
+      const simulated = Array.from({ length: battle.rounds }).map(() => {
+        const correct = Math.random() < 0.6 + Math.random() * 0.3;
+        const timeMs = 2000 + Math.random() * 6000;
+        const pct = Math.max(10000 - timeMs, 0) / 10000;
+        return {
+          correct,
+          timeMs,
+          points: correct ? Math.round(0.30 * pct * 100) / 100 : 0,
+        };
+      });
+      setOpponentResults(simulated);
+      opponentResultsRef.current = simulated;
+      setOpponentTotalPoints(simulated.reduce((s, r) => s + r.points, 0));
     } else {
       setOpponentResults([]);
+      opponentResultsRef.current = [];
       setOpponentTotalPoints(0);
     }
-    setMyTotalPoints(0);
+
+    // Every round was already closed (all of them abandoned, or the tab was lost
+    // after the last answer). There is no question left to show, so finish the
+    // battle instead of dropping the player into an empty quiz screen. State set
+    // above has not committed yet, hence the explicit overrides.
+    if (myResultsRef.current.length >= battle.rounds) {
+      setScreen(iAmCreator ? 'invitation-sent' : 'result');
+      completeBattle(myResultsRef.current, battle, iAmCreator);
+      return;
+    }
     // Don't start countdown here - wait for user to click START on preparing screen
   };
   
@@ -944,8 +1040,9 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
       });
       const data = await res.json();
       // Only animate what the server actually gave back. On the (unexpected) forfeit
-      // path nothing is refunded, so showing a credit would be a lie.
-      if (data.success && data.cancelled) {
+      // path nothing is refunded, so showing a credit would be a lie. `reopened` is
+      // the pool case: the battle stays alive for its creator, our wager comes back.
+      if (data.success && (data.cancelled || data.reopened)) {
         onCoinAnimation?.(data.refunded ?? toBOGX(currentBattle.wager), 'hold');
       }
     } catch (error) {
@@ -1016,6 +1113,22 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     setShowAnswer(false);
     startTimeRef.current = Date.now();
     
+    // Tell the server this round is now open. Without this record a reload cannot be
+    // told apart from never having reached the round, and the question could be
+    // replayed until it was answered correctly.
+    const battleForStart = currentBattleRef.current;
+    if (user?.id && battleForStart) {
+      fetch(`/api/battles/${battleForStart._id}/round`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          action: 'start',
+          round: currentRoundRef.current,
+        }),
+      }).catch(err => console.error('Failed to mark round as started:', err));
+    }
+    
     // Timer
     timerRef.current = setInterval(() => {
       const elapsed = Date.now() - startTimeRef.current;
@@ -1058,6 +1171,22 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     setMyResults(newResults);
     myResultsRef.current = newResults; // Update ref immediately
     setMyTotalPoints(prev => prev + points);
+    
+    // Save round result to server immediately (prevents refresh cheating)
+    if (user?.id) {
+      fetch(`/api/battles/${currentBattle._id}/round`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          round: currentRound,
+          correct,
+          timeMs,
+          points,
+          answerIndex: index,
+        }),
+      }).catch(err => console.error('Failed to save round:', err));
+    }
     
     // Track question in history so it won't repeat
     if (user?.id && question.cardId) {
@@ -1105,7 +1234,21 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     setMyResults(newResults);
     myResultsRef.current = newResults; // Update ref immediately
     
-    console.log('handleTimeout: newResults length:', newResults.length);
+    // Save timeout result to server immediately (prevents refresh cheating)
+    if (user?.id && battle) {
+      fetch(`/api/battles/${battle._id}/round`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          round,
+          correct: false,
+          timeMs: 10000,
+          points: 0,
+          answerIndex: -1,
+        }),
+      }).catch(err => console.error('Failed to save timeout round:', err));
+    }
     
     simulateOpponent();
     
@@ -1173,7 +1316,10 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
       // Go directly to next round after a short delay (no inter-screen)
       console.log('Going to next round directly');
       setTimeout(() => {
-        setCurrentRound(prev => prev + 1);
+        // Keep the ref in step immediately - it is otherwise only synced by an
+        // effect, and startRound() reports the round number to the server from it.
+        currentRoundRef.current = nextIdx;
+        setCurrentRound(nextIdx);
         setScreen('countdown');
         runCountdown();
       }, 1500); // 1.5 second delay to see result
@@ -1187,9 +1333,20 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     runCountdown();
   };
 
-  // Complete battle - save results to server
-  const completeBattle = async (latestResults?: RoundResult[]) => {
-    if (!currentBattle || !user) return;
+  // Complete battle - save results to server.
+  // battleOverride/isCreatorOverride exist for the same reason beginBattle takes the
+  // battle explicitly: when this is called in the same tick as setCurrentBattle /
+  // setIsCreator (resuming a battle whose rounds are all already closed), the state
+  // read from the closure is still the previous one - null, which silently dropped
+  // the submit and left the battle active forever.
+  const completeBattle = async (
+    latestResults?: RoundResult[],
+    battleOverride?: Battle,
+    isCreatorOverride?: boolean
+  ) => {
+    const activeBattle = battleOverride || currentBattle;
+    const iAmCreator = isCreatorOverride ?? isCreator;
+    if (!activeBattle || !user) return;
     
     // Use passed results if available (more accurate than state)
     const resultsToSubmit = latestResults || myResults;
@@ -1199,18 +1356,22 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     incrementGamePlayCount("quizzbattle");
     
     // Format results for API
+    // abandoned must be carried through: submit REPLACES the stored results, so
+    // dropping the flag here would erase the reason a round was lost and the result
+    // view would show a reload as an ordinary wrong answer.
     const formattedResults = resultsToSubmit.map((r, i) => ({
       round: i,
       correct: r.correct,
       timeMs: r.timeMs,
       points: r.points,
-      answerIndex: r.answerIndex
+      answerIndex: r.answerIndex,
+      abandoned: r.abandoned
     }));
     
     // When playing against a bot, the bot (creator) never actually played on the server.
     // Send the locally-simulated bot results so the server can save them and determine
     // the winner correctly (otherwise both sides are 0 => false tie + refund).
-    const creatorIsBot = !isCreator && (currentBattle.creator as any)?.isBot;
+    const creatorIsBot = !iAmCreator && (activeBattle.creator as any)?.isBot;
     const botResults = creatorIsBot
       ? opponentResultsRef.current.map((r, i) => ({
           round: i,
@@ -1223,13 +1384,13 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     
     // Submitting is the only chance to persist a finished game, so a single
     // hiccup (dev server recompiling, flaky connection) must not lose the round.
-    const submit = () => fetch(`/api/battles/${currentBattle._id}/submit`, {
+    const submit = () => fetch(`/api/battles/${activeBattle._id}/submit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         playerId: user.id,
         results: formattedResults,
-        isCreator: isCreator,
+        isCreator: iAmCreator,
         botResults
       })
     });
@@ -1248,7 +1409,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         throw new Error(data.error || `Submit failed (${res.status})`);
       }
       
-      if (isCreator) {
+      if (iAmCreator) {
         // Creator finished - show invitation sent screen (no blur popup)
         setScreen('invitation-sent');
       } else {
@@ -1264,13 +1425,13 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         // Server handles the actual point changes - trigger animation for all outcomes.
         if (won) {
           // Won: show winnings (2x wager)
-          onCoinAnimation?.(toBOGX(currentBattle.wager) * 2);
+          onCoinAnimation?.(toBOGX(activeBattle.wager) * 2);
         } else if (isTie) {
           // Tie: wager returned (neutral, but show it)
-          onCoinAnimation?.(toBOGX(currentBattle.wager), 'hold');
+          onCoinAnimation?.(toBOGX(activeBattle.wager), 'hold');
         } else {
           // Lost: show loss (wager was already deducted, this is visual feedback)
-          onCoinAnimation?.(-toBOGX(currentBattle.wager), 'loss');
+          onCoinAnimation?.(-toBOGX(activeBattle.wager), 'loss');
         }
         
         // Update coins immediately so the wager indicator disappears
@@ -1559,7 +1720,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   const renderSetupScreen = () => (
     <div className="flex flex-col h-full min-h-full flex-1" style={{ backgroundColor: '#F5F0E8' }}>
       {/* Header - exact copy from ArcadePage */}
-      <div className="px-4 pt-4 pb-3 border-b border-warm bg-gray-500/5">
+      <div className="px-4 pt-4 pb-3 border-b border-warm bg-cream">
         <div className="flex items-center gap-3">
           {onBack && (
             <button onClick={onBack} className="p-1 hover:bg-[#6B7280]/10 rounded transition-colors">
@@ -1661,7 +1822,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   const renderPoolScreen = () => (
     <div className="relative flex flex-col h-full min-h-full overflow-hidden" style={{ backgroundColor: '#F5F0E8' }}>
       {/* Header - same style as Solo Trivia */}
-      <div className="px-4 pt-4 pb-3 border-b border-warm bg-gray-500/5">
+      <div className="px-4 pt-4 pb-3 border-b border-warm bg-cream">
         <div className="relative flex items-center gap-3">
           {onBack && (
             <button onClick={onBack} className="p-1 hover:bg-[#6B7280]/10 rounded transition-colors">
@@ -2370,21 +2531,49 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   // Handle pre-selected challenge target (from PlayerCard "Challenge" button)
   useEffect(() => {
     if (challengeTarget && user?.id) {
-      // Pre-select the player and go to invite flow step 2 (topic selection)
-      setSelectedInviteUser({ _id: challengeTarget.id, username: challengeTarget.username });
+      // Pre-select the player and go to invite flow step 2 (topic selection).
+      // avatar/countryFlag come along so the rest of the flow (preview, VS
+      // banner, preparing screen) shows the real photo instead of a monogram.
+      setSelectedInviteUser({ _id: challengeTarget.id, username: challengeTarget.username, avatar: challengeTarget.avatar, countryFlag: challengeTarget.countryFlag });
       setInviteStep(2);
       setScreen('invite');
       onChallengeTargetHandled?.();
     }
   }, [challengeTarget, user?.id, onChallengeTargetHandled]);
 
+  // Rank / balance / battle record for the two players on the scoreboard.
+  // Keyed by user id so the banner can render both sides from one request.
+  useEffect(() => {
+    const opponentId = selectedInviteUser?._id;
+    if (!opponentId || !user?.id || inviteStep < 2) return;
+    let cancelled = false;
+    fetch(`/api/users/battle-info?ids=${user.id},${opponentId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (cancelled || !data.success) return;
+        const byId: Record<string, any> = {};
+        for (const p of data.players || []) byId[p._id] = p;
+        setScoreboardInfo(byId);
+        setScoreboardH2H(data.h2h ?? null);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [selectedInviteUser?._id, user?.id, inviteStep]);
+
   const handleSelectPlayer = (player: any) => {
     setSelectedInviteUser(player);
+    setPendingTopic(null);
     setInviteStep(2);
   };
 
+  // Selection only - step 2 is confirmed by handleConfirmTopic below.
   const handleSelectTopic = (topicId: string) => {
-    setCreateTopic(topicId);
+    setPendingTopic(topicId);
+  };
+
+  const handleConfirmTopic = () => {
+    if (!pendingTopic) return;
+    setCreateTopic(pendingTopic);
     setInviteStep(3);
   };
 
@@ -2418,8 +2607,99 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
       // Go back to Choose Wager (step 3)
       setInviteStep(3);
     } else {
+      // Returning to step 2 must keep the topic selected, otherwise the tile
+      // highlight and the Continue button reset for no visible reason.
+      if (inviteStep === 3) setPendingTopic(createTopic);
       setInviteStep((inviteStep - 1) as 1 | 2 | 3 | 4);
     }
+  };
+
+  // Rank + wallet under a scoreboard name. Renders nothing until the data is in, so
+  // the banner never shows a "#—" placeholder that then jumps.
+  //
+  // The overall battle record used to sit here as "60W 103L", which was both cryptic
+  // and irrelevant next to THIS opponent - it moved into the head-to-head pill in the
+  // middle of the scoreboard, where a win count actually means something.
+  const ScoreboardInfo = ({ userId }: { userId?: string }) => {
+    const info = userId ? scoreboardInfo[userId] : undefined;
+    if (!info) return null;
+    return (
+      <div className="flex items-center justify-center gap-1.5 md:gap-2">
+        <span className="flex items-center gap-0.5 px-1.5 py-0.5 md:px-2 rounded-md bg-white/25 font-display text-[11px] md:text-base text-white tracking-wider leading-none">
+          <Trophy className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" />
+          {info.rank}
+        </span>
+        <span className="flex items-center gap-1 font-display text-[11px] md:text-base text-white tracking-wider leading-none">
+          <img src="/images/bogxcoin.png" alt="" className="w-3 h-3 md:w-4 md:h-4" />
+          {formatCurrency(info.coins)}
+        </span>
+      </div>
+    );
+  };
+
+  // One side of the scoreboard: avatar, name and stats STACKED in their own column.
+  // Laid out horizontally (avatar next to name next to stats) everything fought for
+  // the same line and got squeezed on mobile - name truncated to 70px while the rank
+  // and balance shrank to 9px next to it.
+  const ScoreboardSide = ({ userId, username, avatar }: { userId?: string; username?: string; avatar?: string }) => (
+    <div className="flex-1 min-w-0 flex flex-col items-center gap-1 md:gap-2">
+      <div className="w-12 h-12 md:w-[72px] md:h-[72px] rounded-full overflow-hidden border-2 border-white/40 shadow-lg flex-shrink-0">
+        {avatar ? (
+          <img src={avatar} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full bg-white/20 flex items-center justify-center text-white font-display text-lg md:text-2xl">
+            {username?.[0]?.toUpperCase() || '?'}
+          </div>
+        )}
+      </div>
+      <span className="w-full text-center font-display text-sm md:text-2xl text-white tracking-wider truncate leading-none">
+        {username?.toUpperCase() || 'YOU'}
+      </span>
+      <ScoreboardInfo userId={userId} />
+    </div>
+  );
+
+  // Match facts as a fixed three-slot strip along the bottom of the scoreboard.
+  //
+  // These used to be pills stacked under the VS, added one per step (topic on 2,
+  // head-to-head, rounds on 3). The centre column therefore grew with every click and
+  // pushed the players around - the layout was different on every screen. The slots
+  // now always exist and only their VALUES fill in, so nothing moves.
+  const ScoreboardMeta = ({ meId, opponentId, topicLabel, rounds }: {
+    meId?: string;
+    opponentId?: string;
+    topicLabel?: string | null;
+    rounds?: number | null;
+  }) => {
+    const mine = meId ? scoreboardH2H?.wins[meId] ?? 0 : 0;
+    const theirs = opponentId ? scoreboardH2H?.wins[opponentId] ?? 0 : 0;
+    const h2h = !scoreboardH2H ? '—' : scoreboardH2H.total > 0 ? `${mine} : ${theirs}` : 'First time';
+
+    const cells: { label: string; value: string }[] = [
+      { label: 'Topic', value: topicLabel || '—' },
+      { label: 'Head 2 Head', value: h2h },
+      { label: 'Rounds', value: rounds ? String(rounds) : '—' },
+    ];
+
+    return (
+      <div className="relative mt-2 md:mt-4 pt-2 md:pt-3 border-t border-white/20 flex items-stretch">
+        {cells.map((cell, i) => (
+          <div
+            key={cell.label}
+            className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 px-1 ${
+              i > 0 ? 'border-l border-white/15' : ''
+            }`}
+          >
+            <span className="font-display text-[7px] md:text-[9px] text-white/60 uppercase tracking-widest whitespace-nowrap">
+              {cell.label}
+            </span>
+            <span className="font-display text-[11px] md:text-base text-white uppercase tracking-wider leading-none truncate max-w-full">
+              {cell.value}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   const renderInviteScreen = () => {
@@ -2429,11 +2709,10 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     const headerColor = inviteStep >= 3 ? getTopicColor(createTopic) : '#6B7280';
     return (
     <div className="flex flex-col h-full min-h-full flex-1" style={{ backgroundColor: '#F5F0E8' }}>
-      {/* Header - takes the chosen topic's colour from step 2 on */}
-      <div
-        className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b to-transparent"
-        style={{ backgroundImage: `linear-gradient(to bottom, ${headerColor}0D, transparent)` }}
-      >
+      {/* Header - neutral cream like every other section header. The topic colour
+          it used to take (headerColor) is still carried by the content below; only
+          the header bar itself is no longer tinted. */}
+      <div className="px-4 pt-4 pb-3 border-b border-warm bg-cream">
         <div className="flex items-center gap-3">
           <button onClick={handleInviteBack} className="p-1 rounded transition-colors hover:bg-black/5">
             <ChevronLeft className="w-5 h-5 transition-colors" style={{ color: headerColor }} />
@@ -2549,71 +2828,113 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         )}
 
         {/* Step 2: Choose Topic */}
-        {inviteStep === 2 && (
+        {inviteStep === 2 && (() => {
+          const picked = TOPICS.find(t => t.id === pendingTopic);
+          const stepColor = picked?.color || '#6B7280';
+          return (
           <>
-            {/* Selected Player Preview - compact */}
+            {/* VS Banner - the same scoreboard the wager step (3) and the hero of
+                step 4 show, so the matchup is established from the moment a player
+                is picked and does not appear out of nowhere one step later. Until a
+                topic is chosen the colour stays neutral and the topic pill is a
+                dashed placeholder, so nothing moves when step 3 fills it in. */}
             {selectedInviteUser && (
-              <div className="flex items-center gap-2 p-2 bg-[#6B7280]/10 rounded-lg mb-3">
-                <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-[#6B7280]/30 bg-cream">
-                  {selectedInviteUser.avatar ? (
-                    <img src={selectedInviteUser.avatar} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold text-sm">
-                      {selectedInviteUser.username?.[0]?.toUpperCase()}
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <div className="font-semibold text-sm text-gray-900">{selectedInviteUser.username}</div>
-                  <div className="text-[9px] text-gray-500">Challenging this player</div>
+              <div 
+                className="relative rounded-xl p-3 md:p-5 mb-3 md:mb-4 overflow-hidden shadow-lg flex flex-col justify-center min-h-[150px] md:min-h-[196px] transition-colors duration-300"
+                style={{ backgroundColor: stepColor }}
+              >
+                {picked && TOPIC_BACKGROUNDS[picked.id] && (
+                  <div
+                    className="absolute inset-0 bg-cover bg-center opacity-20"
+                    style={{ backgroundImage: `url('${TOPIC_BACKGROUNDS[picked.id]}')` }}
+                  />
+                )}
+                <div className="relative">
+                  <div className="flex items-center justify-between gap-1 md:gap-4 px-1 md:px-6">
+                    <ScoreboardSide userId={user?.id} username={user?.username} avatar={user?.avatar} />
+                    <span className="font-display text-2xl md:text-5xl text-white/80 tracking-wider leading-none shrink-0">VS</span>
+                    <ScoreboardSide
+                      userId={selectedInviteUser._id}
+                      username={selectedInviteUser.username}
+                      avatar={selectedInviteUser.avatar}
+                    />
+                  </div>
+                  {/* Rounds stay empty here - the wager on the next step decides them. */}
+                  <ScoreboardMeta
+                    meId={user?.id}
+                    opponentId={selectedInviteUser._id}
+                    topicLabel={picked?.label}
+                    rounds={null}
+                  />
                 </div>
               </div>
             )}
             
-            <div className="grid grid-cols-2 gap-3">
-              {TOPICS.map((t, idx) => {
+            {/* Section title - same shape as the wager step's "SELECT WAGER" */}
+            <div className="flex items-center gap-1.5 mb-2">
+              <Target className="w-4 h-4 text-gray-600" />
+              <span className="font-display text-base tracking-wider text-gray-900">SELECT TOPIC</span>
+            </div>
+
+            {/* Same 3-column grid, tile size and selected state as the wager step,
+                so both steps read as one screen instead of two differently scaled
+                ones - including the white check badge on the active tile. */}
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              {TOPICS.map((t) => {
                 const Icon = t.icon;
-                // Last item (odd count) spans full width
-                const isLastOdd = TOPICS.length % 2 === 1 && idx === TOPICS.length - 1;
+                const isSelected = pendingTopic === t.id;
                 return (
                   <button
                     key={t.id}
                     onClick={() => handleSelectTopic(t.id)}
-                    className={`relative rounded-xl overflow-hidden transition-all hover:scale-[1.02] active:scale-[0.98] group border-2 ${
-                      isLastOdd ? 'col-span-2' : ''
+                    className={`relative rounded-xl overflow-hidden transition-all active:scale-[0.98] group border-2 ${
+                      isSelected ? 'shadow-lg' : ''
                     }`}
                     style={{ 
-                      backgroundColor: `${t.color}15`,
-                      borderColor: `${t.color}40`,
+                      backgroundColor: isSelected ? t.color : `${t.color}15`,
+                      borderColor: isSelected ? t.color : `${t.color}40`,
                     }}
                   >
-                    <div className="p-5 flex flex-col items-center justify-center gap-3">
-                      {/* Large Icon */}
+                    <div className="p-2.5 flex flex-col items-center justify-center gap-1.5">
                       <div 
-                        className="w-14 h-14 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110"
-                        style={{ backgroundColor: t.color }}
+                        className="w-9 h-9 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110"
+                        style={{ backgroundColor: isSelected ? 'rgba(255,255,255,0.2)' : t.color }}
                       >
-                        <Icon className="w-7 h-7 text-white" />
+                        <Icon className="w-5 h-5 text-white" />
                       </div>
-                      {/* Label */}
                       <span 
-                        className="font-display text-xl tracking-wide"
-                        style={{ color: t.color }}
+                        className="font-display text-base tracking-wide"
+                        style={{ color: isSelected ? '#FFFFFF' : t.color }}
                       >
                         {t.label}
                       </span>
                     </div>
-                    {/* Hover glow effect */}
-                    <div 
-                      className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl"
-                      style={{ boxShadow: `inset 0 0 20px ${t.color}30` }}
-                    />
+                    {isSelected && (
+                      <div className="absolute top-1 right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center">
+                        <Check className="w-2.5 h-2.5" style={{ color: t.color }} />
+                      </div>
+                    )}
                   </button>
                 );
               })}
             </div>
+
+            {/* Confirm button - same shape as the wager step's PREPARE QUESTIONS,
+                disabled until a topic is actually selected. */}
+            <button
+              onClick={handleConfirmTopic}
+              disabled={!pendingTopic}
+              className={`w-full py-3.5 rounded-xl text-white font-display text-lg tracking-widest transition-all shadow-lg flex items-center justify-center gap-2 ${
+                pendingTopic ? 'active:scale-[0.99] active:brightness-90' : 'opacity-50 cursor-not-allowed'
+              }`}
+              style={{ backgroundColor: pendingTopic ? stepColor : '#9CA3AF' }}
+            >
+              {pendingTopic ? 'CONTINUE' : 'SELECT TOPIC'}
+              <ChevronRight className="w-5 h-5" />
+            </button>
           </>
-        )}
+          );
+        })()}
 
         {/* Step 3: Choose Wager - Bebas Neue Mobile Design */}
         {inviteStep === 3 && (() => {
@@ -2636,54 +2957,24 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                   style={{ backgroundImage: `url('${TOPIC_BACKGROUNDS[createTopic]}')` }}
                 />
               )}
-              <div className="relative flex items-center justify-between px-4 md:px-8">
-                {/* You - avatar then name, like the step 4 hero */}
-                <div className="flex items-center gap-2 md:gap-3">
-                  <div className="w-10 h-10 md:w-14 md:h-14 rounded-full overflow-hidden border-2 border-white/40 shadow-lg flex-shrink-0">
-                    {user?.avatar ? (
-                      <img src={user.avatar} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full bg-white/20 flex items-center justify-center text-white font-display text-base md:text-lg">
-                        {user?.username?.[0]?.toUpperCase() || 'Y'}
-                      </div>
-                    )}
-                  </div>
-                  <span className="font-display text-sm md:text-base text-white tracking-wider max-w-[70px] md:max-w-[100px] truncate">
-                    {user?.username?.toUpperCase() || 'YOU'}
-                  </span>
+              <div className="relative">
+                <div className="flex items-center justify-between gap-1 md:gap-4 px-1 md:px-6">
+                  <ScoreboardSide userId={user?.id} username={user?.username} avatar={user?.avatar} />
+                  <span className="font-display text-2xl md:text-5xl text-white/80 tracking-wider leading-none shrink-0">VS</span>
+                  <ScoreboardSide
+                    userId={selectedInviteUser?._id}
+                    username={selectedInviteUser?.username}
+                    avatar={selectedInviteUser?.avatar}
+                  />
                 </div>
-                
-                {/* Topic above VS, rounds below */}
-                <div className="flex flex-col items-center">
-                  <div className="flex items-center gap-1 mb-1 px-2 py-1 bg-white/20 rounded-full">
-                    {selectedTopic?.icon && <selectedTopic.icon className="w-3 h-3 text-white" />}
-                    <span className="font-display text-[10px] text-white uppercase tracking-wider">{selectedTopic?.label}</span>
-                  </div>
-                  <span className="font-display text-2xl md:text-3xl text-white/80 tracking-wider">VS</span>
-                  {/* Same rounds pill the step 4 hero shows, so the information
-                      does not appear out of nowhere on the next step. */}
-                  <div className="mt-1 px-3 py-1 rounded-full bg-white/20">
-                    <span className="font-display text-sm text-white tracking-wide">
-                      {createWager >= 1.00 ? 5 : 3} Rounds
-                    </span>
-                  </div>
-                </div>
-                
-                {/* Opponent - name then avatar, mirrored like the step 4 hero */}
-                <div className="flex items-center gap-2 md:gap-3">
-                  <span className="font-display text-sm md:text-base text-white tracking-wider max-w-[70px] md:max-w-[100px] truncate text-right">
-                    {selectedInviteUser?.username?.toUpperCase()}
-                  </span>
-                  <div className="w-10 h-10 md:w-14 md:h-14 rounded-full overflow-hidden border-2 border-white/40 shadow-lg flex-shrink-0">
-                    {selectedInviteUser?.avatar ? (
-                      <img src={selectedInviteUser.avatar} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full bg-white/20 flex items-center justify-center text-white font-display text-base md:text-lg">
-                        {selectedInviteUser?.username?.[0]?.toUpperCase()}
-                      </div>
-                    )}
-                  </div>
-                </div>
+                {/* Same three slots as step 2 - only the values differ, so the scoreboard
+                    does not change shape between the two screens. */}
+                <ScoreboardMeta
+                  meId={user?.id}
+                  opponentId={selectedInviteUser?._id}
+                  topicLabel={selectedTopic?.label}
+                  rounds={createWager >= 1.00 ? 5 : 3}
+                />
               </div>
             </div>
             
@@ -2877,7 +3168,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     return (
       <div className="flex flex-col h-full bg-cream">
         {/* Header - same style as Pool Screen */}
-        <div className="px-4 pt-4 pb-3 border-b border-warm bg-gray-500/5">
+        <div className="px-4 pt-4 pb-3 border-b border-warm bg-cream">
           <div className="flex items-center gap-3">
             <button onClick={backToPool} className="p-1 hover:bg-[#6B7280]/10 rounded transition-colors">
               <ChevronLeft className="w-5 h-5 text-gray-600" />
@@ -3026,11 +3317,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
 
     return (
       <div className="w-full h-full min-h-full flex-1 flex flex-col" style={{ backgroundColor: '#F5F0E8' }}>
-        {/* Header - tinted with the battle's topic colour, like the rest of this screen */}
-        <div
-          className="px-4 pt-4 pb-3 border-b border-warm bg-gradient-to-b to-transparent"
-          style={{ backgroundImage: `linear-gradient(to bottom, ${topic.color}0D, transparent)` }}
-        >
+        {/* Header - neutral cream like every other section header */}
+        <div className="px-4 pt-4 pb-3 border-b border-warm bg-cream">
           <div className="flex items-center gap-3">
             <button
               onClick={leavePreparing}
@@ -3189,9 +3477,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                   ? (currentBattle.opponent?.username || (currentBattle.challengedUser as any)?.username || 'Opponent') 
                   : currentBattle.creator.username}
               </div>
-              <div className="font-display text-xl sm:text-4xl text-gray-400 tracking-wide">
-                {opponentResults.filter(r => r.correct).length}
-              </div>
+              <div className="font-display text-xl sm:text-4xl text-gray-400 tracking-wide">?</div>
             </div>
           </div>
 
@@ -3403,9 +3689,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                   ? (currentBattle.opponent?.username || (currentBattle.challengedUser as any)?.username || 'Opponent') 
                   : currentBattle.creator.username}
               </div>
-              <div className="font-display text-xl sm:text-4xl text-gray-400 tracking-wide">
-                {opponentResults.filter(r => r.correct).length}
-              </div>
+              <div className="font-display text-xl sm:text-4xl text-gray-400 tracking-wide">?</div>
             </div>
           </div>
 
@@ -3926,8 +4210,13 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
               <X className="w-6 h-6 text-red-500" strokeWidth={2.5} />
             </div>
             <h3 className="font-display text-xl tracking-wider mb-2 text-gray-900">
-              {/* Only a real forfeit costs the wager - the refund cases are cancels. */}
-              {isFreeCancel ? 'CANCEL BATTLE?' : 'GIVE UP?'}
+              {/* Only a real forfeit costs the wager - the refund cases are cancels,
+                  and leaving a battle you joined from the pool just releases it. */}
+              {!isFreeCancel
+                ? 'GIVE UP?'
+                : !iAmCreator && !(currentBattle as any).challengedUser
+                  ? 'LEAVE BATTLE?'
+                  : 'CANCEL BATTLE?'}
             </h3>
             {/* Mirrors /api/battles/[id]/forfeit exactly. Branching on `status` alone
                 was wrong: a battle you are already playing can still carry a stale
@@ -3937,6 +4226,18 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
               {nobodyJoined ? (
                 <>
                   Nobody has joined yet, so the battle is cancelled and your{' '}
+                  <span className="font-display text-base text-gray-900">
+                    {formatCurrency(toBOGX(currentBattle.wager))}
+                  </span>{' '}
+                  <img src="/images/bogxcoin.png" alt="" className="w-4 h-4 inline align-text-bottom" /> wager is refunded.
+                </>
+              ) : isFreeCancel && !iAmCreator && !(currentBattle as any).challengedUser ? (
+                <>
+                  {/* Joined from the pool: the battle belongs to its creator and goes
+                      back to being open, so promising "the battle is cancelled" here
+                      would describe the old behaviour that deleted it for everyone. */}
+                  You haven&apos;t started yet, so the battle goes back to the pool and
+                  your{' '}
                   <span className="font-display text-base text-gray-900">
                     {formatCurrency(toBOGX(currentBattle.wager))}
                   </span>{' '}
@@ -4037,7 +4338,20 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
           isOpen={showOpenBattles}
           onClose={() => { setShowOpenBattles(false); refreshBattleCount(); }}
           userId={user.id}
-          onPlayBattle={(battleId) => { setShowOpenBattles(false); loadBattles(); }}
+          onPlayBattle={async (battleId) => {
+            setShowOpenBattles(false);
+            try {
+              const res = await fetch(`/api/battles/${battleId}`);
+              const data = await res.json();
+              if (data.success && data.battle) {
+                const battle = data.battle;
+                setCurrentBattle(battle);
+                beginBattle(battle);
+              }
+            } catch (error) {
+              console.error('Failed to load battle:', error);
+            }
+          }}
           onCoinsChange={(amount, variant) => { setCoins(prev => prev + amount); onCoinAnimation?.(amount, variant); }}
           accentColor="purple"
           onCountChange={setLiveBattleCount}

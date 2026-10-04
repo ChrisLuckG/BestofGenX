@@ -8,6 +8,7 @@ import {
   MessageCircle, User, Paperclip, Play, Plus, Filter, Clock,
   CheckCircle2, Circle, ArrowRight, MoreHorizontal, Mic, MicOff, Copy, Check
 } from "lucide-react";
+import { useConfirm } from "./ConfirmModal";
 
 interface ChatMessage {
   role: 'user' | 'mike';
@@ -85,6 +86,7 @@ export default function MikeTabNew() {
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [cascadePromptCopied, setCascadePromptCopied] = useState(false);
+  const { confirm, ConfirmDialog } = useConfirm();
   
   // Parse chatHistory - only show NEW chat (after "Here's the ticket")
   const parseHistory = (history: string): ChatMessage[] => {
@@ -403,7 +405,13 @@ export default function MikeTabNew() {
   };
 
   const deleteTask = async (id: string) => {
-    if (!confirm('Delete this ticket?')) return;
+    const ok = await confirm({
+      title: 'Delete Ticket',
+      message: 'Delete this ticket?',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
     try {
       await fetch(`/api/admin/mike/tasks/${id}`, { method: 'DELETE' });
       setSelectedTask(null);
@@ -487,7 +495,7 @@ export default function MikeTabNew() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-2">
+          <h1 className="text-xl font-bold text-paper flex items-center gap-2">
             <Brain className="w-5 h-5 text-[#E36B11]" />
             Mike <span className="text-gray-500 font-normal text-sm">Dev Manager & Product Owner</span>
           </h1>
@@ -501,7 +509,7 @@ export default function MikeTabNew() {
             }}
             className={`px-3 py-1.5 text-sm rounded-lg flex items-center gap-1 transition-colors ${
               cascadePromptCopied 
-                ? 'bg-green-600 text-white' 
+                ? 'bg-green-600 text-paper' 
                 : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
             }`}
             title="Copy Cascade prompt to clipboard"
@@ -511,7 +519,7 @@ export default function MikeTabNew() {
           </button>
           <button 
             onClick={() => setShowNewMenu(!showNewMenu)}
-            className="px-3 py-1.5 bg-[#E36B11] text-white text-sm rounded-lg hover:bg-[#C4772A] flex items-center gap-1"
+            className="px-3 py-1.5 bg-[#E36B11] text-paper text-sm rounded-lg hover:bg-[#C4772A] flex items-center gap-1"
           >
             <Plus className="w-4 h-4" /> New Ticket
           </button>
@@ -519,7 +527,7 @@ export default function MikeTabNew() {
             <div className="absolute right-0 top-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl overflow-hidden z-50 min-w-[150px]">
               <button
                 onClick={() => { setShowManualCreate(true); setShowNewMenu(false); }}
-                className="w-full px-3 py-2 text-left text-sm text-white hover:bg-gray-700 flex items-center gap-2"
+                className="w-full px-3 py-2 text-left text-sm text-paper hover:bg-gray-700 flex items-center gap-2"
               >
                 <Edit3 className="w-4 h-4" /> Manual
               </button>
@@ -529,7 +537,7 @@ export default function MikeTabNew() {
                   setChatInput('');
                   setShowNewMenu(false);
                 }}
-                className="w-full px-3 py-2 text-left text-sm text-white hover:bg-gray-700 flex items-center gap-2"
+                className="w-full px-3 py-2 text-left text-sm text-paper hover:bg-gray-700 flex items-center gap-2"
               >
                 <Brain className="w-4 h-4 text-[#E36B11]" /> With Mike
               </button>
@@ -551,13 +559,13 @@ export default function MikeTabNew() {
                 placeholder="Search tickets..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 bg-gray-900 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:border-[#E36B11] outline-none"
+                className="w-full pl-8 pr-3 py-1.5 bg-gray-900 border border-gray-700 rounded-lg text-sm text-paper placeholder-gray-500 focus:border-[#E36B11] outline-none"
               />
             </div>
             <div className="flex gap-1 flex-wrap">
               <button
                 onClick={() => setFilterStatus('all')}
-                className={`px-2 py-0.5 text-xs rounded ${filterStatus === 'all' ? 'bg-[#E36B11] text-white' : 'bg-gray-700 text-gray-400'}`}
+                className={`px-2 py-0.5 text-xs rounded ${filterStatus === 'all' ? 'bg-[#E36B11] text-paper' : 'bg-gray-700 text-gray-400'}`}
               >
                 All {tasks.length}
               </button>
@@ -565,7 +573,7 @@ export default function MikeTabNew() {
                 <button
                   key={s}
                   onClick={() => setFilterStatus(s)}
-                  className={`px-2 py-0.5 text-xs rounded ${filterStatus === s ? 'bg-[#E36B11] text-white' : 'bg-gray-700 text-gray-400'}`}
+                  className={`px-2 py-0.5 text-xs rounded ${filterStatus === s ? 'bg-[#E36B11] text-paper' : 'bg-gray-700 text-gray-400'}`}
                 >
                   {s} {statusCounts[s] || 0}
                 </button>
@@ -609,7 +617,7 @@ export default function MikeTabNew() {
                         </span>
                         <span className="text-[10px] text-gray-500">{task.category}</span>
                       </div>
-                      <p className="text-sm text-white truncate">
+                      <p className="text-sm text-paper truncate">
                         {task.ticketNumber && <span className="text-[#E36B11] font-mono mr-1">#{task.ticketNumber}</span>}
                         {task.title}
                       </p>
@@ -647,7 +655,7 @@ export default function MikeTabNew() {
                     </button>
                   </div>
                 </div>
-                <h2 className="text-lg font-semibold text-white mb-2">
+                <h2 className="text-lg font-semibold text-paper mb-2">
                   {selectedTask.ticketNumber && <span className="text-[#E36B11] font-mono mr-2">#{selectedTask.ticketNumber}</span>}
                   {selectedTask.title}
                 </h2>
@@ -656,12 +664,12 @@ export default function MikeTabNew() {
                     value={selectedTask.status}
                     onChange={(e) => updateTask(selectedTask._id, { status: e.target.value })}
                     className={`text-xs px-2 py-1 rounded-lg font-medium border-0 cursor-pointer ${
-                      selectedTask.status === 'Completed' ? 'bg-green-500 text-white' :
-                      selectedTask.status === 'In Progress' ? 'bg-[#E36B11] text-white' :
-                      selectedTask.status === 'Testing' ? 'bg-blue-500 text-white' :
-                      selectedTask.status === 'Review' ? 'bg-purple-500 text-white' :
-                      selectedTask.status === 'Approved' ? 'bg-cyan-500 text-white' :
-                      'bg-gray-600 text-white'
+                      selectedTask.status === 'Completed' ? 'bg-green-500 text-paper' :
+                      selectedTask.status === 'In Progress' ? 'bg-[#E36B11] text-paper' :
+                      selectedTask.status === 'Testing' ? 'bg-blue-500 text-paper' :
+                      selectedTask.status === 'Review' ? 'bg-purple-500 text-paper' :
+                      selectedTask.status === 'Approved' ? 'bg-cyan-500 text-paper' :
+                      'bg-gray-600 text-paper'
                     }`}
                   >
                     {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
@@ -676,7 +684,7 @@ export default function MikeTabNew() {
                     key={tab}
                     onClick={() => setActiveTab(tab)}
                     className={`px-4 py-2 text-sm font-medium capitalize ${
-                      activeTab === tab ? 'text-[#E36B11] border-b-2 border-[#E36B11]' : 'text-gray-400 hover:text-white'
+                      activeTab === tab ? 'text-[#E36B11] border-b-2 border-[#E36B11]' : 'text-gray-400 hover:text-paper'
                     }`}
                   >
                     {tab}
@@ -713,9 +721,9 @@ export default function MikeTabNew() {
                                   'bg-gray-700'
                                 }`}>
                                   {isCompleted || isLastAndCompleted ? (
-                                    <CheckCircle2 className="w-4 h-4 text-white" />
+                                    <CheckCircle2 className="w-4 h-4 text-paper" />
                                   ) : (
-                                    <Circle className={`w-4 h-4 ${isCurrent ? 'text-white' : 'text-gray-500'}`} />
+                                    <Circle className={`w-4 h-4 ${isCurrent ? 'text-paper' : 'text-gray-500'}`} />
                                   )}
                                 </div>
                                 <span className={`text-[10px] mt-1 ${isLastAndCompleted ? 'text-green-400' : isCurrent ? 'text-[#E36B11]' : 'text-gray-500'}`}>
@@ -769,7 +777,7 @@ export default function MikeTabNew() {
                     {selectedTask.status === 'Testing' && (
                       <button
                         onClick={() => updateTask(selectedTask._id, { status: 'Completed' })}
-                        className="w-full py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 font-medium"
+                        className="w-full py-2 bg-green-600 text-paper rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 font-medium"
                       >
                         <CheckCircle2 className="w-4 h-4" /> Approve & Complete
                       </button>
@@ -781,7 +789,7 @@ export default function MikeTabNew() {
                         <h4 className="text-sm font-medium text-red-400 mb-2">Report Issue</h4>
                         <textarea
                           placeholder="Describe what's wrong..."
-                          className="w-full h-20 p-2 bg-gray-900 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 resize-none mb-2"
+                          className="w-full h-20 p-2 bg-gray-900 border border-gray-700 rounded-lg text-sm text-paper placeholder-gray-500 resize-none mb-2"
                           id="issue-feedback"
                         />
                         <button
@@ -800,7 +808,7 @@ export default function MikeTabNew() {
                             
                             (document.getElementById('issue-feedback') as HTMLTextAreaElement).value = '';
                           }}
-                          className="w-full py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 flex items-center justify-center gap-2 text-sm"
+                          className="w-full py-2 bg-red-500 text-paper rounded-lg hover:bg-red-600 flex items-center justify-center gap-2 text-sm"
                         >
                           <X className="w-4 h-4" /> Reopen & Report to Mike
                         </button>
@@ -847,10 +855,10 @@ export default function MikeTabNew() {
                     {selectedTask.aiSuggestions && (
                       <div className="flex items-start gap-3">
                         <div className="w-8 h-8 bg-[#E36B11] rounded-full flex items-center justify-center flex-shrink-0">
-                          <Brain className="w-4 h-4 text-white" />
+                          <Brain className="w-4 h-4 text-paper" />
                         </div>
                         <div className="flex-1">
-                          <p className="text-sm text-white">Mike <span className="text-gray-500">specification</span></p>
+                          <p className="text-sm text-paper">Mike <span className="text-gray-500">specification</span></p>
                           <div className="bg-[#E36B11]/10 border border-[#E36B11]/20 rounded-lg p-3 mt-2">
                             <p className="text-sm text-gray-300">{selectedTask.aiSuggestions}</p>
                           </div>
@@ -864,7 +872,7 @@ export default function MikeTabNew() {
                         <Plus className="w-4 h-4 text-gray-400" />
                       </div>
                       <div>
-                        <p className="text-sm text-white">Ticket created</p>
+                        <p className="text-sm text-paper">Ticket created</p>
                         <p className="text-xs text-gray-500">{new Date(selectedTask.createdAt).toLocaleString()}</p>
                       </div>
                     </div>
@@ -912,7 +920,7 @@ export default function MikeTabNew() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Complexity</span>
-                  <span className="text-white">{selectedTask.complexity}</span>
+                  <span className="text-paper">{selectedTask.complexity}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Est. Cost</span>
@@ -920,7 +928,7 @@ export default function MikeTabNew() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Category</span>
-                  <span className="text-white">{selectedTask.category}</span>
+                  <span className="text-paper">{selectedTask.category}</span>
                 </div>
               </div>
             </div>
@@ -980,7 +988,7 @@ export default function MikeTabNew() {
                   onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
                   placeholder={isRecording ? "Listening..." : "Ask Mike..."}
-                  className={`flex-1 px-2 py-1.5 bg-gray-900 border rounded text-xs text-white placeholder-gray-500 focus:border-[#E36B11] outline-none ${
+                  className={`flex-1 px-2 py-1.5 bg-gray-900 border rounded text-xs text-paper placeholder-gray-500 focus:border-[#E36B11] outline-none ${
                     isRecording ? 'border-red-500 animate-pulse' : 'border-gray-700'
                   }`}
                 />
@@ -988,7 +996,7 @@ export default function MikeTabNew() {
                   onClick={toggleVoiceInput}
                   className={`p-1.5 rounded transition-colors ${
                     isRecording 
-                      ? 'bg-red-500 text-white animate-pulse' 
+                      ? 'bg-red-500 text-paper animate-pulse' 
                       : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                   }`}
                   title={isRecording ? "Stop recording" : "Voice input"}
@@ -998,7 +1006,7 @@ export default function MikeTabNew() {
                 <button
                   onClick={sendMessage}
                   disabled={!chatInput.trim() || chatLoading}
-                  className="p-1.5 bg-[#E36B11] text-white rounded hover:bg-[#C4772A] disabled:opacity-50"
+                  className="p-1.5 bg-[#E36B11] text-paper rounded hover:bg-[#C4772A] disabled:opacity-50"
                 >
                   <Send className="w-3 h-3" />
                 </button>
@@ -1013,10 +1021,10 @@ export default function MikeTabNew() {
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-800 rounded-xl border border-gray-700 w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="p-4 border-b border-gray-700 flex items-center justify-between">
-              <h3 className="text-white font-medium flex items-center gap-2">
+              <h3 className="text-paper font-medium flex items-center gap-2">
                 <Plus className="w-5 h-5 text-[#E36B11]" /> New Ticket (Manual)
               </h3>
-              <button onClick={() => setShowManualCreate(false)} className="text-gray-400 hover:text-white">
+              <button onClick={() => setShowManualCreate(false)} className="text-gray-400 hover:text-paper">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1027,7 +1035,7 @@ export default function MikeTabNew() {
                   type="text"
                   value={manualTicket.title || ''}
                   onChange={(e) => setManualTicket({ ...manualTicket, title: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#E36B11] outline-none"
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-paper text-sm focus:border-[#E36B11] outline-none"
                   placeholder="Feature: Campaign Manager"
                 />
               </div>
@@ -1037,7 +1045,7 @@ export default function MikeTabNew() {
                   value={manualTicket.description || ''}
                   onChange={(e) => setManualTicket({ ...manualTicket, description: e.target.value })}
                   rows={5}
-                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#E36B11] outline-none resize-none"
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-paper text-sm focus:border-[#E36B11] outline-none resize-none"
                   placeholder="Files: ...&#10;UI: ...&#10;Backend: ..."
                 />
               </div>
@@ -1047,7 +1055,7 @@ export default function MikeTabNew() {
                   <select
                     value={manualTicket.category || 'Future Features'}
                     onChange={(e) => setManualTicket({ ...manualTicket, category: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#E36B11] outline-none"
+                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-paper text-sm focus:border-[#E36B11] outline-none"
                   >
                     {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
@@ -1057,7 +1065,7 @@ export default function MikeTabNew() {
                   <select
                     value={manualTicket.priority || 'Medium'}
                     onChange={(e) => setManualTicket({ ...manualTicket, priority: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#E36B11] outline-none"
+                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-paper text-sm focus:border-[#E36B11] outline-none"
                   >
                     {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
@@ -1069,7 +1077,7 @@ export default function MikeTabNew() {
                   <select
                     value={manualTicket.status || 'Draft'}
                     onChange={(e) => setManualTicket({ ...manualTicket, status: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#E36B11] outline-none"
+                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-paper text-sm focus:border-[#E36B11] outline-none"
                   >
                     {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
@@ -1079,7 +1087,7 @@ export default function MikeTabNew() {
                   <select
                     value={manualTicket.complexity || 'Medium'}
                     onChange={(e) => setManualTicket({ ...manualTicket, complexity: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#E36B11] outline-none"
+                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-paper text-sm focus:border-[#E36B11] outline-none"
                   >
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
@@ -1094,19 +1102,19 @@ export default function MikeTabNew() {
                   value={manualTicket.notes || ''}
                   onChange={(e) => setManualTicket({ ...manualTicket, notes: e.target.value })}
                   rows={2}
-                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#E36B11] outline-none resize-none"
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-paper text-sm focus:border-[#E36B11] outline-none resize-none"
                   placeholder="Additional notes..."
                 />
               </div>
             </div>
             <div className="p-4 border-t border-gray-700 flex justify-end gap-2">
-              <button onClick={() => setShowManualCreate(false)} className="px-4 py-2 text-gray-400 hover:text-white text-sm">
+              <button onClick={() => setShowManualCreate(false)} className="px-4 py-2 text-gray-400 hover:text-paper text-sm">
                 Cancel
               </button>
               <button
                 onClick={createManualTicket}
                 disabled={!manualTicket.title?.trim() || saving}
-                className="px-4 py-2 bg-[#E36B11] text-white text-sm rounded-lg hover:bg-[#C4772A] disabled:opacity-50 flex items-center gap-2"
+                className="px-4 py-2 bg-[#E36B11] text-paper text-sm rounded-lg hover:bg-[#C4772A] disabled:opacity-50 flex items-center gap-2"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 Create Ticket
@@ -1121,11 +1129,11 @@ export default function MikeTabNew() {
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-800 rounded-xl border border-gray-700 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-4 border-b border-gray-700 flex items-center justify-between">
-              <h3 className="text-white font-medium flex items-center gap-2">
+              <h3 className="text-paper font-medium flex items-center gap-2">
                 <Edit3 className="w-5 h-5 text-[#E36B11]" /> 
                 Edit Ticket {editedTask.ticketNumber && <span className="text-[#E36B11] font-mono">#{editedTask.ticketNumber}</span>}
               </h3>
-              <button onClick={() => setEditMode(false)} className="text-gray-400 hover:text-white">
+              <button onClick={() => setEditMode(false)} className="text-gray-400 hover:text-paper">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1136,7 +1144,7 @@ export default function MikeTabNew() {
                   type="text"
                   value={editedTask.title || ''}
                   onChange={(e) => setEditedTask({ ...editedTask, title: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#E36B11] outline-none"
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-paper text-sm focus:border-[#E36B11] outline-none"
                 />
               </div>
               <div>
@@ -1145,7 +1153,7 @@ export default function MikeTabNew() {
                   value={editedTask.description || ''}
                   onChange={(e) => setEditedTask({ ...editedTask, description: e.target.value })}
                   rows={6}
-                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#E36B11] outline-none resize-none"
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-paper text-sm focus:border-[#E36B11] outline-none resize-none"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -1154,7 +1162,7 @@ export default function MikeTabNew() {
                   <select
                     value={editedTask.category || 'Future Features'}
                     onChange={(e) => setEditedTask({ ...editedTask, category: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#E36B11] outline-none"
+                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-paper text-sm focus:border-[#E36B11] outline-none"
                   >
                     {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
@@ -1164,7 +1172,7 @@ export default function MikeTabNew() {
                   <select
                     value={editedTask.priority || 'Medium'}
                     onChange={(e) => setEditedTask({ ...editedTask, priority: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#E36B11] outline-none"
+                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-paper text-sm focus:border-[#E36B11] outline-none"
                   >
                     {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
@@ -1176,7 +1184,7 @@ export default function MikeTabNew() {
                   <select
                     value={editedTask.status || 'Draft'}
                     onChange={(e) => setEditedTask({ ...editedTask, status: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#E36B11] outline-none"
+                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-paper text-sm focus:border-[#E36B11] outline-none"
                   >
                     {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
@@ -1186,7 +1194,7 @@ export default function MikeTabNew() {
                   <select
                     value={editedTask.complexity || 'Medium'}
                     onChange={(e) => setEditedTask({ ...editedTask, complexity: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#E36B11] outline-none"
+                    className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-paper text-sm focus:border-[#E36B11] outline-none"
                   >
                     <option value="Trivial">Trivial</option>
                     <option value="Simple">Simple</option>
@@ -1202,7 +1210,7 @@ export default function MikeTabNew() {
                   value={editedTask.notes || ''}
                   onChange={(e) => setEditedTask({ ...editedTask, notes: e.target.value })}
                   rows={2}
-                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-[#E36B11] outline-none resize-none"
+                  className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-paper text-sm focus:border-[#E36B11] outline-none resize-none"
                 />
               </div>
               
@@ -1222,7 +1230,7 @@ export default function MikeTabNew() {
                       <img src={url} alt="" className="w-20 h-20 object-cover rounded-lg border border-gray-700" />
                       <button
                         onClick={() => removeAttachment(i)}
-                        className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-paper rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         ×
                       </button>
@@ -1240,7 +1248,7 @@ export default function MikeTabNew() {
               </div>
             </div>
             <div className="p-4 border-t border-gray-700 flex justify-end gap-2">
-              <button onClick={() => setEditMode(false)} className="px-4 py-2 text-gray-400 hover:text-white text-sm">
+              <button onClick={() => setEditMode(false)} className="px-4 py-2 text-gray-400 hover:text-paper text-sm">
                 Cancel
               </button>
               <button
@@ -1252,7 +1260,7 @@ export default function MikeTabNew() {
                   }
                 }}
                 disabled={saving}
-                className="px-4 py-2 bg-[#E36B11] text-white text-sm rounded-lg hover:bg-[#C4772A] disabled:opacity-50 flex items-center gap-2"
+                className="px-4 py-2 bg-[#E36B11] text-paper text-sm rounded-lg hover:bg-[#C4772A] disabled:opacity-50 flex items-center gap-2"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 Save Changes
@@ -1261,6 +1269,7 @@ export default function MikeTabNew() {
           </div>
         </div>
       )}
+      <ConfirmDialog />
     </div>
   );
 }

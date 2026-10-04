@@ -40,15 +40,20 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'You are not part of this battle' }, { status: 403 });
     }
     
-    // Check that the requesting user has already played (they're waiting)
-    const creatorPlayed = (battle.creatorResults?.length || 0) > 0;
-    const opponentPlayed = (battle.opponentResults?.length || 0) > 0;
+    // Check that the requesting user has already played (they're waiting).
+    // "Played" must mean ALL rounds: every answer is persisted as it is given
+    // (/api/battles/[id]/round), so counting a single answer as played would let a
+    // player see one question, cancel, and walk away with a full refund for both
+    // sides - a free escape from a battle they were losing.
+    const totalRounds = battle.rounds || 0;
+    const creatorPlayed = (battle.creatorResults?.length || 0) >= totalRounds;
+    const opponentPlayed = (battle.opponentResults?.length || 0) >= totalRounds;
     
     const userHasPlayed = (isCreator && creatorPlayed) || (isOpponent && opponentPlayed);
     const otherHasPlayed = (isCreator && opponentPlayed) || (isOpponent && creatorPlayed);
     
     if (!userHasPlayed) {
-      return NextResponse.json({ success: false, error: 'You must play first before you can cancel' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'You must finish your rounds before you can cancel' }, { status: 400 });
     }
     
     if (otherHasPlayed) {

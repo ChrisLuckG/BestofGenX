@@ -172,7 +172,7 @@ export default function MusicSongList({ playlist, onOpenRadio }: MusicSongListPr
         <div className="flex items-center justify-between mb-4">
           <div>
             <div className="flex items-center gap-2">
-              <Crown className="w-4 h-4 text-[#22C55E]" />
+              <Crown className="w-4 h-4 text-[#15803D]" />
               <span className="font-bold text-sm uppercase tracking-wider text-gray-900">Top Community Picks</span>
             </div>
             <p className="text-xs text-gray-500 mt-0.5">These tracks made it to the playlist this month</p>
@@ -182,13 +182,13 @@ export default function MusicSongList({ playlist, onOpenRadio }: MusicSongListPr
             <div className="hidden md:flex items-center gap-1">
               <button 
                 onClick={() => scrollPicks('left')}
-                className="w-8 h-8 rounded-full bg-white/80 border border-warm flex items-center justify-center hover:bg-[#22C55E]/10 hover:border-[#22C55E] transition-colors"
+                className="w-8 h-8 rounded-full bg-white/80 border border-warm flex items-center justify-center hover:bg-[#15803D]/10 hover:border-[#15803D] transition-colors"
               >
                 <ChevronLeft className="w-4 h-4 text-gray-600" />
               </button>
               <button 
                 onClick={() => scrollPicks('right')}
-                className="w-8 h-8 rounded-full bg-white/80 border border-warm flex items-center justify-center hover:bg-[#22C55E]/10 hover:border-[#22C55E] transition-colors"
+                className="w-8 h-8 rounded-full bg-white/80 border border-warm flex items-center justify-center hover:bg-[#15803D]/10 hover:border-[#15803D] transition-colors"
               >
                 <ChevronRight className="w-4 h-4 text-gray-600" />
               </button>
@@ -250,14 +250,14 @@ export default function MusicSongList({ playlist, onOpenRadio }: MusicSongListPr
         <div className="flex items-center justify-between mb-3">
           <div>
             <div className="flex items-center gap-2">
-              <Music className="w-4 h-4 text-[#22C55E]" />
+              <Music className="w-4 h-4 text-[#15803D]" />
               <span className="font-bold text-sm uppercase tracking-wider text-gray-900">Song Suggestions</span>
             </div>
             <p className="text-xs text-gray-500 mt-0.5">Discover new tracks and vote for your favorites</p>
           </div>
           {!loading && (
             <select value={sortBy} onChange={e => setSortBy(e.target.value as 'votes' | 'newest')}
-              className="text-xs border border-warm rounded-lg px-2 py-1.5 bg-cream text-gray-700 focus:outline-none focus:border-[#22C55E]">
+              className="text-xs border border-warm rounded-lg px-2 py-1.5 bg-cream text-gray-700 focus:outline-none focus:border-[#15803D]">
               <option value="votes">Top Voted</option>
               <option value="newest">Newest</option>
             </select>
@@ -275,7 +275,7 @@ export default function MusicSongList({ playlist, onOpenRadio }: MusicSongListPr
               <div 
                 key={song._id} 
                 onClick={() => song.link && handlePlaySong(song)}
-                className={`flex items-center gap-3 p-3 bg-cream border border-warm rounded-xl hover:border-[#22C55E]/30 hover:shadow-sm transition-all ${song.link ? 'cursor-pointer' : ''}`}
+                className={`flex items-center gap-3 p-3 bg-cream border border-warm rounded-xl hover:border-[#15803D]/30 hover:shadow-sm transition-all ${song.link ? 'cursor-pointer' : ''}`}
               >
                 {/* Album cover or play icon */}
                 <div 
@@ -296,7 +296,7 @@ export default function MusicSongList({ playlist, onOpenRadio }: MusicSongListPr
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-semibold text-gray-900 truncate">{song.song}</p>
-                    <span className="text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[#22C55E]/10 text-[#22C55E] flex-shrink-0">
+                    <span className="text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[#15803D]/10 text-[#15803D] flex-shrink-0">
                       {song.playlist}
                     </span>
                   </div>
@@ -311,8 +311,8 @@ export default function MusicSongList({ playlist, onOpenRadio }: MusicSongListPr
                 </div>
                 <button onClick={(e) => { e.stopPropagation(); handleVote(song._id); }}
                   className={`w-9 h-9 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${
-                    voted ? 'bg-[#22C55E] text-white shadow-md scale-105'
-                    : isLoggedIn ? 'bg-[#22C55E]/10 text-[#22C55E] hover:bg-[#22C55E] hover:text-white'
+                    voted ? 'bg-[#15803D] text-white shadow-md scale-105'
+                    : isLoggedIn ? 'bg-[#15803D]/10 text-[#15803D] hover:bg-[#15803D] hover:text-white'
                     : 'bg-gray-100 text-gray-300 cursor-not-allowed'}`}
                   title={!isLoggedIn ? 'Log in to vote' : voted ? 'Remove vote' : 'Vote'}>
                   <ChevronUp className="w-4 h-4" />

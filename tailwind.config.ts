@@ -21,6 +21,11 @@ const config: Config = {
       colors: {
         // Override white to cream everywhere
         white: '#F5F0E8',
+        // Genuine #FFFFFF. Needed because `white` above is cream, so `bg-white`
+        // renders #F5F0E8 - correct for the public app, wrong for the admin,
+        // where it looked like an unexplained brown tint no CSS override could
+        // fix (the override WAS the colour). Admin surfaces use bg-paper.
+        paper: '#FFFFFF',
         sport: {
           DEFAULT: '#FF0000',      // Sportradar Red - primary
           dark: '#CC0000',         // Darker red

@@ -91,8 +91,11 @@ export default function BattleResultScreen({
   const myCorrect = myResults.filter(r => r.correct).length;
   const oppCorrect = opponentResults.filter(r => r.correct).length;
   // Opponent data is only hidden while they still have to play - once the
-  // battle is completed (or they submitted results) everything is revealed.
-  const opponentHasPlayed = battle.status === 'completed' || opponentResults.length > 0;
+  // battle is completed (or they finished all their rounds) everything is revealed.
+  // Partial results are persisted per answer, so this must compare against the
+  // round count rather than merely check for a non-empty array - otherwise an
+  // opponent still mid-battle has their score revealed.
+  const opponentHasPlayed = battle.status === 'completed' || opponentResults.length >= battle.rounds;
   
   // Shown so it's transparent WHY a winner was picked when points look tied
   const myTotalTime = myResults.reduce((sum, r: any) => sum + (r.timeMs || 0), 0);
@@ -546,19 +549,27 @@ export default function BattleResultScreen({
               <div className={`font-bold ${isMobile ? 'text-xs' : 'text-base'} text-gray-900`}>You</div>
               {Array.from({ length: battle.rounds }).map((_, i) => {
                 const r = myResults[i];
-                const bgColor = r ? (r.correct ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.15)') : '#f3f4f6';
+                // An abandoned round is a loss, but for a different reason than a wrong
+                // answer - amber rather than red, so "I reloaded and lost that one" is
+                // not silently presented as "I answered and got it wrong".
+                const bgColor = r
+                  ? r.abandoned
+                    ? 'rgba(245, 158, 11, 0.18)'
+                    : r.correct ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.15)'
+                  : '#f3f4f6';
                 const isClickable = hasQuestions && i < battle.questions!.length;
                 return (
                   <div 
                     key={i} 
                     onClick={() => isClickable && (setIsFlipped(true), setTimeout(() => setViewingQuestion(i), 150))}
+                    title={r?.abandoned ? 'Round left open (reload or lost connection) - counted as wrong' : undefined}
                     className={`rounded-lg text-center ${isMobile ? 'py-1.5' : 'py-2'} ${isClickable ? 'cursor-pointer hover:shadow-md hover:scale-105 transition-all' : ''}`}
                     style={{ backgroundColor: bgColor }}
                   >
-                    <div className={`font-display ${isMobile ? 'text-xs' : 'text-base'} ${isMobile ? 'text-gray-900' : ''}`} style={isMobile ? {} : { color: r ? (r.correct ? '#10b981' : '#ef4444') : '#9ca3af' }}>
-                      {r ? (r.correct ? formatCurrency(r.points) : '—') : '—'}
+                    <div className={`font-display ${isMobile ? 'text-xs' : 'text-base'} ${isMobile ? 'text-gray-900' : ''}`} style={isMobile ? {} : { color: r ? (r.abandoned ? '#B45309' : r.correct ? '#10b981' : '#ef4444') : '#9ca3af' }}>
+                      {r ? (r.abandoned ? 'OUT' : r.correct ? formatCurrency(r.points) : '—') : '—'}
                     </div>
-                    {!isMobile && r?.timeMs && <div className="text-[10px] text-gray-400">{formatTime(r.timeMs, opponentResults[i]?.timeMs)}</div>}
+                    {!isMobile && r?.timeMs && !r.abandoned && <div className="text-[10px] text-gray-400">{formatTime(r.timeMs, opponentResults[i]?.timeMs)}</div>}
                   </div>
                 );
               })}
@@ -593,13 +604,22 @@ export default function BattleResultScreen({
                       );
                     }
                     const r = opponentResults[i];
-                    const bgColor = r ? (r.correct ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.15)') : '#f3f4f6';
+                    const bgColor = r
+                      ? r.abandoned
+                        ? 'rgba(245, 158, 11, 0.18)'
+                        : r.correct ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.15)'
+                      : '#f3f4f6';
                     return (
-                      <div key={i} className={`rounded-lg text-center ${isMobile ? 'py-1.5' : 'py-2'} animate-[chipIn_0.3s_ease-out]`} style={{ backgroundColor: bgColor }}>
-                        <div className={`font-display ${isMobile ? 'text-xs' : 'text-base'} ${isMobile ? 'text-gray-900' : ''}`} style={isMobile ? {} : { color: r ? (r.correct ? '#10b981' : '#ef4444') : '#9ca3af' }}>
-                          {r ? (r.correct ? formatCurrency(r.points) : '—') : '—'}
+                      <div
+                        key={i}
+                        title={r?.abandoned ? 'Round left open (reload or lost connection) - counted as wrong' : undefined}
+                        className={`rounded-lg text-center ${isMobile ? 'py-1.5' : 'py-2'} animate-[chipIn_0.3s_ease-out]`}
+                        style={{ backgroundColor: bgColor }}
+                      >
+                        <div className={`font-display ${isMobile ? 'text-xs' : 'text-base'} ${isMobile ? 'text-gray-900' : ''}`} style={isMobile ? {} : { color: r ? (r.abandoned ? '#B45309' : r.correct ? '#10b981' : '#ef4444') : '#9ca3af' }}>
+                          {r ? (r.abandoned ? 'OUT' : r.correct ? formatCurrency(r.points) : '—') : '—'}
                         </div>
-                        {!isMobile && r?.timeMs && <div className="text-[10px] text-gray-400">{formatTime(r.timeMs, myResults[i]?.timeMs)}</div>}
+                        {!isMobile && r?.timeMs && !r.abandoned && <div className="text-[10px] text-gray-400">{formatTime(r.timeMs, myResults[i]?.timeMs)}</div>}
                       </div>
                     );
                   })}
@@ -618,6 +638,14 @@ export default function BattleResultScreen({
                 </div>
               );
             })()}
+
+            {/* Legend - only when it applies, so a clean game gets no extra noise */}
+            {(myResults.some((r: any) => r.abandoned) || (opponentHasPlayed && opponentResults.some((r: any) => r.abandoned))) && (
+              <p className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-500 mt-2 flex items-center gap-1.5`}>
+                <span className="px-1.5 py-0.5 rounded font-display" style={{ backgroundColor: 'rgba(245, 158, 11, 0.18)', color: '#B45309' }}>OUT</span>
+                Round left open - page reloaded or connection lost. Counted as wrong.
+              </p>
+            )}
           </div>
         )}
 

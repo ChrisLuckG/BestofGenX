@@ -149,11 +149,31 @@ export default function RankingListCard({ poll, onOpenArticle, onOpenRankroll, o
         
         {/* Content */}
         <div className="absolute inset-0 p-4 flex flex-col justify-between">
-          {/* Top Row: Badge + Vote Button - same height as desktop */}
+          {/* Top Row: countdown badge (left) + vote button (right). The orange
+              "RANKING" badge that used to sit on the left is gone - it labelled
+              the card as a ranking on a page that only shows rankings. The
+              countdown, which used to live in its own bar below the Top 3 list,
+              now fills that same left slot instead, since it is the only other
+              badge-like element this card has. */}
           <div className="flex items-center justify-between">
-            <span className="h-6 inline-flex items-center px-2 bg-[#E36B11] text-white text-xs font-display uppercase tracking-wider rounded">
-              RANKING
-            </span>
+            {countdown ? (
+              <div className="h-6 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm px-2 rounded border border-white/20">
+                <span className="relative flex-shrink-0 flex items-center justify-center">
+                  {!countdown.expired && (
+                    <span className="absolute inset-0 rounded-full bg-[#E36B11]/40 animate-ping" />
+                  )}
+                  <Clock className={`relative w-3 h-3 text-[#E36B11] ${!countdown.expired ? 'animate-pulse' : ''}`} />
+                </span>
+                <span className="font-display text-xs text-white tracking-wider tabular-nums">
+                  {countdown.expired ? 'ENDED' : (
+                    <>
+                      {countdown.days > 0 && <>{countdown.days}d </>}
+                      {countdown.hours.toString().padStart(2, '0')}h {countdown.minutes.toString().padStart(2, '0')}m
+                    </>
+                  )}
+                </span>
+              </div>
+            ) : <span />}
             {hasVoted ? (
               <div className="h-6 flex items-center gap-1 bg-[#E36B11] px-2 rounded transition-colors border border-white/30">
                 <span className="text-sm">🪙</span><span className="text-xs font-display text-white">{(votedCount * 0.01).toFixed(2)}/{((poll.items?.length || 0) * 0.01).toFixed(2)} BOGX</span>
@@ -174,7 +194,7 @@ export default function RankingListCard({ poll, onOpenArticle, onOpenRankroll, o
           
           {/* Bottom: Title + Stats */}
           <div>
-            <h3 className="font-display text-xl text-white group-hover:text-[#E36B11] transition-colors line-clamp-2 leading-tight uppercase">
+            <h3 className="font-display text-2xl md:text-3xl text-white group-hover:text-[#E36B11] transition-colors line-clamp-2 leading-tight uppercase">
               {poll.title}
             </h3>
           </div>
@@ -217,38 +237,15 @@ export default function RankingListCard({ poll, onOpenArticle, onOpenRankroll, o
         ))}
       </div>
       
-      {/* Countdown Timer Bar - at bottom, after Top 3 */}
+      {/* Countdown explainer - at bottom, after Top 3. The actual time now lives
+          in the badge on the image (top row), so this bar only carries the
+          "what happens after" note that badge has no room for. */}
       {countdown && (
-        <div className="px-3 py-2.5 flex items-center justify-between bg-[#E36B11]/10 border-t border-[#E36B11]/20">
-          {/* Left: Clock + ENDS IN + Time */}
-          <div className="flex items-center gap-2">
-            <div className="relative flex-shrink-0">
-              {!countdown.expired && (
-                <span className="absolute inset-0 rounded-full bg-[#E36B11]/40 animate-ping" />
-              )}
-              <Clock className={`relative w-4 h-4 text-[#E36B11] ${!countdown.expired ? 'animate-pulse' : ''}`} />
-            </div>
-            <div>
-              <span className="text-[8px] font-semibold text-gray-600 uppercase tracking-wider block">ENDS IN</span>
-              <span className="font-display text-xl text-[#E36B11] tracking-wider tabular-nums">
-                {countdown.expired ? 'ENDED' : (
-                  <>
-                    {countdown.days > 0 && <>{countdown.days}d </>}
-                    {countdown.hours.toString().padStart(2, '0')}h {countdown.minutes.toString().padStart(2, '0')}m{' '}
-                    <span className="inline-block animate-pulse text-[#C4772A]">{countdown.seconds.toString().padStart(2, '0')}s</span>
-                  </>
-                )}
-              </span>
-            </div>
-          </div>
-          
-          {/* Right: Info + Text */}
-          <div className="flex items-center gap-1.5">
-            <Info className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
-            <span className="text-[8px] text-gray-500 leading-tight max-w-[120px]">
-              After the deadline, voting remains open and rankings continue to evolve.
-            </span>
-          </div>
+        <div className="px-3 py-2 flex items-center gap-1.5 bg-[#E36B11]/10 border-t border-[#E36B11]/20">
+          <Info className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+          <span className="text-[8px] text-gray-500 leading-tight">
+            After the deadline, voting remains open and rankings continue to evolve.
+          </span>
         </div>
       )}
     </button>

@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import BlockEditor from "@/components/admin/BlockEditor";
 import ImagePickerModal from "@/components/admin/ImagePickerModal";
+import { useConfirm } from "@/components/admin/ConfirmModal";
 import CountryFlag from "@/components/CountryFlag";
 import { countryNameToCode } from "@/lib/countryFlags";
 import RankrollTab from "@/components/admin/RankrollTab";
@@ -363,7 +364,7 @@ function TemplatePanel({
         <button
           onClick={() => onSelect(promptText)}
           disabled={!promptText.trim()}
-          className="px-4 py-1.5 bg-[#E36B11] hover:bg-[#c07830] rounded text-xs font-bold text-white disabled:opacity-50"
+          className="px-4 py-1.5 bg-[#E36B11] hover:bg-[#c07830] rounded text-xs font-bold text-paper disabled:opacity-50"
         >
           → Use as Campaign Topic
         </button>
@@ -768,6 +769,7 @@ export default function NewsroomConference({
   });
   const [historySearching, setHistorySearching] = useState(false);
   const [historyCompiling, setHistoryCompiling] = useState(false);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   // Events used in previous sessions (last 21 days). Multi-day events like Woodstock
   // (15-18 Aug 1969) otherwise resurface on every single day of their span.
@@ -1024,15 +1026,18 @@ export default function NewsroomConference({
   }
 
   // Close/delete a piece (red X button)
-  function closePiece(pieceId: string) {
+  async function closePiece(pieceId: string) {
     const piece = pieces[activeDept].find(p => p.id === pieceId);
     const pieceType = piece?.type || 'piece';
     
     // For History pieces, check if there are events and ask for confirmation
     if (pieceType === 'history' && historyEvents.length > 0) {
-      const confirmed = window.confirm(
-        `Delete History session?\n\nThis will remove ${historyEvents.length} event(s) and the banner image.`
-      );
+      const confirmed = await confirm({
+        title: 'Delete History Session',
+        message: `Delete History session?\n\nThis will remove ${historyEvents.length} event(s) and the banner image.`,
+        confirmLabel: 'Delete',
+        variant: 'danger',
+      });
       if (!confirmed) return;
       
       // Clear history data
@@ -1041,7 +1046,12 @@ export default function NewsroomConference({
       setHistoryHeadline(null);
     } else if (pieceType !== 'history') {
       // For other piece types, simple confirmation
-      const confirmed = window.confirm(`Delete this ${pieceType} session?`);
+      const confirmed = await confirm({
+        title: 'Delete Session',
+        message: `Delete this ${pieceType} session?`,
+        confirmLabel: 'Delete',
+        variant: 'danger',
+      });
       if (!confirmed) return;
     }
     
@@ -1080,7 +1090,13 @@ export default function NewsroomConference({
     const question = articleId
       ? 'Delete this article? This cannot be undone.'
       : 'Remove this entry from the conference?';
-    if (!window.confirm(question)) return;
+    const ok = await confirm({
+      title: articleId ? 'Delete Article' : 'Remove Entry',
+      message: question,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
 
     setDeletingResultId(msgId);
     try {
@@ -2836,6 +2852,18 @@ This is a memorial article honoring their life and legacy. Create the full artic
           reporterUserId: writerId,
           message: articleMessage,
           userId,
+          // Named explicitly so the route can fetch a VERIFIED Wikipedia source. The
+          // route deliberately refuses to guess the subject out of the message text:
+          // a wrong page would make invented facts look sourced.
+          subject: {
+            name: proposal.name,
+            bornYear: proposal.birthday ? String(proposal.birthday).slice(-4) : undefined,
+            profession: proposal.category,
+            // Full dates too: the route derives the occasion line (birthday / day of
+            // death) from them, and only mentions it when today actually is that day.
+            birthday: proposal.birthday,
+            deathday: proposal.deathday,
+          },
           skipSave: true, // Don't save to DB yet - user will review first
         }),
         signal: controller.signal, // Allow cancellation
@@ -3322,7 +3350,7 @@ If nothing in the list matches the requested category, answer with the "NO ... F
           {/* Left side */}
           <div className="flex items-center gap-3">
             <Users className="w-4 h-4 text-gray-400" />
-            <h2 className="text-white font-semibold text-sm">Editorial Conference</h2>
+            <h2 className="text-paper font-semibold text-sm">Editorial Conference</h2>
             <span className="text-[10px] text-gray-500">{roster.length} reporters</span>
             {/* API Status */}
             {apiStatus && apiStatus.status !== 'active' && (
@@ -3364,7 +3392,7 @@ If nothing in the list matches the requested category, answer with the "NO ... F
               ))}
             </div>
             {onClose && (
-              <button onClick={onClose} className="text-gray-500 hover:text-white p-1 rounded transition-colors ml-2">
+              <button onClick={onClose} className="text-gray-500 hover:text-paper p-1 rounded transition-colors ml-2">
                 <X className="w-4 h-4" />
               </button>
             )}
@@ -3426,7 +3454,7 @@ If nothing in the list matches the requested category, answer with the "NO ... F
                   className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 hover:bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                   title="Close this piece"
                 >
-                  <X size={10} className="text-white" />
+                  <X size={10} className="text-paper" />
                 </button>
               </div>
             );
@@ -3459,7 +3487,7 @@ If nothing in the list matches the requested category, answer with the "NO ... F
                 }}
                 className={`flex items-center gap-1.5 px-2 py-1 rounded border text-xs font-medium transition-colors ${
                   roster.every(p => activeReporters[p.id])
-                    ? "bg-gray-700 border-gray-600 text-white hover:bg-gray-600"
+                    ? "bg-gray-700 border-gray-600 text-paper hover:bg-gray-600"
                     : "bg-gray-800 border-gray-700 text-gray-400 hover:bg-gray-700"
                 }`}
               >
@@ -3655,7 +3683,7 @@ If nothing in the list matches the requested category, answer with the "NO ... F
                   {typing ? (
                     <button
                       onClick={stopSearch}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded text-xs font-bold shrink-0 bg-red-600 hover:bg-red-500 text-white"
+                      className="flex items-center gap-1.5 px-4 py-2 rounded text-xs font-bold shrink-0 bg-red-600 hover:bg-red-500 text-paper"
                     >
                       <X size={12} /> Stop
                     </button>
@@ -3691,7 +3719,7 @@ If nothing in the list matches the requested category, answer with the "NO ... F
                         {typing ? (
                           <button
                             onClick={stopSearch}
-                            className="flex items-center gap-1.5 px-4 py-2 rounded text-xs font-bold shrink-0 bg-red-600 hover:bg-red-500 text-white"
+                            className="flex items-center gap-1.5 px-4 py-2 rounded text-xs font-bold shrink-0 bg-red-600 hover:bg-red-500 text-paper"
                           >
                             <X size={12} /> Stop
                           </button>
@@ -3727,7 +3755,7 @@ Length: 800-1200 words`;
                       <div className="max-h-32 overflow-y-auto space-y-1">
                         {songRequests.slice(0, 10).map(r => (
                           <div key={r._id} className="text-[10px] text-gray-400 flex items-center gap-2">
-                            <span className="text-white font-medium">{r.band}</span>
+                            <span className="text-paper font-medium">{r.band}</span>
                             <span className="text-gray-500">—</span>
                             <span>{r.song}</span>
                             <span className="text-gray-600">({r.username})</span>
@@ -3760,7 +3788,7 @@ Length: 800-1200 words`;
                     }
                   }}
                   placeholder="e.g. Robert De Niro best movies, 90s hip hop albums, Mike Tyson fights..."
-                  className="flex-1 bg-gray-700 px-3 py-2 rounded text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-[#E36B11]"
+                  className="flex-1 bg-gray-700 px-3 py-2 rounded text-sm text-paper placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-[#E36B11]"
                 />
                 {/* Media type toggle */}
                 <div className="flex items-center bg-gray-700 rounded overflow-hidden shrink-0">
@@ -3768,8 +3796,8 @@ Length: 800-1200 words`;
                     onClick={() => setRankrollMediaType('youtube')}
                     className={`px-2 py-1.5 text-xs font-medium flex items-center gap-1 ${
                       rankrollMediaType === 'youtube' 
-                        ? 'bg-red-600 text-white' 
-                        : 'text-gray-400 hover:text-white'
+                        ? 'bg-red-600 text-paper' 
+                        : 'text-gray-400 hover:text-paper'
                     }`}
                     title="Use YouTube videos"
                   >
@@ -3779,8 +3807,8 @@ Length: 800-1200 words`;
                     onClick={() => setRankrollMediaType('gif')}
                     className={`px-2 py-1.5 text-xs font-medium flex items-center gap-1 ${
                       rankrollMediaType === 'gif' 
-                        ? 'bg-purple-600 text-white' 
-                        : 'text-gray-400 hover:text-white'
+                        ? 'bg-purple-600 text-paper' 
+                        : 'text-gray-400 hover:text-paper'
                     }`}
                     title="Use images (Wikimedia Commons, Tenor GIF as fallback)"
                   >
@@ -3790,7 +3818,7 @@ Length: 800-1200 words`;
                 {typing ? (
                   <button
                     onClick={stopSearch}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded text-xs font-bold shrink-0 bg-red-600 hover:bg-red-500 text-white"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded text-xs font-bold shrink-0 bg-red-600 hover:bg-red-500 text-paper"
                   >
                     <X size={12} /> Stop
                   </button>
@@ -3825,7 +3853,7 @@ Length: 800-1200 words`;
                     if (e.key === 'Enter') runTvSearch();
                   }}
                   placeholder="e.g. Max Cavalera interview, Nirvana live, Brad Pitt movies..."
-                  className="flex-1 bg-gray-700 px-3 py-2 rounded text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  className="flex-1 bg-gray-700 px-3 py-2 rounded text-sm text-paper placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
                 />
                 {/* Pull Today's Articles Button */}
                 <button
@@ -3902,7 +3930,7 @@ Length: 800-1200 words`;
                     setTvPulling(false);
                   }}
                   disabled={tvPulling || tvSearching}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded text-xs font-bold shrink-0 disabled:opacity-50 bg-purple-600 hover:bg-purple-500 text-white"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded text-xs font-bold shrink-0 disabled:opacity-50 bg-purple-600 hover:bg-purple-500 text-paper"
                   title="Pull names from today's articles"
                 >
                   {tvPulling ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />} Pull
@@ -3910,7 +3938,7 @@ Length: 800-1200 words`;
                 {tvSearching ? (
                   <button
                     onClick={() => tvAbortRef.current?.abort()}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded text-xs font-bold shrink-0 bg-red-600 hover:bg-red-500 text-white"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded text-xs font-bold shrink-0 bg-red-600 hover:bg-red-500 text-paper"
                   >
                     <X size={12} /> Stop
                   </button>
@@ -3918,7 +3946,7 @@ Length: 800-1200 words`;
                   <button
                     onClick={runTvSearch}
                     disabled={!tvSearchInput.trim()}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded text-xs font-bold shrink-0 disabled:opacity-50 bg-green-600 hover:bg-green-500 text-white"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded text-xs font-bold shrink-0 disabled:opacity-50 bg-green-600 hover:bg-green-500 text-paper"
                   >
                     <Tv size={12} /> Search
                   </button>
@@ -3938,7 +3966,7 @@ Length: 800-1200 words`;
                           className="w-full h-full object-cover"
                         />
                         {video.duration && (
-                          <span className="absolute top-2 right-2 bg-black/90 text-white text-xs font-bold px-2 py-0.5 rounded">
+                          <span className="absolute top-2 right-2 bg-black/90 text-paper text-xs font-bold px-2 py-0.5 rounded">
                             {video.duration}
                           </span>
                         )}
@@ -3950,7 +3978,7 @@ Length: 800-1200 words`;
                           className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 hover:opacity-100 transition-opacity"
                         >
                           <div className="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center">
-                            <svg className="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-6 h-6 text-paper ml-1" fill="currentColor" viewBox="0 0 24 24">
                               <path d="M8 5v14l11-7z"/>
                             </svg>
                           </div>
@@ -3958,7 +3986,7 @@ Length: 800-1200 words`;
                       </div>
                       {/* Info */}
                       <div className="p-2">
-                        <h4 className="text-xs font-medium text-white line-clamp-2 mb-2">{video.title}</h4>
+                        <h4 className="text-xs font-medium text-paper line-clamp-2 mb-2">{video.title}</h4>
                         {/* Save buttons */}
                         <div className="flex gap-1">
                           {[1, 2, 3].map(pos => (
@@ -3995,8 +4023,8 @@ Length: 800-1200 words`;
                               disabled={tvSaving !== null}
                               className={`flex-1 py-1.5 rounded text-[10px] font-bold transition-colors ${
                                 (video as any).savedAt === pos
-                                  ? 'bg-green-600 text-white'
-                                  : 'bg-purple-600/50 hover:bg-purple-600 text-white'
+                                  ? 'bg-green-600 text-paper'
+                                  : 'bg-purple-600/50 hover:bg-purple-600 text-paper'
                               }`}
                             >
                               {tvSaving === pos ? (
@@ -4171,7 +4199,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                     setTyping(false);
                   }}
                   disabled={!!typing || songRequestsLoading || songRequests.length === 0 || !roster.some(r => activeReporters[r.id])}
-                  className="flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-[#1DB954] hover:bg-[#1ed760] text-white"
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-[#1DB954] hover:bg-[#1ed760] text-paper"
                 >
                   {typing ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
                   Start Article
@@ -4280,7 +4308,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                       setHistorySearching(false);
                     }}
                     disabled={historySearching || roster.filter(r => activeReporters[r.id]).length === 0}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded text-xs font-bold shrink-0 disabled:opacity-50 bg-green-600 hover:bg-green-500 text-white"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded text-xs font-bold shrink-0 disabled:opacity-50 bg-green-600 hover:bg-green-500 text-paper"
                   >
                     {historySearching ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
                     {historyEvents.length > 0 ? 'Search Again' : 'Start Search'}
@@ -4288,7 +4316,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                   {historySearching && (
                     <button
                       onClick={() => { cancelRequestedRef.current = true; }}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded text-xs font-bold shrink-0 bg-red-600 hover:bg-red-500 text-white"
+                      className="flex items-center gap-1.5 px-4 py-2 rounded text-xs font-bold shrink-0 bg-red-600 hover:bg-red-500 text-paper"
                     >
                       <X size={12} /> Stop
                     </button>
@@ -4378,7 +4406,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                         <>
                           {/* Event date and title */}
                           <div className="text-xs text-gray-500 mb-1">{event.date}</div>
-                          <h4 className="text-base font-bold text-white mb-2">
+                          <h4 className="text-base font-bold text-paper mb-2">
                             {event.title}
                           </h4>
                           <p className="text-sm text-gray-400 line-clamp-3 mb-3">{event.description}</p>
@@ -4399,7 +4427,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                               />
                               <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/50 transition-colors">
                                 <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center">
-                                  <Play size={18} className="text-white ml-0.5" fill="white" />
+                                  <Play size={18} className="text-paper ml-0.5" fill="white" />
                                 </div>
                               </div>
                             </a>
@@ -4514,7 +4542,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                   <div className="flex items-center gap-2 mb-3">
                     {historyHeadline ? (
                       <>
-                        <span className="text-sm font-bold text-white flex-1 truncate">{historyHeadline}</span>
+                        <span className="text-sm font-bold text-paper flex-1 truncate">{historyHeadline}</span>
                         <button
                           onClick={async () => {
                             const selectedEvents = historyEvents.filter(e => e.selected && !e.error);
@@ -4539,7 +4567,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                               // Silently fail
                             }
                           }}
-                          className="text-xs text-gray-400 hover:text-white flex items-center gap-1"
+                          className="text-xs text-gray-400 hover:text-paper flex items-center gap-1"
                           title="Generate new headline"
                         >
                           <Sparkles size={12} /> New
@@ -4589,7 +4617,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                         >
                           <img src={historyBanner} alt="Banner" className="w-full h-full object-cover" />
                           <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                            <Eye size={16} className="text-white" />
+                            <Eye size={16} className="text-paper" />
                           </div>
                         </button>
                       )}
@@ -4626,7 +4654,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                           setHistoryBannerGenerating(false);
                         }}
                         disabled={historyBannerGenerating}
-                        className="flex items-center gap-1.5 px-4 py-2 rounded text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white disabled:opacity-50"
+                        className="flex items-center gap-1.5 px-4 py-2 rounded text-xs font-bold bg-purple-600 hover:bg-purple-500 text-paper disabled:opacity-50"
                       >
                         {historyBannerGenerating ? (
                           <>
@@ -4688,7 +4716,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                           setHistoryCompiling(false);
                         }}
                         disabled={historyCompiling}
-                        className="flex items-center gap-1.5 px-5 py-2 rounded text-sm font-bold bg-green-600 hover:bg-green-500 text-white disabled:opacity-50"
+                        className="flex items-center gap-1.5 px-5 py-2 rounded text-sm font-bold bg-green-600 hover:bg-green-500 text-paper disabled:opacity-50"
                       >
                         {historyCompiling ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
                         Create History Article
@@ -4745,7 +4773,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                           className={`flex items-center gap-2 text-sm ${
                             validProposals.length === 0 || selectingProposal || processingBatch
                               ? 'text-gray-500 cursor-not-allowed'
-                              : 'text-gray-300 hover:text-white'
+                              : 'text-gray-300 hover:text-paper'
                           }`}
                         >
                           <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
@@ -4753,7 +4781,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                               ? 'bg-[#E36B11] border-[#E36B11]'
                               : 'border-gray-500 hover:border-[#E36B11]'
                           }`}>
-                            {allSelected && <Check className="w-3 h-3 text-white" />}
+                            {allSelected && <Check className="w-3 h-3 text-paper" />}
                           </div>
                           Select All ({validProposals.length})
                         </button>
@@ -4767,7 +4795,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                             <button
                               onClick={processSelectedProposals}
                               disabled={processingBatch || !!selectingProposal}
-                              className={`flex items-center gap-2 px-4 py-1.5 rounded text-sm font-bold text-white ${
+                              className={`flex items-center gap-2 px-4 py-1.5 rounded text-sm font-bold text-paper ${
                                 processingBatch || selectingProposal
                                   ? 'bg-gray-600 cursor-not-allowed'
                                   : 'bg-[#E36B11] hover:bg-[#c07830]'
@@ -4787,7 +4815,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                             </button>
                             <button
                               onClick={() => setSelectedProposals(new Set())}
-                              className="text-xs text-gray-400 hover:text-white"
+                              className="text-xs text-gray-400 hover:text-paper"
                             >
                               Clear
                             </button>
@@ -4852,7 +4880,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                                   } ${(selectingProposal || processingBatch) ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
                                   {selectedProposals.has(r.id) && (
-                                    <Check className="w-3 h-3 text-white" />
+                                    <Check className="w-3 h-3 text-paper" />
                                   )}
                                 </button>
                               </>
@@ -4879,10 +4907,10 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                                 <span className="text-[10px] text-red-400 font-medium">No match</span>
                               </div>
                               {!offTopic && proposal.name !== 'Unknown' && (
-                                <div className="text-xs text-white mb-1 line-clamp-1">{proposal.name}</div>
+                                <div className="text-xs text-paper mb-1 line-clamp-1">{proposal.name}</div>
                               )}
                               {!offTopic && proposal.birthday && (
-                                <div className="text-[9px] text-white/70 mb-1">📅 {proposal.birthday?.length > 60 ? proposal.birthday.slice(0, 60) + '...' : proposal.birthday}</div>
+                                <div className="text-[9px] text-paper/70 mb-1">📅 {proposal.birthday?.length > 60 ? proposal.birthday.slice(0, 60) + '...' : proposal.birthday}</div>
                               )}
                               <p className="text-[10px] text-red-400/80 flex-1 whitespace-pre-wrap break-words overflow-y-auto max-h-24" title={proposal.errorReason}>{proposal.errorReason}</p>
                               <button
@@ -4890,7 +4918,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                                 disabled={!!retryingReporter}
                                 className={`mt-2 w-full py-1.5 rounded text-[10px] flex items-center justify-center gap-1 ${
                                   retryingReporter === r.id
-                                    ? 'bg-blue-600 text-white animate-pulse'
+                                    ? 'bg-blue-600 text-paper animate-pulse'
                                     : retryingReporter
                                       ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
                                       : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
@@ -4914,17 +4942,17 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                               {currentPiece?.type === 'rankroll' ? (
                                 /* RANKROLL layout */
                                 <>
-                                  <div className="text-[11px] font-semibold text-white mb-1 line-clamp-2">{proposal.name}</div>
+                                  <div className="text-[11px] font-semibold text-paper mb-1 line-clamp-2">{proposal.name}</div>
                                   <div className="text-[9px] text-purple-400 mb-1">🏆 {proposal.country}</div>
-                                  <p className="text-[9px] text-white/80 flex-1 line-clamp-2 mb-0.5">{proposal.description}</p>
+                                  <p className="text-[9px] text-paper/80 flex-1 line-clamp-2 mb-0.5">{proposal.description}</p>
                                 </>
                               ) : (
                                 /* ARTICLE layout - Person with Birthday + Flag */
                                 <>
-                                  <div className="flex items-center gap-1.5 text-[11px] text-white mb-1">
-                                    <span className="font-semibold text-white">{proposal.name}</span>
-                                    <span className="text-white/60">·</span>
-                                    <span className="text-white/90">{proposal.birthday?.length > 80 ? proposal.birthday.slice(0, 80) + '...' : proposal.birthday}</span>
+                                  <div className="flex items-center gap-1.5 text-[11px] text-paper mb-1">
+                                    <span className="font-semibold text-paper">{proposal.name}</span>
+                                    <span className="text-paper/60">·</span>
+                                    <span className="text-paper/90">{proposal.birthday?.length > 80 ? proposal.birthday.slice(0, 80) + '...' : proposal.birthday}</span>
                                     {/* Central mapping instead of a hardcoded chain that fell
                                         back to 'US' - a Finnish artist showed a US flag.
                                         Unknown country now renders no flag at all. */}
@@ -4935,7 +4963,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                                       />
                                     )}
                                   </div>
-                                  <p className="text-[9px] text-white/80 flex-1 line-clamp-2 mb-0.5">{proposal.description}</p>
+                                  <p className="text-[9px] text-paper/80 flex-1 line-clamp-2 mb-0.5">{proposal.description}</p>
                                 </>
                               )}
                               {/* Common elements for both layouts */}
@@ -4976,7 +5004,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                                   /* Stop button when writing */
                                   <button
                                     onClick={cancelGeneration}
-                                    className="flex-1 py-1 rounded text-[10px] font-bold text-white flex items-center justify-center gap-1 bg-red-600 hover:bg-red-700"
+                                    className="flex-1 py-1 rounded text-[10px] font-bold text-paper flex items-center justify-center gap-1 bg-red-600 hover:bg-red-700"
                                   >
                                     <Square className="w-3 h-3 fill-current" />
                                     Stop
@@ -4988,7 +5016,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                                       <button
                                         onClick={() => selectProposal(proposal)}
                                         disabled={!!selectingProposal}
-                                        className={`flex-1 py-1 rounded-l text-[10px] font-bold text-white flex items-center justify-center gap-1 ${
+                                        className={`flex-1 py-1 rounded-l text-[10px] font-bold text-paper flex items-center justify-center gap-1 ${
                                           selectingProposal
                                             ? 'bg-gray-600 cursor-not-allowed'
                                             : 'bg-[#E36B11] hover:bg-[#c07830]'
@@ -4999,7 +5027,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                                       <button
                                         onClick={() => setReassignOpen(reassignOpen === `${r.id}-${proposal.name}` ? null : `${r.id}-${proposal.name}`)}
                                         disabled={!!selectingProposal}
-                                        className={`px-1 py-1 rounded-r border-l border-orange-700 text-[10px] text-white ${
+                                        className={`px-1 py-1 rounded-r border-l border-orange-700 text-[10px] text-paper ${
                                           selectingProposal
                                             ? 'bg-gray-600 cursor-not-allowed'
                                             : 'bg-[#E36B11] hover:bg-[#c07830]'
@@ -5020,7 +5048,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                                               setReassignOpen(null);
                                               selectProposal(proposal, { id: rep.id, name: rep.name });
                                             }}
-                                            className="w-full text-left px-2 py-1.5 text-[10px] text-white hover:bg-gray-700 flex items-center gap-2"
+                                            className="w-full text-left px-2 py-1.5 text-[10px] text-paper hover:bg-gray-700 flex items-center gap-2"
                                           >
                                             {rep.avatar && <img src={rep.avatar} className="w-4 h-4 rounded-full" />}
                                             <span>{rep.name}</span>
@@ -5035,7 +5063,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                                   disabled={!!retryingReporter || !!selectingProposal}
                                   className={`w-7 py-1 rounded text-[10px] flex items-center justify-center ${
                                     retryingReporter === r.id
-                                      ? 'bg-blue-600 text-white animate-pulse'
+                                      ? 'bg-blue-600 text-paper animate-pulse'
                                       : retryingReporter || selectingProposal
                                         ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
                                         : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
@@ -5098,7 +5126,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                               console.error('Failed to load article:', err);
                             }
                           }}
-                          className="shrink-0 px-3 py-1 rounded text-xs font-bold bg-[#E36B11] hover:bg-[#c07830] text-white flex items-center gap-1"
+                          className="shrink-0 px-3 py-1 rounded text-xs font-bold bg-[#E36B11] hover:bg-[#c07830] text-paper flex items-center gap-1"
                         >
                           <ExternalLink size={12} /> Edit Article
                         </button>
@@ -5106,7 +5134,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                       {m.activated && m.articleDraftId && (
                         <button
                           onClick={() => setPreviewArticleId(m.articleDraftId!)}
-                          className="shrink-0 px-3 py-1 rounded text-xs font-bold bg-gray-700 hover:bg-gray-600 text-white flex items-center gap-1"
+                          className="shrink-0 px-3 py-1 rounded text-xs font-bold bg-gray-700 hover:bg-gray-600 text-paper flex items-center gap-1"
                         >
                           <Eye size={12} /> Preview
                         </button>
@@ -5119,7 +5147,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                             setRankrollInput(rankrollPrefill(m.articlePersonName || '', m.articleCategory));
                             createPiece('rankroll');
                           }}
-                          className="shrink-0 px-3 py-1 rounded text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white flex items-center gap-1"
+                          className="shrink-0 px-3 py-1 rounded text-xs font-bold bg-purple-600 hover:bg-purple-500 text-paper flex items-center gap-1"
                         >
                           <ListOrdered size={12} /> Create Rankroll
                         </button>
@@ -5128,7 +5156,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                         onClick={() => deleteResultArticle(m.id, m.articleDraftId)}
                         disabled={deletingResultId === m.id}
                         title={m.articleDraftId ? 'Delete article and remove this entry' : 'Remove this entry'}
-                        className="shrink-0 px-2 py-1 rounded text-xs font-bold bg-red-700 hover:bg-red-600 text-white flex items-center gap-1 disabled:opacity-50"
+                        className="shrink-0 px-2 py-1 rounded text-xs font-bold bg-red-700 hover:bg-red-600 text-paper flex items-center gap-1 disabled:opacity-50"
                       >
                         {deletingResultId === m.id
                           ? <Loader2 size={12} className="animate-spin" />
@@ -5151,7 +5179,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                         <img src={preview.coverImage} alt="" className="w-full h-40 object-cover" />
                       )}
                       <div className="p-4">
-                        <h3 className="text-lg font-bold text-white mb-1">{preview.title}</h3>
+                        <h3 className="text-lg font-bold text-paper mb-1">{preview.title}</h3>
                         {preview.subtitle && <p className="text-sm text-gray-400 mb-3">{preview.subtitle}</p>}
                         <div 
                           className="text-sm text-gray-300 max-h-60 overflow-y-auto prose prose-invert prose-sm"
@@ -5170,7 +5198,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                           <button
                             onClick={() => m.articleDraftId && setPreviewArticleId(m.articleDraftId)}
                             disabled={!m.articleDraftId}
-                            className="px-4 py-1.5 rounded text-xs font-bold bg-gray-600 hover:bg-gray-500 text-white flex items-center gap-1 disabled:opacity-50"
+                            className="px-4 py-1.5 rounded text-xs font-bold bg-gray-600 hover:bg-gray-500 text-paper flex items-center gap-1 disabled:opacity-50"
                           >
                             <Eye size={12} /> Preview
                           </button>
@@ -5200,19 +5228,19 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div>
                             <span className="text-gray-500 text-xs">Name</span>
-                            <p className="text-white font-medium">{data.name}</p>
+                            <p className="text-paper font-medium">{data.name}</p>
                           </div>
                           <div>
                             <span className="text-gray-500 text-xs">Birthday</span>
-                            <p className="text-white">{data.birthday || '—'}</p>
+                            <p className="text-paper">{data.birthday || '—'}</p>
                           </div>
                           <div>
                             <span className="text-gray-500 text-xs">Country</span>
-                            <p className="text-white">{data.country || '—'}</p>
+                            <p className="text-paper">{data.country || '—'}</p>
                           </div>
                           <div>
                             <span className="text-gray-500 text-xs">Profession</span>
-                            <p className="text-white">{data.profession || '—'}</p>
+                            <p className="text-paper">{data.profession || '—'}</p>
                           </div>
                         </div>
                       </div>
@@ -5224,7 +5252,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                         ) : (
                           <button
                             onClick={() => saveMensch(m.id, data)}
-                            className="px-4 py-1.5 rounded text-xs font-bold bg-purple-500 hover:bg-purple-400 text-white"
+                            className="px-4 py-1.5 rounded text-xs font-bold bg-purple-500 hover:bg-purple-400 text-paper"
                           >
                             👤 Save to Menschen
                           </button>
@@ -5248,7 +5276,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                           className="flex items-center gap-2 px-5 py-3 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-green-500 transition-all"
                         >
                           <Icon size={18} className="text-green-400" />
-                          <span className="text-sm font-semibold text-white">Start {c.label}</span>
+                          <span className="text-sm font-semibold text-paper">Start {c.label}</span>
                         </button>
                       );
                     })}
@@ -5277,7 +5305,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                 }}
                 className={`px-3 py-1.5 rounded text-xs font-medium whitespace-nowrap transition-all ${
                   selectedRankrollTab === rankroll.id 
-                    ? 'bg-purple-600 text-white' 
+                    ? 'bg-purple-600 text-paper' 
                     : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                 }`}
               >
@@ -5295,7 +5323,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
             {/* Header */}
             <div className="px-4 py-2.5 border-b border-gray-700 flex items-center justify-between sticky top-0 bg-gray-800 z-10">
               <h3 className="text-sm font-bold">Edit Article</h3>
-              <button onClick={() => setArticleDraft(null)} className="text-gray-400 hover:text-white">
+              <button onClick={() => setArticleDraft(null)} className="text-gray-400 hover:text-paper">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -5427,7 +5455,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                     disabled={savingArticle}
                     className={`w-full py-1.5 rounded text-[10px] font-medium flex items-center justify-center gap-1 ${
                       savingArticle 
-                        ? 'bg-blue-600 text-white animate-pulse' 
+                        ? 'bg-blue-600 text-paper animate-pulse' 
                         : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
                     }`}
                   >
@@ -5449,7 +5477,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                       {articleDraft.tags.map((tag, i) => (
                         <span key={i} className="px-2 py-0.5 bg-[#E36B11]/20 text-[#E36B11] rounded text-[10px] flex items-center gap-1">
                           {tag}
-                          <button onClick={() => setArticleDraft({ ...articleDraft, tags: articleDraft.tags.filter((_, j) => j !== i) })} className="hover:text-white">×</button>
+                          <button onClick={() => setArticleDraft({ ...articleDraft, tags: articleDraft.tags.filter((_, j) => j !== i) })} className="hover:text-paper">×</button>
                         </span>
                       ))}
                       <input
@@ -5488,7 +5516,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                     // Just close - article was never saved to DB (skipSave mode)
                     setArticleDraft(null);
                   }}
-                  className="px-4 py-1.5 text-xs text-gray-400 hover:text-white"
+                  className="px-4 py-1.5 text-xs text-gray-400 hover:text-paper"
                 >
                   Cancel
                 </button>
@@ -5570,7 +5598,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                       setSavingArticle(false);
                     }
                   }}
-                  className={`px-4 py-1.5 rounded text-xs font-bold text-white flex items-center gap-1 ${
+                  className={`px-4 py-1.5 rounded text-xs font-bold text-paper flex items-center gap-1 ${
                     savingArticle 
                       ? 'bg-green-600 animate-pulse cursor-wait' 
                       : !articleDraft.title
@@ -5615,7 +5643,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
       {previewArticleId && (
         <div className="fixed inset-0 z-[75] flex flex-col bg-black/85 p-4">
           <div className="flex items-center justify-between mb-2 shrink-0">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <h3 className="text-sm font-bold text-paper flex items-center gap-2">
               <Eye size={14} className="text-[#E36B11]" />
               Article Preview
             </h3>
@@ -5624,13 +5652,13 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                 href={`/article/${previewArticleId}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3 py-1.5 rounded text-xs font-bold bg-gray-700 hover:bg-gray-600 text-white flex items-center gap-1"
+                className="px-3 py-1.5 rounded text-xs font-bold bg-gray-700 hover:bg-gray-600 text-paper flex items-center gap-1"
               >
                 <ExternalLink size={12} /> Open in new tab
               </a>
               <button
                 onClick={() => setPreviewArticleId(null)}
-                className="px-3 py-1.5 rounded text-xs font-bold bg-gray-700 hover:bg-gray-600 text-white flex items-center gap-1"
+                className="px-3 py-1.5 rounded text-xs font-bold bg-gray-700 hover:bg-gray-600 text-paper flex items-center gap-1"
               >
                 <X size={14} /> Close
               </button>
@@ -5639,7 +5667,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
           <iframe
             src={`/article/${previewArticleId}`}
             title="Article preview"
-            className="flex-1 w-full rounded-lg bg-white border border-gray-700"
+            className="flex-1 w-full rounded-lg bg-paper border border-gray-700"
           />
         </div>
       )}
@@ -5654,7 +5682,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                 <Pencil size={14} className="text-[#E36B11]" />
                 Edit Reporter: {editingReporter.name}
               </h3>
-              <button onClick={() => setEditingReporter(null)} className="text-gray-400 hover:text-white">
+              <button onClick={() => setEditingReporter(null)} className="text-gray-400 hover:text-paper">
                 <X size={18} />
               </button>
             </div>
@@ -5695,7 +5723,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                 >
                   <option value="">— Select Style —</option>
                   {AUTHOR_STYLES.filter(s => s.id !== 'informative').map(style => (
-                    <option key={style.id} value={style.id}>{style.emoji} {style.label}</option>
+                    <option key={style.id} value={style.id}>{style.label}</option>
                   ))}
                 </select>
               </div>
@@ -5712,7 +5740,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
               <button
                 onClick={saveReporterEdit}
                 disabled={savingReporter}
-                className="px-4 py-2 bg-[#E36B11] hover:bg-[#c07830] rounded text-xs font-bold text-white flex items-center gap-1 disabled:opacity-50"
+                className="px-4 py-2 bg-[#E36B11] hover:bg-[#c07830] rounded text-xs font-bold text-paper flex items-center gap-1 disabled:opacity-50"
               >
                 {savingReporter ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
                 Save Changes
@@ -5765,12 +5793,12 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                       }
                     }}
                     disabled={savingRankroll}
-                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 rounded text-xs font-bold text-white flex items-center gap-1 disabled:opacity-50"
+                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 rounded text-xs font-bold text-paper flex items-center gap-1 disabled:opacity-50"
                   >
                     {savingRankroll ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
                     Save Ranking
                   </button>
-                  <button onClick={() => setSelectedRankrollTab(null)} className="text-gray-400 hover:text-white">
+                  <button onClick={() => setSelectedRankrollTab(null)} className="text-gray-400 hover:text-paper">
                     <X className="w-5 h-5" />
                   </button>
                 </div>
@@ -5786,7 +5814,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                       )}
                       <div className="p-2">
                         <span className="text-[10px] text-purple-400 font-bold">#{idx + 1}</span>
-                        <p className="text-xs font-medium text-white line-clamp-2">{item.title}</p>
+                        <p className="text-xs font-medium text-paper line-clamp-2">{item.title}</p>
                         {item.description && (
                           <p className="text-[10px] text-gray-400 line-clamp-2 mt-1">{item.description}</p>
                         )}
@@ -5826,7 +5854,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
           >
             {/* Header */}
             <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-white">History Banner Preview</h3>
+              <h3 className="text-sm font-bold text-paper">History Banner Preview</h3>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
@@ -5834,13 +5862,13 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
                     setHistoryHeadline(null);
                     setShowHistoryBannerModal(false);
                   }}
-                  className="px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded text-xs font-bold text-white"
+                  className="px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded text-xs font-bold text-paper"
                 >
                   Delete
                 </button>
                 <button
                   onClick={() => setShowHistoryBannerModal(false)}
-                  className="text-gray-400 hover:text-white"
+                  className="text-gray-400 hover:text-paper"
                 >
                   <X size={20} />
                 </button>
@@ -5850,7 +5878,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
             {/* Headline */}
             {historyHeadline && (
               <div className="px-4 pt-4">
-                <h2 className="text-xl font-bold text-white">{historyHeadline}</h2>
+                <h2 className="text-xl font-bold text-paper">{historyHeadline}</h2>
               </div>
             )}
             
@@ -5873,6 +5901,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
           </div>
         </div>
       )}
+      <ConfirmDialog />
     </div>
   );
 }

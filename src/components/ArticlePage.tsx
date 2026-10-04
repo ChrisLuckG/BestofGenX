@@ -807,7 +807,7 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
     <div ref={containerRef} className="h-full bg-black text-gray-900 overflow-y-auto overflow-x-hidden relative">
       {/* Desktop Header - same style as Feed/Articles/Arcade */}
       {isDesktop && (
-        <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-[#E36B11]/5 bg-cream">
+        <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream bg-cream">
           <div className="flex items-center gap-3">
             <button 
               onClick={onBack} 

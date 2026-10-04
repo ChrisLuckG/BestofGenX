@@ -398,7 +398,9 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
                 )}
                 <div className="flex items-center gap-1 mt-0.5">
                   <CountryFlag flag={user.countryFlag || 'DE'} className="w-4 h-3 rounded-[2px]" />
-                  <span className="text-xs text-gray-500">{user.country || 'World'}</span>
+                  {/* text-gray-500 at 12px read as barely-there on this card's pale
+                      cream/orange-wash background - text-gray-700 actually reads. */}
+                  <span className="text-xs text-gray-700">{user.country || 'World'}</span>
                 </div>
               </div>
               
@@ -407,47 +409,47 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
                 <img src="/images/bogxcoin.png" alt="" className="w-6 h-6" />
                 <div className="text-right">
                   <span className="text-xl font-display font-black text-[#E36B11]">{formatCurrency(animatedCoins)}</span>
-                  <div className="text-[8px] font-display font-bold tracking-widest uppercase text-gray-400">BOGX</div>
+                  <div className="text-[8px] font-display font-bold tracking-widest uppercase text-gray-600">BOGX</div>
                 </div>
               </div>
             </div>
 
-            {/* Rankings Row - Daily / Monthly / Annually - Compact */}
-            <div className="grid grid-cols-3 gap-1 mt-3 pt-3 border-t border-warm/50">
+            {/* Rankings Row - Daily / Monthly / Annually */}
+            <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-warm/50">
               <div className="text-center">
-                <div className="text-xs font-display font-medium text-gray-500">Daily</div>
-                <div className="flex items-center justify-center gap-0.5">
-                  {dailyRank && <ArrowUp className="w-3 h-3 text-green-500" />}
-                  <span className="text-base font-display font-black text-gray-900 leading-tight">
+                <div className="text-sm font-display font-bold uppercase tracking-wide text-gray-900">Daily</div>
+                <div className="flex items-center justify-center gap-1">
+                  {dailyRank && <ArrowUp className="w-4 h-4 text-green-500" />}
+                  <span className="text-xl font-display font-black text-gray-900 leading-tight">
                     {dailyRank ? `#${dailyRank}` : '—'}
                   </span>
                 </div>
                 {dailyPoints > 0 && (
-                  <div className="text-[9px] font-display text-green-600 font-semibold">+{formatCurrency(dailyPoints)}</div>
+                  <div className="text-xs font-display text-green-600 font-semibold">+{formatCurrency(dailyPoints)}</div>
                 )}
               </div>
               <div className="text-center border-x border-warm/50">
-                <div className="text-xs font-display font-medium text-gray-500">Monthly</div>
-                <div className="flex items-center justify-center gap-0.5">
-                  {monthlyRank && <ArrowUp className="w-3 h-3 text-green-500" />}
-                  <span className="text-base font-display font-black text-gray-900 leading-tight">
+                <div className="text-sm font-display font-bold uppercase tracking-wide text-gray-900">Monthly</div>
+                <div className="flex items-center justify-center gap-1">
+                  {monthlyRank && <ArrowUp className="w-4 h-4 text-green-500" />}
+                  <span className="text-xl font-display font-black text-gray-900 leading-tight">
                     {monthlyRank ? `#${monthlyRank}` : '—'}
                   </span>
                 </div>
                 {monthlyPoints > 0 && (
-                  <div className="text-[9px] font-display text-green-600 font-semibold">+{formatCurrency(monthlyPoints)}</div>
+                  <div className="text-xs font-display text-green-600 font-semibold">+{formatCurrency(monthlyPoints)}</div>
                 )}
               </div>
               <div className="text-center">
-                <div className="text-xs font-display font-medium text-gray-500">Annually</div>
-                <div className="flex items-center justify-center gap-0.5">
-                  {annuallyRank && <ArrowUp className="w-3 h-3 text-green-500" />}
-                  <span className="text-base font-display font-black text-gray-900 leading-tight">
+                <div className="text-sm font-display font-bold uppercase tracking-wide text-gray-900">Annually</div>
+                <div className="flex items-center justify-center gap-1">
+                  {annuallyRank && <ArrowUp className="w-4 h-4 text-green-500" />}
+                  <span className="text-xl font-display font-black text-gray-900 leading-tight">
                     {annuallyRank ? `#${annuallyRank}` : '—'}
                   </span>
                 </div>
                 {annuallyPoints > 0 && (
-                  <div className="text-[9px] font-display text-green-600 font-semibold">+{formatCurrency(annuallyPoints)}</div>
+                  <div className="text-xs font-display text-green-600 font-semibold">+{formatCurrency(annuallyPoints)}</div>
                 )}
               </div>
             </div>
@@ -460,7 +462,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
             <div className="flex items-center justify-center gap-2">
               <FileText className="w-4 h-4 text-gray-900" />
               <span className="font-display text-xl text-gray-900">{formatCurrency(user.authorEarnings || 0)}</span>
-              <span className="text-[8px] font-display font-semibold tracking-widest uppercase text-gray-500">AUTHOR EARNINGS</span>
+              <span className="text-[8px] font-display font-semibold tracking-widest uppercase text-gray-600">AUTHOR EARNINGS</span>
             </div>
           </div>
         )}

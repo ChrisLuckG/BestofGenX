@@ -213,7 +213,7 @@ export default function DesktopArticlesPage({ onOpenArticle, onShowLogin, onCoin
   return (
     <div className="h-full flex flex-col bg-[#F5F0E8] overflow-hidden">
       {/* Header with Search */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-[#E36B11]/5">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
         <div className="flex items-center gap-3">
           <FileText className="w-5 h-5 text-[#E36B11]" />
           <div>

@@ -51,6 +51,12 @@ function setCache<T>(key: string, data: T) {
   } catch { /* quota exceeded - ignore */ }
 }
 
+// Accent colour is the Music category colour from lib/categories.ts (slug
+// 'music', #15803D) - this page used a generic #22C55E, so a Music article and
+// the Music page were two different greens. Tailwind arbitrary values must be
+// literal at build time, so the hex is repeated in the classes below rather than
+// read from getCategoryColor(); keep them in sync with categories.ts.
+
 export default function CommunitySoundPage({ onBack, onOpenRadio, onShowLogin, isDesktop = false }: CommunitySoundPageProps) {
   const { user, isLoggedIn } = useAuth();
   const [article, setArticle] = useState<CommunityArticle | null>(() => getCached<CommunityArticle>(CACHE_KEY_ARTICLE));
@@ -144,10 +150,13 @@ export default function CommunitySoundPage({ onBack, onOpenRadio, onShowLogin, i
   return (
     <div className="w-full h-full min-h-full flex flex-col overflow-hidden" style={{ backgroundColor: '#F5F0E8' }}>
       {/* Header - consistent with other pages */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-green-500/5">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
         <div className="flex items-center gap-3">
-          {onBack && <BackButton onClick={onBack} />}
-          <Music className="w-5 h-5 text-[#22C55E]" />
+          {/* Desktop has its own persistent navigation, so an in-page back
+              button is redundant there. Mobile still needs it - it is the only
+              way out of this view. */}
+          {onBack && !isDesktop && <BackButton onClick={onBack} />}
+          <Music className="w-5 h-5 text-[#15803D]" />
           <div>
             <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Community Sound</span>
             <span className="text-[10px] text-gray-500 -mt-0.5 block">Your songs. Our playlist.</span>
@@ -170,7 +179,7 @@ export default function CommunitySoundPage({ onBack, onOpenRadio, onShowLogin, i
 
         <div className="px-4 py-4 md:px-6">
           {/* Subtitle with green bar like article headlines */}
-          <p className="font-serif italic text-xl leading-snug mb-6 border-l-4 border-[#22C55E] pl-4 text-[#22C55E]">
+          <p className="font-serif italic text-xl leading-snug mb-6 border-l-4 border-[#15803D] pl-4 text-[#15803D]">
             Your songs. Our playlist. Every month, Gen X picks the tracks.
           </p>
 
@@ -179,7 +188,7 @@ export default function CommunitySoundPage({ onBack, onOpenRadio, onShowLogin, i
             <div className="flex items-center justify-between mb-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <Headphones className="w-4 h-4 text-[#22C55E]" />
+                  <Headphones className="w-4 h-4 text-[#15803D]" />
                   <span className="font-bold text-sm uppercase tracking-wider text-gray-900">Our Playlists</span>
                 </div>
                 <p className="text-xs text-gray-500 mt-0.5">Swipe to explore our curated stations</p>
@@ -189,13 +198,13 @@ export default function CommunitySoundPage({ onBack, onOpenRadio, onShowLogin, i
                 <div className="hidden md:flex items-center gap-1">
                   <button 
                     onClick={() => scrollStations('left')}
-                    className="w-8 h-8 rounded-full bg-white/80 border border-warm flex items-center justify-center hover:bg-[#22C55E]/10 hover:border-[#22C55E] transition-colors"
+                    className="w-8 h-8 rounded-full bg-white/80 border border-warm flex items-center justify-center hover:bg-[#15803D]/10 hover:border-[#15803D] transition-colors"
                   >
                     <ChevronLeft className="w-4 h-4 text-gray-600" />
                   </button>
                   <button 
                     onClick={() => scrollStations('right')}
-                    className="w-8 h-8 rounded-full bg-white/80 border border-warm flex items-center justify-center hover:bg-[#22C55E]/10 hover:border-[#22C55E] transition-colors"
+                    className="w-8 h-8 rounded-full bg-white/80 border border-warm flex items-center justify-center hover:bg-[#15803D]/10 hover:border-[#15803D] transition-colors"
                   >
                     <ChevronRight className="w-4 h-4 text-gray-600" />
                   </button>
@@ -218,7 +227,7 @@ export default function CommunitySoundPage({ onBack, onOpenRadio, onShowLogin, i
                     onClick={() => window.open(`https://open.spotify.com/playlist/${station.playlistId}`, '_blank')}
                     className="flex-shrink-0 w-36 rounded-xl overflow-hidden shadow-md hover:shadow-lg hover:scale-105 transition-all group"
                   >
-                    <div className="w-full h-36 overflow-hidden bg-[#22C55E] flex items-center justify-center relative">
+                    <div className="w-full h-36 overflow-hidden bg-[#15803D] flex items-center justify-center relative">
                       {station.imageUrl ? (
                         <>
                           <img src={station.imageUrl} alt={station.name} className="w-full h-full object-cover" />
@@ -245,17 +254,17 @@ export default function CommunitySoundPage({ onBack, onOpenRadio, onShowLogin, i
           {/* Song Request Section */}
           {isLoggedIn && (
             <div className="mt-8 bg-cream rounded-2xl border border-warm overflow-hidden shadow-sm">
-              <div className="bg-green-500/10 px-5 py-4 border-b border-warm flex items-center justify-between">
+              <div className="bg-[#15803D]/10 px-5 py-4 border-b border-warm flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#22C55E]/10 flex items-center justify-center">
-                    <Music className="w-5 h-5 text-[#22C55E]" />
+                  <div className="w-10 h-10 rounded-xl bg-[#15803D]/10 flex items-center justify-center">
+                    <Music className="w-5 h-5 text-[#15803D]" />
                   </div>
                   <div>
                     <h3 className="font-display text-base tracking-wide text-gray-900 uppercase">Song Request</h3>
                     <p className="text-xs text-gray-500">Request a song for the stream.</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5 text-[#22C55E]">
+                <div className="flex items-center gap-1.5 text-[#15803D]">
                   <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
                   <span className="text-sm font-semibold">Earn 0.10</span>
                   <span className="text-xs text-gray-500 hidden sm:inline"> when we add your song!</span>
@@ -264,12 +273,12 @@ export default function CommunitySoundPage({ onBack, onOpenRadio, onShowLogin, i
               
               {songRequestSent ? (
                 <div className="text-center py-6">
-                  <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-green-500/20 flex items-center justify-center">
-                    <Check className="w-7 h-7 text-green-500" />
+                  <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-[#15803D]/20 flex items-center justify-center">
+                    <Check className="w-7 h-7 text-[#15803D]" />
                   </div>
                   <p className="font-bold text-gray-900">Your request is underway!</p>
                   <p className="text-sm text-gray-500 mt-1">Our team will take it from here.</p>
-                  <button onClick={() => setSongRequestSent(false)} className="mt-3 text-xs text-[#22C55E] hover:underline">
+                  <button onClick={() => setSongRequestSent(false)} className="mt-3 text-xs text-[#15803D] hover:underline">
                     Suggest another song
                   </button>
                 </div>
@@ -283,7 +292,7 @@ export default function CommunitySoundPage({ onBack, onOpenRadio, onShowLogin, i
                         <select
                           value={songRequestData.playlist}
                           onChange={(e) => setSongRequestData({...songRequestData, playlist: e.target.value})}
-                          className="w-full px-4 py-3 text-sm border-2 border-warm rounded-xl bg-white text-gray-900 focus:outline-none focus:border-[#22C55E] transition-colors appearance-none cursor-pointer"
+                          className="w-full px-4 py-3 text-sm border-2 border-warm rounded-xl bg-white text-gray-900 focus:outline-none focus:border-[#15803D] transition-colors appearance-none cursor-pointer"
                         >
                           <option value="">Choose playlist...</option>
                           {stations.map(s => (
@@ -319,7 +328,7 @@ export default function CommunitySoundPage({ onBack, onOpenRadio, onShowLogin, i
                               }
                             }}
                             placeholder="Spotify link here..."
-                            className="w-full px-4 py-3 text-sm border-2 border-warm rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#22C55E] transition-colors"
+                            className="w-full px-4 py-3 text-sm border-2 border-warm rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#15803D] transition-colors"
                           />
                         </div>
                         <button
@@ -339,7 +348,7 @@ export default function CommunitySoundPage({ onBack, onOpenRadio, onShowLogin, i
                               }
                             } catch (e) { console.error('Clipboard access denied:', e); }
                           }}
-                          className="px-3 py-3 bg-cream border border-warm hover:border-[#22C55E] rounded-xl transition-colors flex items-center gap-1.5 text-[#22C55E] text-sm"
+                          className="px-3 py-3 bg-cream border border-warm hover:border-[#15803D] rounded-xl transition-colors flex items-center gap-1.5 text-[#15803D] text-sm"
                         >
                           <ClipboardPaste className="w-4 h-4" />
                           Paste
@@ -352,13 +361,13 @@ export default function CommunitySoundPage({ onBack, onOpenRadio, onShowLogin, i
                     <div className={`${isDesktop ? '' : 'sm:col-span-2'}`}>
                       <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Submit</label>
                       {(songRequestData.band || songRequestData.song) ? (
-                        <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
-                          <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
+                        <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-[#15803D]/5 border border-[#15803D]/20 rounded-lg">
+                          <Check className="w-4 h-4 text-[#15803D] flex-shrink-0" />
                           <span className="text-gray-900 font-medium text-sm truncate">{songRequestData.band} – {songRequestData.song}</span>
                         </div>
                       ) : songRequestData.link ? (
-                        <div className="mb-2 px-3 py-2 bg-[#22C55E]/10 rounded-lg">
-                          <span className="text-[#22C55E] text-xs animate-pulse">Loading track info...</span>
+                        <div className="mb-2 px-3 py-2 bg-[#15803D]/10 rounded-lg">
+                          <span className="text-[#15803D] text-xs animate-pulse">Loading track info...</span>
                         </div>
                       ) : null}
                       <button
@@ -381,7 +390,7 @@ export default function CommunitySoundPage({ onBack, onOpenRadio, onShowLogin, i
                           }
                         }}
                         disabled={!songRequestData.playlist || !songRequestData.band || !songRequestData.song || !songRequestData.link}
-                        className="w-full py-3 rounded-xl font-bold text-sm transition-all disabled:bg-gray-100 disabled:text-gray-400 disabled:border-2 disabled:border-gray-200 bg-[#22C55E] text-white hover:bg-[#16A34A] flex items-center justify-center gap-2 border-2 border-[#22C55E]"
+                        className="w-full py-3 rounded-xl font-bold text-sm transition-all disabled:bg-gray-100 disabled:text-gray-400 disabled:border-2 disabled:border-gray-200 bg-[#15803D] text-white hover:bg-[#166534] flex items-center justify-center gap-2 border-2 border-[#15803D]"
                       >
                         <Music className="w-4 h-4" />
                         Send Request
@@ -396,13 +405,13 @@ export default function CommunitySoundPage({ onBack, onOpenRadio, onShowLogin, i
 
           {/* Login prompt for non-logged in users */}
           {!isLoggedIn && (
-            <div className="mt-8 bg-gradient-to-br from-[#22C55E]/20 to-[#22C55E]/10 rounded-xl p-5 text-center border border-[#22C55E]/30">
-              <Music className="w-8 h-8 text-[#22C55E] mx-auto mb-2" />
+            <div className="mt-8 bg-gradient-to-br from-[#15803D]/20 to-[#15803D]/10 rounded-xl p-5 text-center border border-[#15803D]/30">
+              <Music className="w-8 h-8 text-[#15803D] mx-auto mb-2" />
               <p className="text-gray-900 font-medium">Want to request a song?</p>
               <p className="text-sm text-gray-500 mt-1">Log in to suggest songs and earn coins!</p>
               <button
                 onClick={onShowLogin}
-                className="mt-4 px-6 py-2.5 bg-[#22C55E] text-white font-display text-sm rounded-lg hover:bg-[#16a34a] transition-colors"
+                className="mt-4 px-6 py-2.5 bg-[#15803D] text-white font-display text-sm rounded-lg hover:bg-[#166534] transition-colors"
               >
                 Log In
               </button>

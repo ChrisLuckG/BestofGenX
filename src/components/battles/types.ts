@@ -31,8 +31,8 @@ export interface Battle {
     correctIndex: number;
     points: number;
   }[];
-  creatorResults: { round: number; correct: boolean; timeMs: number; points: number; }[];
-  opponentResults: { round: number; correct: boolean; timeMs: number; points: number; }[];
+  creatorResults: { round: number; correct: boolean; timeMs: number; points: number; abandoned?: boolean; }[];
+  opponentResults: { round: number; correct: boolean; timeMs: number; points: number; abandoned?: boolean; }[];
   creatorTotalPoints: number;
   opponentTotalPoints: number;
   winner?: string;
@@ -46,6 +46,12 @@ export interface RoundResult {
   timeMs: number;
   points: number;
   answerIndex?: number;
+  /**
+   * The round was opened but never answered - the player reloaded, lost their
+   * connection or closed the tab. Scored as wrong, but flagged so the result view
+   * can say why instead of showing it as a normal wrong answer.
+   */
+  abandoned?: boolean;
 }
 
 export type GameScreen = 'setup' | 'pool' | 'intro' | 'countdown' | 'quiz' | 'inter' | 'result' | 'loading';

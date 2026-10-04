@@ -4,6 +4,7 @@ import { X, Loader2, Save } from "lucide-react";
 import { Pencil } from "lucide-react";
 import { EditingReporter } from "./types";
 import { REPORTER_REGIONS } from "./constants";
+import { AUTHOR_STYLES } from "@/config/authorStyles";
 
 interface ReporterEditModalProps {
   reporter: EditingReporter;
@@ -81,16 +82,25 @@ export default function ReporterEditModal({
             </select>
           </div>
 
-          {/* Writing Style */}
+          {/* Writing Style - a select, not free text: an unrecognised id silently falls
+              back to another voice, so a typo here used to produce a reporter whose
+              profile claimed one style while the articles were written in another. */}
           <div>
             <label className="block text-[10px] text-gray-400 mb-1 uppercase">Writing Style</label>
-            <input
-              type="text"
+            <select
               value={reporter.writingStyle}
               onChange={e => onChange({ ...reporter, writingStyle: e.target.value })}
-              placeholder="e.g. nick-hornby, hunter-s-thompson..."
               className="w-full bg-gray-700 border border-gray-600 px-3 py-2 rounded text-sm focus:border-[#E36B11] focus:outline-none"
-            />
+            >
+              {!AUTHOR_STYLES.some(s => s.id === reporter.writingStyle) && (
+                <option value={reporter.writingStyle}>
+                  {reporter.writingStyle || '—'} (retired, writes in fallback voice)
+                </option>
+              )}
+              {AUTHOR_STYLES.filter(s => s.id !== 'informative').map(style => (
+                <option key={style.id} value={style.id}>{style.label}</option>
+              ))}
+            </select>
           </div>
 
           {/* Personality */}

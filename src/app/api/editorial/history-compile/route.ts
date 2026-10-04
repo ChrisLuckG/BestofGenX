@@ -163,7 +163,11 @@ Format:
 For each event section:
 1. H2 heading with FULL DATE and event title (e.g. "<h2>${todayStr}, 1985: Live Aid Rocks the World</h2>")
 2. 2-3 paragraphs expanding on the event with GenX nostalgia
-3. If a YouTube video ID is provided, include it as: <iframe src="https://www.youtube.com/embed/VIDEO_ID" ...></iframe>
+3. If the event has a youtubeVideoId, embed exactly that id:
+   <iframe src="https://www.youtube.com/embed/THE_ID_FROM_THE_EVENT" ...></iframe>
+   If youtubeVideoId is null, missing or empty, write the section WITHOUT any iframe.
+   Never invent an id, never reuse another event's id, and never output the literal
+   text VIDEO_ID. An event without footage is normal - it is simply a text section.
 
 Respond with JSON:
 {

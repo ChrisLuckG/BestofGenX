@@ -12,6 +12,8 @@ import { fetchWikidataBirthdays, fetchWikidataBirthdaysAnyCategory, formatBirthd
 import { saveMenschen, getMenschenCoverage, markMenschCovered } from '@/lib/menschenDb';
 import { countryNameFromCode, getContinentLabel, isCountryInContinent } from '@/lib/continents';
 import { searchYouTubeVideo, PREFER_LONG } from '@/lib/youtubeSearch';
+import { fetchWikipediaSource, buildSourceBlock } from '@/lib/wikipediaSource';
+import { buildOccasionBlock } from '@/lib/authorStylePrompts';
 
 // Increase timeout for article generation (Wikidata + OpenAI + YouTube can take time)
 export const maxDuration = 60;
@@ -655,7 +657,7 @@ export async function POST(request: NextRequest) {
     await dbConnect();
 
     const body = await request.json();
-    const { reporterUserId, message, conversationId, autoPublish, overrideCategory, overrideCountry, overrideContinent, proposalOnly, articleMode: forceArticleMode, skipYoutube, spotifyLinks, isEventRequest } = body;
+    const { reporterUserId, message, conversationId, autoPublish, overrideCategory, overrideCountry, overrideContinent, proposalOnly, articleMode: forceArticleMode, skipYoutube, spotifyLinks, isEventRequest, subject } = body;
 
     if (!reporterUserId || !message) {
       return NextResponse.json({ success: false, error: 'reporterUserId and message required' }, { status: 400 });
@@ -887,12 +889,22 @@ Output ONLY valid JSON. Use the SECTIONS array format (NOT the old "content" fie
 }
 CRITICAL — VIDEO EMBEDDING RULES:
 - NOT every section needs a video! Quality over quantity.
-- Only include "youtubeSearch" when the TEXT EXPLICITLY REFERENCES the video content.
-- The text MUST mention what the video shows, e.g.:
-  - "In the clip below, we see him scoring the winning goal..."
-  - "The following footage from 1991 captures the energy..."
-  - "Watch his legendary performance at Wembley..."
-- If the section is just biographical text with no video reference, set "youtubeSearch": null
+- ⛔ NEVER refer to the video in the prose. FORBIDDEN: "In the clip below", "the
+  following footage", "Watch his legendary performance", "as you can see below",
+  "check out the video". Not one word about a video, ever.
+  Reason: the embed is only added when a genuinely relevant video is found (see the
+  relevance gate in lib/youtubeSearch.ts, which returns nothing rather than something
+  off-topic). A sentence pointing at a video that was never embedded makes the
+  article look broken.
+- Write every section as plain, self-contained information that reads correctly with
+  NO video present.
+- Derive "youtubeSearch" FROM A CONCRETE FACT YOU JUST WROTE in that same section —
+  the named match, song, film, event or year. You are describing what you already
+  said, not announcing something.
+  Example — text says: "He scored against England at Windsor Park in 2005."
+  → "youtubeSearch": "David Healy goal vs England 2005 Windsor Park"
+- Never search for a work named in a DIFFERENT section.
+- If a section names no concrete work, match or event, set "youtubeSearch": null
 - When you DO include a video, make the search term HIGHLY SPECIFIC:
   - BAD: "David Healy goals" (too generic)
   - GOOD: "David Healy goal vs England 2005 Windsor Park"
@@ -901,8 +913,32 @@ CRITICAL — VIDEO EMBEDDING RULES:
 - personCountry and personCountryCode are REQUIRED - use the person's BIRTH country.
 - DO NOT use the old "content" field. Use "sections" array ONLY.`;
 
+    // Verified source material, same mechanism as /api/almanac/article.
+    //
+    // Only possible when the caller names the subject: in this route the subject
+    // normally lives inside the free-text `message` ("write about X"), and
+    // parsed.personName only exists AFTER generation. Guessing the name out of the
+    // message would risk fetching the WRONG person's page, and a wrong page is worse
+    // than no page - the invented facts would then look sourced. So the source is
+    // fetched only when the client passes `subject` explicitly (NewsroomConference does
+    // this when writing about a selected proposal); otherwise the prompt is told that no
+    // source exists and it must not invent specifics.
+    const wikiSource = (articleMode && !skipYoutube && subject?.name)
+      ? await fetchWikipediaSource(subject.name, {
+          birthYear: subject.bornYear ? String(subject.bornYear) : undefined,
+          profession: subject.profession,
+        })
+      : null;
+    const sourceBlock = (articleMode && !skipYoutube) ? buildSourceBlock(wikiSource) : '';
+
+    // Why this person, why today. Empty unless today really is the birthday or the day
+    // they died, and always empty for a Radio article (which is about songs, not people).
+    const occasionBlock = (articleMode && !skipYoutube && subject)
+      ? buildOccasionBlock({ born: subject.birthday, died: subject.deathday })
+      : '';
+
     const userMessageContent = articleMode
-      ? message + (skipYoutube ? radioArticleInstructions : regularArticleInstructions)
+      ? message + sourceBlock + occasionBlock + (skipYoutube ? radioArticleInstructions : regularArticleInstructions)
       : message;
 
     const openaiMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [

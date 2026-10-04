@@ -1869,7 +1869,7 @@ export default function MobilePage() {
       {rankrollLoading && (
         <div className="absolute inset-x-0 bottom-0 top-16 z-[60] bg-cream overflow-y-auto">
           {/* Header skeleton */}
-          <div className="sticky top-0 z-10 flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-[#E36B11]/5">
+          <div className="sticky top-0 z-10 flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-skeleton-light animate-pulse" />
               <div className="space-y-1">
@@ -2242,6 +2242,10 @@ export default function MobilePage() {
               }}
               autoOpenSettings={autoOpenNotificationSettings}
               onSettingsClosed={() => setAutoOpenNotificationSettings(false)}
+              // Both are consumed by the welcome panel, which mobile reaches
+              // through this instance. Without them its two CTAs did nothing.
+              onShowSignup={() => { setLoginInitialView('signup'); setShowLoginPage(true); }}
+              onShowBogxers={() => setActiveTab('home')}
             />
           )}
         </div>

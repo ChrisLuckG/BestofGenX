@@ -301,14 +301,14 @@ export default function ContentEditor({ value, onChange }: ContentEditorProps) {
               >
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700 bg-gray-900">
-                  <span className="text-sm font-bold text-white flex items-center gap-2">
+                  <span className="text-sm font-bold text-paper flex items-center gap-2">
                     <Film className="w-4 h-4 text-[#E36B11]" />
                     Insert Video
                   </span>
                   <button
                     type="button"
                     onClick={() => setVideoPopover(false)}
-                    className="text-gray-400 hover:text-white p-1"
+                    className="text-gray-400 hover:text-paper p-1"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -326,7 +326,7 @@ export default function ContentEditor({ value, onChange }: ContentEditorProps) {
                     }}
                     placeholder="https://www.youtube.com/watch?v=..."
                     autoFocus
-                    className="w-full px-3 py-2.5 text-sm text-white bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-[#E36B11] focus:ring-1 focus:ring-[#E36B11]"
+                    className="w-full px-3 py-2.5 text-sm text-paper bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-[#E36B11] focus:ring-1 focus:ring-[#E36B11]"
                   />
                   {videoError && (
                     <div className="text-xs text-red-400 mt-2 flex items-center gap-1.5">
@@ -344,14 +344,14 @@ export default function ContentEditor({ value, onChange }: ContentEditorProps) {
                   <button
                     type="button"
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); setVideoPopover(false); }}
-                    className="px-6 py-2.5 bg-gray-600 hover:bg-gray-500 text-white font-medium text-sm rounded-lg cursor-pointer"
+                    className="px-6 py-2.5 bg-gray-600 hover:bg-gray-500 text-paper font-medium text-sm rounded-lg cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); confirmInsertVideo(); }}
-                    className="px-6 py-2.5 bg-[#E36B11] hover:bg-[#c06a2a] text-white font-bold text-sm rounded-lg cursor-pointer"
+                    className="px-6 py-2.5 bg-[#E36B11] hover:bg-[#c06a2a] text-paper font-bold text-sm rounded-lg cursor-pointer"
                   >
                     Insert
                   </button>
@@ -403,14 +403,14 @@ export default function ContentEditor({ value, onChange }: ContentEditorProps) {
               const isVimeo = src.includes('vimeo');
               const videoId = src.match(/embed\/([^?]+)/)?.[1] || src.match(/video\/(\d+)/)?.[1] || 'video';
               return (
-                <div key={index} className="flex items-center gap-2 bg-white px-2 py-1.5 rounded border border-gray-200">
+                <div key={index} className="flex items-center gap-2 bg-paper px-2 py-1.5 rounded border border-gray-200">
                   <span className="text-xs text-gray-600">
                     {isYouTube ? '▶ YouTube' : isVimeo ? '▶ Vimeo' : '▶ Video'}: {videoId.slice(0, 8)}...
                   </span>
                   <button
                     type="button"
                     onClick={() => deleteVideo(iframe)}
-                    className="px-2 py-0.5 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded"
+                    className="px-2 py-0.5 bg-red-500 hover:bg-red-600 text-paper text-xs font-bold rounded"
                   >
                     Delete
                   </button>

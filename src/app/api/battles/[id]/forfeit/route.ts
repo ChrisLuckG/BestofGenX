@@ -72,6 +72,32 @@ export async function POST(
     const userIsCommitted = userStarted || (isCreator ? creatorPlayed : opponentPlayed);
 
     if (!userIsCommitted) {
+      // ── Joined from the pool and walked away: RE-OPEN, don't destroy ────────
+      // A public battle (no `challengedUser`) belongs to its creator, who is still
+      // waiting for someone to take it. Cancelling it because the *joiner* backed
+      // out of the setup screen deleted a battle the joiner never owned - the game
+      // vanished from the pool for everybody, which is exactly what a bot duel
+      // looked like after pressing Back. Only the joiner's wager comes back; the
+      // creator's stake stays with the still-open battle.
+      if (isOpponent && !battle.challengedUser) {
+        await User.findByIdAndUpdate(oderId, { $inc: { bogxCoins: battle.wager } });
+        battle.opponent = undefined;
+        battle.status = 'open';
+        battle.acceptedAt = undefined;
+        battle.acceptedVia = undefined;
+        battle.opponentStartedAt = undefined;
+        battle.opponentResults = [];
+        await battle.save();
+
+        return NextResponse.json({
+          success: true,
+          cancelled: false,
+          reopened: true,
+          refunded: battle.wager,
+          message: 'Left before playing — battle is back in the pool, your wager was refunded',
+        });
+      }
+
       // Refund both players
       await User.findByIdAndUpdate(battle.creator._id, { $inc: { bogxCoins: battle.wager } });
       if (battle.opponent?._id) {

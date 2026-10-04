@@ -91,6 +91,20 @@ export async function POST(request: NextRequest) {
 
     const systemPrompt = getSystemPrompt();
 
+    // A count stated in the topic ("Top 10 ...") is a promise the title makes to the
+    // reader, so it has to be enforced. Left to its own judgement the model returned
+    // 9 entries under a "Top 10" headline, because the free-choice instruction below
+    // contradicted the number in the title.
+    const requestedCount = (() => {
+      const m = topic.match(/\b(?:top|best|greatest)\s+(\d{1,2})\b/i);
+      const n = m ? parseInt(m[1], 10) : NaN;
+      return Number.isFinite(n) && n >= 2 && n <= 20 ? n : null;
+    })();
+
+    const countInstruction = requestedCount
+      ? `The title asks for ${requestedCount} entries, so return EXACTLY ${requestedCount} items — no more, no fewer. If the subject does not support ${requestedCount} genuinely notable entries, rename the title to the number you can actually deliver rather than padding with weak or invented entries.`
+      : `Include as many items as genuinely make sense — between 5 and 20. Do not pad with weak entries and do not invent things that did not happen. If your title states a number, it MUST equal the number of items you return.`;
+
     // Trigger AUFGABE 8: RANKING-LISTE GENERIERUNG from central prompt
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -106,7 +120,7 @@ IMPORTANT: First determine what this subject is actually known for, then rank ON
 - If the subject is a TV SHOW → rank its best EPISODES or SEASONS
 - Use common sense. NEVER assign a category that doesn't apply (e.g. do NOT rank songs for someone who is only an actor).
 
-Include as many items as genuinely make sense — between 5 and 20. Do not pad with weak entries and do not invent things that did not happen.` }
+${countInstruction}` }
       ],
       response_format: { type: 'json_object' },
       temperature: 0.8,
@@ -119,7 +133,24 @@ Include as many items as genuinely make sense — between 5 and 20. Do not pad w
     }
 
     const ranking = JSON.parse(content);
-    
+
+    // Make "number in the title" and "number of items" agree, whatever the model did.
+    // The prompt asks for this, but a prompt is not a guarantee: a "Top 10" headline
+    // above 9 entries was shipped to the admin. Too many items are truncated (the list
+    // is ranked, so the surplus sits at the weak end); too few means the title is
+    // corrected downwards rather than padding with invented entries.
+    if (Array.isArray(ranking.items) && ranking.items.length > 0) {
+      if (requestedCount && ranking.items.length > requestedCount) {
+        ranking.items = ranking.items.slice(0, requestedCount);
+      }
+      const stated = typeof ranking.title === 'string'
+        ? ranking.title.match(/\b(top|best|greatest)\s+(\d{1,2})\b/i)
+        : null;
+      if (stated && parseInt(stated[2], 10) !== ranking.items.length) {
+        ranking.title = ranking.title.replace(stated[0], `${stated[1]} ${ranking.items.length}`);
+      }
+    }
+
     console.log('Generated ranking:', { 
       title: ranking.title, 
       subtitle: ranking.subtitle, 

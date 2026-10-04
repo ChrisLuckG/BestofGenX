@@ -1,11 +1,12 @@
 "use client";
 
-import { X, Upload, Loader2, GripVertical, ChevronUp, ChevronDown, Palette } from "lucide-react";
+import { X, Upload, Loader2, GripVertical, ChevronUp, ChevronDown, Palette, Plus } from "lucide-react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import { resolveContainer } from "@/lib/containerFill";
 import { CATEGORIES } from "@/lib/categories";
+import { useCategories, ensureCategory } from "@/hooks/useCategories";
 
 const ImagePickerModal = dynamic(() => import("./ImagePickerModal"), { ssr: false });
 
@@ -93,6 +94,139 @@ interface ContainerBlockProps {
   bannerCategories?: Set<string>;  // Date-based banner categories excluded from Top Area
 }
 
+// One color + short plain-language explanation per block type. Used for the
+// chip badge in BlockCard's header, the dot on the "+ MAIN / + 2H / ..."
+// add-block buttons AND the tooltip on those buttons, so the explanation sits
+// where you click instead of in a separate legend.
+//
+// Chips are deliberately LIGHT (bg-*-100 text-*-700) rather than saturated
+// fills: every block sits on a white card inside a coloured container box, and
+// saturated chips turned the editor into confetti. See the container box
+// comment below for why that box keeps the theme colour.
+const BLOCK_STYLES: Record<ContainerBlockType['type'], { chip: string; accent: string; desc: string }> = {
+  MAIN: { chip: 'bg-[#E36B11]/10 text-[#E36B11]', accent: 'bg-[#E36B11]', desc: '1 big hero article' },
+  '2H': { chip: 'bg-pink-100 text-pink-700', accent: 'bg-pink-500', desc: '2 articles side by side' },
+  SOCIAL: { chip: 'bg-teal-100 text-teal-700', accent: 'bg-teal-500', desc: 'big article, social style' },
+  FIXED: { chip: 'bg-green-100 text-green-700', accent: 'bg-green-500', desc: 'fixed banner image' },
+  SLIDER: { chip: 'bg-cyan-100 text-cyan-700', accent: 'bg-cyan-500', desc: 'horizontal scroll, auto-fill by category' },
+  VERTICAL: { chip: 'bg-indigo-100 text-indigo-700', accent: 'bg-indigo-500', desc: 'stacked list, auto-fill by category' },
+  VIDEO: { chip: 'bg-red-100 text-red-700', accent: 'bg-red-500', desc: 'YouTube/Twitch embed' },
+};
+
+// Shared card shell every block type renders inside. Guarantees one header
+// layout (type chip, extra slot, move up/down, remove) everywhere - previously
+// each block type drew its own label and its own floating X over the artwork,
+// at 7-8px, which is why no two blocks looked alike.
+function BlockCard({
+  type,
+  index,
+  bIdx,
+  extra,
+  onRemoveBlock,
+  onMoveBlock,
+  isFirst,
+  isLast,
+  onDragOver,
+  onDrop,
+  className = '',
+  children,
+}: {
+  type: ContainerBlockType['type'];
+  index: number;
+  bIdx: number;
+  extra?: React.ReactNode;
+  onRemoveBlock: ContainerBlockProps['onRemoveBlock'];
+  onMoveBlock?: ContainerBlockProps['onMoveBlock'];
+  isFirst: boolean;
+  isLast: boolean;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent) => void;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const style = BLOCK_STYLES[type];
+  return (
+    <div
+      className={`relative bg-paper border border-gray-200 rounded-lg overflow-hidden group/block ${className}`}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+    >
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-100">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${style.chip}`}>{type}</span>
+          {extra}
+        </div>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {onMoveBlock && (
+            <>
+              <button
+                onClick={() => onMoveBlock(index, bIdx, 'up')}
+                disabled={isFirst}
+                className="text-gray-300 hover:text-gray-600 disabled:opacity-30"
+                title="Move block up"
+              >
+                <ChevronUp className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => onMoveBlock(index, bIdx, 'down')}
+                disabled={isLast}
+                className="text-gray-300 hover:text-gray-600 disabled:opacity-30"
+                title="Move block down"
+              >
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+            </>
+          )}
+          <button
+            onClick={() => onRemoveBlock(index, bIdx)}
+            className="text-gray-300 hover:text-red-500"
+            title="Remove block"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+      <div className="p-2">{children}</div>
+    </div>
+  );
+}
+
+// Shared article thumbnail for MAIN / 2H / SOCIAL. Replaces three near-copies
+// that each had their own empty-state and their own font sizes.
+function ArticleThumb({
+  article,
+  placeholder,
+  height = 'h-20',
+}: {
+  article: SimpleArticle | null | undefined;
+  placeholder: string;
+  height?: string;
+}) {
+  if (!article) {
+    return (
+      <div className={`${height} rounded border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center text-xs text-gray-400`}>
+        {placeholder}
+      </div>
+    );
+  }
+  return (
+    <div className={`relative ${height} rounded overflow-hidden`}>
+      {article.coverImage ? (
+        <img
+          src={article.coverImage}
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ objectPosition: `${(article as any).imagePosX ?? 50}% ${(article as any).imagePosY ?? 50}%` }}
+          alt=""
+        />
+      ) : (
+        <div className="absolute inset-0 bg-gray-100 flex items-center justify-center text-xs text-gray-400">no image</div>
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+      <div className="absolute bottom-1 left-1.5 right-1.5 text-xs text-paper font-medium truncate">{article.title}</div>
+    </div>
+  );
+}
+
 // Sub-component for FIXED banner with image upload + AI generation
 function FixedBannerBlock({ 
   block, 
@@ -141,14 +275,14 @@ function FixedBannerBlock({
         )}
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 pointer-events-none">
           <span className="text-[7px] font-bold text-green-400 bg-black/60 px-1.5 py-0.5 rounded">FIXED BANNER</span>
-          <span className="text-[7px] text-white/60 bg-black/40 px-1 rounded text-center">
+          <span className="text-[7px] text-paper/60 bg-black/40 px-1 rounded text-center">
             {previewImg ? 'Custom image' : (latestArticle?.title?.slice(0, 30) || 'Auto: neuester Artikel')}
           </span>
         </div>
         {/* Image picker button */}
         <button
           onClick={() => setShowPicker(true)}
-          className="absolute bottom-1 left-1 flex items-center gap-1 px-1.5 py-0.5 bg-green-600/90 hover:bg-green-600 text-white rounded text-[7px] font-bold"
+          className="absolute bottom-1 left-1 flex items-center gap-1 px-1.5 py-0.5 bg-green-600/90 hover:bg-green-600 text-paper rounded text-[7px] font-bold"
         >
           <Upload className="w-2.5 h-2.5" />
           {previewImg ? 'Change' : 'Set Image'}
@@ -157,7 +291,7 @@ function FixedBannerBlock({
         {previewImg && (
           <button
             onClick={() => onUpdateBlock(index, bIdx, { bannerImage: '' })}
-            className="absolute bottom-1 left-14 flex items-center gap-1 px-1.5 py-0.5 bg-gray-600/90 hover:bg-gray-600 text-white rounded text-[7px] font-bold"
+            className="absolute bottom-1 left-14 flex items-center gap-1 px-1.5 py-0.5 bg-gray-600/90 hover:bg-gray-600 text-paper rounded text-[7px] font-bold"
           >
             <X className="w-2.5 h-2.5" />
             Clear
@@ -165,7 +299,7 @@ function FixedBannerBlock({
         )}
         <button 
           onClick={() => onRemoveBlock(index, bIdx)} 
-          className="absolute top-1 right-1 text-white hover:text-red-300 bg-red-500/80 hover:bg-red-500 rounded p-0.5"
+          className="absolute top-1 right-1 text-paper hover:text-red-300 bg-red-500/80 hover:bg-red-500 rounded p-0.5"
         >
           <X className="w-3 h-3" />
         </button>
@@ -213,6 +347,10 @@ export default function ContainerBlock({
   customColor,
 }: ContainerBlockProps) {
   const [showThemePicker, setShowThemePicker] = useState(false);
+  // Merged static + dynamically created categories. Each ContainerBlock
+  // subscribes on its own and refetches on 'categories-updated', so renaming
+  // one container updates the auto-fill dropdowns in all the others.
+  const categories = useCategories();
 
   // Support custom colors - if theme is 'custom' and customColor is set, use that
   const baseTheme = CONTAINER_THEMES[containerTheme] || CONTAINER_THEMES.cream;
@@ -222,65 +360,88 @@ export default function ContainerBlock({
   const useCustomStyle = containerTheme === 'custom' && customColor;
 
   return (
+    // The whole container box keeps the THEME's bg/border colour, even for
+    // 'cream' - it previews the section colour the live feed will render, so a
+    // neutral grey box here would hide what you just picked. What used to make
+    // this look like a flat brown mush was NOT this box: `bg-white` resolves to
+    // #F5F0E8 in this project (tailwind.config.ts overrides `white` to cream for
+    // the public app), so the cards INSIDE the cream box were cream too and all
+    // contrast was gone. Everything in admin/ therefore uses `bg-paper` (real
+    // #FFFFFF) - do not "fix" these back to bg-white.
+    <>
     <div 
-      className={`col-span-6 border-2 border-dashed rounded-lg p-2 ${useCustomStyle ? '' : `${theme.border} ${theme.bg}`}`}
+      className={`border-2 border-dashed rounded-xl p-4 ${useCustomStyle ? '' : `${theme.border} ${theme.bg}`}`}
       style={useCustomStyle ? { backgroundColor: customColor, borderColor: customColor } : undefined}
     >
-      {/* Container Header */}
-      <div className="flex items-center gap-1 mb-2">
-        {/* Move buttons */}
-        <div className="flex flex-col gap-0.5">
-          <button 
-            onClick={() => onMoveUp?.(index)} 
+      {/* Container header - name input flush left, every icon control grouped
+          on the right instead of crowding in before the name. */}
+      <div className="flex items-center gap-2 mb-3">
+        {/* Renaming a container is how a new category is born: the name is
+            slugified and becomes the container's auto-fill slug (see
+            getAutoFillSlugs), so a matching Category row has to exist or the
+            slug would auto-fill but be unassignable in the article dropdowns.
+            Fires on BLUR, not on change - committing per keystroke would turn
+            "EisHockey" into nine categories. */}
+        <input
+          type="text"
+          value={containerName}
+          onChange={(e) => onUpdateName(index, e.target.value)}
+          onBlur={(e) => ensureCategory(e.target.value)}
+          className="flex-1 min-w-0 bg-paper border border-gray-200 rounded px-2 py-1 text-xs font-semibold text-gray-900 focus:outline-none focus:border-[#E36B11]"
+          placeholder="SECTION NAME"
+        />
+
+        <div className="flex items-center bg-paper border border-gray-200 rounded flex-shrink-0">
+          <button
+            onClick={() => onMoveUp?.(index)}
             disabled={isFirst}
-            className="text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
-            title="Move up"
+            className="p-0.5 rounded text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-25"
+            title="Move container up"
           >
-            <ChevronUp className="w-3 h-3" />
+            <ChevronUp className="w-3.5 h-3.5" />
           </button>
-          <button 
-            onClick={() => onMoveDown?.(index)} 
+          <button
+            onClick={() => onMoveDown?.(index)}
             disabled={isLast}
-            className="text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
-            title="Move down"
+            className="p-0.5 rounded text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-25"
+            title="Move container down"
           >
-            <ChevronDown className="w-3 h-3" />
+            <ChevronDown className="w-3.5 h-3.5" />
           </button>
-        </div>
-        
-        {/* Theme picker */}
-        <div className="relative">
-          <button 
-            onClick={() => setShowThemePicker(!showThemePicker)}
-            className="p-1 rounded hover:bg-white/10"
-            title="Change theme"
-          >
-            <Palette className="w-3 h-3" style={{ color: theme.color }} />
-          </button>
+
+          {/* Theme picker */}
+          <div className="relative">
+            <button 
+              onClick={() => setShowThemePicker(!showThemePicker)}
+              className="p-0.5 rounded hover:bg-gray-100"
+              title="Change colour"
+            >
+              <Palette className="w-3.5 h-3.5" style={{ color: theme.color }} />
+            </button>
           {showThemePicker && (
-            <div className="absolute top-full left-0 mt-1 bg-gray-900 border border-gray-700 rounded-lg p-2.5 z-50 w-56">
-              <div className="text-[8px] text-gray-500 uppercase mb-1">Original</div>
+            <div className="absolute top-full right-0 mt-1 bg-paper border border-gray-200 shadow-lg rounded-lg p-2.5 z-50 w-56">
+              <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Original</div>
               <div className="flex gap-1 mb-2">
                 <button
                   onClick={() => { onUpdateTheme?.(index, 'cream'); setShowThemePicker(false); }}
-                  className={`w-6 h-6 rounded border border-gray-600 ${containerTheme === 'cream' ? 'ring-2 ring-white' : ''}`}
+                  className={`w-6 h-6 rounded border border-gray-300 ${containerTheme === 'cream' ? 'ring-2 ring-[#E36B11]' : ''}`}
                   style={{ backgroundColor: '#F5F0E8' }}
                   title="Original (Cream)"
                 />
               </div>
-              <div className="text-[8px] text-gray-500 uppercase mb-1">Highlight</div>
+              <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Highlight</div>
               <div className="flex flex-wrap gap-1 mb-2">
                 {Object.entries(CONTAINER_THEMES).slice(1, -1).map(([key, t]) => (
                   <button
                     key={key}
                     onClick={() => { onUpdateTheme?.(index, key as ContainerTheme); setShowThemePicker(false); }}
-                    className={`w-5 h-5 rounded ${containerTheme === key ? 'ring-2 ring-white ring-offset-1 ring-offset-gray-900' : 'hover:scale-110'} transition-transform`}
+                    className={`w-5 h-5 rounded ${containerTheme === key ? 'ring-2 ring-[#E36B11] ring-offset-1 ring-offset-white' : 'hover:scale-110'} transition-transform`}
                     style={{ backgroundColor: t.color }}
                     title={t.label}
                   />
                 ))}
               </div>
-              <div className="text-[8px] text-gray-500 uppercase mb-1">Custom Color</div>
+              <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Custom Color</div>
               <div className="flex items-center gap-2">
                 <input
                   type="color"
@@ -304,25 +465,20 @@ export default function ContainerBlock({
               </div>
             </div>
           )}
+          </div>
+
+          <button
+            onClick={() => onRemove(index)}
+            className="p-0.5 rounded text-gray-400 hover:bg-red-50 hover:text-red-500"
+            title="Delete container"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
-        
-        <input
-          type="text"
-          value={containerName}
-          onChange={(e) => onUpdateName(index, e.target.value)}
-          className={`flex-1 bg-transparent px-1 py-0.5 text-[10px] font-bold border-b focus:outline-none uppercase tracking-wider ${containerTheme === 'cream' ? 'text-[#E36B11] border-[#E36B11]/30' : 'text-white border-white/30'}`}
-          placeholder="SECTION NAME"
-        />
-        <button 
-          onClick={() => onRemove(index)} 
-          className="text-red-400 hover:text-red-300"
-        >
-          <X className="w-3 h-3" />
-        </button>
       </div>
 
       {/* Blocks */}
-      <div className="space-y-1">
+      <div className="space-y-2">
         {(() => {
           // Shared resolver — identical selection + waterfall dedup as the live feed
           const { perBlock } = resolveContainer(containerName, containerTheme, containerBlocks, articles, excludeIds || new Set(), isGlobalLatest, bannerCategories || new Set());
@@ -362,13 +518,13 @@ export default function ContainerBlock({
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                       <div className="absolute bottom-1 left-1 right-6">
                         <span className="text-[7px] font-bold text-[#E36B11] bg-black/50 px-1 rounded">MAIN</span>
-                        <div className="text-[8px] text-white font-bold mt-0.5 line-clamp-2">{art1.title}</div>
+                        <div className="text-[8px] text-paper font-bold mt-0.5 line-clamp-2">{art1.title}</div>
                       </div>
                     </>
                   ) : art1 ? (
                     <div className="flex flex-col items-center justify-center h-full bg-[#E36B11]/20 p-1">
                       <span className="text-[7px] font-bold text-[#E36B11] bg-black/40 px-1 rounded">MAIN · no image</span>
-                      <div className="text-[8px] text-white font-bold mt-0.5 line-clamp-2 text-center">{art1.title}</div>
+                      <div className="text-[8px] text-paper font-bold mt-0.5 line-clamp-2 text-center">{art1.title}</div>
                     </div>
                   ) : (
                     <div className="flex items-center justify-center h-full bg-[#E36B11]/10 border border-dashed border-[#E36B11]/30">
@@ -380,7 +536,7 @@ export default function ContainerBlock({
                   )}
                   <button 
                     onClick={() => onRemoveBlock(index, bIdx)} 
-                    className="absolute top-1 right-1 text-white/70 hover:text-white bg-black/30 rounded p-0.5"
+                    className="absolute top-1 right-1 text-paper/70 hover:text-paper bg-black/30 rounded p-0.5"
                   >
                     <X className="w-2.5 h-2.5" />
                   </button>
@@ -395,10 +551,10 @@ export default function ContainerBlock({
                       <>
                         <img src={art1.coverImage} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: `${(art1 as any).imagePosX ?? 50}% ${(art1 as any).imagePosY ?? 50}%` }} alt="" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                        <div className="absolute bottom-0.5 left-0.5 right-0.5 text-[6px] text-white font-bold truncate">{art1.title}</div>
+                        <div className="absolute bottom-0.5 left-0.5 right-0.5 text-[6px] text-paper font-bold truncate">{art1.title}</div>
                       </>
                     ) : art1 ? (
-                      <div className="flex items-center justify-center h-full bg-pink-500/20 p-0.5 text-[6px] text-white font-bold text-center line-clamp-3">{art1.title}</div>
+                      <div className="flex items-center justify-center h-full bg-pink-500/20 p-0.5 text-[6px] text-paper font-bold text-center line-clamp-3">{art1.title}</div>
                     ) : (
                       <div className="flex items-center justify-center h-full bg-pink-500/10 border border-dashed border-pink-500/30 text-[7px] text-gray-400">Drop 1</div>
                     )}
@@ -408,17 +564,17 @@ export default function ContainerBlock({
                       <>
                         <img src={art2.coverImage} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: `${(art2 as any).imagePosX ?? 50}% ${(art2 as any).imagePosY ?? 50}%` }} alt="" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                        <div className="absolute bottom-0.5 left-0.5 right-0.5 text-[6px] text-white font-bold truncate">{art2.title}</div>
+                        <div className="absolute bottom-0.5 left-0.5 right-0.5 text-[6px] text-paper font-bold truncate">{art2.title}</div>
                       </>
                     ) : art2 ? (
-                      <div className="flex items-center justify-center h-full bg-pink-500/20 p-0.5 text-[6px] text-white font-bold text-center line-clamp-3">{art2.title}</div>
+                      <div className="flex items-center justify-center h-full bg-pink-500/20 p-0.5 text-[6px] text-paper font-bold text-center line-clamp-3">{art2.title}</div>
                     ) : (
                       <div className="flex items-center justify-center h-full bg-pink-500/10 border border-dashed border-pink-500/30 text-[7px] text-gray-400">Drop 2</div>
                     )}
                   </div>
                   <button 
                     onClick={() => onRemoveBlock(index, bIdx)} 
-                    className="absolute top-1 right-1 text-white/70 hover:text-white bg-black/30 rounded p-0.5 z-10"
+                    className="absolute top-1 right-1 text-paper/70 hover:text-paper bg-black/30 rounded p-0.5 z-10"
                   >
                     <X className="w-2.5 h-2.5" />
                   </button>
@@ -434,7 +590,7 @@ export default function ContainerBlock({
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                       <div className="absolute bottom-1 left-1 right-6">
                         <span className="text-[7px] font-bold text-teal-400 bg-black/50 px-1 rounded">SOCIAL</span>
-                        <div className="text-[8px] text-white font-bold mt-0.5 line-clamp-2">{art1.title}</div>
+                        <div className="text-[8px] text-paper font-bold mt-0.5 line-clamp-2">{art1.title}</div>
                       </div>
                     </>
                   ) : (
@@ -447,7 +603,7 @@ export default function ContainerBlock({
                   )}
                   <button 
                     onClick={() => onRemoveBlock(index, bIdx)} 
-                    className="absolute top-1 right-1 text-white/70 hover:text-white bg-black/30 rounded p-0.5"
+                    className="absolute top-1 right-1 text-paper/70 hover:text-paper bg-black/30 rounded p-0.5"
                   >
                     <X className="w-2.5 h-2.5" />
                   </button>
@@ -476,7 +632,7 @@ export default function ContainerBlock({
                     disabled={bIdx === 0}
                     className="bg-black/60 hover:bg-black/80 rounded p-0.5 disabled:opacity-20"
                   >
-                    <ChevronUp className="w-2.5 h-2.5 text-white" />
+                    <ChevronUp className="w-2.5 h-2.5 text-paper" />
                   </button>
                   <button
                     type="button"
@@ -484,7 +640,7 @@ export default function ContainerBlock({
                     disabled={bIdx === containerBlocks.length - 1}
                     className="bg-black/60 hover:bg-black/80 rounded p-0.5 disabled:opacity-20"
                   >
-                    <ChevronDown className="w-2.5 h-2.5 text-white" />
+                    <ChevronDown className="w-2.5 h-2.5 text-paper" />
                   </button>
                 </div>
               )}
@@ -518,17 +674,17 @@ export default function ContainerBlock({
                               autoFillCategory: cat || undefined
                             });
                           }}
-                          className="bg-gray-700 text-[9px] text-white px-2 py-1 rounded border border-cyan-500/50 flex-1"
+                          className="bg-gray-700 text-[9px] text-paper px-2 py-1 rounded border border-cyan-500/50 flex-1"
                         >
                           <option value="">-- Wähle Kategorie --</option>
-                          {CATEGORIES.map(cat => (
+                          {categories.map(cat => (
                             <option key={cat.slug} value={cat.slug}>{cat.label}</option>
                           ))}
                         </select>
                         <select
                           value={block.autoFillLimit || 10}
                           onChange={(e) => onUpdateBlock(index, bIdx, { autoFillLimit: parseInt(e.target.value) })}
-                          className="bg-gray-700 text-[9px] text-white px-1 py-1 rounded border border-cyan-500/50 w-12"
+                          className="bg-gray-700 text-[9px] text-paper px-1 py-1 rounded border border-cyan-500/50 w-12"
                         >
                           <option value="5">5</option>
                           <option value="10">10</option>
@@ -617,18 +773,18 @@ export default function ContainerBlock({
                             articles: newCat ? [] : block.articles // Clear manual if auto
                           });
                         }}
-                        className="bg-gray-700 text-[8px] text-white px-1 py-0.5 rounded border border-indigo-500/50 flex-1"
+                        className="bg-gray-700 text-[8px] text-paper px-1 py-0.5 rounded border border-indigo-500/50 flex-1"
                       >
                         <option value="">Manuell</option>
-                        {CATEGORIES.map(cat => (
-                          <option key={cat.slug} value={cat.slug}>{cat.label}</option>
-                        ))}
+                        {categories.map(cat => (
+                            <option key={cat.slug} value={cat.slug}>{cat.label}</option>
+                          ))}
                       </select>
                       {cat && (
                         <select
                           value={block.autoFillLimit || 3}
                           onChange={(e) => onUpdateBlock(index, bIdx, { autoFillLimit: parseInt(e.target.value) })}
-                          className="bg-gray-700 text-[8px] text-white px-1 py-0.5 rounded border border-indigo-500/50 w-10"
+                          className="bg-gray-700 text-[8px] text-paper px-1 py-0.5 rounded border border-indigo-500/50 w-10"
                         >
                           <option value="3">3</option>
                           <option value="5">5</option>
@@ -644,7 +800,7 @@ export default function ContainerBlock({
                             {art?.coverImage && (
                               <img src={art.coverImage} className="w-6 h-6 rounded object-cover" alt="" />
                             )}
-                            <span className="text-[7px] text-white truncate flex-1">{art?.title}</span>
+                            <span className="text-[7px] text-paper truncate flex-1">{art?.title}</span>
                             {!cat && (
                               <button 
                                 onClick={() => {
@@ -690,7 +846,7 @@ export default function ContainerBlock({
                     placeholder="YouTube/Twitch URL..."
                     value={block.videoUrl || ''}
                     onChange={(e) => onUpdateBlock(index, bIdx, { videoUrl: e.target.value })}
-                    className="w-full bg-gray-700 text-[8px] text-white px-2 py-1 rounded border border-red-500/50 mb-1"
+                    className="w-full bg-gray-700 text-[8px] text-paper px-2 py-1 rounded border border-red-500/50 mb-1"
                   />
                   
                   {/* Video Title input */}
@@ -699,7 +855,7 @@ export default function ContainerBlock({
                     placeholder="Titel (z.B. 'LIVE: GenX Radio')"
                     value={block.videoTitle || ''}
                     onChange={(e) => onUpdateBlock(index, bIdx, { videoTitle: e.target.value })}
-                    className="w-full bg-gray-700 text-[8px] text-white px-2 py-1 rounded border border-red-500/50"
+                    className="w-full bg-gray-700 text-[8px] text-paper px-2 py-1 rounded border border-red-500/50"
                   />
                   
                   {/* Preview */}
@@ -718,23 +874,38 @@ export default function ContainerBlock({
         })()}
       </div>
 
-      {/* Add Block Buttons */}
-      <div className="flex flex-wrap items-center gap-1 mt-2 pt-1 border-t border-amber-500/20">
-        <button onClick={() => onAddBlock(index, 'MAIN')} className="px-1 py-0 bg-[#E36B11]/30 text-black rounded lowercase text-[6px] hover:bg-[#E36B11]/50">+MAIN</button>
-        <button onClick={() => onAddBlock(index, '2H')} className="px-1 py-0 bg-pink-500/30 text-black rounded lowercase text-[6px] hover:bg-pink-500/50">+2H</button>
-        <button onClick={() => onAddBlock(index, 'SOCIAL')} className="px-1 py-0 bg-teal-500/30 text-black rounded lowercase text-[6px] hover:bg-teal-500/50">+SOCIAL</button>
-        <button onClick={() => onAddBlock(index, 'FIXED')} className="px-1 py-0 bg-green-500/30 text-black rounded lowercase text-[6px] hover:bg-green-500/50">+FIXED</button>
-        <button onClick={() => onAddBlock(index, 'SLIDER')} className="px-1 py-0 bg-cyan-500/30 text-black rounded lowercase text-[6px] hover:bg-cyan-500/50">+SLIDER</button>
-        <button onClick={() => onAddBlock(index, 'VERTICAL')} className="px-1 py-0 bg-indigo-500/30 text-black rounded lowercase text-[6px] hover:bg-indigo-500/50">+VERT</button>
-        <button onClick={() => onAddBlock(index, 'VIDEO')} className="px-1 py-0 bg-red-500/30 text-black rounded lowercase text-[6px] hover:bg-red-500/50">+VIDEO</button>
-        {/* Add new Container button */}
-        <button 
-          onClick={() => onAddContainer?.()}
-          className="px-1 py-0 bg-amber-500/30 text-black rounded lowercase text-[6px] hover:bg-amber-500/50 border border-amber-500/50"
-        >
-          +CONTAINER
-        </button>
-      </div>
     </div>
+
+    {/* Add-block toolbar - OUTSIDE the colored container */}
+    <div className="flex flex-col items-center gap-1 mt-2">
+      <div className="flex flex-wrap justify-center gap-4">
+        {(['MAIN', '2H', 'SOCIAL', 'FIXED', 'SLIDER', 'VERTICAL', 'VIDEO'] as const).map((t) => (
+          <div key={t} className="relative group">
+            <button
+              onClick={() => onAddBlock(index, t)}
+              className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-gray-600"
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${BLOCK_STYLES[t].accent}`} />
+              {t.charAt(0) + t.slice(1).toLowerCase()}
+            </button>
+            <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity z-20 whitespace-nowrap">
+              <div className="bg-gray-900 text-paper text-[9px] px-1.5 py-0.5 rounded shadow-lg">
+                {BLOCK_STYLES[t].desc}
+              </div>
+              <div className="w-1.5 h-1.5 bg-gray-900 rotate-45 mx-auto -mt-0.5" />
+            </div>
+          </div>
+        ))}
+      </div>
+      <button 
+        onClick={() => onAddContainer?.()}
+        className="flex items-center gap-1 text-[10px] text-gray-300 hover:text-[#E36B11]"
+        title="Add a new section below"
+      >
+        <Plus className="w-3 h-3" />
+        New Section
+      </button>
+    </div>
+    </>
   );
 }

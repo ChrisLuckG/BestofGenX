@@ -187,7 +187,7 @@ export default function RankingPollCard({ poll, onPointsAwarded, onShowLogin, on
   const content = (
     <>
       {/* Vote count header */}
-      <div className="px-4 py-2 border-b border-warm bg-[#E36B11]/5">
+      <div className="px-4 py-2 border-b border-warm bg-cream">
         <span className="text-xs text-gray-500">{localPoll.totalVotes} total votes</span>
       </div>
 

@@ -78,6 +78,52 @@ async function fetchWikipediaOnThisDay(): Promise<Array<{ year: number; text: st
   return merged;
 }
 
+/**
+ * Does the date the model wrote actually fall on the requested calendar day?
+ *
+ * The prompt has always carried an EXACT DATE RULE, but nothing checked it and the
+ * value was stored verbatim, so an event three days either side of today was accepted
+ * silently. Handles "September 8, 1978", "8 September 1978" and "1978-09-08".
+ * Returns null when the string cannot be parsed - unparseable is treated as a failure,
+ * not as a pass.
+ */
+function eventDateMatchesDay(
+  dateStr: string | undefined,
+  month0: number,
+  day: number
+): { ok: boolean; parsed: string | null } {
+  if (!dateStr || typeof dateStr !== 'string') return { ok: false, parsed: null };
+
+  const iso = dateStr.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (iso) {
+    const m = parseInt(iso[2], 10) - 1;
+    const d = parseInt(iso[3], 10);
+    return { ok: m === month0 && d === day, parsed: `${iso[1]}-${iso[2]}-${iso[3]}` };
+  }
+
+  const monthNames = MONTHS.map(m => m.toLowerCase());
+  const lower = dateStr.toLowerCase();
+  const foundMonth = monthNames.findIndex(m => lower.includes(m));
+  const dayMatch = lower.match(/\b(\d{1,2})\b(?!\d)/);
+  if (foundMonth >= 0 && dayMatch) {
+    const d = parseInt(dayMatch[1], 10);
+    return { ok: foundMonth === month0 && d === day, parsed: `${MONTHS[foundMonth]} ${d}` };
+  }
+
+  return { ok: false, parsed: null };
+}
+
+/** Word overlap between the model's event and a pool entry, 0..1 of the pool tokens. */
+function overlapWithPoolEntry(modelText: string, poolText: string): number {
+  const strip = (s: string) =>
+    s.toLowerCase().replace(/[^a-z0-9äöüßáéíóúàèìòùâêîôûñç\s]/g, ' ').split(/\s+/).filter(w => w.length > 3);
+  const poolTokens = Array.from(new Set(strip(poolText)));
+  if (poolTokens.length === 0) return 0;
+  const modelTokens = new Set(strip(modelText));
+  const hits = poolTokens.filter(t => modelTokens.has(t)).length;
+  return hits / poolTokens.length;
+}
+
 interface HistoryEvent {
   title: string;           // e.g. "Live Aid Concert"
   year: number;            // e.g. 1985
@@ -114,7 +160,16 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { reporterId, excludeEvents } = body as { reporterId: string; excludeEvents?: string[] };
+    // allowWithoutVideo: deliver the event even when YouTube has nothing. The event
+    // has already passed the pool and day-exactness gates at that point, so dropping
+    // it only because no footage exists throws away a verified event - the caller can
+    // attach a video by hand instead. Defaults to false to keep existing callers
+    // (NewsroomConference) on their previous behaviour.
+    const { reporterId, excludeEvents, allowWithoutVideo } = body as {
+      reporterId: string;
+      excludeEvents?: string[];
+      allowWithoutVideo?: boolean;
+    };
 
     await dbConnect();
 
@@ -164,11 +219,25 @@ export async function POST(request: NextRequest) {
       ? `\n\n⚠️ CRITICAL: Your colleagues have ALREADY written about these topics. You MUST NOT choose any of these:\n${excludeEvents.map(e => `❌ ${e}`).join('\n')}\n\nChoose something COMPLETELY DIFFERENT from the list above.`
       : '';
 
+    // An empty pool must ABORT, not fall through.
+    //
+    // wikiEventsList used to become '' when nothing was found, while the prompt below
+    // kept saying "You MUST choose from this list" - with no list. The model then
+    // answered from memory and the route returned success:true, so an invented event
+    // was indistinguishable from a sourced one. Same lesson as the Wikidata birthday
+    // pool (see AGENTS.md): absence of information has to reach the caller as an error,
+    // not as a quietly degraded result.
+    if (wikipediaEvents.length === 0) {
+      const reason = excludeEvents && excludeEvents.length > 0
+        ? `All verified Wikipedia events for ${todayStr} are already covered.`
+        : `Wikipedia has no verified GenX-era (1965-2005) events for ${todayStr}.`;
+      console.log(`[history-event] Empty pool for ${todayStr} - refusing to generate`);
+      return NextResponse.json({ success: false, error: reason, noPool: true });
+    }
+
     // Build Wikipedia events list for prompt (with the language edition it came from
     // so reporters can see this is a worldwide pool, not just US news)
-    const wikiEventsList = wikipediaEvents.length > 0
-      ? `\n\nHere are VERIFIED historical events from Wikipedia (${WIKI_LANGS.length} language editions) for ${todayStr}. You MUST choose from this list:\n${wikipediaEvents.map(e => `- ${e.year} [${e.source}]: ${e.text}`).join('\n')}`
-      : '';
+    const wikiEventsList = `\n\nHere are VERIFIED historical events from Wikipedia (${WIKI_LANGS.length} language editions) for ${todayStr}. You MUST choose from this list:\n${wikipediaEvents.map(e => `- ${e.year} [${e.source}]: ${e.text}`).join('\n')}`;
 
     // Build prompt based on reporter's personality and writing style
     const systemPrompt = `You are ${reporterName}, a journalist from ${nationality || region}.
@@ -237,6 +306,52 @@ Respond with a JSON object:
       return NextResponse.json({ success: false, error: "AI returned incomplete event data" });
     }
 
+    // ── DAY-EXACTNESS GATE ────────────────────────────────────────────────────
+    // Runs BEFORE the YouTube search, which costs quota and several seconds.
+    //
+    // Two independent checks, because either alone can be fooled:
+    //  a) the event must actually be one from the pool. The pool is built from
+    //     Wikipedia's feed for THIS month/day, so pool membership makes the date
+    //     correct by construction - this is the check that really enforces "same day".
+    //  b) the date string the model wrote must still resolve to today. Cheap, and it
+    //     catches the case where the model picks a pool event but writes the wrong
+    //     date next to it.
+    const poolForYear = wikipediaEvents.filter(e => e.year === Number(eventData.year));
+    if (poolForYear.length === 0) {
+      const years = Array.from(new Set(wikipediaEvents.map(e => e.year))).sort().join(', ');
+      console.log(`[history-event] REJECT "${eventData.title}" - year ${eventData.year} is not in the ${todayStr} pool (pool years: ${years})`);
+      return NextResponse.json({
+        success: false,
+        error: `"${eventData.title}" (${eventData.year}) did not happen on ${todayStr}. The reporter went outside the verified list.`,
+        offDate: true,
+      });
+    }
+
+    const modelText = `${eventData.title} ${eventData.description}`;
+    const bestOverlap = Math.max(...poolForYear.map(e => overlapWithPoolEntry(modelText, e.text)));
+    // 0.15 of the pool entry's distinctive words. Deliberately low: the reporter
+    // rewrites the entry in their own voice and translates it out of German/Russian/
+    // Chinese, so a high threshold would reject legitimate rewrites. It still separates
+    // "same event, retold" from "different event that happens to share a year".
+    if (bestOverlap < 0.15) {
+      console.log(`[history-event] REJECT "${eventData.title}" - best overlap with ${eventData.year} pool entries is ${bestOverlap.toFixed(2)}`);
+      return NextResponse.json({
+        success: false,
+        error: `"${eventData.title}" does not match any verified Wikipedia event for ${todayStr}. Looks invented.`,
+        offDate: true,
+      });
+    }
+
+    const dateCheck = eventDateMatchesDay(eventData.date, now.getMonth(), day);
+    if (!dateCheck.ok) {
+      console.log(`[history-event] REJECT "${eventData.title}" - date "${eventData.date}" (parsed: ${dateCheck.parsed}) is not ${todayStr}`);
+      return NextResponse.json({
+        success: false,
+        error: `"${eventData.title}" was dated ${eventData.date || 'nothing'}, which is not ${todayStr}.`,
+        offDate: true,
+      });
+    }
+
     // Search for a YouTube video - pass year for better results.
     // The event's own title and description are the relevance context: every
     // fallback query below is looser than the last, and without that anchor a
@@ -259,8 +374,8 @@ Respond with a JSON object:
       videoId = await searchYouTube(`${eventData.title} ${eventData.category}`, eventData.year, videoContext);
     }
     
-    // REQUIRE a video - reject events without video
-    if (!videoId) {
+    // No video found. Unless the caller opted in, the event is rejected.
+    if (!videoId && !allowWithoutVideo) {
       console.log(`No video found for event "${eventData.title}" after all attempts - rejecting`);
       return NextResponse.json({ 
         success: false, 
@@ -268,15 +383,22 @@ Respond with a JSON object:
         noVideo: true
       });
     }
+    if (!videoId) {
+      console.log(`No video found for event "${eventData.title}" - delivering without video`);
+    }
 
     const event: HistoryEvent = {
       title: eventData.title,
       year: eventData.year,
-      date: eventData.date || `${todayStr}, ${eventData.year}`,
+      // Canonical, never the model's string: it has been verified to mean today, so
+      // there is no reason to keep whatever formatting it arrived in.
+      date: `${todayStr}, ${eventData.year}`,
       description: eventData.description,
       category: eventData.category || "culture",
       youtubeSearch: eventData.youtubeSearch || eventData.title,
-      youtubeVideoId: videoId,
+      // `undefined` rather than `null`: the field is optional, and the UI checks for
+      // a truthy id to decide between the thumbnail and the paste-a-link input.
+      youtubeVideoId: videoId || undefined,
       reporterId,
       reporterName,
     };
@@ -284,6 +406,9 @@ Respond with a JSON object:
     return NextResponse.json({
       success: true,
       event,
+      // Lets the UI tell "searched, found nothing" apart from "not searched yet",
+      // so it can offer to attach a video by hand.
+      noVideo: !videoId,
     });
 
   } catch (error: unknown) {

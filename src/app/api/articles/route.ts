@@ -261,8 +261,18 @@ export async function POST(request: NextRequest) {
       authorAvatar = user.avatar || '';
     }
     
-    // Auto-set thumbnailUrl if coverImage is a URL (not base64)
-    const thumbnailUrl = coverImage?.startsWith('http') ? coverImage : '';
+    // Auto-set thumbnailUrl if coverImage is a URL (not base64). A thumbnail the
+    // caller picked explicitly wins: ImagePickerModal offers a thumbnail that
+    // differs from the cover, and deriving it from coverImage unconditionally
+    // discarded that choice without any error.
+    const thumbnailUrl = body.thumbnailUrl || (coverImage?.startsWith('http') ? coverImage : '');
+
+    // Focal point of the cover. The admin reads imagePosX/imagePosY everywhere
+    // (ArticlesTab, ContainerBlock, NewsroomConference), but Article.create below
+    // lists its fields explicitly, so these were dropped on creation even when
+    // sent - the picker's position only ever stuck on the PUT path.
+    const imagePosX = typeof body.imagePosX === 'number' ? body.imagePosX : 50;
+    const imagePosY = typeof body.imagePosY === 'number' ? body.imagePosY : 50;
 
     const personCountryRaw = body.personCountry;
     const personCountryCode = countryNameToCode(personCountryRaw);
@@ -270,12 +280,27 @@ export async function POST(request: NextRequest) {
     // Extract person data for Menschen database
     const { personName, personBirthday, personDeathday, personCauseOfDeath, isRIP } = body;
 
+    // Person dates are stored as DD.MM.YYYY everywhere: the Article model documents it,
+    // WelcomeReel's timeline groups by `personBirthday.split('.')[2]`, and the almanac
+    // matcher parses the same shape. The admin Menschen tab posts the raw value of an
+    // <input type="date"> (YYYY-MM-DD), which used to be written through unchanged - the
+    // article then carried a birthday nothing could parse and silently disappeared from
+    // the timeline, while still looking correct in the admin list.
+    const toGermanDate = (value?: string): string | undefined => {
+      if (!value) return undefined;
+      const iso = value.trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+      if (!iso) return value.trim();
+      return `${iso[3].padStart(2, '0')}.${iso[2].padStart(2, '0')}.${iso[1]}`;
+    };
+
     const article = await Article.create({
       title,
       subtitle: subtitle || '',
       content,
       coverImage: coverImage || '',
       thumbnailUrl,
+      imagePosX,
+      imagePosY,
       category: resolvedCategory,
       contentType: contentType || 'article',
       mainCategory: mainCategory || 'articles',
@@ -289,8 +314,8 @@ export async function POST(request: NextRequest) {
       publishedAt: status === 'published' ? new Date() : undefined,
       // Person data - stored in article for reference
       personName: personName || undefined,
-      personBirthday: personBirthday || undefined,
-      personDeathday: personDeathday || undefined,
+      personBirthday: toGermanDate(personBirthday),
+      personDeathday: toGermanDate(personDeathday),
       personCountry: personCountryRaw || undefined,
       personCountryCode: personCountryCode || undefined,
     });

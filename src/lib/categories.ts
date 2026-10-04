@@ -79,6 +79,27 @@ export const VALID_CATEGORY_SLUGS: string[] = CATEGORIES.flatMap(
 );
 
 /**
+ * Container/category name -> DB slug. Must stay in sync with the slug written
+ * by POST /api/categories, otherwise a container named "EisHockey" and the
+ * Category document created for it disagree and auto-fill finds nothing.
+ *
+ * German umlauts are transliterated rather than stripped: "Fussball" and
+ * "Fußball" have to produce the same slug, or renaming a container by typing
+ * the ß version silently creates a SECOND category.
+ */
+export function slugify(input: string): string {
+  return (input || '')
+    .trim()
+    .toLowerCase()
+    .replace(/ä/g, 'ae')
+    .replace(/ö/g, 'oe')
+    .replace(/ü/g, 'ue')
+    .replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+/**
  * Categories that NEVER auto-fill the Top Area. History and Arcade/Gaming articles
  * belong to their own date-based banner sections; they may only reach the Top Area
  * when an editor pins them manually (star / `featured`).
@@ -110,6 +131,36 @@ export function getCategoryDef(slug: string): CategoryDef | undefined {
   );
 }
 
+/**
+ * Resolve a human-typed name (a container name, a label) to an existing static
+ * category, or undefined if it is genuinely new.
+ *
+ * Checks three things, because for five of the nine static entries the slug is
+ * NOT the slugified label:
+ *
+ *   slug=sports     label="Sport"               slugify -> sport
+ *   slug=movies-tv  label="TV & Cinema"         slugify -> tv-cinema
+ *   slug=gaming     label="Gaming & Tech"       slugify -> gaming-tech
+ *   slug=lifestyle  label="Lifestyle & Culture" slugify -> lifestyle-culture
+ *   slug=news       label="Politics"            slugify -> politics
+ *
+ * Matching on `slug` alone meant renaming a container to "Sport" created a
+ * SECOND, dynamic category 'sport' sitting next to the static 'sports', and
+ * both appeared in every dropdown with the identical label "Sport" - with no
+ * way to tell which one the articles were on. Same for "Politics" vs 'news'.
+ * Both of those are live container names in this project's template.
+ */
+export function findStaticCategory(name: string): CategoryDef | undefined {
+  const slug = slugify(name);
+  if (!slug) return undefined;
+  return CATEGORIES.find(
+    c =>
+      c.slug === slug ||
+      slugify(c.label) === slug ||
+      (c.aliases || []).includes(slug)
+  );
+}
+
 export function getCategoryLabel(slug: string): string {
   return getCategoryDef(slug)?.label ?? slug;
 }
@@ -133,6 +184,7 @@ const TOPIC_TO_SLUG: Record<string, string> = {
   film: 'movies-tv',
   movies: 'movies-tv',
   tv: 'movies-tv',
+  'tv & movies': 'movies-tv',
   games: 'gaming',
   gaming: 'gaming',
   politik: 'news',
@@ -171,6 +223,20 @@ export function getAutoFillSlugs(containerName?: string, containerTheme?: string
 
   // No name match → fall back to the theme mapping
   if (THEME_MAP[theme]) return THEME_MAP[theme];
+
+  // Still nothing: treat the container NAME as a category slug. This is what
+  // makes dynamically created categories work without a code change - a
+  // container renamed to "EisHockey" pulls articles whose category is
+  // 'eishockey' (see POST /api/categories, which creates that Category from
+  // the same slugify()).
+  //
+  // Before this existed, a name matching no keyword regex and no theme
+  // returned [] and the container rendered EMPTY - indistinguishable from
+  // "no articles published yet". Measured on the live template: 'Fussball'
+  // and 'EisHockey' both resolved to [], because the sports regex matches
+  // the English 'football' and not the German 'fussball'.
+  const nameSlug = slugify(containerName || '');
+  if (nameSlug) return [nameSlug];
 
   return [];
 }

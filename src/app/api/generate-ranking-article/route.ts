@@ -1,43 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { styleInstructionFor, isAuthorVoice } from '@/lib/authorStylePrompts';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Author style instructions
-const STYLE_PROMPTS: Record<string, string> = {
-  'informative': 'Write in a factual, objective, encyclopedia-style. Professional journalism tone.',
-  'irvine-welsh': `YOU ARE IRVINE WELSH WRITING TRAINSPOTTING!
-- USE Scottish dialect: "aye", "nae", "cannae", "wisnae", "ae" (of), "ken" (know), "oot" (out)
-- USE swearing: "fuckin", "shite", "cunt", "bastard" - this is REQUIRED!
-- Stream of consciousness, run-on sentences, working class Edinburgh voice`,
-  'charles-bukowski': `Write like CHARLES BUKOWSKI:
-- Gritty, raw, poetic realism
-- Short, punchy sentences mixed with longer reflections
-- Working class perspective, cynical but honest
-- References to drinking, women, the underbelly of life`,
-  'benjamin-stuckrad-barre': `Write like BENJAMIN VON STUCKRAD-BARRÉ:
-- German pop literature style, witty and ironic
-- Self-aware, media-savvy observations
-- Mix of high and low culture references
-- Slightly manic energy, name-dropping`,
-  'hunter-thompson': `Write like HUNTER S. THOMPSON (Gonzo journalism):
-- First person, subjective, you ARE part of the story
-- Wild tangents, drug references, paranoid observations
-- "Fear and Loathing" style - chaotic but brilliant
-- Use phrases like "Jesus Christ", "savage", "doomed"`,
-  'bret-easton-ellis': `Write like BRET EASTON ELLIS:
-- Minimalist, detached, almost clinical
-- Lists of brand names, surface details
-- 80s excess, empty glamour
-- Short declarative sentences`,
-  'douglas-coupland': `Write like DOUGLAS COUPLAND (Generation X author):
-- The definitive Gen X voice
-- Pop culture references, ironic observations
-- McJobs, media saturation, suburban ennui
-- Clever neologisms and cultural commentary`,
-};
+// Voice briefs live in @/lib/authorStylePrompts - this route used to keep its own,
+// shorter copy, which drifted from the UI list: it keyed Thompson as 'hunter-thompson'
+// while the dropdown sent 'hunter-s-thompson', so that author silently resolved to
+// 'informative'. One source of truth avoids repeating that.
 
 export async function POST(request: NextRequest) {
   try {
@@ -55,7 +27,7 @@ export async function POST(request: NextRequest) {
       ? 'Write the article in GERMAN (Deutsch). Use informal "du" form.'
       : 'Write the article in ENGLISH.';
     
-    const styleInstruction = STYLE_PROMPTS[style] || STYLE_PROMPTS['informative'];
+    const styleInstruction = styleInstructionFor(style);
     
     const prompt = `Write an engaging article about this ranking list for a Gen X audience (born 1965-1980).
 
@@ -97,7 +69,7 @@ Return ONLY a JSON object with this exact structure:
         { role: 'user', content: prompt }
       ],
       max_tokens: 3000,
-      temperature: style === 'informative' ? 0.7 : 0.9,
+      temperature: isAuthorVoice(style) ? 0.95 : 0.7,
     });
     
     const responseText = completion.choices[0]?.message?.content || '';

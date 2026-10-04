@@ -943,3 +943,221 @@ body {
   0%, 100% { transform: rotate(-3deg); }
   50% { transform: rotate(3deg); }
 }
+
+/* `white` is overridden to cream (#F5F0E8) in tailwind.config.ts, deliberately,
+   because the public app is built on that warm paper tone. The side effect is that
+   every `bg-white` written in an ADMIN component silently renders cream, which
+   reads as an unexplained brown tint - and no amount of CSS hunting finds it,
+   because the override IS the colour. `bg-paper` is the correct utility for admin
+   surfaces, but it is one letter away from the habit of a lifetime and keeps being
+   typed as `bg-white` again.
+   Rather than relying on that discipline, the admin subtree below pins the white
+   utilities back to a genuine #FFFFFF. Scoped to .admin-scope so the public app
+   keeps its cream. If a surface here ever has to be cream on purpose, use
+   `bg-cream` or `bg-[#F5F0E8]` explicitly - which is also self-documenting. */
+.admin-scope .bg-white {
+  background-color: #fff !important;
+}
+
+.admin-scope .text-white {
+  color: #fff !important;
+}
+
+.admin-scope .border-white {
+  border-color: #fff !important;
+}
+
+/* Admin panel/card - explicit class */
+.admin-panel {
+  background-color: #fff !important;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+}
+
+/* Admin header */
+.admin-header {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  font-weight: 600;
+  color: #111827;
+}
+
+/* Admin content area */
+.admin-content {
+  padding: 1rem;
+}
+
+/* Admin input - explicit class */
+.admin-input {
+  background-color: #fff !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.5rem;
+  font-size: 0.75rem;
+  color: #111827 !important;
+}
+
+/* Admin select - explicit class */
+.admin-select {
+  background-color: #f9fafb !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.5rem;
+  font-size: 0.75rem;
+  color: #374151 !important;
+}
+
+/* Admin buttons - explicit classes */
+.admin-btn {
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+
+.admin-btn-primary {
+  background-color: #111827 !important;
+  color: #fff !important;
+}
+
+.admin-btn-primary:hover {
+  background-color: #374151 !important;
+}
+
+.admin-btn-secondary {
+  background-color: #fff !important;
+  color: #374151 !important;
+  border: 1px solid #e5e7eb !important;
+}
+
+.admin-btn-secondary:hover {
+  background-color: #f9fafb !important;
+}
+
+.admin-btn-danger {
+  background-color: #dc2626 !important;
+  color: #fff !important;
+}
+
+.admin-btn-danger:hover {
+  background-color: #b91c1c !important;
+}
+
+/* Admin table */
+.admin-table {
+  width: 100%;
+  font-size: 0.75rem;
+}
+.admin-table thead {
+  background-color: #f9fafb;
+}
+.admin-table th {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  font-size: 0.625rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+.admin-table td {
+  padding: 0.5rem 0.75rem;
+  color: #374151;
+  border-top: 1px solid #f3f4f6;
+}
+.admin-table tbody tr:hover {
+  background-color: #f9fafb;
+}
+
+/* Admin badge */
+.admin-badge {
+  display: inline-block;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-size: 0.5625rem;
+  font-weight: 500;
+  color: white;
+}
+
+/* Admin text colors */
+.admin-text-muted {
+  color: #6b7280;
+}
+.admin-text-success {
+  color: #059669;
+}
+.admin-text-warning {
+  color: #d97706;
+}
+.admin-text-danger {
+  color: #dc2626;
+}
+
+/* Admin card grid (for by-date view) */
+.admin-card {
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+}
+.admin-card:hover {
+  background-color: #f9fafb;
+}
+
+/* Admin date group */
+.admin-date-group {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+.admin-date-group.today {
+  border-color: #E36B11;
+  background-color: rgba(227, 107, 17, 0.05);
+}
+.admin-date-header {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+}
+.admin-date-header.today {
+  color: #E36B11;
+}
+
+/* Admin toggle buttons */
+.admin-toggle-group {
+  display: flex;
+  gap: 0.125rem;
+  background-color: #f3f4f6;
+  border-radius: 0.5rem;
+  padding: 0.125rem;
+}
+.admin-toggle-btn {
+  padding: 0.375rem;
+  border-radius: 0.375rem;
+  color: #9ca3af;
+}
+.admin-toggle-btn.active {
+  background-color: white;
+  color: #111827;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* Admin tabs */
+.admin-tab {
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #6b7280;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+}
+.admin-tab:hover {
+  background-color: #f9fafb;
+}
+.admin-tab.active {
+  background-color: #E36B11;
+  color: white;
+  border-color: #E36B11;
+}

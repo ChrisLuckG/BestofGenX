@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Lock, Loader2 } from "lucide-react";
+import { Lock, Loader2, Monitor, Tablet, Smartphone } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import ArcadeTab from "@/components/admin/CardsTab";
 import MikeTab from "@/components/admin/MikeTabNew";
@@ -10,7 +10,6 @@ import UsersTab from "@/components/admin/UsersTab";
 import RewardsTab from "@/components/admin/RewardsTab";
 import ArticlesTab from "@/components/admin/ArticlesTab";
 import CurrencyTab from "@/components/admin/SettingsTab";
-import CostsTab from "@/components/admin/CostsTab";
 import RequestsTab from "@/components/admin/RequestsTab";
 
 import MarketingTab from "@/components/admin/MarketingTab";
@@ -20,7 +19,14 @@ import NewsroomConference from "@/components/admin/NewsroomConference";
 
 const PRINTFUL_URL = 'https://www.printful.com/dashboard/default';
 
-type TabType = 'articles' | 'arcade' | 'rewards' | 'rankroll' | 'users' | 'currency' | 'costs' | 'requests' | 'marketing' | 'tv' | 'mike' | 'menschen' | 'conference';
+// Preview buttons - open the live site at different viewport sizes
+const PREVIEW_SIZES: { label: string; width: number; height: number; icon: typeof Monitor }[] = [
+  { label: "Desktop", width: 1440, height: 900, icon: Monitor },
+  { label: "Tablet", width: 834, height: 1000, icon: Tablet },
+  { label: "Mobile", width: 390, height: 844, icon: Smartphone },
+];
+
+type TabType = 'articles' | 'arcade' | 'rewards' | 'rankroll' | 'users' | 'currency' | 'requests' | 'marketing' | 'tv' | 'mike' | 'menschen' | 'conference';
 
 // Frontend-related tabs (left)
 const CONTENT_TABS: { id: TabType; label: string }[] = [
@@ -34,17 +40,16 @@ const CONTENT_TABS: { id: TabType; label: string }[] = [
 const CONFIG_TABS: { id: TabType; label: string }[] = [
   { id: 'rewards', label: 'Rewards' },
   { id: 'users', label: 'Users' },
-  { id: 'costs', label: 'Costs' },
   { id: 'marketing', label: 'Marketing' },
   { id: 'currency', label: 'Currency' },
   { id: 'mike', label: 'Mike' },
-  { id: 'menschen', label: 'Menschen' },
   { id: 'conference', label: '?? Conference' },
 ];
 
 export default function AdminPage() {
   const { user, isLoggedIn } = useAuth();
   const [authChecked, setAuthChecked] = useState(false);
+  
   // When a reporter's rankroll proposal is selected from the Newsroom Conference,
   // this holds the title/description so RankrollTab auto-creates a new ranking.
   const [pendingRankrollTitle, setPendingRankrollTitle] = useState<string | null>(null);
@@ -53,7 +58,7 @@ export default function AdminPage() {
     // Restore last active tab from localStorage
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('admin-active-tab') as TabType | null;
-      if (saved && ['articles', 'arcade', 'rewards', 'rankroll', 'users', 'currency', 'costs', 'requests', 'marketing', 'tv', 'mike', 'menschen', 'conference'].includes(saved)) {
+      if (saved && ['articles', 'arcade', 'rewards', 'rankroll', 'users', 'currency', 'requests', 'marketing', 'tv', 'mike', 'menschen', 'conference'].includes(saved)) {
         return saved;
       }
     }
@@ -94,7 +99,7 @@ export default function AdminPage() {
 
   if (!authChecked) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-[#E36B11] animate-spin" />
       </div>
     );
@@ -102,27 +107,41 @@ export default function AdminPage() {
 
   if (!isLoggedIn || !user?.isAdmin) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
-        <div className="bg-gray-800 rounded-2xl p-8 w-full max-w-md border border-gray-700 text-center">
-          <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center mx-auto mb-4">
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl p-8 w-full max-w-md border border-gray-200 text-center shadow-sm">
+          <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
             <Lock className="w-6 h-6 text-red-500" />
           </div>
-          <h1 className="text-2xl font-bold text-white mb-2">Access Denied</h1>
-          <p className="text-gray-400 text-sm mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h1>
+          <p className="text-gray-500 text-sm mb-6">
             {!isLoggedIn ? "Please login with an admin account." : "You don't have admin privileges."}
           </p>
-          <a href="/" className="text-gray-400 hover:text-white text-xs">&larr; Back to App</a>
+          <a href="/" className="text-gray-500 hover:text-gray-900 text-xs">&larr; Back to App</a>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white px-3 py-3" style={{ fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div className="px-3 py-3">
       <div className="w-full max-w-[2200px] mx-auto">
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-lg font-bold">Admin Panel</h1>
-          <a href="/" target="_blank" className="text-gray-400 hover:text-white text-xs">&larr; Back to App</a>
+          <div className="flex items-center gap-1">
+            {PREVIEW_SIZES.map((size) => (
+              <button
+                key={size.label}
+                onClick={() => {
+                  window.open('/', '_blank', `width=${size.width},height=${size.height},menubar=no,toolbar=no,location=no,status=no`);
+                }}
+                className="flex items-center gap-1 px-2 py-1 rounded border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-900 text-xs font-medium transition-colors"
+                title={`Open in ${size.width}×${size.height} window`}
+              >
+                <size.icon className="w-3.5 h-3.5" />
+                {size.label}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
           {/* Content/frontend tabs - left */}
@@ -131,9 +150,7 @@ export default function AdminPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
-                  activeTab === tab.id ? 'bg-[#E36B11] text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                }`}
+                className={`admin-tab ${activeTab === tab.id ? 'active' : ''}`}
               >
                 {tab.label}
               </button>
@@ -143,7 +160,7 @@ export default function AdminPage() {
               href={PRINTFUL_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0 bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white inline-flex items-center gap-1.5"
+              className="admin-tab inline-flex items-center gap-1.5"
               title="Open Printful Dashboard in new tab"
             >
               Shop
@@ -154,9 +171,7 @@ export default function AdminPage() {
             {/* Radio - Song Requests & Radio Stations */}
             <button
               onClick={() => setActiveTab('requests')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0 relative ${
-                activeTab === 'requests' ? 'bg-[#E36B11] text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-              }`}
+              className={`admin-tab relative ${activeTab === 'requests' ? 'active' : ''}`}
             >
               Radio
               {newRequestsCount > 0 && (
@@ -176,9 +191,7 @@ export default function AdminPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
-                  activeTab === tab.id ? 'bg-[#E36B11] text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                }`}
+                className={`admin-tab ${activeTab === tab.id ? 'active' : ''}`}
               >
                 {tab.label}
               </button>
@@ -186,7 +199,7 @@ export default function AdminPage() {
           </div>
         </div>
         {activeTab === 'arcade' && <ArcadeTab />}
-        {activeTab === 'articles' && <ArticlesTab userId={user?.id} />}
+        {activeTab === 'articles' && <ArticlesTab userId={user?.id} onGoToMenschen={() => setActiveTab('menschen')} />}
         {activeTab === 'users' && <UsersTab userId={user?.id} onGoToArticles={() => setActiveTab('articles')} />}
         {activeTab === 'rewards' && <RewardsTab />}
         {/* Rankroll stays mounted for pending proposals from Conference */}
@@ -199,7 +212,6 @@ export default function AdminPage() {
           />
         )}
         {activeTab === 'currency' && <CurrencyTab />}
-        {activeTab === 'costs' && <CostsTab />}
         {activeTab === 'requests' && <RequestsTab onArticleCreated={() => setActiveTab('articles')} onStatusChange={fetchNewRequestsCount} />}
         {activeTab === 'marketing' && <MarketingTab />}
         {/* TV stays mounted so video searches continue when switching tabs */}
@@ -223,6 +235,8 @@ export default function AdminPage() {
           />
         </div>
       </div>
+
+      
     </div>
   );
 }

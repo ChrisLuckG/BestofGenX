@@ -12,6 +12,21 @@ interface LazyImageProps {
   onError?: () => void;
 }
 
+/**
+ * URLs that have finished loading at least once in this session.
+ *
+ * Without it, any remount of the surrounding card resets `isInView`/`isLoaded`,
+ * which drops the img back to the grey placeholder and replays the 300ms fade.
+ * That is the thumbnail flicker in the feed: the card components in WelcomeReel
+ * are declared inside the page component, so every parent render (a reactions
+ * fetch, a coin update, scroll state) creates new component types and React
+ * remounts the whole subtree. The browser still holds the bytes, so a URL we
+ * have already shown can go straight to full opacity with no placeholder step.
+ *
+ * Module scope on purpose - it has to outlive the component instances.
+ */
+const loadedSrcs = new Set<string>();
+
 export default function LazyImage({ 
   src, 
   alt, 
@@ -21,11 +36,27 @@ export default function LazyImage({
   onLoad,
   onError
 }: LazyImageProps) {
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [isInView, setIsInView] = useState(false);
+  const seen = loadedSrcs.has(src);
+  // Seeded from the cache so a known image never starts hidden
+  const [isLoaded, setIsLoaded] = useState(seen);
+  const [isInView, setIsInView] = useState(seen);
   const imgRef = useRef<HTMLImageElement>(null);
 
+  // Keep state honest when the src changes on an already mounted element
+  // (index-keyed lists reuse the same DOM node for a different article).
   useEffect(() => {
+    if (loadedSrcs.has(src)) {
+      setIsInView(true);
+      setIsLoaded(true);
+    } else {
+      setIsLoaded(false);
+    }
+  }, [src]);
+
+  useEffect(() => {
+    // Already known - no observer needed, it is displayed immediately
+    if (loadedSrcs.has(src)) return;
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -41,7 +72,7 @@ export default function LazyImage({
     }
 
     return () => observer.disconnect();
-  }, []);
+  }, [src]);
 
   return (
     <img
@@ -51,7 +82,12 @@ export default function LazyImage({
       className={`${className} transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
       style={style}
       onLoad={() => {
-        setIsLoaded(true);
+        // Only the real image counts - the placeholder fires onLoad too, and
+        // recording that would make the next mount skip loading altogether.
+        if (isInView) {
+          loadedSrcs.add(src);
+          setIsLoaded(true);
+        }
         onLoad?.();
       }}
       onError={onError}

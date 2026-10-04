@@ -155,7 +155,11 @@ function RankPosition({ value, label, isActive, change, onHoverChange }: { value
             {hasRank ? value.toString().padStart(2, '0') : '?'}
           </span>
         </span>
-        <span className={`text-[9px] font-display uppercase transition-colors ${isActive ? 'text-white/60' : 'text-gray-400 group-hover/main:text-white/60'}`}>{label}</span>
+        {/* text-gray-400 was nearly invisible against this widget's pale cream
+            background (#FFFDF9 -> #FDF8F0) - gray-600 gives the label enough
+            contrast to actually read as a label instead of disappearing next to
+            the bold number above it. */}
+        <span className={`text-[9px] font-display uppercase transition-colors ${isActive ? 'text-white/60' : 'text-gray-600 group-hover/main:text-white/60'}`}>{label}</span>
       </div>
       
     </div>
@@ -440,14 +444,20 @@ export default function DesktopRankWidget({
               : undefined}
           />
           <div className="relative flex flex-col justify-center">
+            {/* The win/loss colours only work on the pale background. Once the widget
+                turns orange (active, or hovered) green-500 sits at roughly 1.5:1
+                against #E36B11 and the number all but vanishes mid-animation - these
+                branches carried no hover variant, so green won over the base rule.
+                On orange the number goes white; direction is still carried by the coin
+                spin, the shake-vs-bounce and the ± delta above it. */}
             <span className={`text-lg font-display tabular-nums leading-none transition-all duration-300 ${
-              coinAnim === 'up' ? 'text-green-500' : 
-              coinAnim === 'down' ? 'text-red-500' : 
+              coinAnim === 'up' ? (active ? 'text-white' : 'text-green-600 group-hover/main:text-white') : 
+              coinAnim === 'down' ? (active ? 'text-white' : 'text-red-500 group-hover/main:text-white') : 
               active ? 'text-white' : 'text-[#E36B11] group-hover/main:text-white'
             }`}>
               {coins.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
-            <span className={`text-[9px] font-display uppercase transition-colors ${active ? 'text-white/60' : 'text-gray-400 group-hover/main:text-white/60'}`}>Coins</span>
+            <span className={`text-[9px] font-display uppercase transition-colors ${active ? 'text-white/60' : 'text-gray-600 group-hover/main:text-white/60'}`}>Coins</span>
           </div>
         </div>
         
@@ -473,7 +483,7 @@ export default function DesktopRankWidget({
                     {displayParts.map((part, i) => (
                       <div key={i} className="flex flex-col items-center">
                         <span className={`font-display text-lg font-bold leading-none transition-colors ${active ? 'text-white' : 'text-amber-500 group-hover/main:text-white'}`}>{part}</span>
-                        <span className={`text-[8px] uppercase transition-colors ${active ? 'text-white/50' : 'text-gray-400 group-hover/main:text-white/50'}`}>{labels[i]}</span>
+                        <span className={`text-[8px] uppercase transition-colors ${active ? 'text-white/50' : 'text-gray-600 group-hover/main:text-white/50'}`}>{labels[i]}</span>
                       </div>
                     ))}
                   </div>
@@ -506,31 +516,35 @@ export default function DesktopRankWidget({
             : wagerAnim ? { animation: 'wagerIn 0.55s cubic-bezier(0.22, 1, 0.36, 1)' }
             : undefined
           }
-          className={`group/wager relative flex items-center gap-2 px-3 py-2 rounded-r-lg border border-l-2 border-[#6366F1]/30 shadow-sm transition-all duration-300 cursor-pointer bg-[#FFFDF9] origin-left hover:from-[#6366F1] hover:to-[#4F46E5] hover:border-[#6366F1]`}
+          // hover:from-/hover:to- alone only set the gradient's CSS variables - with
+          // no bg-gradient-* utility nothing is ever painted, so hovering removed the
+          // tint (see the overlay below) and turned the text white on the cream
+          // background: white on white. The gradient needs its bg-gradient-to-r.
+          className={`group/wager relative flex items-center gap-2 px-3 py-2 rounded-r-lg border border-l-2 border-[#D4A04A]/45 shadow-sm transition-all duration-300 cursor-pointer bg-[#FFFDF9] origin-left hover:bg-gradient-to-r hover:from-[#D4A04A] hover:to-[#C4772A] hover:border-[#C4772A]`}
         >
           {/* Wager background */}
           <div className={`absolute inset-0 rounded-r-lg transition-all group-hover/wager:opacity-0 ${
-            wagerAnim === 'in' ? 'bg-[#A855F7]/20' : 
+            wagerAnim === 'in' ? 'bg-[#E8A54B]/25' : 
             wagerAnim === 'out' ? 'bg-green-500/20' : 
-            'bg-[#6366F1]/10'
+            'bg-[#D4A04A]/15'
           }`} />
           <Lock className={`relative w-4 h-4 transition-all group-hover/wager:text-white ${
-            wagerAnim === 'in' ? 'text-[#A855F7] scale-125' : 
+            wagerAnim === 'in' ? 'text-[#E36B11] scale-125' : 
             wagerAnim === 'out' ? 'text-green-500 scale-110' : 
-            'text-[#6366F1]'
+            'text-[#C4772A]'
           }`} />
           <div className="relative flex flex-col">
             <span className={`text-base font-display tabular-nums leading-none transition-all group-hover/wager:text-white ${
-              wagerAnim === 'in' ? 'text-[#A855F7] scale-110' : 
+              wagerAnim === 'in' ? 'text-[#E36B11] scale-110' : 
               wagerAnim === 'out' ? 'text-green-500 scale-110' : 
               'text-gray-800'
             }`}>
               {displayAmount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
-            <span className="text-[9px] font-display uppercase text-gray-400 transition-colors group-hover/wager:text-white/70">Wager</span>
+            <span className="text-[9px] font-display uppercase text-gray-600 transition-colors group-hover/wager:text-white/70">Wager</span>
           </div>
           {/* Right accent for wager */}
-          <div className="absolute right-0 top-1 bottom-1 w-0.5 rounded-full bg-[#6366F1] transition-all group-hover/wager:bg-white" />
+          <div className="absolute right-0 top-1 bottom-1 w-0.5 rounded-full bg-[#D4A04A] transition-all group-hover/wager:bg-white" />
         </div>
       )}
     </div>

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Plus, Edit2, Trash2, Loader2, X, Save, Upload, Sparkles, Link, Wand2, FileText, Globe } from "lucide-react";
 import BlockEditor from "./BlockEditor";
 import ImagePickerModal from "./ImagePickerModal";
+import { useConfirm } from "./ConfirmModal";
 import { LANGUAGES, DEFAULT_LANGUAGE } from "@/config/languages";
 import { AUTHOR_STYLES, DEFAULT_AUTHOR_STYLE } from "@/config/authorStyles";
 
@@ -49,6 +50,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
   const [activeSubTab, setActiveSubTab] = useState<'all' | 'ranking' | 'quiz' | 'simple'>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const itemImageInputRef = useRef<HTMLInputElement>(null);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   // Auto-search an image for an item: Wikimedia first (real photos), Tenor GIF as fallback
   const searchGifForItem = async (itemIndex: number, title: string, currentImage?: string) => {
@@ -444,7 +446,13 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
   };
 
   const deletePoll = async (id: string) => {
-    if (!confirm("Delete this poll?")) return;
+    const ok = await confirm({
+      title: 'Delete Poll',
+      message: 'Delete this poll?',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
     try {
       const res = await fetch(`/api/polls/${id}`, { method: "DELETE" });
       if (res.ok) {
@@ -475,7 +483,13 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
   // Delete all selected polls
   const deleteSelected = async () => {
     if (selectedIds.size === 0) return;
-    if (!confirm(`Delete ${selectedIds.size} selected item(s)? This cannot be undone.`)) return;
+    const ok = await confirm({
+      title: 'Delete Items',
+      message: `Delete ${selectedIds.size} selected item(s)? This cannot be undone.`,
+      confirmLabel: 'Delete All',
+      variant: 'danger',
+    });
+    if (!ok) return;
     try {
       await Promise.all(Array.from(selectedIds).map(id => fetch(`/api/polls/${id}`, { method: "DELETE" })));
       setSelectedIds(new Set());
@@ -582,7 +596,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                 key={f.id}
                 onClick={() => setActiveSubTab(f.id as any)}
                 className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                  activeSubTab === f.id ? 'bg-[#E36B11] text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                  activeSubTab === f.id ? 'bg-[#E36B11] text-gray-900' : 'bg-paper text-gray-500 hover:bg-gray-100'
                 }`}
               >
                 {f.label}
@@ -594,7 +608,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
             {(activeSubTab === 'all' || activeSubTab === 'ranking') && (
               <button
                 onClick={() => createNewPoll('ranking')}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#E36B11] text-white hover:bg-[#C4772A] transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#E36B11] text-gray-900 hover:bg-[#C4772A] transition-colors"
               >
                 <Plus className="w-3 h-3" />
                 Ranking
@@ -603,7 +617,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
             {(activeSubTab === 'all' || activeSubTab === 'quiz') && (
               <button
                 onClick={() => createNewPoll('quiz')}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-purple-600 text-white hover:bg-purple-500 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-purple-600 text-paper hover:bg-purple-500 transition-colors"
               >
                 <Plus className="w-3 h-3" />
                 Self-Test
@@ -612,7 +626,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
             {(activeSubTab === 'all' || activeSubTab === 'simple') && (
               <button
                 onClick={() => createNewPoll('simple')}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-700 text-white hover:bg-gray-600 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-100 text-gray-900 hover:bg-gray-200 transition-colors"
               >
                 <Plus className="w-3 h-3" />
                 Poll
@@ -624,7 +638,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
         {/* Bulk actions toolbar */}
         {!pollsLoading && currentPolls.length > 0 && (
           <div className="flex items-center gap-3 mb-2 px-1">
-            <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer select-none">
+            <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={currentPolls.length > 0 && currentPolls.every(p => selectedIds.has(p._id))}
@@ -637,7 +651,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
             {selectedIds.size > 0 && (
               <button
                 onClick={deleteSelected}
-                className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-red-600 text-white hover:bg-red-500 transition-colors"
+                className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-red-600 text-paper hover:bg-red-500 transition-colors"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 Delete selected ({selectedIds.size})
@@ -661,8 +675,8 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
               <div
                 key={poll._id}
                 onClick={() => setEditingPoll(poll)}
-                className={`bg-gray-800 rounded-xl p-3 border cursor-pointer transition-colors flex items-center gap-3 ${
-                  selectedIds.has(poll._id) ? 'border-[#E36B11]' : 'border-gray-700 hover:border-gray-600'
+                className={`bg-paper rounded-xl p-3 border cursor-pointer transition-colors flex items-center gap-3 ${
+                  selectedIds.has(poll._id) ? 'border-[#E36B11]' : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
                 {/* Selection checkbox */}
@@ -682,7 +696,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                 {/* Content */}
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-sm truncate">{poll.title}</div>
-                  <div className="text-xs text-gray-400">
+                  <div className="text-xs text-gray-500">
                     {poll.type === 'ranking' && <>{poll.items?.length || 0} items</>}
                     {poll.type === 'quiz' && <>{poll.questions?.length || 0} questions</>}
                     {poll.type === 'simple' && <>{poll.options?.length || 0} options</>}
@@ -725,30 +739,30 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
 
       {/* Poll Editor Modal - Extra Wide for Desktop */}
       {editingPoll && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-2">
-          <div className={`bg-gray-800 rounded-xl w-full ${editingPoll.type === 'ranking' ? 'max-w-[95vw]' : 'max-w-2xl'} max-h-[95vh] overflow-hidden flex flex-col`}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2">
+          <div className="bg-white rounded-lg shadow-xl w-[900px] max-w-[95vw] max-h-[90vh] overflow-hidden flex flex-col">
             {/* Header */}
-            <div className="p-3 border-b border-gray-700 flex items-center justify-between flex-shrink-0">
+            <div className="p-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
-                <h3 className="text-sm font-bold">
+                <h3 className="text-sm font-bold text-gray-900">
                   {editingPoll._id ? 'Edit' : 'Create'} {editingPoll.type === 'ranking' ? 'Ranking List' : 'Poll'}
                 </h3>
                 {/* AI Generator inline for ranking */}
                 {editingPoll.type === 'ranking' && (
-                  <div className="flex items-center gap-2 ml-4 pl-4 border-l border-gray-600">
-                    <Sparkles className="w-4 h-4 text-purple-400" />
+                  <div className="flex items-center gap-2 ml-4 pl-4 border-l border-gray-300">
+                    <Sparkles className="w-4 h-4 text-purple-500" />
                     <input
                       type="text"
                       value={aiTopic}
                       onChange={(e) => setAiTopic(e.target.value)}
                       placeholder="AI: Enter topic to generate..."
-                      className="w-64 bg-gray-700 px-2 py-1 rounded text-xs"
+                      className="w-64 bg-white border border-gray-300 px-2 py-1 rounded text-xs text-gray-900"
                       onKeyDown={(e) => e.key === 'Enter' && generateWithAI()}
                     />
                     <button
                       onClick={generateWithAI}
                       disabled={aiGenerating || !aiTopic.trim()}
-                      className="px-3 py-1 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 disabled:text-gray-400 rounded font-bold text-xs flex items-center gap-1"
+                      className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white disabled:bg-gray-200 disabled:text-gray-400 rounded font-medium text-xs flex items-center gap-1"
                     >
                       {aiGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
                       Generate All
@@ -756,23 +770,23 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                   </div>
                 )}
               </div>
-              <button onClick={closeEditorDiscardIfProposal} className="p-1 hover:bg-gray-700 rounded">
+              <button onClick={closeEditorDiscardIfProposal} className="p-1 hover:bg-gray-200 rounded text-gray-500">
                 <X className="w-4 h-4" />
               </button>
             </div>
             
-            <div className="flex-1 overflow-hidden p-3">
-              <div className={editingPoll.type === 'ranking' ? 'grid grid-cols-2 gap-4 h-full' : 'space-y-2'}>
-              {/* LEFT COLUMN for Ranking / Single Column for others */}
-              <div className={editingPoll.type === 'ranking' ? 'flex flex-col h-full overflow-hidden' : 'space-y-2'}>
+            <div className="flex-1 min-h-0 overflow-hidden p-3 flex flex-col">
+              <div className="flex-1 min-h-0 flex flex-col">
+              {/* Single Column Layout */}
+              <div className={editingPoll.type === 'ranking' ? 'flex flex-col flex-1 min-h-0 overflow-hidden' : 'flex-1 min-h-0 overflow-y-auto space-y-2'}>
 
               {/* Compact Header: Thumbnail + Title/Subtitle + Timer in one row */}
-              <div className="flex-shrink-0 flex gap-3 items-start">
+              <div className="flex-shrink-0 flex gap-3 items-start pb-4 mb-1 border-b border-gray-100">
                 {/* Thumbnail for Rankroll (left side) */}
                 {editingPoll.type === 'ranking' && (
                   <div 
                     onClick={() => setShowRankrollImagePicker(true)}
-                    className="w-14 h-14 flex-shrink-0 rounded overflow-hidden bg-gray-600 border border-gray-500 cursor-pointer hover:border-[#E36B11] transition-colors"
+                    className="w-14 h-14 flex-shrink-0 rounded overflow-hidden bg-gray-100 border border-gray-300 cursor-pointer hover:border-gray-400 transition-colors"
                   >
                     {editingPoll.image ? (
                       <img src={editingPoll.image} alt="" className="w-full h-full object-cover" />
@@ -792,21 +806,21 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                     value={editingPoll.title || ''}
                     onChange={(e) => setEditingPoll({ ...editingPoll, title: e.target.value })}
                     placeholder="Title *"
-                    className="w-full bg-gray-700 px-2 py-1 rounded text-sm font-medium"
+                    className="w-full bg-white border border-gray-300 px-2 py-1 rounded text-sm font-medium text-gray-900"
                   />
                   <input
                     type="text"
                     value={editingPoll.subtitle || ''}
                     onChange={(e) => setEditingPoll({ ...editingPoll, subtitle: e.target.value })}
                     placeholder="Subtitle / Description"
-                    className="w-full bg-gray-700 px-2 py-1 rounded text-xs text-gray-300"
+                    className="w-full bg-white border border-gray-300 px-2 py-1 rounded text-xs text-gray-600"
                   />
                 </div>
 
                 {/* Countdown Timer - compact */}
                 {editingPoll.type === 'ranking' && (
                   <div className="flex-shrink-0 flex items-center gap-2">
-                    <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-gray-400">
+                    <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-gray-500">
                       <input
                         type="checkbox"
                         checked={!!editingPoll.closesAt}
@@ -819,7 +833,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                             setEditingPoll({ ...editingPoll, closesAt: null });
                           }
                         }}
-                        className="w-3 h-3 rounded border-gray-500 text-[#E36B11]"
+                        className="w-3 h-3 rounded border-gray-300 text-[#E36B11]"
                       />
                       Timer
                     </label>
@@ -828,7 +842,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                         type="datetime-local"
                         value={editingPoll.closesAt?.slice(0, 16) || ''}
                         onChange={(e) => setEditingPoll({ ...editingPoll, closesAt: e.target.value ? new Date(e.target.value).toISOString() : null })}
-                        className="bg-gray-600 px-1.5 py-0.5 rounded text-[10px] w-36"
+                        className="bg-gray-200 px-1.5 py-0.5 rounded text-[10px] w-36"
                       />
                     )}
                   </div>
@@ -838,7 +852,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
               {/* SIMPLE POLL: Options */}
               {editingPoll.type === 'simple' && (
               <div>
-                <label className="block text-[10px] text-gray-400 mb-1">Options *</label>
+                <label className="block text-[10px] text-gray-500 mb-1">Options *</label>
                 <div className="space-y-2">
                   {(editingPoll.options || []).map((opt: any, i: number) => (
                     <div key={i} className="flex gap-2">
@@ -851,7 +865,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                           setEditingPoll({ ...editingPoll, options: newOptions });
                         }}
                         placeholder="🐝"
-                        className="w-16 bg-gray-700 px-3 py-2 rounded-lg text-center"
+                        className="w-16 bg-gray-100 px-3 py-2 rounded-lg text-center"
                       />
                       <input
                         type="text"
@@ -862,7 +876,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                           setEditingPoll({ ...editingPoll, options: newOptions });
                         }}
                         placeholder={`Option ${i + 1}`}
-                        className="flex-1 bg-gray-700 px-4 py-2 rounded-lg"
+                        className="flex-1 bg-gray-100 px-4 py-2 rounded-lg"
                       />
                       {editingPoll.options.length > 2 && (
                         <button
@@ -882,7 +896,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                       const newOptions = [...editingPoll.options, { id: `option_${editingPoll.options.length + 1}`, label: '', emoji: '' }];
                       setEditingPoll({ ...editingPoll, options: newOptions });
                     }}
-                    className="w-full py-2 border border-dashed border-gray-600 rounded-lg text-gray-400 hover:border-gray-500"
+                    className="w-full py-2 border border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-300"
                   >
                     + Add Option
                   </button>
@@ -893,18 +907,18 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
               {/* RANKING LIST: Items */}
               {editingPoll.type === 'ranking' && (
               <div className="flex flex-col flex-1 min-h-0 mt-2 overflow-hidden">
-                <label className="block text-[10px] text-gray-400 mb-1 flex-shrink-0">Ranking Items *</label>
-                <div className="space-y-2 overflow-y-auto flex-1 pr-1 max-h-[calc(95vh-350px)]" style={{ scrollbarWidth: 'thin', scrollbarColor: '#E36B11 #374151' }}>
+                <label className="block text-[10px] text-gray-500 mb-2 flex-shrink-0">Ranking Items *</label>
+                <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-1">
                   {(editingPoll.items || []).map((item: any, i: number) => (
-                    <div key={i} className="bg-gray-700/30 rounded-lg p-3 flex gap-3">
-                      {/* Image Preview - Click to open ImagePickerModal */}
+                    <div key={i} className="flex gap-3">
+                      {/* Image Preview with rank badge - Click to open ImagePickerModal */}
                       <div 
                         onClick={() => setImagePickerItemIndex(i)}
-                        className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-gray-600 border border-gray-500 cursor-pointer hover:border-[#E36B11] hover:bg-gray-500 transition-colors"
+                        className="relative w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100 border border-gray-300 cursor-pointer hover:border-gray-400 transition-colors"
                       >
                         {(uploadingItemIndex === i || searchingGifIndex === i) ? (
                           <div className="w-full h-full flex items-center justify-center">
-                            <Loader2 className="w-5 h-5 text-[#E36B11] animate-spin" />
+                            <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
                           </div>
                         ) : item.image ? (
                           <img src={item.image} alt="" className="w-full h-full object-cover" />
@@ -914,12 +928,14 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                             <span>Image</span>
                           </div>
                         )}
+                        <span className="absolute top-0 left-0 px-1.5 py-0.5 bg-gray-900/75 text-white text-[10px] font-bold rounded-br">
+                          {i + 1}
+                        </span>
                       </div>
                       
                       {/* Content */}
                       <div className="flex-1 space-y-1.5">
                         <div className="flex gap-2 items-center">
-                          <span className="text-xs font-bold text-[#E36B11] w-6">#{i + 1}</span>
                           <input
                             type="text"
                             value={item.title || ''}
@@ -929,7 +945,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                               setEditingPoll({ ...editingPoll, items: newItems });
                             }}
                             placeholder="Item title (e.g. The Breakfast Club)"
-                            className="flex-1 bg-gray-700 px-2 py-1.5 rounded text-sm font-medium"
+                            className="flex-1 bg-white border border-gray-300 px-2 py-1.5 rounded text-sm font-medium text-gray-900"
                           />
                           {editingPoll.items.length > 2 && (
                             <button
@@ -937,14 +953,14 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                                 const newItems = editingPoll.items.filter((_: any, j: number) => j !== i);
                                 setEditingPoll({ ...editingPoll, items: newItems });
                               }}
-                              className="p-1.5 hover:bg-red-500/20 rounded text-red-400"
+                              className="p-1.5 hover:bg-red-50 rounded text-gray-300 hover:text-red-500 transition-colors"
+                              title="Remove item"
                             >
                               <X className="w-4 h-4" />
                             </button>
                           )}
                         </div>
-                        <input
-                          type="text"
+                        <textarea
                           value={item.description || ''}
                           onChange={(e) => {
                             const newItems = [...editingPoll.items];
@@ -952,20 +968,8 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                             setEditingPoll({ ...editingPoll, items: newItems });
                           }}
                           placeholder="Short description (e.g. 1985 - John Hughes classic)"
-                          className="w-full bg-gray-700 px-2 py-1 rounded text-xs text-gray-300"
-                        />
-                        <input
-                          type="text"
-                          value={item.image?.replace('/images/', '') || ''}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            const fullUrl = val.startsWith('http') || val.startsWith('/') ? val : `/images/${val}`;
-                            const newItems = [...editingPoll.items];
-                            newItems[i] = { ...newItems[i], image: val ? fullUrl : '' };
-                            setEditingPoll({ ...editingPoll, items: newItems });
-                          }}
-                          placeholder="Image: movie.jpg or https://..."
-                          className="w-full bg-gray-700 px-2 py-1 rounded text-[10px] text-gray-400"
+                          rows={3}
+                          className="w-full bg-white border border-gray-300 px-2 py-1.5 rounded text-xs text-gray-600 resize-y leading-relaxed"
                         />
                       </div>
                     </div>
@@ -985,7 +989,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                     }];
                     setEditingPoll({ ...editingPoll, items: newItems });
                   }}
-                  className="w-full py-2 mt-2 border border-dashed border-[#E36B11] rounded-lg text-[#E36B11] hover:bg-[#E36B11]/10 flex-shrink-0"
+                  className="w-full py-2 mt-4 border border-dashed border-gray-300 rounded-lg text-xs text-gray-500 hover:border-gray-400 hover:text-gray-700 flex-shrink-0"
                 >
                   + Add Item ({editingPoll.items?.length || 0})
                 </button>
@@ -996,17 +1000,17 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
               {editingPoll.type === 'quiz' && (
               <>
                 <div>
-                  <label className="block text-[10px] text-gray-400 mb-1">Result Types & Descriptions</label>
+                  <label className="block text-[10px] text-gray-500 mb-1">Result Types & Descriptions</label>
                   <div className="space-y-2">
                     {(editingPoll.resultTypes || []).map((rt: any, i: number) => (
                       <div key={i} className="bg-gray-700/30 rounded p-2">
                         <div className="flex gap-2 mb-1">
                           {/* Image preview or placeholder */}
-                          <div className="w-10 h-10 flex-shrink-0 rounded overflow-hidden bg-gray-600">
+                          <div className="w-10 h-10 flex-shrink-0 rounded overflow-hidden bg-gray-200">
                             {rt.image ? (
                               <img src={rt.image} alt="" className="w-full h-full object-cover" />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">IMG</div>
+                              <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs">IMG</div>
                             )}
                           </div>
                           <div className="flex-1 space-y-1">
@@ -1020,7 +1024,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                                   setEditingPoll({ ...editingPoll, resultTypes: newTypes });
                                 }}
                                 placeholder="type_a"
-                                className="w-20 bg-gray-700 px-2 py-1 rounded text-xs"
+                                className="w-20 bg-gray-100 px-2 py-1 rounded text-xs"
                               />
                               <input
                                 type="text"
@@ -1031,7 +1035,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                                   setEditingPoll({ ...editingPoll, resultTypes: newTypes });
                                 }}
                                 placeholder="Result Label (e.g. You're a Bee)"
-                                className="flex-1 bg-gray-700 px-2 py-1 rounded text-[10px]"
+                                className="flex-1 bg-gray-100 px-2 py-1 rounded text-[10px]"
                               />
                               {editingPoll.resultTypes.length > 2 && (
                                 <button
@@ -1056,7 +1060,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                                 setEditingPoll({ ...editingPoll, resultTypes: newTypes });
                               }}
                               placeholder="bee.png or https://..."
-                              className="w-full bg-gray-700 px-2 py-1 rounded text-[10px] text-gray-300"
+                              className="w-full bg-gray-100 px-2 py-1 rounded text-[10px] text-gray-600"
                             />
                           </div>
                         </div>
@@ -1068,7 +1072,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                             setEditingPoll({ ...editingPoll, resultTypes: newTypes });
                           }}
                           placeholder="Result description..."
-                          className="w-full bg-gray-700 px-2 py-1 rounded text-[10px] resize-none"
+                          className="w-full bg-gray-100 px-2 py-1 rounded text-[10px] resize-none"
                           rows={1}
                         />
                       </div>
@@ -1078,7 +1082,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                         const newTypes = [...(editingPoll.resultTypes || []), { id: `type_${(editingPoll.resultTypes?.length || 0) + 1}`, label: '', image: '', description: '', votes: 0 }];
                         setEditingPoll({ ...editingPoll, resultTypes: newTypes });
                       }}
-                      className="w-full py-1 border border-dashed border-gray-600 rounded text-gray-400 hover:border-gray-500 text-xs"
+                      className="w-full py-1 border border-dashed border-gray-300 rounded text-gray-500 hover:border-gray-300 text-xs"
                     >
                       + Add Result Type
                     </button>
@@ -1087,7 +1091,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
 
                 {/* Questions - Compact */}
                 <div>
-                  <label className="block text-[10px] text-gray-400 mb-1">Questions</label>
+                  <label className="block text-[10px] text-gray-500 mb-1">Questions</label>
                   <div className="space-y-2">
                     {(editingPoll.questions || []).map((q: any, qi: number) => (
                       <div key={qi} className="bg-gray-700/50 rounded p-2">
@@ -1102,7 +1106,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                               setEditingPoll({ ...editingPoll, questions: newQuestions });
                             }}
                             placeholder="What would you do if...?"
-                            className="flex-1 bg-gray-700 px-2 py-1 rounded text-[10px]"
+                            className="flex-1 bg-gray-100 px-2 py-1 rounded text-[10px]"
                           />
                           {editingPoll.questions.length > 1 && (
                             <button
@@ -1128,7 +1132,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                                   setEditingPoll({ ...editingPoll, questions: newQuestions });
                                 }}
                                 placeholder={`Answer ${ai + 1}`}
-                                className="flex-1 bg-gray-600 px-2 py-1 rounded text-[10px]"
+                                className="flex-1 bg-gray-200 px-2 py-1 rounded text-[10px]"
                               />
                               <select
                                 value={a.resultType || ''}
@@ -1137,7 +1141,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                                   newQuestions[qi].answers[ai] = { ...newQuestions[qi].answers[ai], resultType: e.target.value };
                                   setEditingPoll({ ...editingPoll, questions: newQuestions });
                                 }}
-                                className="bg-gray-600 px-1.5 py-1 rounded text-[10px] w-24"
+                                className="bg-gray-200 px-1.5 py-1 rounded text-[10px] w-24"
                               >
                                 <option value="">→ Result</option>
                                 {(editingPoll.resultTypes || []).map((rt: any) => (
@@ -1154,7 +1158,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                               newQuestions[qi].answers = [...(q.answers || []), { id: `${q.id}_a${aNum}`, text: '', resultType: '' }];
                               setEditingPoll({ ...editingPoll, questions: newQuestions });
                             }}
-                            className="text-[10px] text-gray-500 hover:text-white"
+                            className="text-[10px] text-gray-500 hover:text-gray-900"
                           >
                             + Add Answer
                           </button>
@@ -1184,16 +1188,16 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
               )}
 
               {/* Category + Status + Featured - Fixed at bottom */}
-              <div className="flex-shrink-0 mt-2 pt-2 border-t border-gray-700 space-y-2">
+              <div className="flex-shrink-0 mt-4 pt-3 border-t border-gray-200 space-y-2">
                 <div className={`grid gap-2 ${editingPoll.type === 'ranking' ? 'grid-cols-3' : 'grid-cols-3'}`}>
                   {/* Link to Article - only for non-ranking types */}
                   {editingPoll.type !== 'ranking' && (
                     <div>
-                      <label className="block text-[10px] text-gray-400 mb-0.5">Link to Article</label>
+                      <label className="block text-[10px] text-gray-500 mb-0.5">Link to Article</label>
                       <select
                         value={editingPoll.linkedArticleId || ''}
                         onChange={(e) => setEditingPoll({ ...editingPoll, linkedArticleId: e.target.value || undefined })}
-                        className="w-full bg-gray-700 px-2 py-1 rounded text-[10px]"
+                        className="w-full bg-white border border-gray-300 px-2 py-1 rounded text-[10px] text-gray-900"
                       >
                         <option value="">No linked article</option>
                         {articles.map((article) => (
@@ -1203,11 +1207,11 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                     </div>
                   )}
                   <div>
-                    <label className="block text-[10px] text-gray-400 mb-0.5">Category</label>
+                    <label className="block text-[10px] text-gray-500 mb-0.5">Category</label>
                     <select
                       value={editingPoll.category || 'general'}
                       onChange={(e) => setEditingPoll({ ...editingPoll, category: e.target.value })}
-                      className="w-full bg-gray-700 px-2 py-1 rounded text-[10px]"
+                      className="w-full bg-white border border-gray-300 px-2 py-1 rounded text-[10px] text-gray-900"
                     >
                       <option value="general">General</option>
                       <option value="personality">Personality Test</option>
@@ -1216,11 +1220,11 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] text-gray-400 mb-0.5">Status</label>
+                    <label className="block text-[10px] text-gray-500 mb-0.5">Status</label>
                     <select
                       value={editingPoll.status || 'active'}
                       onChange={(e) => setEditingPoll({ ...editingPoll, status: e.target.value })}
-                      className="w-full bg-gray-700 px-2 py-1 rounded text-[10px]"
+                      className="w-full bg-white border border-gray-300 px-2 py-1 rounded text-[10px] text-gray-900"
                     >
                       <option value="draft">Draft</option>
                       <option value="active">Active</option>
@@ -1235,152 +1239,29 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
                       onChange={(e) => setEditingPoll({ ...editingPoll, featured: e.target.checked })}
                       className="rounded w-3 h-3"
                     />
-                    <span className="text-[10px] text-gray-400">Featured</span>
+                    <span className="text-[10px] text-gray-500">Featured</span>
                   </label>
                 </div>
               </div>
-              </div>{/* End LEFT COLUMN */}
-              
-              {/* RIGHT COLUMN: Article Generator (only for ranking) */}
-              {editingPoll.type === 'ranking' && (
-                <div className="flex flex-col bg-gray-900/50 rounded-lg p-3 h-full">
-                  {/* Header with title */}
-                  <div className="flex items-center justify-between mb-2 flex-shrink-0">
-                    <span className="text-sm font-bold text-purple-400 flex items-center gap-2">
-                      <FileText className="w-4 h-4" />
-                      Article Generator
-                    </span>
-                    <button
-                      onClick={generateArticleFromPoll}
-                      disabled={articleGenerating || !editingPoll.title || !editingPoll.items?.some((i: any) => i.title)}
-                      className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 disabled:text-gray-400 rounded text-xs font-bold flex items-center gap-1.5"
-                    >
-                      {articleGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                      {generatedArticle ? 'Regenerate' : 'Generate'}
-                    </button>
-                  </div>
-                  
-                  {/* Language + Style Selectors */}
-                  <div className="flex gap-2 mb-3 flex-shrink-0">
-                    {/* Language */}
-                    <div className="flex items-center gap-1 bg-gray-700 rounded px-2 py-1">
-                      <Globe className="w-3 h-3 text-gray-400" />
-                      {LANGUAGES.map(lang => (
-                        <button
-                          key={lang.id}
-                          onClick={() => setArticleLanguage(lang.id)}
-                          className={`px-1.5 py-0.5 rounded text-xs font-medium transition-colors ${
-                            articleLanguage === lang.id 
-                              ? 'bg-purple-600 text-white' 
-                              : 'text-gray-400 hover:text-white'
-                          }`}
-                        >
-                          {lang.flag}
-                        </button>
-                      ))}
-                    </div>
-                    {/* Author Style */}
-                    <select
-                      value={articleStyle}
-                      onChange={(e) => setArticleStyle(e.target.value)}
-                      className="flex-1 bg-gray-700 px-2 py-1 rounded text-xs text-white border-none"
-                    >
-                      {AUTHOR_STYLES.map(style => (
-                        <option key={style.id} value={style.id}>
-                          {style.emoji} {style.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  {generatedArticle ? (
-                    <div className="flex flex-col flex-1 min-h-0 space-y-2">
-                      {/* Thumbnail + Title Row */}
-                      <div className="flex gap-3 flex-shrink-0">
-                        {/* Thumbnail */}
-                        <div 
-                          onClick={() => setShowImagePicker(true)}
-                          className="w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-gray-700 border border-gray-600 cursor-pointer hover:border-purple-500 transition-colors group"
-                        >
-                          {generatedArticle.coverImage ? (
-                            <img src={generatedArticle.coverImage} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex flex-col items-center justify-center text-gray-500 group-hover:text-purple-400">
-                              <Wand2 className="w-5 h-5 mb-1" />
-                              <span className="text-[9px]">Thumbnail</span>
-                            </div>
-                          )}
-                        </div>
-                        {/* Title + Subtitle */}
-                        <div className="flex-1 space-y-1.5">
-                          <div>
-                            <p className="text-[10px] text-gray-400 mb-0.5">Title</p>
-                            <input
-                              type="text"
-                              value={generatedArticle.title || ''}
-                              onChange={(e) => setGeneratedArticle({ ...generatedArticle, title: e.target.value })}
-                              className="w-full bg-gray-700 px-2 py-1 rounded text-sm font-medium text-white"
-                            />
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-gray-400 mb-0.5">Subtitle</p>
-                            <input
-                              type="text"
-                              value={generatedArticle.subtitle || ''}
-                              onChange={(e) => setGeneratedArticle({ ...generatedArticle, subtitle: e.target.value })}
-                              className="w-full bg-gray-700 px-2 py-1 rounded text-xs text-gray-300"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex-1 min-h-0 overflow-y-auto">
-                        <p className="text-[10px] text-gray-400 mb-1">Content (Block Editor)</p>
-                        <div className="min-h-0">
-                          <BlockEditor
-                            value={generatedArticle.content || ''}
-                            onChange={(content: string) => setGeneratedArticle({ ...generatedArticle, content })}
-                          />
-                        </div>
-                      </div>
-                      <p className="text-xs text-green-400 font-medium flex-shrink-0">✓ Ready! Click "Publish with Article" to save both.</p>
-                    </div>
-                  ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
-                      <FileText className="w-12 h-12 mb-3 opacity-30" />
-                      <p className="text-sm font-medium">No Article Yet</p>
-                      <p className="text-xs mt-1">Fill in ranking title and items, then click Generate</p>
-                    </div>
-                  )}
-                </div>
-              )}
-              </div>{/* End Grid */}
+              </div>{/* End Column */}
+              </div>{/* End Layout */}
             </div>{/* End scrollable content */}
 
-            <div className="p-3 border-t border-gray-700 flex justify-end gap-2 flex-shrink-0">
+            <div className="p-3 border-t border-gray-200 bg-gray-50 flex justify-end gap-2 flex-shrink-0">
               <button
                 onClick={closeEditorDiscardIfProposal}
-                className="px-2 py-1 bg-gray-700 rounded hover:bg-gray-600 text-xs"
+                className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded text-xs"
               >
                 {editingPoll._fromProposal ? 'Discard' : 'Cancel'}
               </button>
               <button
                 onClick={() => savePoll(false)}
                 disabled={!editingPoll.title || (editingPoll.type === 'simple' && !editingPoll.options?.some((o: any) => o.label)) || (editingPoll.type === 'ranking' && !editingPoll.items?.some((i: any) => i.title))}
-                className="px-2 py-1 bg-[#E36B11] rounded hover:bg-[#E36B11]/80 disabled:opacity-50 flex items-center gap-1 text-xs font-bold"
+                className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded disabled:opacity-50 flex items-center gap-1 text-xs font-medium"
               >
                 <Save className="w-3 h-3" />
-                Save Rankroll Only
+                Save Rankroll
               </button>
-              {editingPoll.type === 'ranking' && (
-                <button
-                  onClick={() => savePoll(true)}
-                  disabled={!editingPoll.title || !editingPoll.items?.some((i: any) => i.title)}
-                  className="px-3 py-1 bg-green-600 rounded hover:bg-green-500 disabled:opacity-50 flex items-center gap-1 text-xs font-bold"
-                >
-                  <FileText className="w-3 h-3" />
-                  Save Rankroll + Article
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -1429,6 +1310,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
           aspectRatio="1:1"
         />
       )}
+      <ConfirmDialog />
     </>
   );
 }

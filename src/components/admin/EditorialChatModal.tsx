@@ -149,25 +149,25 @@ export default function EditorialChatModal({ reporter, onClose, onGoToArticles }
             {reporter.user?.avatar ? (
               <img src={reporter.user.avatar} alt={reporterName} className="w-9 h-9 rounded-lg object-cover" />
             ) : (
-              <div className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold text-white"
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold text-paper"
                 style={{ background: 'linear-gradient(135deg,#E36B11 0%,#a86b2b 100%)' }}>
                 {reporterName[0]?.toUpperCase()}
               </div>
             )}
             <div>
-              <div className="font-semibold text-white text-sm">{reporterName}</div>
+              <div className="font-semibold text-paper text-sm">{reporterName}</div>
               <div className="text-[10px] text-gray-400">{roleLabel} · {reporter.nationality}</div>
             </div>
           </div>
           <div className="flex items-center gap-1">
             <button
               onClick={() => setShowMemories(!showMemories)}
-              className={`p-1.5 rounded text-xs flex items-center gap-1 transition-colors ${showMemories ? 'bg-[#E36B11]/20 text-[#E36B11]' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+              className={`p-1.5 rounded text-xs flex items-center gap-1 transition-colors ${showMemories ? 'bg-[#E36B11]/20 text-[#E36B11]' : 'text-gray-400 hover:text-paper hover:bg-gray-700'}`}
               title="Reporter memories"
             >
               <Brain className="w-3.5 h-3.5" />
             </button>
-            <button onClick={onClose} className="p-1.5 rounded text-gray-400 hover:text-white hover:bg-gray-700">
+            <button onClick={onClose} className="p-1.5 rounded text-gray-400 hover:text-paper hover:bg-gray-700">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -204,7 +204,7 @@ export default function EditorialChatModal({ reporter, onClose, onGoToArticles }
                 {reporterName[0]?.toUpperCase()}
               </div>
               <div>
-                <p className="text-white font-medium">{reporterName}</p>
+                <p className="text-paper font-medium">{reporterName}</p>
                 <p className="text-gray-400 text-xs mt-0.5">{(reporter.responsibilities || reporter.role || '').slice(0, 80)}{(reporter.responsibilities || '').length > 80 ? '...' : ''}</p>
               </div>
               <div className="grid grid-cols-2 gap-2 mt-2 w-full max-w-sm">
@@ -217,7 +217,7 @@ export default function EditorialChatModal({ reporter, onClose, onGoToArticles }
                   <button
                     key={hint}
                     onClick={() => setInput(hint)}
-                    className="text-left px-3 py-2 bg-gray-800 rounded-lg text-xs text-gray-300 hover:bg-gray-700 hover:text-white transition-colors border border-gray-700"
+                    className="text-left px-3 py-2 bg-gray-800 rounded-lg text-xs text-gray-300 hover:bg-gray-700 hover:text-paper transition-colors border border-gray-700"
                   >
                     {hint}
                   </button>
@@ -232,7 +232,7 @@ export default function EditorialChatModal({ reporter, onClose, onGoToArticles }
                   reporter.user?.avatar ? (
                     <img src={reporter.user.avatar} alt={reporterName} className="w-7 h-7 rounded-lg object-cover flex-shrink-0 mt-0.5" />
                   ) : (
-                    <div className="w-7 h-7 rounded-lg flex-shrink-0 flex items-center justify-center text-xs font-bold text-white mt-0.5"
+                    <div className="w-7 h-7 rounded-lg flex-shrink-0 flex items-center justify-center text-xs font-bold text-paper mt-0.5"
                       style={{ background: 'linear-gradient(135deg,#E36B11 0%,#a86b2b 100%)' }}>
                       {reporterName[0]?.toUpperCase()}
                     </div>
@@ -242,7 +242,7 @@ export default function EditorialChatModal({ reporter, onClose, onGoToArticles }
                 <div className={`max-w-[80%] ${msg.role === 'user' ? 'items-end' : 'items-start'} flex flex-col gap-0.5`}>
                   <div className={`px-3 py-2 rounded-xl text-sm leading-relaxed ${
                     msg.role === 'user'
-                      ? 'bg-[#E36B11] text-white rounded-tr-sm'
+                      ? 'bg-[#E36B11] text-paper rounded-tr-sm'
                       : 'bg-gray-800 text-gray-100 rounded-tl-sm'
                   }`}>
                     <p dangerouslySetInnerHTML={{ __html: formatContent(msg.content) }} />
@@ -267,7 +267,7 @@ export default function EditorialChatModal({ reporter, onClose, onGoToArticles }
           )}
           {sending && (
             <div className="flex gap-2.5">
-              <div className="w-7 h-7 rounded-lg flex-shrink-0 flex items-center justify-center text-xs font-bold text-white"
+              <div className="w-7 h-7 rounded-lg flex-shrink-0 flex items-center justify-center text-xs font-bold text-paper"
                 style={{ background: 'linear-gradient(135deg,#E36B11 0%,#a86b2b 100%)' }}>
                 {reporterName[0]?.toUpperCase()}
               </div>
@@ -293,14 +293,14 @@ export default function EditorialChatModal({ reporter, onClose, onGoToArticles }
               onKeyDown={handleKeyDown}
               placeholder={`Message ${reporterName}... (Enter to send, Shift+Enter for newline)`}
               rows={1}
-              className="flex-1 bg-gray-700 text-white text-sm px-3 py-2 rounded-lg resize-none outline-none focus:ring-1 focus:ring-[#E36B11] placeholder:text-gray-500 max-h-32"
+              className="flex-1 bg-gray-700 text-paper text-sm px-3 py-2 rounded-lg resize-none outline-none focus:ring-1 focus:ring-[#E36B11] placeholder:text-gray-500 max-h-32"
               style={{ minHeight: '38px' }}
               autoFocus
             />
             <button
               onClick={sendMessage}
               disabled={!input.trim() || sending}
-              className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-lg bg-[#E36B11] text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#C4772A] transition-colors"
+              className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-lg bg-[#E36B11] text-paper disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#C4772A] transition-colors"
             >
               {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </button>

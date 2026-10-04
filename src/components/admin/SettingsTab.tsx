@@ -132,7 +132,7 @@ export default function CurrencyTab() {
           onClick={() => setActiveTab('rewards')}
           className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${
             activeTab === 'rewards' 
-              ? 'bg-[#E36B11] text-white' 
+              ? 'bg-[#E36B11] text-paper' 
               : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
           }`}
         >
@@ -143,7 +143,7 @@ export default function CurrencyTab() {
           onClick={() => setActiveTab('notifications')}
           className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${
             activeTab === 'notifications' 
-              ? 'bg-[#E36B11] text-white' 
+              ? 'bg-[#E36B11] text-paper' 
               : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
           }`}
         >
@@ -239,7 +239,7 @@ export default function CurrencyTab() {
                   className="flex items-center justify-between bg-gray-700/30 rounded px-3 py-2 text-xs"
                 >
                   <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <span className="font-medium text-white whitespace-nowrap">{notif.title}</span>
+                    <span className="font-medium text-paper whitespace-nowrap">{notif.title}</span>
                     <span className="text-gray-400 truncate">{notif.trigger}</span>
                   </div>
                   <span className="text-gray-500 text-[10px] ml-2 whitespace-nowrap">{notif.file}</span>
@@ -308,7 +308,7 @@ export default function CurrencyTab() {
             {selectedSource && (
               <button
                 onClick={() => setSelectedSource('')}
-                className="text-xs text-gray-400 hover:text-white"
+                className="text-xs text-gray-400 hover:text-paper"
               >
                 Filter zurücksetzen
               </button>

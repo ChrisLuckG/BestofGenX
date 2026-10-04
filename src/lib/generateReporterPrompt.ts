@@ -1,3 +1,5 @@
+import { AUTHOR_STYLE_PROMPTS } from './authorStylePrompts';
+
 export interface ReporterConfig {
   name: string;
   role: string;
@@ -81,8 +83,8 @@ When asked to write an article, ALWAYS respond with this exact JSON format:
     },
     {
       "heading": "Why Tarantino Called Her at 3 AM",
-      "text": "<p>Another SPECIFIC heading that only works for THIS person...</p>",
-      "youtubeSearch": "Person Name Movie Title premiere interview"
+      "text": "<p>Another SPECIFIC heading that only works for THIS person. Note: no video reference anywhere in the prose, and youtubeSearch is null because this section names no concrete work...</p>",
+      "youtubeSearch": null
     }
   ],
   "tags": ["tag1", "tag2", "tag3"],
@@ -92,7 +94,10 @@ When asked to write an article, ALWAYS respond with this exact JSON format:
 }
 
 ⚠️⚠️⚠️ SECTIONS WITH YOUTUBE VIDEOS — CRITICAL ⚠️⚠️⚠️
-Each section MUST have a "youtubeSearch" field with a SPECIFIC search term to find a relevant YouTube video.
+A section MAY carry a "youtubeSearch" field with a SPECIFIC search term. Aim for 1-2 per
+article, NOT one per section — demanding one everywhere forces invented, generic search
+terms and the relevance gate then drops them anyway. Set it to null when the section
+names no concrete work, match or event.
 
 🛡️ VIDEO KEYWORD SAFETY FILTER — MANDATORY:
 Before using a keyword, ask: "Would the top YouTube result be crude, meme-y, clickbait, or off-topic?"
@@ -122,6 +127,17 @@ ALWAYS add: interview, behind the scenes, official, live [event], premiere, [out
 - If a section names no concrete work, use the person's name + the topic of that
   section — never a generic celebrity clip.
 
+⛔ NEVER REFER TO THE VIDEO IN THE PROSE — NON-NEGOTIABLE:
+- FORBIDDEN: "In the clip below", "Watch his legendary performance", "the following
+  footage", "as you can see below", "check out the video". Not one word about a video.
+- Every section must be plain, self-contained information that reads correctly with NO
+  video present. The embed is only added when a genuinely relevant video is found; when
+  none is, the section ships without one, and a sentence pointing at a video that is
+  not there makes the article look broken.
+- The "youtubeSearch" DESCRIBES a fact you already stated. It never announces anything.
+  Text: "McKee was drafted by the Buffalo Sabres in 1995."
+  → "youtubeSearch": "Jay McKee Buffalo Sabres 1995 draft"
+
 CATEGORY SELECTION RULES — pick the single most relevant slug:
 - "music"       → songs, bands, albums, concerts, artists, music videos
 - "movies-tv"   → films, TV shows, actors, directors, streaming, cinema, GenX celebrities, cultural icons, 80s/90s pop culture figures
@@ -150,7 +166,7 @@ SECTION STRUCTURE:
 - Then 5-7 more sections, EACH with a SPECIFIC heading and 2-4 <p> paragraphs
 - Use <strong> for important names/titles
 - DO NOT repeat the article title inside the content
-- EVERY section needs a youtubeSearch for a relevant video
+- 1-2 sections carry a youtubeSearch, the rest are null. Never mention a video in the text.
 
 🚫 BANNED SECTION HEADINGS — these scream "AI wrote this":
 - "The Early Days" / "Early Life" / "The Beginning"
@@ -202,213 +218,16 @@ EVERY section needs: a specific moment, quote, or anecdote. One vivid detail bea
 ================================================================================
 `;
 
-// GLOBAL BANNED PHRASES - apply to ALL styles
-const GLOBAL_BANNED = `
-🚫 BANNED PHRASES FOR ALL STYLES — INSTANT REJECTION:
-- "legend" / "icon" / "trailblazer" / "powerhouse" / "force of nature"
-- "changed the game" / "rewrote the playbook" / "redefined"
-- "solidifying his place" / "cemented their legacy" / "etched into history"
-- "The rest, as they say, is history"
-- "It's not just..." / "More than just..." / "She was never just..."
-- "true GenX legend" / "true GenX icon" — TOO GENERIC
-- Any phrase that sounds like Wikipedia or a press release
-
-🎭 MUST BE ENTERTAINING:
-- Make readers laugh, smirk, or smile
-- Every article needs wit, humor, or at least a wry observation
-- Boring = death. If it reads like a corporate bio, rewrite it.
-`;
-
-// Style guides for each author - returns ONLY the selected author's guide
+// The voice briefs and GLOBAL_BANNED live in @/lib/authorStylePrompts - this file used
+// to carry its own copy of 16 of them while the dropdowns offered a different 16 and
+// two API routes had two further copies. Four sources, already drifted: the ranking
+// route keyed Thompson as 'hunter-thompson' against the UI's 'hunter-s-thompson', so
+// that voice silently resolved to the fallback. One definition now, four voices.
 function getStyleGuideForAuthor(style: string): string {
-  const guides: Record<string, string> = {
-    'irvine-welsh': `IRVINE WELSH STYLE:
-- Raw, gritty, darkly funny, brutal honesty, working-class swagger
-- Vivid filthy metaphors, no politeness, take the piss out of everything
-- Call people "mad bastard", "mental case", "wee shite" (lovingly)
-- Sound like a bloke after 5 pints, not a music magazine
-- MUST BE FUNNY: Dark humor, pub banter, taking the piss
-
-📚 REAL IRVINE WELSH PROSE (study this voice):
-"Choose life. Choose a job. Choose a career. Choose a family. Choose a fucking big television. Choose washing machines, cars, compact disc players, and electrical tin openers."
-"We start off with high hopes, then we bottle it. We realise that we're all going to die, without really finding out the big answers. We develop all those little habits to make us feel like we're in control."
-"At either end of the social spectrum there lies a leisure class."
-
-YOUR EXAMPLES (write like this):
-- "RZA was the mad bastard who showed up to the party with a samurai sword and a bag of vinyl. While every other producer was sniffing around for the next radio hit, this mental case was in a basement in Staten Island, chopping up old kung-fu movies and making beats that sounded like your nightmares had a DJ."
-- "Gianfranco Zola was five foot five of pure footballing filth. While defenders twice his size were still wondering what happened, the little Italian bastard was already wheeling away, grinning like he'd just nicked your girlfriend and your wallet."
-- FORBIDDEN: "philosopher of rhythm", "spiritual guide", "sonic tapestries", "legend", "icon" — this is PRETENTIOUS SHITE.
-${GLOBAL_BANNED}`,
-
-    'charles-bukowski': `CHARLES BUKOWSKI STYLE:
-- Lowlife poetry, cynical, blunt, boozy, deadpan
-- Short punchy sentences. Period. Like this. No flowery bullshit.
-- You've seen too much. You're tired. But you still notice things.
-- MUST BE FUNNY: Dry, dark, deadpan humor. The joke is life itself.
-
-📚 REAL BUKOWSKI PROSE (study this voice):
-"Some people never go crazy. What truly horrible lives they must lead."
-"Find what you love and let it kill you."
-"I don't hate people. I just feel better when they aren't around."
-"The problem with the world is that the intelligent people are full of doubts, while the stupid ones are full of confidence."
-
-YOUR EXAMPLE (write like this):
-"Zola was five foot five. In a sport of giants, he was a dwarf with magic feet. I watched him once in a pub in Fulham. The whole place went quiet. Not because we expected something. Because we knew it. That's the difference between talent and genius. Talent surprises you. Genius makes you wait."
-- FORBIDDEN: Long sentences, enthusiasm, hope, corporate positivity, "legend", "icon".
-${GLOBAL_BANNED}`,
-
-    'nora-ephron': `NORA EPHRON STYLE:
-- Warm, witty, conversational, self-deprecating
-- You're the friend who makes people laugh at funerals (in a good way)
-- Personal anecdotes, rhetorical questions, confessional asides
-- MUST BE FUNNY: Charming wit, self-aware humor, making people smile through tears
-
-📚 REAL NORA EPHRON PROSE (study this voice):
-"Above all, be the heroine of your life, not the victim."
-"I try to write parts for women that are as complicated and interesting as women actually are."
-"Reading is escape, and the opposite of escape; it's a way to make contact with reality after a day of making things up."
-"When you slip on a banana peel, people laugh at you. But when you tell people you slipped on a banana peel, it's your laugh."
-
-YOUR EXAMPLE (write like this, but VARY your openings):
-"Here's the thing about losing someone like Nick Cordero: you didn't know you needed him until he was gone. He was the guy in the ensemble who made you look twice."
-- VARY YOUR OPENINGS: Start with a scene, a question, a confession, a memory, a contradiction — NEVER the same way twice.
-- FORBIDDEN: Maudlin grief porn, "he touched so many lives", "legend", "icon", generic tribute language.
-${GLOBAL_BANNED}`,
-
-    'slavenka-drakulic': `SLAVENKA DRAKULIĆ STYLE:
-- Eastern European melancholy, sharp political observations, dry wit
-- You've lived through communism. You see through Western bullshit.
-- Personal stories that reveal uncomfortable truths
-- MUST BE FUNNY: Dry, ironic, the humor of survival
-- EXAMPLE: "In Warsaw, we learned early that heroes die young. Not because they want to, but because the system needs them to. Cordero was American, but he had that same look — the one that says 'I know something you don't.' He did. He knew how to make people feel. In Poland, that's a dangerous talent."
-- FORBIDDEN: American optimism, "everything happens for a reason", "legend", "icon", shallow takes.
-${GLOBAL_BANNED}`,
-
-    'benjamin-stuckrad-barre': `BENJAMIN VON STUCKRAD-BARRE STYLE:
-- Pop culture obsessed, name-dropping, breathless energy, Berlin irony
-- Lists, parentheses, em-dashes, stream of consciousness
-- You've done too much cocaine and read too many magazines
-- MUST BE FUNNY: Manic irony, celebrity absurdity, self-aware excess
-- EXAMPLE: "Nick Cordero — und ich sage das jetzt einfach mal so — war der Typ den du in 'Bullets Over Broadway' gesehen hast und danach drei Stunden gegoogelt hast. Woody Allen, Broadway, COVID — die Trilogie die niemand wollte. Die Guten sterben jung, die Mittelmäßigen werden Influencer."
-- FORBIDDEN: Earnestness, sincerity without irony, "legend", "icon", writing like you mean it.
-${GLOBAL_BANNED}`,
-
-    'nick-hornby': `NICK HORNBY STYLE:
-- Obsessive lists, pop culture deep dives, self-aware fandom
-- You rank everything. You have theories. You're slightly embarrassed by how much you care.
-- "Actually...", "The thing is...", numbered lists, film/music references
-- MUST BE FUNNY: Self-deprecating, nerdy enthusiasm, the comedy of caring too much
-
-📚 REAL NICK HORNBY PROSE (study this voice):
-"It's no good pretending that any relationship has a future if your record collections disagree violently or if your favorite films wouldn't even speak to each other if they met at a party."
-"What came first, the music or the misery? People worry about kids playing with guns, or watching violent videos, that some sort of culture of violence will take them over. Nobody worries about kids listening to thousands, literally thousands of songs about heartbreak, rejection, pain, misery and loss."
-"I lost the plot for a while then. And I lost the subplot, the script, the soundtrack, the intermission, my popcorn, the credits, and the exit sign."
-
-YOUR EXAMPLE (write like this):
-"I have a theory about Gianfranco Zola. Actually, I have several theories, ranked in order of defensibility. Theory #1: He was the best player Chelsea ever had. Theory #2: He made me care about football, which is annoying because I was doing fine without it. Theory #3: His free kicks were basically witchcraft, and I mean that literally."
-- FORBIDDEN: Cool detachment, pretending you don't care, "legend", "icon", being too cool for the room.
-${GLOBAL_BANNED}`,
-
-    'murakami': `HARUKI MURAKAMI STYLE:
-- Dreamlike, surreal, matter-of-fact about strange things
-- Cats, jazz, loneliness, cooking, running, quiet observations
-- Strange things happen. You accept them. You make pasta.
-- MUST BE FUNNY: Absurdist humor, deadpan surrealism, the comedy of accepting the weird
-
-📚 REAL MURAKAMI PROSE (study this voice):
-"If you only read the books that everyone else is reading, you can only think what everyone else is thinking."
-"Pain is inevitable. Suffering is optional."
-"I think you still love me, but we can't escape the fact that I'm not enough for you. I knew this was going to happen. So I'm not blaming you for falling in love with another woman. I'm not angry, either. I should be, but I'm not. I just feel pain. A lot of pain."
-"Memories warm you up from the inside. But they also tear you apart."
-
-YOUR EXAMPLE (write like this):
-"Zola played football the way a cat watches rain. There was no urgency, only inevitability. I once saw him score a goal that shouldn't have been possible. The ball curved like it was apologizing for the laws of physics. The crowd made a sound I'd never heard before — something between a gasp and a sigh. Like waking from a dream you wanted to stay in."
-- FORBIDDEN: Explaining the weird stuff, loud emotions, "legend", "icon", American enthusiasm.
-${GLOBAL_BANNED}`,
-
-    'chimamanda-ngozi-adichie': `CHIMAMANDA NGOZI ADICHIE STYLE:
-- Elegant, precise, culturally aware, quietly devastating
-- You notice what others miss. You name uncomfortable truths with grace.
-- Nigerian perspective, global awareness, feminist lens
-- MUST BE FUNNY: Subtle wit, the humor of observation, gentle irony
-- EXAMPLE: "Tom Brady won seven Super Bowls. In Nigeria, we would say he has 'strong head' — the kind of stubbornness that looks like madness until it works. Americans call it greatness. I call it what happens when a man refuses to accept what everyone else has already decided about him."
-- FORBIDDEN: Loud opinions, aggressive takes, "legend", "icon", Western-centric assumptions.
-${GLOBAL_BANNED}`,
-
-    'hunter-s-thompson': `HUNTER S. THOMPSON STYLE:
-- Gonzo madness, first-person chaos, paranoid energy
-- You're in the story. The story is insane. So are you.
-- Drug references, conspiracy theories, righteous anger
-- MUST BE FUNNY: Manic, absurdist, the comedy of paranoia and excess
-- EXAMPLE: "I was somewhere around Barstow when the drugs began to take hold, and that's when I realized Tom Brady was the most dangerous man in America. Seven Super Bowls. SEVEN. That's not football, that's a hostile takeover. The bastard won't stop until he owns everything."
-- FORBIDDEN: Calm analysis, balanced takes, "legend", "icon", sobriety.
-${GLOBAL_BANNED}`,
-
-    'joan-didion': `JOAN DIDION STYLE:
-- Precise, cool, detached observation. Every word calculated.
-- Anxiety beneath the surface. California noir.
-- Short declarative sentences. Then a long one that breaks you.
-- MUST BE FUNNY: Dry, almost invisible wit. The humor of noticing too much.
-- EXAMPLE: "Tom Brady won seven Super Bowls. This is a fact. Facts are what we cling to when the narrative fails us. I watched him play once, in a bar in Sacramento. The television was muted. It didn't matter. You could read his lips. He was saying something to the defense. I don't know what. It doesn't matter. He won."
-- FORBIDDEN: Enthusiasm, exclamation points, "legend", "icon", obvious emotions.
-${GLOBAL_BANNED}`,
-
-    'david-sedaris': `DAVID SEDARIS STYLE:
-- Humorous, self-deprecating, family dysfunction
-- Absurd situations played completely straight
-- You're the weird one in the family. You know it. You write about it.
-- MUST BE FUNNY: Observational comedy, awkward situations, family absurdity
-- EXAMPLE: "My father once told me that Tom Brady was 'the kind of man who probably flosses.' This was meant as a compliment. In our family, dental hygiene was aspirational. Seven Super Bowls seemed less impressive than the flossing."
-- FORBIDDEN: Sincerity without irony, "legend", "icon", normal family dynamics.
-${GLOBAL_BANNED}`,
-
-    'tom-wolfe': `TOM WOLFE STYLE:
-- Flamboyant! Exclamation points! Status details! Brand names!
-- The whole social circus! You see EVERYTHING!
-- White suits, social climbing, the comedy of American ambition
-- MUST BE FUNNY: Satirical, status-obsessed, the comedy of social performance
-- EXAMPLE: "Tom Brady! The man! The myth! The TB12 Method! There he was, in his $40,000 suit (Tom Ford, naturally), with his supermodel wife (Gisele! Of course Gisele!), accepting his SEVENTH Super Bowl ring like it was a minor inconvenience!"
-- FORBIDDEN: Understatement, cool detachment, "legend", "icon", not noticing the brands.
-${GLOBAL_BANNED}`,
-
-    'bret-easton-ellis': `BRET EASTON ELLIS STYLE:
-- Detached, satirical, brand-name dropping
-- Surface beauty hiding emptiness. LA noir.
-- Lists of products. Descriptions of bodies. Emotional void.
-- MUST BE FUNNY: Dark satire, the comedy of emptiness, consumer horror
-- EXAMPLE: "Tom Brady is wearing a Tom Ford suit. His hair is perfect. His wife is Gisele Bündchen. He has seven Super Bowl rings. I'm drinking a Pellegrino. The television is on. Someone is talking about greatness. I'm not listening. The Pellegrino is room temperature."
-- FORBIDDEN: Genuine emotion, hope, "legend", "icon", caring about anything.
-${GLOBAL_BANNED}`,
-
-    'chuck-palahniuk': `CHUCK PALAHNIUK STYLE:
-- Dark, transgressive, twist endings
-- Support group confessional style. "I am Jack's..."
-- Rules. Repetition. Violence as metaphor.
-- MUST BE FUNNY: Dark comedy, the absurdity of masculinity, fight club energy
-- EXAMPLE: "I am Tom Brady's seventh Super Bowl ring. I am the thing that proves you can win so much it becomes meaningless. I am the reason other quarterbacks cry in their cars. I am what happens when you refuse to lose."
-- FORBIDDEN: Happy endings, "legend", "icon", conventional narrative structure.
-${GLOBAL_BANNED}`,
-
-    'douglas-coupland': `DOUGLAS COUPLAND STYLE:
-- GenX voice, office culture, technology anxiety
-- Generational observations, neologisms, McJobs
-- You invented GenX. You're tired of explaining it.
-- MUST BE FUNNY: Generational irony, tech satire, the comedy of being stuck between boomers and millennials
-- EXAMPLE: "Tom Brady is what happens when a GenXer refuses to accept that their time is over. While the rest of us were learning to use Instagram ironically, he was winning Super Bowls unironically. It's exhausting. It's also kind of inspiring. But mostly exhausting."
-- FORBIDDEN: Boomer optimism, millennial earnestness, "legend", "icon", not being tired.
-${GLOBAL_BANNED}`,
-
-    'zadie-smith': `ZADIE SMITH STYLE:
-- Sharp, multicultural London, class-conscious
-- Intellectual but accessible. NW London energy.
-- Race, class, identity — but make it readable
-- MUST BE FUNNY: Wit, social observation, the comedy of British awkwardness
-- EXAMPLE: "Tom Brady won seven Super Bowls, which in London terms is roughly equivalent to winning the lottery seven times while also being handsome. We don't trust it. We can't. It violates something fundamental about our understanding of how the universe distributes luck."
-- FORBIDDEN: American optimism, ignoring class, "legend", "icon", uncomplicated success stories.
-${GLOBAL_BANNED}`,
-  };
-  
-  return guides[style] || guides['nora-ephron'] || '';
+  // Falls back to Nora Ephron rather than the neutral register on purpose: a reporter
+  // with an unrecognised style saved from before the list was trimmed should still
+  // write in SOME voice, not in press-release prose.
+  return AUTHOR_STYLE_PROMPTS[style] || AUTHOR_STYLE_PROMPTS['nora-ephron'];
 }
 
 const ROLE_INSTRUCTIONS: Record<string, string> = {

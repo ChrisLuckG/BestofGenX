@@ -319,9 +319,9 @@ export default function ImagePickerModal({
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
           <div>
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <h3 className="text-sm font-bold text-paper flex items-center gap-2">
               <ImageIcon className="w-4 h-4" />
-              Bild auswählen
+              Select image
             </h3>
             {(dimensions || aspectRatio) && (
               <p className="text-[10px] text-[#E36B11] mt-0.5">
@@ -344,8 +344,8 @@ export default function ImagePickerModal({
             onClick={() => setActiveTab('upload')}
             className={`flex-1 px-3 py-2 text-xs font-medium ${
               activeTab === 'upload' 
-                ? 'text-white border-b-2 border-[#E36B11]' 
-                : 'text-gray-400 hover:text-white'
+                ? 'text-paper border-b-2 border-[#E36B11]' 
+                : 'text-gray-400 hover:text-paper'
             }`}
           >
             📤 Upload
@@ -354,8 +354,8 @@ export default function ImagePickerModal({
             onClick={() => setActiveTab('url')}
             className={`flex-1 px-3 py-2 text-xs font-medium ${
               activeTab === 'url' 
-                ? 'text-white border-b-2 border-[#E36B11]' 
-                : 'text-gray-400 hover:text-white'
+                ? 'text-paper border-b-2 border-[#E36B11]' 
+                : 'text-gray-400 hover:text-paper'
             }`}
           >
             🔗 URL
@@ -364,8 +364,8 @@ export default function ImagePickerModal({
             onClick={() => setActiveTab('youtube')}
             className={`flex-1 px-2 py-2 text-xs font-medium flex items-center justify-center gap-1 ${
               activeTab === 'youtube' 
-                ? 'text-white border-b-2 border-red-500' 
-                : 'text-gray-400 hover:text-white'
+                ? 'text-paper border-b-2 border-red-500' 
+                : 'text-gray-400 hover:text-paper'
             }`}
           >
             <Youtube className="w-3.5 h-3.5" /> YouTube
@@ -375,8 +375,8 @@ export default function ImagePickerModal({
               onClick={() => setActiveTab('ai')}
               className={`flex-1 px-3 py-2 text-xs font-medium ${
                 activeTab === 'ai' 
-                  ? 'text-white border-b-2 border-purple-500' 
-                  : 'text-gray-400 hover:text-white'
+                  ? 'text-paper border-b-2 border-purple-500' 
+                  : 'text-gray-400 hover:text-paper'
               }`}
             >
               ✨ AI Generate
@@ -389,8 +389,8 @@ export default function ImagePickerModal({
             onClick={() => setActiveTab('wikimedia')}
             className={`flex-1 px-2 py-2 text-xs font-medium ${
               activeTab === 'wikimedia' 
-                ? 'text-white border-b-2 border-[#E36B11]' 
-                : 'text-gray-400 hover:text-white'
+                ? 'text-paper border-b-2 border-[#E36B11]' 
+                : 'text-gray-400 hover:text-paper'
             }`}
           >
             � Wiki
@@ -399,8 +399,8 @@ export default function ImagePickerModal({
             onClick={() => setActiveTab('tenor')}
             className={`flex-1 px-2 py-2 text-xs font-medium ${
               activeTab === 'tenor' 
-                ? 'text-white border-b-2 border-[#E36B11]' 
-                : 'text-gray-400 hover:text-white'
+                ? 'text-paper border-b-2 border-[#E36B11]' 
+                : 'text-gray-400 hover:text-paper'
             }`}
           >
             � Tenor
@@ -421,21 +421,21 @@ export default function ImagePickerModal({
                     onChange={e => setSearch(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleSearch()}
                     placeholder="Suchbegriff eingeben..."
-                    className="w-full pl-8 pr-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm text-white placeholder-gray-500"
+                    className="w-full pl-8 pr-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm text-paper placeholder-gray-500"
                   />
                 </div>
                 <button
                   onClick={handleSearch}
                   disabled={searching || !search.trim()}
-                  className="px-4 py-2 bg-[#E36B11] hover:bg-[#c57830] text-white text-sm font-bold rounded disabled:opacity-50 flex items-center gap-2"
+                  className="px-4 py-2 bg-[#E36B11] hover:bg-[#c57830] text-paper text-sm font-bold rounded disabled:opacity-50 flex items-center gap-2"
                 >
                   {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                  Suchen
+                  Search
                 </button>
               </div>
 
               <p className="text-[10px] text-gray-500 mb-3">
-                💡 Wikimedia Commons bietet lizenzfreie Bilder. Suche nach Namen, Begriffen oder Themen.
+                💡 Wikimedia Commons provides license-free images. Search by name, term or topic.
               </p>
 
               {error && (
@@ -467,7 +467,7 @@ export default function ImagePickerModal({
                       />
                       {selectedImage === img.thumbUrl && (
                         <div className="absolute inset-0 bg-[#E36B11]/20 flex items-center justify-center">
-                          <span className="text-white text-lg">✓</span>
+                          <span className="text-paper text-lg">✓</span>
                         </div>
                       )}
                     </div>
@@ -495,13 +495,13 @@ export default function ImagePickerModal({
                     onChange={e => setTenorSearch(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleTenorSearch()}
                     placeholder="Search GIFs (e.g. 'cooking', 'happy')..."
-                    className="w-full pl-8 pr-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm text-white placeholder-gray-500"
+                    className="w-full pl-8 pr-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm text-paper placeholder-gray-500"
                   />
                 </div>
                 <button
                   onClick={handleTenorSearch}
                   disabled={tenorSearching || !tenorSearch.trim()}
-                  className="px-4 py-2 bg-[#E36B11] hover:bg-[#c57830] text-white text-sm font-bold rounded disabled:opacity-50 flex items-center gap-2"
+                  className="px-4 py-2 bg-[#E36B11] hover:bg-[#c57830] text-paper text-sm font-bold rounded disabled:opacity-50 flex items-center gap-2"
                 >
                   {tenorSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                   Search
@@ -509,7 +509,7 @@ export default function ImagePickerModal({
               </div>
 
               <p className="text-[10px] text-gray-500 mb-3">
-                🎬 Tenor GIFs - animierte Bilder für Rankings und mehr
+                🎬 Tenor GIFs - animated images for rankings and more
               </p>
 
               {error && (
@@ -541,7 +541,7 @@ export default function ImagePickerModal({
                       />
                       {selectedImage === gif && (
                         <div className="absolute inset-0 bg-[#E36B11]/20 flex items-center justify-center">
-                          <span className="text-white text-lg">✓</span>
+                          <span className="text-paper text-lg">✓</span>
                         </div>
                       )}
                     </div>
@@ -572,13 +572,13 @@ export default function ImagePickerModal({
                     onChange={e => setUrlInput(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleUrlSubmit()}
                     placeholder="https://example.com/image.jpg"
-                    className="w-full pl-8 pr-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm text-white placeholder-gray-500"
+                    className="w-full pl-8 pr-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm text-paper placeholder-gray-500"
                   />
                 </div>
                 <button
                   onClick={handleUrlSubmit}
                   disabled={!urlInput.trim()}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded disabled:opacity-50"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-paper text-sm font-bold rounded disabled:opacity-50"
                 >
                   Load
                 </button>
@@ -618,13 +618,13 @@ export default function ImagePickerModal({
                     onChange={e => setYoutubeInput(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleYoutubeSubmit()}
                     placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..."
-                    className="w-full pl-8 pr-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm text-white placeholder-gray-500"
+                    className="w-full pl-8 pr-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm text-paper placeholder-gray-500"
                   />
                 </div>
                 <button
                   onClick={handleYoutubeSubmit}
                   disabled={!youtubeInput.trim()}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded disabled:opacity-50"
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-paper text-sm font-bold rounded disabled:opacity-50"
                 >
                   Load
                 </button>
@@ -676,34 +676,34 @@ export default function ImagePickerModal({
           {activeTab === 'ai' && showAiGenerate && (
             <div>
               <p className="text-xs text-gray-400 mb-3">
-                Beschreibe das gewünschte Bild oder nutze den Standard-Prompt basierend auf dem Kontext.
+                Describe the image you want, or use the default prompt derived from the context.
               </p>
               <textarea
                 value={aiPrompt}
                 onChange={e => setAiPrompt(e.target.value)}
-                placeholder={`Leer lassen für automatischen Prompt basierend auf: "${searchTerm || aiPromptContext || 'Artikel-Titel'}"`}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm text-white placeholder-gray-500 h-32 resize-y mb-3"
+                placeholder={`Leave empty for an automatic prompt based on: "${searchTerm || aiPromptContext || 'article title'}"`}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm text-paper placeholder-gray-500 h-32 resize-y mb-3"
               />
               <button
                 onClick={handleAiGenerate}
                 disabled={aiGenerating}
-                className="w-full px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full px-4 py-3 bg-purple-600 hover:bg-purple-700 text-paper font-bold rounded disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {aiGenerating ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    Generiere Bild...
+                    Generating image...
                   </>
                 ) : (
                   <>
                     <Sparkles className="w-5 h-5" />
-                    Bild mit AI generieren
+                    Generate image with AI
                   </>
                 )}
               </button>
               {error && <p className="text-red-400 text-sm mt-3 text-center">{error}</p>}
               <p className="text-[10px] text-gray-500 mt-3 text-center">
-                💡 AI-generierte Bilder werden mit DALL-E erstellt und kosten Credits.
+                💡 AI images are created with DALL-E and cost credits.
               </p>
             </div>
           )}
@@ -839,7 +839,7 @@ export default function ImagePickerModal({
             <div className="flex-1 text-xs text-gray-400">
               {selectedImage ? (
                 <div>
-                  <span className="text-green-400">✓ {isVideoUrl(selectedImage) ? (getYoutubeId(selectedImage) ? 'YouTube-Video' : 'Video') : 'Bild'} ausgewählt</span>
+                  <span className="text-green-400">✓ {isVideoUrl(selectedImage) ? (getYoutubeId(selectedImage) ? 'YouTube video' : 'Video') : 'Image'} selected</span>
                   {!isVideoUrl(selectedImage) && (
                     <div className="text-[10px] text-gray-500 mt-0.5">
                       Position: {imagePosition.x}% / {imagePosition.y}%
@@ -847,7 +847,7 @@ export default function ImagePickerModal({
                   )}
                 </div>
               ) : (
-                <span>Kein Bild ausgewählt</span>
+                <span>No image selected</span>
               )}
             </div>
 
@@ -873,7 +873,7 @@ export default function ImagePickerModal({
                           setSelectedThumbnail(selectedImage);
                         }
                       }}
-                      title="Aktuelles Bild als Thumbnail setzen"
+                      title="Use current image as thumbnail"
                     >
                       {selectedThumbnail ? (
                         <img src={selectedThumbnail} className="w-full h-full object-cover" alt="Thumb" />
@@ -881,7 +881,7 @@ export default function ImagePickerModal({
                         <div className="w-full h-full flex items-center justify-center text-[8px] text-gray-400">+</div>
                       )}
                     </div>
-                    <span className="text-[9px] text-gray-400">Klick = Bild als Thumb</span>
+                    <span className="text-[9px] text-gray-400">Click = use image as thumb</span>
                   </div>
                 )}
               </div>
@@ -892,7 +892,7 @@ export default function ImagePickerModal({
               {currentImage && (
                 <button
                   onClick={handleRemove}
-                  className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded"
+                  className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-paper text-xs font-bold rounded"
                 >
                   Remove
                 </button>
@@ -900,16 +900,16 @@ export default function ImagePickerModal({
               <button
                 onClick={() => canClose && onClose()}
                 disabled={!canClose}
-                className={`px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-white text-xs rounded ${!canClose ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`px-3 py-1.5 bg-gray-600 hover:bg-gray-500 text-paper text-xs rounded ${!canClose ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 {!canClose ? 'Please wait...' : 'Cancel'}
               </button>
               <button
                 onClick={handleConfirm}
                 disabled={!selectedImage}
-                className="px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded disabled:opacity-50"
+                className="px-4 py-1.5 bg-green-600 hover:bg-green-700 text-paper text-xs font-bold rounded disabled:opacity-50"
               >
-                Übernehmen
+                Save
               </button>
             </div>
           </div>

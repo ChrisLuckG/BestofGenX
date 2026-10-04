@@ -270,12 +270,13 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
         setBattles(prev => prev.filter(b => b._id !== battle._id));
         window.dispatchEvent(new Event("bogx-updated"));
         // Trust the server, don't assume: /forfeit only refunds when the caller
-        // hasn't played a round yet (`cancelled: true`). A real forfeit awards the
-        // pot to the opponent and leaves this balance untouched — crediting
+        // hasn't played a round yet (`cancelled: true`, or `reopened: true` when a
+        // battle joined from the pool goes back to being open). A real forfeit awards
+        // the pot to the opponent and leaves this balance untouched — crediting
         // +wager there would show coins the user never got back.
         if (type === "cancelWaiting" && onCoinsChange) {
           onCoinsChange(data.refunded ?? battle.wager, 'hold');
-        } else if (type === "forfeit" && onCoinsChange && data.cancelled) {
+        } else if (type === "forfeit" && onCoinsChange && (data.cancelled || data.reopened)) {
           onCoinsChange(data.refunded ?? battle.wager, 'hold');
         }
       } else {
@@ -530,16 +531,22 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
                 
                 activeBattles.forEach(battle => {
                   const isCreator = battle.creator?._id === userId;
-                  const creatorPlayed = (battle.creatorResults?.length || 0) > 0;
-                  const opponentPlayed = (battle.opponentResults?.length || 0) > 0;
+                  // "Played" means ALL rounds are done. Each answer is persisted the
+                  // moment it is given (see /api/battles/[id]/round), so a partially
+                  // played battle has results too - counting those as finished put a
+                  // battle you were in the middle of under "waiting for opponent",
+                  // with no way back into it.
+                  const total = battle.rounds || 0;
+                  const creatorPlayed = (battle.creatorResults?.length || 0) >= total;
+                  const opponentPlayed = (battle.opponentResults?.length || 0) >= total;
                   
                   if (isCreator) {
                     // You are creator
-                    if (!creatorPlayed) yourTurn.push(battle); // You haven't played yet
+                    if (!creatorPlayed) yourTurn.push(battle); // You haven't finished your rounds
                     else if (!opponentPlayed) waitingForThem.push(battle); // Waiting for opponent
                   } else {
                     // You are opponent
-                    if (!opponentPlayed) yourTurn.push(battle); // You haven't played yet
+                    if (!opponentPlayed) yourTurn.push(battle); // You haven't finished your rounds
                     else if (!creatorPlayed) waitingForThem.push(battle); // Waiting for creator
                   }
                 });

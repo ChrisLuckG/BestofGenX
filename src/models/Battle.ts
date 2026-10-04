@@ -25,6 +25,7 @@ export interface IBattle extends Document {
     timeMs: number;
     points: number;
     answerIndex?: number;
+    abandoned?: boolean;
   }[];
   creatorTotalPoints: number;
   
@@ -35,8 +36,18 @@ export interface IBattle extends Document {
     timeMs: number;
     points: number;
     answerIndex?: number;
+    abandoned?: boolean;
   }[];
   opponentTotalPoints: number;
+  
+  /**
+   * How many rounds each player has OPENED (not answered). Written the moment a
+   * question is shown, which is what makes "reloaded away from a question" tellable
+   * from "never got there" - the abandoned round is then scored as wrong instead of
+   * being served again.
+   */
+  creatorRoundsStarted?: number;
+  opponentRoundsStarted?: number;
   
   // Winner
   winner?: mongoose.Types.ObjectId;
@@ -126,7 +137,8 @@ const BattleSchema = new Schema<IBattle>({
     correct: Boolean,
     timeMs: Number,
     points: Number,
-    answerIndex: Number
+    answerIndex: Number,
+    abandoned: Boolean
   }],
   creatorTotalPoints: { type: Number, default: 0 },
   
@@ -135,9 +147,13 @@ const BattleSchema = new Schema<IBattle>({
     correct: Boolean,
     timeMs: Number,
     points: Number,
-    answerIndex: Number
+    answerIndex: Number,
+    abandoned: Boolean
   }],
   opponentTotalPoints: { type: Number, default: 0 },
+  
+  creatorRoundsStarted: { type: Number, default: 0 },
+  opponentRoundsStarted: { type: Number, default: 0 },
   
   winner: { type: Schema.Types.ObjectId, ref: 'User' },
   forfeitedBy: { type: Schema.Types.ObjectId, ref: 'User' },

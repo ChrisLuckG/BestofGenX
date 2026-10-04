@@ -121,7 +121,19 @@ const ArticleSchema = new mongoose.Schema({
   category: {
     type: String,
     required: true,
-    enum: ['history', 'movies-tv', 'music', 'gaming', 'sports', 'tech', 'culture', 'news', 'lifestyle', 'genx-icons', 'rip', 'eastercorn'],
+    // Deliberately NOT an enum. Categories are dynamic: an admin can type any
+    // subject into a container name and POST /api/categories turns it into a
+    // real, assignable category (see src/models/Category.ts). The enum used to
+    // list the twelve static slugs, so assigning a freshly created one -
+    // 'eishockey', 'fussball' - failed Mongoose validation on save. That
+    // surfaces as a generic 500 from PUT /api/articles/[id] with nothing in the
+    // UI pointing at the category field, which is a miserable thing to debug.
+    //
+    // Widening a constraint cannot invalidate existing rows, so no migration is
+    // needed. The trade-off is that a typo'd slug is now accepted; the
+    // dropdowns only ever offer values from GET /api/categories, and
+    // getCategoryLabel() falls back to showing the raw slug, so a stray value
+    // degrades to an odd-looking label rather than breaking a page.
     default: 'culture',
   },
   tags: {

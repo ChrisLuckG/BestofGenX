@@ -312,12 +312,68 @@ interface AvailableRanking {
   title: string;
 }
 
+interface VideoCandidate {
+  videoId: string;
+  title: string;
+  thumbnail: string;
+  channelTitle: string;
+}
+
+const MONTH_RE = /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})\b/i;
+
+/**
+ * Build the search phrase for the Insert Video dialog from the block the video will sit
+ * next to, so the field opens already usable instead of empty.
+ *
+ * The subject comes from the article title/tags; the occasion comes from the adjacent
+ * text - a full date if there is one ("April 19, 2005"), otherwise the first year. That
+ * combination is what makes the search specific enough to be worth running: "Todd
+ * Coffey" alone returns a decade of clips, "Todd Coffey April 19 2005" returns the debut.
+ */
+function buildVideoQuery(
+  neighbourHtml: string,
+  articleContext?: { title?: string; tags?: string[] }
+): string {
+  const strip = (html: string) =>
+    html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+
+  const text = strip(neighbourHtml);
+  // Headings are stripped before looking for a name: they are title-cased, so
+  // "The 2005 Debut Against the Cubs" matches the two-capitals pattern and yielded
+  // "Debut Against" as the subject. The date may still legitimately live in the
+  // heading, so `text` above keeps it.
+  const prose = strip(neighbourHtml.replace(/<h[1-6][^>]*>[\s\S]*?<\/h[1-6]>/gi, ' '));
+
+  const full = text.match(MONTH_RE);
+  const occasion = full
+    ? `${full[1]} ${full[2]} ${full[3]}`
+    : (text.match(/\b(19|20)\d{2}\b/)?.[0] || '');
+
+  // A tag is the most reliable subject - it is the person, not the prose.
+  // For the prose fallback the date is removed first: a date is not a name, and
+  // "On April 19, 2005, Coffey slapped on a Reds jersey" otherwise yields "On April"
+  // as the two-capitalised-words match.
+  const fromTags = (articleContext?.tags || []).find(t => /^[A-Z][a-z]+ [A-Z][a-z]+/.test(t));
+  const proseWithoutDate = prose.replace(MONTH_RE, ' ').replace(/\b(19|20)\d{2}\b/g, ' ');
+  const fromProse = proseWithoutDate.match(/\b[A-Z][a-z]+ [A-Z][a-z]+\b/);
+  const subject = fromTags || fromProse?.[0] || articleContext?.title || '';
+
+  return [subject, occasion].filter(Boolean).join(' ').trim();
+}
+
 export default function BlockEditor({ value, onChange, articleContext }: BlockEditorProps) {
   const [blocks, setBlocks] = useState<Block[]>(() => parseHtmlToBlocks(value));
   const [addMenuIndex, setAddMenuIndex] = useState<number | null>(null);
   const [videoUrlInput, setVideoUrlInput] = useState("");
   const [videoUrlError, setVideoUrlError] = useState<string | null>(null);
   const [showVideoModal, setShowVideoModal] = useState<{ index: number } | null>(null);
+  // Search-and-pick inside the Insert Video dialog. Pasting a URL still works; this is
+  // for the common case where the URL is not known and hunting for it means leaving
+  // the editor.
+  const [videoSearchInput, setVideoSearchInput] = useState("");
+  const [videoResults, setVideoResults] = useState<VideoCandidate[] | null>(null);
+  const [videoSearching, setVideoSearching] = useState(false);
+  const [videoSearchError, setVideoSearchError] = useState<string | null>(null);
   const [imageUrlInput, setImageUrlInput] = useState("");
   const [showImageModal, setShowImageModal] = useState<{ index: number } | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -496,6 +552,68 @@ export default function BlockEditor({ value, onChange, articleContext }: BlockEd
     setAddMenuIndex(null);
   };
 
+  const closeVideoModal = () => {
+    setShowVideoModal(null);
+    setVideoUrlInput("");
+    setVideoUrlError(null);
+    setVideoSearchInput("");
+    setVideoResults(null);
+    setVideoSearchError(null);
+    setVideoSearching(false);
+  };
+
+  /** Open the dialog with the search field already filled from the neighbouring block. */
+  const openVideoModal = (index: number) => {
+    const neighbour = index >= 0 ? blocks[index] : blocks[0];
+    const prefill = buildVideoQuery(
+      neighbour?.type === "text" ? neighbour.content : "",
+      articleContext
+    );
+    setVideoSearchInput(prefill);
+    setVideoResults(null);
+    setVideoSearchError(null);
+    setShowVideoModal({ index });
+  };
+
+  const runVideoSearch = async () => {
+    const topic = videoSearchInput.trim();
+    if (!topic) return;
+    setVideoSearching(true);
+    setVideoSearchError(null);
+    setVideoResults(null);
+    try {
+      // Reuses the Rankroll endpoint: it caches per topic for 6h and verifies the ids
+      // are actually playable. Quota matters - a YouTube search costs 100 of the 10.000
+      // daily units, so the shared cache is the difference between this being usable
+      // and burning the budget on repeated clicks.
+      const res = await fetch('/api/youtube-search-bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, count: 12 }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setVideoResults(data.videos || []);
+        if (!data.videos?.length) setVideoSearchError('No playable videos found for that phrase.');
+      } else {
+        setVideoSearchError(data.quotaExceeded
+          ? 'YouTube daily search quota is used up. Paste a URL instead.'
+          : (data.error || 'Search failed.'));
+      }
+    } catch (e) {
+      setVideoSearchError((e as Error).message);
+    } finally {
+      setVideoSearching(false);
+    }
+  };
+
+  const insertVideoId = (videoId: string) => {
+    if (showVideoModal) {
+      addBlock(showVideoModal.index, "video", `https://www.youtube.com/embed/${videoId}`);
+    }
+    closeVideoModal();
+  };
+
   const handleAddVideo = () => {
     const embedUrl = toEmbedUrl(videoUrlInput.trim());
     if (!embedUrl) {
@@ -505,9 +623,7 @@ export default function BlockEditor({ value, onChange, articleContext }: BlockEd
     if (showVideoModal) {
       addBlock(showVideoModal.index, "video", embedUrl);
     }
-    setShowVideoModal(null);
-    setVideoUrlInput("");
-    setVideoUrlError(null);
+    closeVideoModal();
   };
 
   const handleAddImage = () => {
@@ -593,7 +709,7 @@ export default function BlockEditor({ value, onChange, articleContext }: BlockEd
           <AddBlockMenu
             onAdd={(type) => {
               if (type === "video") {
-                setShowVideoModal({ index: -1 });
+                openVideoModal(-1);
                 setAddMenuIndex(null);
               } else if (type === "image") {
                 setShowImageModal({ index: -1 });
@@ -618,7 +734,7 @@ export default function BlockEditor({ value, onChange, articleContext }: BlockEd
               onDragStart={() => handleDragStart(index)}
               onDragOver={(e) => handleDragOver(e, index)}
               onDragEnd={handleDragEnd}
-              className={`group relative bg-white border rounded-lg transition-all ${
+              className={`group relative bg-paper border rounded-lg transition-all ${
                 draggedIndex === index ? "opacity-40" : ""
               } border-gray-200 hover:border-gray-300`}
             >
@@ -657,7 +773,7 @@ export default function BlockEditor({ value, onChange, articleContext }: BlockEd
                       type="button"
                       onClick={() => rewriteBlock(block.id)}
                       disabled={rewritingBlockId === block.id}
-                      className="p-1.5 bg-purple-100 hover:bg-purple-500 text-purple-600 hover:text-white rounded transition-all disabled:opacity-50"
+                      className="p-1.5 bg-purple-100 hover:bg-purple-500 text-purple-600 hover:text-paper rounded transition-all disabled:opacity-50"
                       title="Rewrite with AI"
                     >
                       {rewritingBlockId === block.id ? (
@@ -671,7 +787,7 @@ export default function BlockEditor({ value, onChange, articleContext }: BlockEd
                   <button
                     type="button"
                     onClick={() => deleteBlock(block.id)}
-                    className="p-1.5 bg-red-100 hover:bg-red-500 text-red-600 hover:text-white rounded transition-all"
+                    className="p-1.5 bg-red-100 hover:bg-red-500 text-red-600 hover:text-paper rounded transition-all"
                     title="Delete block"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -697,7 +813,7 @@ export default function BlockEditor({ value, onChange, articleContext }: BlockEd
               <AddBlockMenu
                 onAdd={(type) => {
                   if (type === "video") {
-                    setShowVideoModal({ index });
+                    openVideoModal(index);
                     setAddMenuIndex(null);
                   } else if (type === "image") {
                     setShowImageModal({ index });
@@ -720,45 +836,97 @@ export default function BlockEditor({ value, onChange, articleContext }: BlockEd
         Click <span className="font-semibold text-[#E36B11]">+</span> between blocks to add new content
       </p>
 
-      {/* Video URL Modal */}
+      {/* Video Modal - search first, paste-a-URL as the fallback */}
       {showVideoModal && (
         <Modal
           title="Insert Video"
           icon={<Film className="w-5 h-5 text-[#E36B11]" />}
-          onClose={() => { setShowVideoModal(null); setVideoUrlInput(""); setVideoUrlError(null); }}
+          onClose={closeVideoModal}
         >
           <div className="p-4">
-            <label className="block text-xs text-gray-400 mb-2">Paste YouTube or Vimeo URL</label>
-            <input
-              type="url"
-              value={videoUrlInput}
-              onChange={(e) => { setVideoUrlInput(e.target.value); setVideoUrlError(null); }}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddVideo(); } }}
-              placeholder="https://www.youtube.com/watch?v=..."
-              autoFocus
-              className="w-full px-3 py-2.5 text-sm text-white bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-[#E36B11]"
-            />
-            {videoUrlError && (
-              <div className="text-xs text-red-400 mt-2">{videoUrlError}</div>
+            {/* Search. Pre-filled from the block this video will sit next to, so the
+                usual case is "press Enter", not "go and find a URL somewhere else". */}
+            <label className="block text-xs text-gray-400 mb-2">
+              Search YouTube <span className="text-gray-500">— pre-filled from this section</span>
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={videoSearchInput}
+                onChange={(e) => setVideoSearchInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); runVideoSearch(); } }}
+                placeholder="Todd Coffey April 19 2005"
+                autoFocus
+                className="flex-1 px-3 py-2.5 text-sm text-paper bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-[#E36B11]"
+              />
+              <button
+                type="button"
+                onClick={runVideoSearch}
+                disabled={videoSearching || !videoSearchInput.trim()}
+                className="px-4 py-2.5 bg-[#E36B11] hover:bg-[#c06a2a] disabled:opacity-40 text-paper font-bold text-sm rounded-lg whitespace-nowrap"
+              >
+                {videoSearching ? 'Searching…' : 'Search'}
+              </button>
+            </div>
+            {videoSearchError && (
+              <div className="text-xs text-amber-400 mt-2">{videoSearchError}</div>
             )}
-            <div className="text-[11px] text-gray-500 mt-2">
-              Supported: youtube.com, youtu.be, vimeo.com
+
+            {/* Results - click a thumbnail to insert it */}
+            {videoResults && videoResults.length > 0 && (
+              <div className="mt-3 grid grid-cols-2 gap-2 max-h-[320px] overflow-y-auto pr-1">
+                {videoResults.map(v => (
+                  <button
+                    key={v.videoId}
+                    type="button"
+                    onClick={() => insertVideoId(v.videoId)}
+                    className="text-left group rounded-lg overflow-hidden border border-gray-700 hover:border-[#E36B11] bg-gray-800"
+                    title={v.title}
+                  >
+                    <img src={v.thumbnail} alt="" className="w-full aspect-video object-cover" />
+                    <div className="p-2">
+                      <div className="text-[11px] text-paper leading-snug line-clamp-2 group-hover:text-[#E36B11]">{v.title}</div>
+                      <div className="text-[10px] text-gray-500 truncate mt-0.5">{v.channelTitle}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Fallback: an exact URL still beats a search when you already have it. */}
+            <div className="mt-4 pt-3 border-t border-gray-700">
+              <label className="block text-xs text-gray-400 mb-2">…or paste a YouTube / Vimeo URL</label>
+              <input
+                type="url"
+                value={videoUrlInput}
+                onChange={(e) => { setVideoUrlInput(e.target.value); setVideoUrlError(null); }}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddVideo(); } }}
+                placeholder="https://www.youtube.com/watch?v=..."
+                className="w-full px-3 py-2.5 text-sm text-paper bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-[#E36B11]"
+              />
+              {videoUrlError && (
+                <div className="text-xs text-red-400 mt-2">{videoUrlError}</div>
+              )}
+              <div className="text-[11px] text-gray-500 mt-2">
+                Supported: youtube.com, youtu.be, vimeo.com
+              </div>
             </div>
           </div>
           <div className="flex justify-center gap-4 p-4 border-t border-gray-700 bg-gray-900">
             <button
               type="button"
-              onClick={() => { setShowVideoModal(null); setVideoUrlInput(""); setVideoUrlError(null); }}
-              className="px-6 py-2.5 bg-gray-600 hover:bg-gray-500 text-white font-medium text-sm rounded-lg"
+              onClick={closeVideoModal}
+              className="px-6 py-2.5 bg-gray-600 hover:bg-gray-500 text-paper font-medium text-sm rounded-lg"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleAddVideo}
-              className="px-6 py-2.5 bg-[#E36B11] hover:bg-[#c06a2a] text-white font-bold text-sm rounded-lg"
+              disabled={!videoUrlInput.trim()}
+              className="px-6 py-2.5 bg-[#E36B11] hover:bg-[#c06a2a] disabled:opacity-40 text-paper font-bold text-sm rounded-lg"
             >
-              Insert
+              Insert URL
             </button>
           </div>
         </Modal>
@@ -786,7 +954,7 @@ export default function BlockEditor({ value, onChange, articleContext }: BlockEd
                 type="button"
                 onClick={() => imageFileInputRef.current?.click()}
                 disabled={isUploadingImage}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium text-sm rounded-lg transition-colors"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-paper font-medium text-sm rounded-lg transition-colors"
               >
                 {isUploadingImage ? (
                   <><Loader2 className="w-4 h-4 animate-spin" /> Uploading...</>
@@ -812,7 +980,7 @@ export default function BlockEditor({ value, onChange, articleContext }: BlockEd
                 onChange={(e) => setImageUrlInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddImage(); } }}
                 placeholder="https://example.com/image.jpg"
-                className="w-full px-3 py-2.5 text-sm text-white bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-[#E36B11]"
+                className="w-full px-3 py-2.5 text-sm text-paper bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-[#E36B11]"
               />
             </div>
           </div>
@@ -821,7 +989,7 @@ export default function BlockEditor({ value, onChange, articleContext }: BlockEd
               type="button"
               onClick={() => { setShowImageModal(null); setImageUrlInput(""); }}
               disabled={isUploadingImage}
-              className="px-6 py-2.5 bg-gray-600 hover:bg-gray-500 disabled:opacity-50 text-white font-medium text-sm rounded-lg"
+              className="px-6 py-2.5 bg-gray-600 hover:bg-gray-500 disabled:opacity-50 text-paper font-medium text-sm rounded-lg"
             >
               Cancel
             </button>
@@ -829,7 +997,7 @@ export default function BlockEditor({ value, onChange, articleContext }: BlockEd
               type="button"
               onClick={handleAddImage}
               disabled={isUploadingImage || !imageUrlInput.trim()}
-              className="px-6 py-2.5 bg-[#E36B11] hover:bg-[#c06a2a] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm rounded-lg"
+              className="px-6 py-2.5 bg-[#E36B11] hover:bg-[#c06a2a] disabled:opacity-50 disabled:cursor-not-allowed text-paper font-bold text-sm rounded-lg"
             >
               Insert URL
             </button>
@@ -906,7 +1074,7 @@ function BlockContent({
                   onClick={() => removeImage(i)}
                   className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover/gimg:opacity-100 transition-opacity shadow"
                 >
-                  <X className="w-3 h-3 text-white" />
+                  <X className="w-3 h-3 text-paper" />
                 </button>
               </div>
             ))}
@@ -926,7 +1094,7 @@ function BlockContent({
               type="button"
               onClick={() => galleryFileRef.current?.click()}
               disabled={galleryUploading}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white text-xs font-medium rounded-lg transition-colors"
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-paper text-xs font-medium rounded-lg transition-colors"
             >
               {galleryUploading ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Uploading…</> : <><Upload className="w-3.5 h-3.5" />Upload from device</>}
             </button>
@@ -940,13 +1108,13 @@ function BlockContent({
                 onChange={(e) => setGalleryUrlInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (galleryUrlInput.trim()) addImage(galleryUrlInput.trim()); } }}
                 placeholder="Paste image URL…"
-                className="flex-1 px-2 py-1.5 text-xs bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-[#E36B11]"
+                className="flex-1 px-2 py-1.5 text-xs bg-paper border border-gray-300 rounded-lg focus:outline-none focus:border-[#E36B11]"
               />
               <button
                 type="button"
                 onClick={() => { if (galleryUrlInput.trim()) addImage(galleryUrlInput.trim()); }}
                 disabled={!galleryUrlInput.trim()}
-                className="px-3 py-1.5 bg-[#E36B11] hover:bg-[#c06a2a] disabled:opacity-40 text-white text-xs font-bold rounded-lg"
+                className="px-3 py-1.5 bg-[#E36B11] hover:bg-[#c06a2a] disabled:opacity-40 text-paper text-xs font-bold rounded-lg"
               >Add</button>
             </div>
             <button type="button" onClick={() => setShowGalleryAdd(false)} className="w-full text-[10px] text-gray-400 hover:text-gray-600">Cancel</button>
@@ -1001,7 +1169,7 @@ function BlockContent({
             <>
               <img src={thumbnailUrl} alt="Video" className="w-full h-full object-cover" />
               <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                <Play className="w-6 h-6 text-white fill-white" />
+                <Play className="w-6 h-6 text-paper fill-white" />
               </div>
             </>
           ) : (
@@ -1124,14 +1292,14 @@ function BlockContent({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 bg-[#E36B11] rounded-full flex items-center justify-center">
-              <Headphones className="w-5 h-5 text-white" />
+              <Headphones className="w-5 h-5 text-paper" />
             </div>
             <div>
               <div className="font-bold text-gray-900 text-sm">Listen on GenX Radio</div>
               <div className="text-xs text-gray-600">Discover more timeless tracks on our radio.</div>
             </div>
           </div>
-          <div className="px-4 py-2 bg-[#E36B11] text-white rounded-lg font-bold text-sm">
+          <div className="px-4 py-2 bg-[#E36B11] text-paper rounded-lg font-bold text-sm">
             Go to Radio →
           </div>
         </div>
@@ -1146,14 +1314,14 @@ function BlockContent({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 bg-purple-500 rounded-full flex items-center justify-center">
-              <Gamepad2 className="w-5 h-5 text-white" />
+              <Gamepad2 className="w-5 h-5 text-paper" />
             </div>
             <div>
               <div className="font-bold text-gray-900 text-sm">Play QuizBattle</div>
               <div className="text-xs text-gray-600">Test your 80s/90s knowledge and win points!</div>
             </div>
           </div>
-          <div className="px-4 py-2 bg-purple-500 text-white rounded-lg font-bold text-sm">
+          <div className="px-4 py-2 bg-purple-500 text-paper rounded-lg font-bold text-sm">
             Go to Arcade →
           </div>
         </div>
@@ -1168,14 +1336,14 @@ function BlockContent({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 bg-pink-500 rounded-full flex items-center justify-center">
-              <ShoppingBag className="w-5 h-5 text-white" />
+              <ShoppingBag className="w-5 h-5 text-paper" />
             </div>
             <div>
               <div className="font-bold text-gray-900 text-sm">Visit the Shop</div>
               <div className="text-xs text-gray-600">Get exclusive GenX merch and collectibles.</div>
             </div>
           </div>
-          <div className="px-4 py-2 bg-pink-500 text-white rounded-lg font-bold text-sm">
+          <div className="px-4 py-2 bg-pink-500 text-paper rounded-lg font-bold text-sm">
             Go to Shop →
           </div>
         </div>
@@ -1190,14 +1358,14 @@ function BlockContent({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 bg-green-500 rounded-full flex items-center justify-center">
-              <FileText className="w-5 h-5 text-white" />
+              <FileText className="w-5 h-5 text-paper" />
             </div>
             <div>
               <div className="font-bold text-gray-900 text-sm">More Articles</div>
               <div className="text-xs text-gray-600">Discover more stories from the GenX era.</div>
             </div>
           </div>
-          <div className="px-4 py-2 bg-green-500 text-white rounded-lg font-bold text-sm">
+          <div className="px-4 py-2 bg-green-500 text-paper rounded-lg font-bold text-sm">
             Browse Articles →
           </div>
         </div>
@@ -1212,14 +1380,14 @@ function BlockContent({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 bg-blue-500 rounded-full flex items-center justify-center">
-              <Tv className="w-5 h-5 text-white" />
+              <Tv className="w-5 h-5 text-paper" />
             </div>
             <div>
               <div className="font-bold text-gray-900 text-sm">Watch GenX TV</div>
               <div className="text-xs text-gray-600">Classic videos and nostalgic content.</div>
             </div>
           </div>
-          <div className="px-4 py-2 bg-blue-500 text-white rounded-lg font-bold text-sm">
+          <div className="px-4 py-2 bg-blue-500 text-paper rounded-lg font-bold text-sm">
             Go to TV →
           </div>
         </div>
@@ -1238,14 +1406,14 @@ function BlockContent({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 bg-[#E36B11] rounded-full flex items-center justify-center">
-              <Vote className="w-5 h-5 text-white" />
+              <Vote className="w-5 h-5 text-paper" />
             </div>
             <div>
               <div className="font-bold text-gray-900 text-sm">{selectedRanking?.title || 'Vote Now!'}</div>
               <div className="text-xs text-gray-600">Vote & rank your favorites</div>
             </div>
           </div>
-          <div className="px-4 py-2 bg-[#E36B11] text-white rounded-lg font-bold text-sm">
+          <div className="px-4 py-2 bg-[#E36B11] text-paper rounded-lg font-bold text-sm">
             VOTE NOW
           </div>
         </div>
@@ -1323,8 +1491,8 @@ function AddBlockButton({ onClick, isOpen }: { onClick: () => void; isOpen: bool
         onClick={onClick}
         className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-all ${
           isOpen
-            ? "bg-[#E36B11] text-white"
-            : "bg-transparent text-gray-400 hover:bg-[#E36B11] hover:text-white opacity-0 group-hover/add:opacity-100"
+            ? "bg-[#E36B11] text-paper"
+            : "bg-transparent text-gray-400 hover:bg-[#E36B11] hover:text-paper opacity-0 group-hover/add:opacity-100"
         }`}
       >
         <Plus className="w-3 h-3" />
@@ -1358,7 +1526,7 @@ function AddBlockMenu({
   ];
 
   return (
-    <div className="bg-white border border-gray-300 rounded-lg shadow-lg p-2 my-1 grid grid-cols-1 sm:grid-cols-2 gap-1">
+    <div className="bg-paper border border-gray-300 rounded-lg shadow-lg p-2 my-1 grid grid-cols-1 sm:grid-cols-2 gap-1">
       {options.map((opt) => {
         const Icon = opt.icon;
         return (
@@ -1401,14 +1569,14 @@ function Modal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700 bg-gray-900">
-          <span className="text-sm font-bold text-white flex items-center gap-2">
+          <span className="text-sm font-bold text-paper flex items-center gap-2">
             {icon}
             {title}
           </span>
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-white p-1"
+            className="text-gray-400 hover:text-paper p-1"
           >
             <X className="w-4 h-4" />
           </button>

@@ -21,9 +21,12 @@ export default function DesktopContentWrapper({ children, backgroundImage, trans
         .desktop-content-override .bg-cream {
           background-color: transparent !important;
         }
-        .desktop-content-override > div > .bg-cream:first-child {
-          background: linear-gradient(to bottom, rgba(212, 135, 58, 0.05), transparent) !important;
-        }
+        /* There used to be a rule here tinting the first .bg-cream child with
+           linear-gradient(rgba(212,135,58,0.05), transparent). It only ever hit
+           section headers, and once those were switched from bg-[#E36B11]/5 to
+           bg-cream it started applying to every wrapped page - Trivia, TV, Shop -
+           so those headers kept a warm gradient while the unwrapped ones (Feed,
+           Articles, Rankroll) were flat. Removed to make all headers identical. */
         .desktop-content-override .bg-white {
           background-color: #F5F0E8 !important;
         }

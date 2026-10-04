@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Loader2, Music, RefreshCw, Copy, Check, ExternalLink, FileText, Plus, Trash2, Radio, GripVertical, Edit2, Image as ImageIcon } from "lucide-react";
 import GenXLoader from "@/components/GenXLoader";
 import ImagePickerModal from "./ImagePickerModal";
+import { useConfirm } from "./ConfirmModal";
 
 interface RadioStation {
   _id: string;
@@ -59,6 +60,8 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
   const [spotifyConnected, setSpotifyConnected] = useState(false);
   const [addingToPlaylist, setAddingToPlaylist] = useState<string | null>(null);
   
+  const { confirm, ConfirmDialog } = useConfirm();
+
   // Check Spotify connection status
   useEffect(() => {
     fetch('/api/spotify/status')
@@ -178,7 +181,13 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
 
   // Delete station
   const deleteStation = async (id: string) => {
-    if (!confirm('Delete this station?')) return;
+    const ok = await confirm({
+      title: 'Delete Station',
+      message: 'Delete this station?',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
     try {
       await fetch(`/api/radio-stations?id=${id}`, { method: 'DELETE' });
       setStations(prev => prev.filter(s => s._id !== id));
@@ -317,7 +326,7 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
   return (
     <div className="space-y-6">
       {/* Radio Stations Section */}
-      <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+      <div className="bg-paper rounded-xl p-4 border border-gray-200">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Radio className="w-4 h-4 text-[#1DB954]" />
@@ -333,33 +342,33 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
             placeholder="Station Name"
             value={newStation.name}
             onChange={(e) => setNewStation(prev => ({ ...prev, name: e.target.value }))}
-            className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#E36B11]"
+            className="flex-1 px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#E36B11]"
           />
           <input
             type="text"
             placeholder="Description"
             value={newStation.description}
             onChange={(e) => setNewStation(prev => ({ ...prev, description: e.target.value }))}
-            className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#E36B11]"
+            className="flex-1 px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#E36B11]"
           />
           <input
             type="text"
             placeholder="Spotify Playlist ID"
             value={newStation.playlistId}
             onChange={(e) => setNewStation(prev => ({ ...prev, playlistId: e.target.value }))}
-            className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#E36B11]"
+            className="flex-1 px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#E36B11]"
           />
           <input
             type="text"
             placeholder="Cover Image URL (optional)"
             value={newStation.imageUrl}
             onChange={(e) => setNewStation(prev => ({ ...prev, imageUrl: e.target.value }))}
-            className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#E36B11]"
+            className="flex-1 px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#E36B11]"
           />
           <button
             onClick={addStation}
             disabled={addingStation || !newStation.name || !newStation.playlistId}
-            className="px-4 py-2 bg-[#1DB954] text-white rounded-lg text-sm font-medium hover:bg-[#1ed760] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+            className="px-4 py-2 bg-[#1DB954] text-gray-900 rounded-lg text-sm font-medium hover:bg-[#1ed760] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
           >
             {addingStation ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             Add
@@ -379,15 +388,15 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
               <div 
                 key={station._id} 
                 onClick={() => window.open(`https://open.spotify.com/playlist/${station.playlistId}`, '_blank')}
-                className="bg-gray-700/50 rounded-lg p-2 border border-gray-600 hover:border-[#1DB954]/50 transition-colors cursor-pointer"
+                className="bg-gray-700/50 rounded-lg p-2 border border-gray-300 hover:border-[#1DB954]/50 transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-1.5 mb-1.5">
                   <div className="w-6 h-6 rounded-full bg-[#1DB954] flex items-center justify-center flex-shrink-0">
-                    <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
+                    <svg className="w-3 h-3 text-gray-900" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
                     </svg>
                   </div>
-                  <p className="text-[11px] font-bold text-white truncate flex-1">{station.name.replace('Best of GenX - ', '')}</p>
+                  <p className="text-[11px] font-bold text-gray-900 truncate flex-1">{station.name.replace('Best of GenX - ', '')}</p>
                 </div>
                 <div className="flex gap-1">
                   <button
@@ -411,52 +420,52 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
         {/* Edit Station Modal */}
         {editingStation && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-            <div className="bg-gray-800 rounded-xl p-4 w-full max-w-md border border-gray-700">
-              <h3 className="text-sm font-bold text-white mb-4">Edit Station</h3>
+            <div className="bg-paper rounded-xl p-4 w-full max-w-md border border-gray-200">
+              <h3 className="text-sm font-bold text-gray-900 mb-4">Edit Station</h3>
               <div className="space-y-3">
                 <input
                   type="text"
                   placeholder="Station Name"
                   value={editingStation.name}
                   onChange={(e) => setEditingStation({ ...editingStation, name: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#E36B11]"
+                  className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#E36B11]"
                 />
                 <input
                   type="text"
                   placeholder="Description"
                   value={editingStation.description}
                   onChange={(e) => setEditingStation({ ...editingStation, description: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#E36B11]"
+                  className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#E36B11]"
                 />
                 <input
                   type="text"
                   placeholder="Spotify Playlist ID"
                   value={editingStation.playlistId}
                   onChange={(e) => setEditingStation({ ...editingStation, playlistId: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#E36B11]"
+                  className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#E36B11]"
                 />
                 {/* Cover Image with ImagePicker */}
                 <div className="space-y-2">
-                  <label className="text-xs text-gray-400">Cover Image</label>
+                  <label className="text-xs text-gray-500">Cover Image</label>
                   <div className="flex items-center gap-3">
                     {editingStation.imageUrl ? (
-                      <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-600">
+                      <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-300">
                         <img src={editingStation.imageUrl} alt="Cover" className="w-full h-full object-cover" />
                         <button
                           onClick={() => setEditingStation({ ...editingStation, imageUrl: '' })}
-                          className="absolute top-0 right-0 p-0.5 bg-red-500 rounded-bl text-white"
+                          className="absolute top-0 right-0 p-0.5 bg-red-500 rounded-bl text-paper"
                         >
                           <Trash2 className="w-3 h-3" />
                         </button>
                       </div>
                     ) : (
-                      <div className="w-16 h-16 rounded-lg border border-dashed border-gray-600 flex items-center justify-center">
+                      <div className="w-16 h-16 rounded-lg border border-dashed border-gray-300 flex items-center justify-center">
                         <ImageIcon className="w-6 h-6 text-gray-500" />
                       </div>
                     )}
                     <button
                       onClick={() => setShowImagePicker(true)}
-                      className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-white hover:bg-gray-600 flex items-center gap-2"
+                      className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-900 hover:bg-gray-200 flex items-center gap-2"
                     >
                       <ImageIcon className="w-4 h-4" />
                       {editingStation.imageUrl ? 'Change' : 'Select Image'}
@@ -467,13 +476,13 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
               <div className="flex gap-2 mt-4">
                 <button
                   onClick={() => setEditingStation(null)}
-                  className="flex-1 py-2 bg-gray-700 text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-600"
+                  className="flex-1 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-200"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={updateStation}
-                  className="flex-1 py-2 bg-[#1DB954] text-white rounded-lg text-sm font-medium hover:bg-[#1ed760]"
+                  className="flex-1 py-2 bg-[#1DB954] text-gray-900 rounded-lg text-sm font-medium hover:bg-[#1ed760]"
                 >
                   Save
                 </button>
@@ -498,7 +507,7 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
       </div>
 
       {/* Song Requests Section */}
-      <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+      <div className="bg-paper rounded-xl p-4 border border-gray-200">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Music className="w-4 h-4 text-[#E36B11]" />
@@ -507,7 +516,7 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
           </div>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-400">Spotify</span>
+              <span className="text-xs text-gray-500">Spotify</span>
               <button
                 onClick={async () => {
                   if (spotifyConnected) {
@@ -518,11 +527,11 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
                   }
                 }}
                 className={`relative w-10 h-5 rounded-full transition-colors ${
-                  spotifyConnected ? 'bg-[#1DB954]' : 'bg-gray-600'
+                  spotifyConnected ? 'bg-[#1DB954]' : 'bg-gray-200'
                 }`}
               >
                 <span 
-                  className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                  className={`absolute top-0.5 left-0.5 w-4 h-4 bg-paper rounded-full shadow transition-transform ${
                     spotifyConnected ? 'translate-x-5' : 'translate-x-0'
                   }`}
                 />
@@ -530,7 +539,7 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
             </div>
             <button
               onClick={() => { load(); loadStations(); }}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
             >
               <RefreshCw className="w-3 h-3" /> Refresh
             </button>
@@ -544,7 +553,7 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
             key={opt.value}
             onClick={() => setFilter(opt.value)}
             className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-              filter === opt.value ? "bg-[#E36B11] text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+              filter === opt.value ? "bg-[#E36B11] text-gray-900" : "bg-paper text-gray-500 hover:bg-gray-100"
             }`}
           >
             {opt.label}
@@ -563,14 +572,14 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
           {requests.map((req) => (
             <div
               key={req._id}
-              className="bg-gray-800 border border-gray-700 rounded-xl p-3"
+              className="bg-paper border border-gray-200 rounded-xl p-3"
             >
               <div className="flex items-center justify-between gap-3 mb-2">
                 <div className="min-w-0">
-                  <p className="text-sm font-bold text-white truncate">
+                  <p className="text-sm font-bold text-gray-900 truncate">
                     {req.band} — {req.song}
                   </p>
-                  <p className="text-xs text-gray-400 truncate">
+                  <p className="text-xs text-gray-500 truncate">
                     {req.playlist} · by {req.username} · {new Date(req.createdAt).toLocaleDateString()}
                   </p>
                 </div>
@@ -581,7 +590,7 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
                   <select
                     value={req.status}
                     onChange={(e) => updateStatus(req._id, e.target.value as SongRequest["status"])}
-                    className="text-xs bg-gray-700 text-white rounded-lg px-2 py-1 border-0 focus:outline-none focus:ring-1 focus:ring-[#E36B11]"
+                    className="text-xs bg-gray-100 text-gray-900 rounded-lg px-2 py-1 border-0 focus:outline-none focus:ring-1 focus:ring-[#E36B11]"
                   >
                     <option value="new">New</option>
                     <option value="in_progress">In progress</option>
@@ -592,7 +601,7 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
               </div>
               {/* Spotify Link Row */}
               {req.link && (
-                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-700">
+                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200">
                   <span className="text-[10px] text-gray-500 uppercase tracking-wide">Spotify:</span>
                   <a 
                     href={req.link} 
@@ -607,7 +616,7 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
                     className={`p-1.5 rounded-lg transition-colors ${
                       copiedId === req._id 
                         ? "bg-green-500/20 text-green-400" 
-                        : "bg-gray-700 text-gray-400 hover:text-white"
+                        : "bg-gray-100 text-gray-500 hover:text-gray-900"
                     }`}
                     title="Copy link"
                   >
@@ -617,7 +626,7 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
                     href={req.link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-1.5 rounded-lg bg-gray-700 text-[#1DB954] hover:bg-gray-600 transition-colors"
+                    className="p-1.5 rounded-lg bg-gray-100 text-[#1DB954] hover:bg-gray-200 transition-colors"
                     title="Open in Spotify"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
@@ -628,7 +637,7 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
                     className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-colors flex items-center gap-1 ${
                       req.status === 'added'
                         ? 'bg-green-500/20 text-green-400 cursor-default'
-                        : 'bg-[#1DB954] text-white hover:bg-[#1ed760]'
+                        : 'bg-[#1DB954] text-gray-900 hover:bg-[#1ed760]'
                     }`}
                     title={spotifyConnected ? "Add to playlist" : "Connect Spotify first"}
                   >
@@ -649,11 +658,11 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
       )}
 
       {/* Generate Article Section */}
-        <div className="mt-6 pt-4 border-t border-gray-700">
+        <div className="mt-6 pt-4 border-t border-gray-200">
           <button
             onClick={generateArticle}
             disabled={generating || allAddedRequests.length === 0}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-[#E36B11] text-white hover:bg-[#C4772A]"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-[#E36B11] text-gray-900 hover:bg-[#C4772A]"
           >
             {generating ? (
               <GenXLoader size="sm" />
@@ -668,26 +677,27 @@ export default function RequestsTab({ onArticleCreated, onStatusChange }: Reques
 
           {/* Generated Article Preview */}
           {generatedArticle && (
-            <div className="mt-4 bg-gray-700 border border-gray-600 rounded-xl p-4">
+            <div className="mt-4 bg-gray-100 border border-gray-300 rounded-xl p-4">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-bold text-white">Generated Article</h3>
+                <h3 className="text-sm font-bold text-gray-900">Generated Article</h3>
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(generatedArticle);
                     alert('Article copied to clipboard!');
                   }}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs bg-gray-600 text-gray-300 hover:bg-gray-500 transition-colors"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs bg-gray-200 text-gray-600 hover:bg-gray-500 transition-colors"
                 >
                   <Copy className="w-3 h-3" /> Copy
                 </button>
               </div>
-              <div className="prose prose-invert prose-sm max-w-none text-gray-300 whitespace-pre-wrap text-xs leading-relaxed max-h-96 overflow-y-auto">
+              <div className="prose prose-invert prose-sm max-w-none text-gray-600 whitespace-pre-wrap text-xs leading-relaxed max-h-96 overflow-y-auto">
                 {generatedArticle}
               </div>
             </div>
           )}
         </div>
       </div>
+      <ConfirmDialog />
     </div>
   );
 }

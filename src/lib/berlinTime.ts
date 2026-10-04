@@ -31,6 +31,34 @@ export function berlinOffsetMinutes(date: Date): number {
   return Math.round((asUTC - date.getTime()) / 60000);
 }
 
+/** The ranking day starts at this Berlin wall-clock hour. */
+export const RANKING_DAY_START_HOUR = 10;
+
+/**
+ * Key of the RANKING day a moment belongs to, as `YYYY-MM-DD`.
+ *
+ * The ranking day runs from 10:00 Berlin to the next 10:00, so anything before
+ * 10:00 still belongs to the previous day. This is the ONLY correct way to ask
+ * "which day does this count towards" - a UTC or browser-local midnight lands
+ * inside the ranking day and rolls the key over halfway through it.
+ *
+ * Deliberately dependency-free so client components can import it too.
+ */
+export function rankingDayKey(date: Date = new Date()): string {
+  const dtf = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Berlin',
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hour12: false,
+  });
+  const map: Record<string, string> = {};
+  for (const p of dtf.formatToParts(date)) map[p.type] = p.value;
+
+  const hour = Number(map.hour === '24' ? '0' : map.hour);
+  // Build the Berlin calendar date, then step back a day before the cutoff.
+  const d = new Date(Date.UTC(Number(map.year), Number(map.month) - 1, Number(map.day)));
+  if (hour < RANKING_DAY_START_HOUR) d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
 /**
  * Returns a Date representing `hour:00` Berlin local time, `dayOffset` days
  * from today (0 = today, 1 = tomorrow, ...).

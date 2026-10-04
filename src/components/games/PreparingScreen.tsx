@@ -150,38 +150,39 @@ export default function PreparingScreen({
           </>
         )}
         <div className="relative flex flex-col items-center">
-          {/* VS Scoreboard when complete, Progress ring when loading */}
+          {/* VS Scoreboard when complete, Progress ring when loading.
+              Avatar ABOVE the name, one column per player - mirrors the scoreboard on
+              invite steps 2 and 3. All three pieces on a single line squeezed each
+              other on mobile. */}
           {isComplete && player1 && player2 ? (
-            <div className="flex items-center justify-between w-full px-4 md:px-8 mb-2">
-              {/* Player 1 - Icon + Name horizontal */}
-              <div className="flex items-center gap-2 md:gap-3">
-                <div className="w-10 h-10 md:w-14 md:h-14 rounded-full overflow-hidden border-2 border-white/40 bg-white/20 flex-shrink-0">
+            <div className="flex items-center justify-between w-full gap-1 md:gap-4 px-1 md:px-6 mb-2">
+              <div className="flex-1 min-w-0 flex flex-col items-center gap-1 md:gap-2">
+                <div className="w-12 h-12 md:w-[72px] md:h-[72px] rounded-full overflow-hidden border-2 border-white/40 bg-white/20 flex-shrink-0">
                   {player1.avatar ? (
                     <img src={player1.avatar} alt="" className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-white font-display text-base md:text-lg">
+                    <div className="w-full h-full flex items-center justify-center text-white font-display text-lg md:text-2xl">
                       {player1.username?.[0]?.toUpperCase() || '?'}
                     </div>
                   )}
                 </div>
-                <span className="font-display text-sm md:text-base text-white max-w-[70px] md:max-w-[100px] truncate">{player1.username}</span>
+                <span className="w-full text-center font-display text-sm md:text-2xl text-white truncate leading-none">{player1.username}</span>
               </div>
               
               {/* VS */}
-              <div className="font-display text-2xl md:text-3xl text-white/80">VS</div>
+              <div className="font-display text-2xl md:text-5xl text-white/80 shrink-0 leading-none">VS</div>
               
-              {/* Player 2 - Name + Icon horizontal (reversed) */}
-              <div className="flex items-center gap-2 md:gap-3">
-                <span className="font-display text-sm md:text-base text-white max-w-[70px] md:max-w-[100px] truncate text-right">{player2.username}</span>
-                <div className="w-10 h-10 md:w-14 md:h-14 rounded-full overflow-hidden border-2 border-white/40 bg-white/20 flex-shrink-0">
+              <div className="flex-1 min-w-0 flex flex-col items-center gap-1 md:gap-2">
+                <div className="w-12 h-12 md:w-[72px] md:h-[72px] rounded-full overflow-hidden border-2 border-white/40 bg-white/20 flex-shrink-0">
                   {player2.avatar ? (
                     <img src={player2.avatar} alt="" className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-white font-display text-base md:text-lg">
+                    <div className="w-full h-full flex items-center justify-center text-white font-display text-lg md:text-2xl">
                       {player2.username?.[0]?.toUpperCase() || '?'}
                     </div>
                   )}
                 </div>
+                <span className="w-full text-center font-display text-sm md:text-2xl text-white truncate leading-none">{player2.username}</span>
               </div>
             </div>
           ) : (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, memo, useCallback } from "react";
-import { Clock, Play, Share2, MoreHorizontal, MessageCircle, Check, Bookmark, Flag, ChevronLeft, ChevronRight, BookOpen, Music, Gamepad2, Trophy, Sparkles, Cross, Newspaper, Clapperboard, PartyPopper, Brain } from "lucide-react";
+import { Clock, Share2, MoreHorizontal, MessageCircle, Check, Bookmark, Flag, ChevronLeft, ChevronRight, BookOpen, Music, Gamepad2, Trophy, Sparkles, Cross, Newspaper, Clapperboard, PartyPopper, Brain } from "lucide-react";
 import PollCard from "@/components/PollCard";
 import QuizPollCard from "@/components/QuizPoll";
 import CardMoodReactions from "@/components/CardMoodReactions";
@@ -392,6 +392,26 @@ interface LandingPageProps {
 }
 
 const EMPTY_SET = new Set<string>();
+
+/**
+ * View-mode icons, defined once.
+ *
+ * The grid means Feed and the list means Timeline, everywhere. They used to be
+ * inline SVGs on the toggle button only, while the header showed a Play icon in
+ * BOTH views - so the header never told you which view you were in. Sharing the
+ * components keeps the header and the toggle from drifting apart again.
+ */
+const FeedIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+  </svg>
+);
+
+const TimelineIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+  </svg>
+);
 
 function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop = false, onShowLogin, onOpenStaticPage, onOpenCommunitySound, onCoinAnimation }: LandingPageProps) {
   const { user, isLoggedIn } = useAuth();
@@ -1193,6 +1213,17 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       role="button"
       tabIndex={0}
       onClick={() => handleArticleClick(article._id)}
+      // Hover colour is the article's own category colour, not a flat orange -
+      // orange is already the border/shadow accent on every card, and on a page
+      // full of these rows a single hover colour for every category read as too
+      // much of the same colour everywhere. Set as a CSS var here (not a literal
+      // Tailwind class) because the colour is only known per-article at runtime;
+      // the title below references it via group-hover:text-[var(--hover-color)].
+      style={{ '--hover-color': article.category ? getCategoryColor(article.category) : '#E36B11' } as React.CSSProperties}
+      // Border keeps the flat orange accent on purpose - Tailwind's opacity
+      // modifier (the "/30") can't reliably compute alpha for a CSS var colour,
+      // and the ask was specifically about the title, which carries the visual
+      // weight here anyway.
       className={`w-full flex items-center gap-3 p-2 bg-cream border border-warm rounded-none text-left shadow-md hover:shadow-lg hover:border-[#E36B11]/30 transition-all duration-200 relative group cursor-pointer touch-manipulation ${loadingArticleId === article._id ? 'pointer-events-none' : ''}`}
     >
       <LoadingOverlay articleId={article._id} />
@@ -1230,10 +1261,20 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
               />
             </span>
           )}
-          <span className="text-[#E36B11] text-[10px] font-bold uppercase">{article.category ? getSubCategoryLabel(article.category) : getCategoryLabel(article.mainCategory)}</span>
+          {/* Category colour from categories.ts, matching the badges the other
+              cards use. Only the sub category has a colour there - mainCategory
+              is 'articles'/'arcade'/'voting'/'shop', which getCategoryColor does
+              not know and would answer with its slate #334155 fallback, so those
+              keep the brand orange instead. */}
+          <span
+            className="text-[10px] font-bold uppercase"
+            style={{ color: article.category ? getCategoryColor(article.category) : '#E36B11' }}
+          >
+            {article.category ? getSubCategoryLabel(article.category) : getCategoryLabel(article.mainCategory)}
+          </span>
           <span className="text-gray-500 text-[10px]">• {article.createdAt ? new Date(article.createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}</span>
         </div>
-        <h3 className={`font-display tracking-wide text-gray-900 group-hover:text-[#E36B11] leading-tight line-clamp-1 transition-colors ${isDesktop ? 'text-[20px]' : 'text-[20px]'}`}>{article.title}</h3>
+        <h3 className={`font-display tracking-wide text-gray-900 group-hover:text-[var(--hover-color)] leading-tight line-clamp-1 transition-colors ${isDesktop ? 'text-[20px]' : 'text-[20px]'}`}>{article.title}</h3>
         <div className="flex items-center gap-3 text-[10px] text-gray-500 mt-0.5" onClick={(e) => e.stopPropagation()}>
           <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="xs" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} initialRewarded={reactionsMap[article._id]?.rewarded} onReactionChange={handleReactionChange} />
           <span className="flex items-center gap-0.5">
@@ -1293,10 +1334,13 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
   if (isLoading) {
     return (
       <div className="w-full h-full flex flex-col overflow-hidden bg-cream">
-        {/* Header - exactly like Rankings */}
-        <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-[#E36B11]/5">
+        {/* Header. Deliberately the same cream as the page rather than the
+            `bg-[#E36B11]/5` wash the other section headers use - on mobile that
+            faint tint read as a stray band across the top. Must stay in sync
+            with the loaded header below, or the tint flashes while loading. */}
+        <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
           <div className="flex items-center gap-3">
-            <Play className="w-5 h-5 text-[#E36B11]" />
+            <FeedIcon className="w-5 h-5 text-[#E36B11]" />
             <div>
               <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Feed</span>
               <span className="text-[10px] text-gray-500 -mt-0.5 block">Latest updates & content</span>
@@ -1419,10 +1463,13 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
 
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-cream">
-      {/* Header - exactly like Rankings */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-[#E36B11]/5">
+      {/* Header - neutral cream, see the loading header above */}
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
         <div className="flex items-center gap-3">
-          <Play className="w-5 h-5 text-[#E36B11]" />
+          {/* Icon follows the CURRENT view, so it agrees with the title next to it */}
+          {viewMode === 'feed'
+            ? <FeedIcon className="w-5 h-5 text-[#E36B11]" />
+            : <TimelineIcon className="w-5 h-5 text-[#E36B11]" />}
           <div>
             <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">{viewMode === 'feed' ? 'Feed' : 'Timeline'}</span>
             <span className="text-[10px] text-gray-500 -mt-0.5 block">{viewMode === 'feed' ? 'Latest updates & content' : 'Browse by birth year'}</span>
@@ -1433,18 +1480,15 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           onClick={() => setViewMode(viewMode === 'feed' ? 'timeline' : 'feed')}
           className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-[#E36B11]/30 bg-white/80 text-[#E36B11] hover:bg-[#E36B11] hover:text-white hover:border-[#E36B11] shadow-sm hover:shadow transition-all text-xs font-semibold"
         >
+          {/* The button offers the OTHER view, so it carries that view's icon */}
           {viewMode === 'feed' ? (
             <>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-              </svg>
+              <TimelineIcon />
               Timeline
             </>
           ) : (
             <>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-              </svg>
+              <FeedIcon />
               Feed
             </>
           )}
@@ -1455,16 +1499,24 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
         {/* TIMELINE VIEW - grouped by birth year */}
         {viewMode === 'timeline' && (() => {
-          // Extract birth year from personBirthday (DD.MM.YYYY format)
-          // Only return GenX years (1965-1980)
+          // Extract birth year from personBirthday. DD.MM.YYYY is the stored format, but
+          // ISO (YYYY-MM-DD) is accepted too: articles created from the admin Menschen tab
+          // were written with the raw <input type="date"> value, and splitting those on "."
+          // yielded nothing - the person was simply missing from the timeline. The write
+          // side normalises now (see /api/articles POST), this keeps older rows visible.
+          // Only returns GenX years (1965-1980).
           const getBirthYear = (birthday?: string): number | null => {
             if (!birthday) return null;
-            const parts = birthday.split('.');
-            if (parts.length === 3) {
-              const year = parseInt(parts[2], 10);
-              // Only GenX: 1965-1980
-              if (!isNaN(year) && year >= 1965 && year <= 1980) return year;
-            }
+            const trimmed = birthday.trim();
+            let year: number | null = null;
+
+            const german = trimmed.split('.');
+            if (german.length === 3) year = parseInt(german[2], 10);
+
+            const iso = trimmed.match(/^(\d{4})-\d{1,2}-\d{1,2}/);
+            if (iso) year = parseInt(iso[1], 10);
+
+            if (year !== null && !isNaN(year) && year >= 1965 && year <= 1980) return year;
             return null;
           };
           
@@ -1849,7 +1901,6 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                           return <div key={blockIdx}><SliderContainer articles={manualArticles} theme={containerTheme} {...sliderProps} /></div>;
                         }
                         if (block.type === 'VERTICAL') {
-                          console.log('VERTICAL block found:', block);
                           // Auto-fill by category or manual articles
                           const cat = block.autoFillCategory?.toLowerCase() || '';
                           let vertArticles: Article[] = [];
@@ -1879,7 +1930,11 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                           
                           return (
                             <div key={blockIdx} className="space-y-1.5">
-                              {vertArticles.slice(0, 3).map((art, i) => <FullWidthBanner key={i} article={art} />)}
+                              {/* Keyed by article id, not by index: on an index key
+                                  React reuses the same DOM node for a different
+                                  article whenever the list shifts, so the img src
+                                  swaps in place and the thumbnail visibly reloads. */}
+                              {vertArticles.slice(0, 3).map(art => <FullWidthBanner key={art._id} article={art} />)}
                               {cat && (
                                 <div className="pt-2 pb-4 mb-2 border-b border-warm">
                                   <button 
@@ -1985,8 +2040,8 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                     <div key={index} className="col-span-6 space-y-2">
                       {/* Title */}
                       <span className="text-xs font-display text-[#E36B11]">More Articles</span>
-                      {vertArticles.slice(0, 3).map((art, i) => (
-                        <FullWidthBanner key={i} article={art} />
+                      {vertArticles.slice(0, 3).map(art => (
+                        <FullWidthBanner key={art._id} article={art} />
                       ))}
                     </div>
                   );

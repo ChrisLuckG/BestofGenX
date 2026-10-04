@@ -152,7 +152,7 @@ export default function DesktopPage() {
   const [showBattleResultId, setShowBattleResultId] = useState<string | null>(null); // Battle result to show in content area
   const [showChallenge, setShowChallenge] = useState<{ battleId: string; notificationId?: string } | null>(null); // Challenge to show in content area
   const [showWelcomePage, setShowWelcomePage] = useState(false); // Welcome page to show in content area
-  const [challengeTarget, setChallengeTarget] = useState<{ id: string; username: string } | null>(null); // Pre-selected player to challenge
+  const [challengeTarget, setChallengeTarget] = useState<{ id: string; username: string; avatar?: string; countryFlag?: string } | null>(null); // Pre-selected player to challenge
   const [radioStations, setRadioStations] = useState<{_id: string; name: string; description: string; playlistId: string}[]>([]);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [leaderboardCountdown, setLeaderboardCountdown] = useState('');
@@ -506,6 +506,28 @@ export default function DesktopPage() {
     loadLeaderboard(leaderboardDayOffset, true, null, newLimit);
   }, [rankingsLoadingMore, rankingsHasMore, rankingsLimit, leaderboardDayOffset]);
   
+  // What the widget actually renders: the real day standings, padded with EMPTY slots
+  // so the panel always shows ten rows that then fill up over the day.
+  //
+  // buildPeriodRankings drops everyone whose period points are <= 0, so at 10:00 Berlin
+  // the day list is genuinely empty and the panel used to render as a blank box.
+  //
+  // The padding rows carry no player. An earlier version filled them with the year's
+  // top ten at 0.00, which was worse than the blank box: it showed real names as if
+  // they had played today and scored nothing.
+  const displayRankings = useMemo(() => {
+    // Only the running day gets padded. A past day (or the break, which shows
+    // yesterday) has a FINAL list - empty slots there would suggest the day is still
+    // being played.
+    const isLiveDay = leaderboardDayOffset === 0 && !isBreakTime;
+    if (!isLiveDay || rankings.length >= visibleRankingsCount) return rankings;
+    const emptySlots = Array.from(
+      { length: visibleRankingsCount - rankings.length },
+      (_, i) => ({ _id: `__empty-${rankings.length + i}`, isPlaceholder: true as const })
+    );
+    return [...rankings, ...emptySlots];
+  }, [rankings, visibleRankingsCount, leaderboardDayOffset, isBreakTime]);
+
   // Reload leaderboard when day offset changes or break time status changes
   useEffect(() => {
     // Clear rankings immediately when break ends to avoid showing stale data
@@ -1130,7 +1152,22 @@ export default function DesktopPage() {
                     ))
                   ) : (
                     <>
-                      {rankings.slice(0, visibleRankingsCount).map((r, i) => (
+                      {displayRankings.slice(0, visibleRankingsCount).map((r, i) => (
+                        r.isPlaceholder ? (
+                          /* Empty slot - the position exists, nobody holds it yet. A plain
+                             div, not a button: there is no player to open, and a hover
+                             highlight would suggest otherwise. */
+                          <div key={r._id} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg">
+                            <div className="flex items-center gap-0.5 w-6">
+                              <span className="text-sm font-bold tabular-nums text-center text-gray-300">{i + 1}</span>
+                            </div>
+                            {/* Dashed ring instead of an avatar: reads as "slot", not as a
+                                user whose picture failed to load. */}
+                            <div className="w-8 h-8 rounded-full border border-dashed border-warm flex-shrink-0" />
+                            <span className="flex-1 h-2 rounded bg-warm/50 max-w-[90px]" />
+                            <span className="font-display text-[13px] tabular-nums text-gray-300">—</span>
+                          </div>
+                        ) : (
                         <button key={r._id} onClick={() => setSelectedPlayerId(r._id)} className="group w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#E36B11] transition-all duration-200 rounded-lg">
                           {/* Rank number with change indicator */}
                           <div className="flex items-center gap-0.5 w-6">
@@ -1167,8 +1204,8 @@ export default function DesktopPage() {
                           <span className="flex-1 text-left font-display text-[13px] tracking-wide font-normal text-gray-800 truncate transition-colors group-hover:text-white">{r.username}</span>
                           {/* BOGX Coins - with transition for smooth score updates */}
                           <div className="flex items-center gap-1 transition-all duration-300 relative">
-                            <img src="/images/bogxcoin.png" alt="" className="w-4 h-4 group-hover:brightness-125" />
-                            <span className="font-display text-[13px] tracking-wide font-normal tabular-nums text-gray-900 transition-colors group-hover:text-white">{formatCurrency(r.points)}</span>
+                            <img src={"/images/bogxcoin.png"} alt="" className="w-4 h-4 group-hover:brightness-125" />
+                            <span className="font-display text-[13px] tracking-wide font-normal tabular-nums transition-colors group-hover:text-white text-gray-900">{formatCurrency(r.points)}</span>
                             {/* Point change animation */}
                             {pointChanges[r._id] && (
                               <span 
@@ -1182,8 +1219,10 @@ export default function DesktopPage() {
                             )}
                           </div>
                         </button>
+                        )
                       ))}
-                      {/* View More button - shows when there are more rankings to display */}
+                      {/* View More - counted on REAL entries, never on empty slots:
+                          padding must not offer to load more of nothing. */}
                       {visibleRankingsCount < rankings.length && (
                         <button
                           onClick={() => setVisibleRankingsCount(prev => Math.min(prev + 10, rankings.length))}
@@ -1253,6 +1292,7 @@ export default function DesktopPage() {
                     username={user?.username}
                     isLoggedIn={isLoggedIn}
                     onShowSignup={() => setShowLoginPage(true)}
+                    onShowBogxers={() => handleTabChange('feed')}
                     onBack={closeNotificationView}
                   />
                 </DesktopContentWrapper>
@@ -1309,7 +1349,7 @@ export default function DesktopPage() {
               {!staticPageSlug && !selectedPlayerId && activeTab === "shop" && <DesktopContentWrapper><ShopPage coins={coins} onCoinsUsed={(amount) => { setCoins(prev => prev - amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount: -amount }); }} /></DesktopContentWrapper>}
               {!staticPageSlug && !selectedPlayerId && activeTab === "tv" && <DesktopContentWrapper><TVPage /></DesktopContentWrapper>}
               {!staticPageSlug && !selectedPlayerId && activeTab === "radio" && <DesktopContentWrapper transparent><CommunitySoundPage isDesktop={true} onBack={() => handleTabChange('feed')} onShowLogin={() => setShowLoginPage(true)} /></DesktopContentWrapper>}
-              {!staticPageSlug && !selectedPlayerId && activeTab === "notifications" && !showBattleResultId && <DesktopContentWrapper transparent><NotificationPage onGoToProfile={() => handleTabChange('profile')} onGoToBattle={(id) => { handleTabChange('arcade'); setArcadeGame('quizzbattle'); setPendingBattleId(id); }} onShowBattleResult={(id) => openNotificationView(() => setShowBattleResultId(id))} onShowChallenge={(battleId, notificationId) => openNotificationView(() => setShowChallenge({ battleId, notificationId }))} onOpenArticle={(id) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onPointsAwarded={(amount) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} onChallengeDeclined={() => setPendingChallengeCount(prev => Math.max(0, prev - 1))} autoOpenSettings={openNotificationSettings} onSettingsClosed={() => { setOpenNotificationSettings(false); if (previousTabBeforeSettings) { handleTabChange(previousTabBeforeSettings); setPreviousTabBeforeSettings(null); } }} /></DesktopContentWrapper>}
+              {!staticPageSlug && !selectedPlayerId && activeTab === "notifications" && !showBattleResultId && <DesktopContentWrapper transparent><NotificationPage onGoToProfile={() => handleTabChange('profile')} onGoToBattle={(id) => { handleTabChange('arcade'); setArcadeGame('quizzbattle'); setPendingBattleId(id); }} onShowBattleResult={(id) => openNotificationView(() => setShowBattleResultId(id))} onShowChallenge={(battleId, notificationId) => openNotificationView(() => setShowChallenge({ battleId, notificationId }))} onOpenArticle={(id) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onPointsAwarded={(amount) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} onChallengeDeclined={() => setPendingChallengeCount(prev => Math.max(0, prev - 1))} autoOpenSettings={openNotificationSettings} onSettingsClosed={() => { setOpenNotificationSettings(false); if (previousTabBeforeSettings) { handleTabChange(previousTabBeforeSettings); setPreviousTabBeforeSettings(null); } }} onShowSignup={() => setShowLoginPage(true)} onShowBogxers={() => handleTabChange('feed')} /></DesktopContentWrapper>}
               {!staticPageSlug && !selectedPlayerId && activeTab === "profile" && (isLoggedIn ? <DesktopContentWrapper><ProfilePage coins={coins} /></DesktopContentWrapper> : <DesktopLoginPage onClose={() => handleTabChange("feed")} onSuccess={() => {}} showBack={true} />)}
               {!staticPageSlug && activeTab === "rankings" && !selectedPlayerId && <DesktopRankingsPage currentUserScore={coins} onBack={() => handleTabChange('home')} onShowSignup={() => setShowLoginPage(true)} onShowRewards={() => handleTabChange('rewards')} selectedPlayerId={null} onPlayerClose={() => {}} />}
               {/* Player Profile - renders in content area, back returns to current tab */}
@@ -1320,12 +1360,12 @@ export default function DesktopPage() {
                   onClose={() => setSelectedPlayerId(null)}
                   isDesktop={true}
                   currentUserId={user?.id}
-                  onChallenge={(playerId, username) => {
+                  onChallenge={(playerId, username, avatar, countryFlag) => {
                     setSelectedPlayerId(null);
                     handleTabChange('arcade');
                     setArcadeGame('quizzbattle');
                     // Store the challenged player so BattlesPage can pre-select them
-                    setChallengeTarget({ id: playerId, username });
+                    setChallengeTarget({ id: playerId, username, avatar, countryFlag });
                   }}
                 />
               )}
@@ -1348,6 +1388,8 @@ export default function DesktopPage() {
               onOpenArticle={(id) => { setShowBattleResultId(null); setShowChallenge(null); setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }}
               onGoToProfile={() => { setShowBattleResultId(null); setShowChallenge(null); handleTabChange('profile'); }}
               onChallengeDeclined={() => setPendingChallengeCount(prev => Math.max(0, prev - 1))}
+              onShowSignup={() => setShowLoginPage(true)}
+              onShowBogxers={() => handleTabChange('feed')}
             />
 
             {/* 2. Radio Banner */}
@@ -1609,7 +1651,9 @@ export default function DesktopPage() {
         onPlayBattle={(battleId) => {
           setShowOpenBattlesModal(false);
           setPendingBattleId(battleId);
-          handleTabChange('battles');
+          // Must set arcade tab + quizzbattle game, not 'battles' tab (which doesn't exist)
+          setActiveTab('arcade');
+          setArcadeGame('quizzbattle');
         }}
         onCoinsChange={(amount, variant) => {
           setCoins(prev => prev + amount);

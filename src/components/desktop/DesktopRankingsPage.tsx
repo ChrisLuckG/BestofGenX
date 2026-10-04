@@ -210,7 +210,7 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
   return (
     <div className="w-full h-full flex flex-col overflow-y-auto bg-[#F5F0E8]" style={{ scrollbarWidth: "none" }}>
       {/* Header - Desktop warm style */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-[#E36B11]/5">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
         <div className="flex items-center gap-3">
           <Trophy className="w-5 h-5 text-[#E36B11]" />
           <div>
@@ -613,7 +613,7 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
         {!loading && rankings.length > 0 && (
           <>
             {/* Podium - Top 3 with Separators */}
-            <div className="flex items-center justify-center gap-0 px-5 py-4 border-b border-warm bg-[#E36B11]/5">
+            <div className="flex items-center justify-center gap-0 px-5 py-4 border-b border-warm bg-cream">
               {/* 2nd Place */}
               {top3[1] && (
                 <div 

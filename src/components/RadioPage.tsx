@@ -79,7 +79,7 @@ export default function RadioPage({ isDesktop = false }: RadioPageProps) {
   return (
     <div className="w-full h-full min-h-full flex flex-col overflow-hidden" style={{ backgroundColor: '#F5F0E8' }}>
       {/* Header - consistent with other pages */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-[#E36B11]/5">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
         <div className="flex items-center gap-3">
           <Radio className="w-5 h-5 text-[#E36B11]" />
           <div>
@@ -88,8 +88,10 @@ export default function RadioPage({ isDesktop = false }: RadioPageProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-[10px] font-bold text-green-600 tracking-wider">ON AIR</span>
+          {/* Music category green (#15803D from lib/categories.ts), not a generic
+              green-500 - this sits on a music surface. */}
+          <span className="w-2 h-2 rounded-full bg-[#15803D] animate-pulse" />
+          <span className="text-[10px] font-bold text-[#15803D] tracking-wider">ON AIR</span>
         </div>
       </div>
       
@@ -162,8 +164,8 @@ export default function RadioPage({ isDesktop = false }: RadioPageProps) {
             
             {songRequestSent ? (
               <div className="text-center py-4">
-                <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-green-500/20 flex items-center justify-center">
-                  <Check className="w-7 h-7 text-green-500" />
+                <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-[#15803D]/20 flex items-center justify-center">
+                  <Check className="w-7 h-7 text-[#15803D]" />
                 </div>
                 <p className="font-bold text-gray-900">Your request is underway!</p>
                 <p className="text-sm text-gray-500 mt-1">Our team will take it from here.</p>
@@ -255,8 +257,8 @@ export default function RadioPage({ isDesktop = false }: RadioPageProps) {
                   <div className={`${isDesktop ? '' : 'sm:col-span-2'}`}>
                     <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Submit</label>
                     {(songRequestData.band || songRequestData.song) ? (
-                      <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
-                        <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
+                      <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-[#15803D]/5 border border-[#15803D]/20 rounded-lg">
+                        <Check className="w-4 h-4 text-[#15803D] flex-shrink-0" />
                         <span className="text-gray-900 font-medium text-sm truncate">{songRequestData.band} – {songRequestData.song}</span>
                       </div>
                     ) : songRequestData.link ? (

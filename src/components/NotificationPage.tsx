@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Bell, BellOff, Check, Trophy, Settings, Swords, Trash2, Target, Music, X, ThumbsUp, Newspaper, Brain, Vote, ChevronLeft } from "lucide-react";
-import { WELCOME_NOTIFICATION_ID, WELCOME_GUEST_DISMISSED_KEY, WELCOME_TITLE, welcomeMessage } from "@/lib/welcomeNotification";
+import { WELCOME_NOTIFICATION_ID, WELCOME_GUEST_DISMISSED_KEY, WELCOME_GUEST_READ_KEY, WELCOME_TITLE, welcomeMessage } from "@/lib/welcomeNotification";
 import { sounds } from "@/utils/sounds";
 import { useAuth } from "@/context/AuthContext";
 import LogoLoader from "./LogoLoader";
@@ -77,9 +77,23 @@ interface NotificationPageProps {
   onInitialChallengeHandled?: () => void;
   /** Opens the sign-up flow from the welcome page's CTA (guests only). */
   onShowSignup?: () => void;
+  /** Opens the rankings from the welcome page's "Show me the BOGXers" CTA. */
+  onShowBogxers?: () => void;
   /** Host renders the welcome page itself (desktop content area). Without it the
    *  compact widget falls back to opening the News tab. */
   onShowWelcome?: () => void;
+}
+
+/**
+ * Notifications that must never be removed.
+ *
+ * The welcome message is the only way into the welcome page, and deleting it is
+ * irreversible - guests persist the dismissal in localStorage, so the entry
+ * point would be gone for good on that device. Matched on `type` rather than on
+ * the guest id alone, so the server-side welcome notification is covered too.
+ */
+function isPermanentNotification(notif: Notification): boolean {
+  return notif.type === 'welcome' || notif.id === WELCOME_NOTIFICATION_ID;
 }
 
 // Simple Notification Item with X button
@@ -90,7 +104,8 @@ function NotificationItem({
   timeAgo, 
   isUnread,
   compact = false,
-  isActive = false
+  isActive = false,
+  undeletable = false
 }: { 
   notif: Notification; 
   onDismiss: () => void; 
@@ -99,6 +114,10 @@ function NotificationItem({
   isUnread: boolean;
   compact?: boolean;
   isActive?: boolean;
+  /** Hides the trash button. The welcome message is permanent - it is the
+   *  entry point to the welcome page and there is no way to get it back once
+   *  dismissed, so it must not offer a delete affordance at all. */
+  undeletable?: boolean;
 }) {
   // Hover = orange row + cream text. `text-white` is cream by design here:
   // tailwind.config.ts remaps `white` to #F5F0E8, and that is wanted - cream on
@@ -140,16 +159,18 @@ function NotificationItem({
           {/* Date */}
           <span className={`font-display text-[10px] tracking-wide flex-shrink-0 transition-colors ${isActive ? 'text-white/70' : 'text-gray-400 group-hover:text-white/70'}`}>{timeAgo(notif.createdAt)}</span>
           
-          {/* Trash Button */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDismiss();
-            }}
-            className={`w-5 h-5 flex items-center justify-center rounded transition-colors flex-shrink-0 ${isActive ? 'text-white/70 hover:text-white hover:bg-white/20' : 'text-gray-400 hover:text-red-400 hover:bg-red-50 group-hover:text-white/70 group-hover:hover:text-white group-hover:hover:bg-white/20'}`}
-          >
-            <Trash2 className="w-3 h-3" />
-          </button>
+          {/* Trash Button - omitted entirely for permanent items */}
+          {!undeletable && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDismiss();
+              }}
+              className={`w-5 h-5 flex items-center justify-center rounded transition-colors flex-shrink-0 ${isActive ? 'text-white/70 hover:text-white hover:bg-white/20' : 'text-gray-400 hover:text-red-400 hover:bg-red-50 group-hover:text-white/70 group-hover:hover:text-white group-hover:hover:bg-white/20'}`}
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
+          )}
         </div>
         
         {/* Row 2: message text - starts at same position as avatar */}
@@ -180,16 +201,18 @@ function NotificationItem({
       }`}
       onClick={onClick}
     >
-      {/* Trash Button to dismiss */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onDismiss();
-        }}
-        className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center text-gray-600 hover:text-red-400 hover:bg-red-50 group-hover:text-white/80 rounded transition-colors"
-      >
-        <Trash2 className="w-4 h-4" />
-      </button>
+      {/* Trash Button to dismiss - omitted entirely for permanent items */}
+      {!undeletable && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDismiss();
+          }}
+          className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center text-gray-600 hover:text-red-400 hover:bg-red-50 group-hover:text-white/80 rounded transition-colors"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      )}
       
       {/* Clickable content */}
       <button 
@@ -269,7 +292,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray;
 }
 
-export default function NotificationPage({ isOpen = true, onClose, onGoToProfile, onGoToBattle, onShowBattleResult, onOpenArticle, onShowChallenge, autoEnable, onNewNotification, onPointsAwarded, autoOpenSettings, onSettingsClosed, onChallengeDeclined, compact = false, onViewAll, onOpenSettings, initialChallengeId, onInitialChallengeHandled, onShowSignup, onShowWelcome }: NotificationPageProps & { onNewNotification?: () => void }) {
+export default function NotificationPage({ isOpen = true, onClose, onGoToProfile, onGoToBattle, onShowBattleResult, onOpenArticle, onShowChallenge, autoEnable, onNewNotification, onPointsAwarded, autoOpenSettings, onSettingsClosed, onChallengeDeclined, compact = false, onViewAll, onOpenSettings, initialChallengeId, onInitialChallengeHandled, onShowSignup, onShowBogxers, onShowWelcome }: NotificationPageProps & { onNewNotification?: () => void }) {
   const { user, isLoggedIn } = useAuth();
   const [showSettings, setShowSettings] = useState(false);
   
@@ -308,30 +331,37 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
   const [activeNotificationId, setActiveNotificationId] = useState<string | null>(null);
   const [testPushLoading, setTestPushLoading] = useState(false);
 
-  // Guests have no notifications row, so the welcome message is built client-side
-  // and its dismissal is remembered in localStorage instead of on the user.
-  const [guestWelcomeDismissed, setGuestWelcomeDismissed] = useState(true);
+  // Guests have no notifications row, so the welcome message is built client-side.
+  // Read state still persists - a guest should see the unread badge until they
+  // have actually opened it, and that must survive a reload. It starts as
+  // "already read" so the badge does not flash before the effect below has run.
+  const [guestWelcomeRead, setGuestWelcomeRead] = useState(true);
   useEffect(() => {
     if (isLoggedIn) return;
     try {
-      setGuestWelcomeDismissed(!!localStorage.getItem(WELCOME_GUEST_DISMISSED_KEY));
+      setGuestWelcomeRead(!!localStorage.getItem(WELCOME_GUEST_READ_KEY));
+      // The welcome message is permanent now. Anyone who deleted it while that
+      // was still possible has a stale dismissal flag that would keep hiding it
+      // forever, so drop the key instead of leaving those devices stuck.
+      localStorage.removeItem(WELCOME_GUEST_DISMISSED_KEY);
     } catch {
-      setGuestWelcomeDismissed(false); // private mode: show it, just don't persist
+      setGuestWelcomeRead(false); // private mode: show it, just don't persist
     }
   }, [isLoggedIn]);
 
-  // The list to render: server notifications for members, the local welcome for guests
+  // The list to render: server notifications for members, the local welcome for
+  // guests. The welcome entry is unconditional - it cannot be dismissed.
   const displayNotifications: Notification[] = isLoggedIn
     ? notifications
-    : guestWelcomeDismissed
-      ? []
-      : [{
+    : [{
           id: WELCOME_NOTIFICATION_ID,
           type: 'welcome',
           title: WELCOME_TITLE,
           message: welcomeMessage(),
           avatar: '/images/genxlogo1.png',
-          read: true,
+          // Was hardcoded `true`, which meant a guest never saw the unread
+          // badge on the one message they are supposed to read.
+          read: guestWelcomeRead,
           createdAt: new Date().toISOString(),
         }];
   
@@ -417,6 +447,16 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
     window.addEventListener('notification-read', handleNotificationRead as EventListener);
     return () => window.removeEventListener('notification-read', handleNotificationRead as EventListener);
   }, []);
+
+  // Guests have no server-side read state, so the welcome message's read flag is
+  // persisted locally. Hooked on `readNotifications` rather than on the click
+  // handlers: the compact widget, the full page and the cross-instance sync event
+  // all funnel through that set, so this is the single place that covers them.
+  useEffect(() => {
+    if (isLoggedIn || !readNotifications.has(WELCOME_NOTIFICATION_ID)) return;
+    setGuestWelcomeRead(true);
+    try { localStorage.setItem(WELCOME_GUEST_READ_KEY, '1'); } catch { /* private mode */ }
+  }, [isLoggedIn, readNotifications]);
 
   // The parent closed a notification detail view (BACK) - drop the highlight
   useEffect(() => {
@@ -852,14 +892,13 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
   // Shared dismiss handler for both compact and full mode
   // Deletes the notification from the database permanently
   const handleDismissNotification = async (notif: Notification) => {
-    // Guests only have the local welcome message - remember it and skip the API
-    if (!isLoggedIn) {
-      if (notif.id === WELCOME_NOTIFICATION_ID) {
-        setGuestWelcomeDismissed(true);
-        try { localStorage.setItem(WELCOME_GUEST_DISMISSED_KEY, '1'); } catch { /* private mode */ }
-      }
-      return;
-    }
+    // Belt and braces: the trash button is not rendered for these, but the
+    // deletion is irreversible, so refuse it here too rather than relying on the
+    // UI being the only caller.
+    if (isPermanentNotification(notif)) return;
+
+    // Guests only have local notifications - nothing to call the API about
+    if (!isLoggedIn) return;
     if (!user?.id) return;
     
     // Optimistically remove from local state first
@@ -884,7 +923,12 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
   // COMPACT MODE - Sidebar widget version (uses same NotificationItem component)
   if (compact) {
     const visibleNotifications = displayNotifications.filter(n => !dismissedNotifications.has(n.id)).slice(0, 5);
-    const unreadCount = displayNotifications.filter(n => !n.read && !dismissedNotifications.has(n.id)).length;
+    // Must match the row's own `isUnread` test below, which also consults
+    // `readNotifications`. Without it the row lost its highlight on click while
+    // the badge kept counting it, so the "1" never went away.
+    const unreadCount = displayNotifications.filter(
+      n => !n.read && !readNotifications.has(n.id) && !dismissedNotifications.has(n.id)
+    ).length;
     
     return (
       <div className="bg-[#F5F0E8] rounded-xl border border-warm overflow-hidden shadow-sm">
@@ -927,6 +971,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
                 notif={notif}
                 isUnread={!notif.read && !readNotifications.has(notif.id)}
                 isActive={activeNotificationId === notif.id}
+                undeletable={isPermanentNotification(notif)}
                 onDismiss={() => handleDismissNotification(notif)}
                 onClick={() => {
                   // Set as active notification
@@ -1138,6 +1183,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
           username={user?.username}
           isLoggedIn={isLoggedIn}
           onShowSignup={onShowSignup}
+          onShowBogxers={onShowBogxers}
           onBack={() => setSelectedWelcome(false)}
         />
       )}
@@ -1303,6 +1349,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
               notif={notif}
               isUnread={!notif.read && !readNotifications.has(notif.id)}
               isActive={activeNotificationId === notif.id}
+              undeletable={isPermanentNotification(notif)}
               onDismiss={() => handleDismissNotification(notif)}
               onClick={() => {
                 // Mark as read locally (removes highlight but keeps message)
