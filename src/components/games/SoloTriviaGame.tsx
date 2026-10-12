@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Check, X, HelpCircle, Clock, Trophy, Dumbbell, Music, Film, Landmark, Gamepad2, Tv, Timer, Play, ChevronLeft, ArrowRight, Brain } from "lucide-react";
+import { Check, X, HelpCircle, Clock, Trophy, Dumbbell, Music, Film, Landmark, Gamepad2, Tv, Timer, Play, ChevronLeft, Loader2, ArrowRight, Brain, PlusCircle, MinusCircle, Shield, FileText } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import GenXLoader from "@/components/GenXLoader";
@@ -11,6 +11,7 @@ import PreparingScreen from "@/components/games/PreparingScreen";
 import { formatCurrency } from "@/utils/currency";
 import { rankingDayKey } from "@/lib/berlinTime";
 import { getTopicColor } from "@/lib/categories";
+import { useCountUp } from "@/hooks/useCountUp";
 
 interface SoloTriviaGameProps {
   onBack: () => void;
@@ -51,18 +52,94 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
   'TV': Tv,
 };
 
-// Category images (Unsplash)
-// 5 official categories only
-const CATEGORY_IMAGES: Record<string, string> = {
-  'all': 'https://images.unsplash.com/photo-1606326608606-aa0b62935f2b?w=100&h=100&fit=crop',
-  'music': 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=100&h=100&fit=crop',
-  'sports': 'https://images.unsplash.com/photo-1461896836934-480b97cb9b5a?w=100&h=100&fit=crop',
-  'movies': 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=100&h=100&fit=crop',
-  'gaming': 'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?w=100&h=100&fit=crop',
-  'politik': 'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=100&h=100&fit=crop',
+/**
+ * /api/trivia/categories answers with the stored theme strings - "TV & MOVIES",
+ * "POLITIK", "GAMING" - not with the slugs CATEGORY_ICONS/CATEGORY_IMAGES are
+ * keyed by. Every lookup therefore missed and four of the six tiles fell back to
+ * the "?" icon and to the Mixed artwork, which is what made the categories
+ * indistinguishable. Resolved here once instead of at each call site.
+ */
+const THEME_TO_SLUG: Record<string, string> = {
+  'all': 'all',
+  'mixed': 'all',
+  'music': 'music',
+  'sport': 'sports',
+  'sports': 'sports',
+  'tv & movies': 'movies',
+  'tv&movies': 'movies',
+  'movies': 'movies',
+  'film': 'movies',
+  'tv': 'movies',
+  'gaming': 'gaming',
+  'games': 'gaming',
+  'politik': 'politik',
+  'politics': 'politik',
+  'history': 'history',
 };
 
-// Default categories (5 official only)
+const categorySlug = (cat: string): string =>
+  THEME_TO_SLUG[(cat || '').trim().toLowerCase()] || (cat || '').trim().toLowerCase();
+
+/** Page background of the setup screen. */
+const CREAM = '#F5F0E8';
+
+/**
+ * Radius of the concave fillets where the stake tab flares into the panel.
+ * 16 rather than 12: the original's curve is visibly wider and softer.
+ */
+const TAB_RADIUS = 16;
+
+/**
+ * Line width of the stake tab and its panel. Every offset of the cut-out patch
+ * and the fillets is derived from it - they were hard-coded for 2px, and
+ * thinning only the borders left the panel line running through under the tab.
+ */
+const FRAME_W = 1.5;
+
+/**
+ * How far inactive stake tiles stop above the panel line. The fillet curve
+ * sweeps through this space; at 16px radius it is only ~2px out from the tab
+ * at 8px height, so it never reaches the neighbour tile above the gap.
+ */
+const TILE_GAP = 8;
+
+/**
+ * Flatten a translucent accent tint onto an opaque background.
+ *
+ * The tab has to COVER the panel's top border to read as connected, and a cover
+ * strip only works if its colour is opaque: stacking another `${accent}0f` over
+ * the panel would show as a darker band exactly where the seam should vanish.
+ */
+const mixHex = (fg: string, bg: string, alpha: number): string => {
+  const parse = (hex: string) => {
+    const h = hex.replace('#', '');
+    const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
+    return [0, 2, 4].map(i => parseInt(full.slice(i, i + 2), 16));
+  };
+  const [fr, fg_, fb] = parse(fg);
+  const [br, bg_, bb] = parse(bg);
+  const ch = (f: number, b: number) => Math.round(f * alpha + b * (1 - alpha));
+  return `#${[ch(fr, br), ch(fg_, bg_), ch(fb, bb)].map(v => v.toString(16).padStart(2, '0')).join('')}`;
+};
+
+const categoryIcon = (cat: string): LucideIcon => {
+  const slug = categorySlug(cat);
+  if (slug === 'gaming') return Gamepad2;
+  if (slug === 'politik') return Landmark;
+  return CATEGORY_ICONS[slug] || CATEGORY_ICONS[cat] || CATEGORY_ICONS[cat?.toUpperCase()] || HelpCircle;
+};
+
+// Category images (custom artwork by Fatih)
+const CATEGORY_IMAGES: Record<string, string> = {
+  'all': '/images/categories/all.png',
+  'music': '/images/categories/music.png',
+  'sports': '/images/categories/sports.png',
+  'movies': '/images/categories/movies.png',
+  'gaming': '/images/categories/gaming.png',
+  'politik': '/images/categories/politik.png',
+};
+
+// Default categories - MUST match fixedOrder in loadCategories()
 const DEFAULT_CATEGORIES = ['all', 'music', 'sports', 'movies', 'gaming', 'politik'];
 
 /** Accent used by the preparing screen; matches the game's own orange. */
@@ -78,10 +155,42 @@ const DAILY_GAME_LIMIT = 5; // Max games per day
 // changing the system timezone handed out a fresh set of games.
 const getTodayKey = () => rankingDayKey();
 
+/**
+ * True while AuthProvider is still restoring a saved session.
+ *
+ * AuthProvider starts with `user = null` and only reads localStorage in a mount
+ * effect, so the FIRST render of this component reports `isLoggedIn === false`
+ * even for a logged-in player. Checking the same key it restores from is what
+ * tells the two cases apart - a real guest from a session that is still in
+ * flight.
+ */
+const sessionRestorePending = (): boolean => {
+  try {
+    return !!localStorage.getItem('sporttock_user');
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Hard ceiling on that wait. AuthProvider's restore resolves within a tick, but
+ * a corrupt `sporttock_user` makes its JSON.parse throw and `user` then stays
+ * null forever - without this the Start button would be locked permanently.
+ */
+const SESSION_WAIT_MS = 4000;
+
 export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation, embedded = false }: SoloTriviaGameProps) {
   const { user, isLoggedIn } = useAuth();
   const [phase, setPhase] = useState<GamePhase>('setup');
   const [maxPoints, setMaxPoints] = useState<number>(0.30);
+  // Chrome floors border widths to whole device pixels, gradients and offsets
+  // it does not - so a raw 1.5px drew a 1px line with 1.5px fillets at 100%
+  // zoom and the joints kinked. Snap the width the same way the border is.
+  const [frameW, setFrameW] = useState(FRAME_W);
+  useEffect(() => {
+    const dpr = window.devicePixelRatio || 1;
+    setFrameW(Math.max(1, Math.floor(FRAME_W * dpr)) / dpr);
+  }, []);
   const [wrongPenalty, setWrongPenalty] = useState<number>(0.06); // 20% of 0.30
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null); // null = not selected yet
   const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
@@ -129,33 +238,69 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
   const startTimeRef = useRef<number>(0);
   const questionsRef = useRef<Question[]>([]);
   
-  // Load daily game count on mount
+  // Load daily game count on mount.
+  //
+  // `limitLoading` must stay TRUE until the AUTHORITATIVE count is in, because
+  // it is the only thing disabling Start. The guest branch used to run on the
+  // first render - before AuthProvider had restored the session - publish the
+  // localStorage count and clear the flag. For the second or two until the
+  // server answered, Start was enabled against a count that was often 0: on a
+  // fresh browser or another device that localStorage key does not exist, so a
+  // player who had already used all 5 games got a full extra set on the
+  // primary earning path.
   useEffect(() => {
+    let cancelled = false;
+    let waitTimer: NodeJS.Timeout | null = null;
+
+    const readLocalCount = () => {
+      try {
+        const stored = localStorage.getItem(`trivia_games_${getTodayKey()}`);
+        return stored ? parseInt(stored, 10) || 0 : 0;
+      } catch {
+        return 0;
+      }
+    };
+
+    const publishLocalCount = () => {
+      if (cancelled) return;
+      setGamesPlayedToday(readLocalCount());
+      setLimitLoading(false);
+    };
+
     const loadGamesPlayed = async () => {
       setLimitLoading(true);
-      const todayKey = getTodayKey();
-      
+
       if (isLoggedIn && user?.id) {
-        // For logged-in users, fetch from server
         try {
           const res = await fetch(`/api/user/daily-trivia-count?userId=${user.id}`);
           const data = await res.json();
-          if (data.success) {
-            setGamesPlayedToday(data.count || 0);
-          }
+          if (cancelled) return;
+          // `success: false` used to leave the count at its initial 0 - i.e.
+          // five fresh games - instead of falling back like the throw path.
+          if (data.success) setGamesPlayedToday(data.count || 0);
+          else setGamesPlayedToday(readLocalCount());
+          setLimitLoading(false);
         } catch {
-          // Fallback to localStorage
-          const stored = localStorage.getItem(`trivia_games_${todayKey}`);
-          setGamesPlayedToday(stored ? parseInt(stored, 10) : 0);
+          publishLocalCount();
         }
-      } else {
-        // For guests, use localStorage
-        const stored = localStorage.getItem(`trivia_games_${todayKey}`);
-        setGamesPlayedToday(stored ? parseInt(stored, 10) : 0);
+        return;
       }
-      setLimitLoading(false);
+
+      // Not logged in YET vs. actually a guest: with a saved session still
+      // being restored, hold the flag rather than answer from localStorage.
+      if (sessionRestorePending()) {
+        waitTimer = setTimeout(publishLocalCount, SESSION_WAIT_MS);
+        return;
+      }
+
+      publishLocalCount();
     };
+
     loadGamesPlayed();
+    return () => {
+      cancelled = true;
+      if (waitTimer) clearTimeout(waitTimer);
+    };
   }, [isLoggedIn, user?.id]);
   
   // Increment game count when a game completes
@@ -443,15 +588,12 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
         const res = await fetch('/api/trivia/categories');
         const data = await res.json();
         if (data.success && data.themes) {
-          // Normalize themes to lowercase and add 'all'
-          const dbCategories: string[] = data.themes.map((t: string) => t.toLowerCase());
-          const uniqueSet = new Set<string>(dbCategories);
-          // Fixed order - always show in this sequence
-          const fixedOrder = ['all', 'sports', 'music', 'politik', 'gaming', 'movies'];
-          const sortedCategories = fixedOrder.filter(cat => cat === 'all' || uniqueSet.has(cat));
-          // Add any remaining categories not in fixed order
-          const remaining = Array.from(uniqueSet).filter((cat: string) => !fixedOrder.includes(cat)).sort();
-          setCategories([...sortedCategories, ...remaining]);
+          // Normalize themes using categorySlug to handle "TV & MOVIES" -> "movies" etc.
+          const normalizedCategories = data.themes.map((t: string) => categorySlug(t));
+          const uniqueSet = new Set<string>(normalizedCategories);
+          // Always use DEFAULT_CATEGORIES order - no API reordering
+          // This prevents jumping when API returns categories in different order
+          setCategories(DEFAULT_CATEGORIES);
           setCategoryCounts(data.counts || {});
         }
       } catch (e) {
@@ -476,6 +618,12 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
   }, []);
 
   const startGame = async () => {
+    // The disabled attribute on the button is presentation, not enforcement:
+    // this is the one place that actually has to refuse. Starting while the
+    // count is still unknown means `canPlay` is being judged against the
+    // initial 0, which is a free extra game.
+    if (limitLoading) return;
+
     // Check daily limit
     if (!canPlay) {
       setError(`You've reached your daily limit of ${DAILY_GAME_LIMIT} games. Come back tomorrow!`);
@@ -672,32 +820,22 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
   // arrow + accent icon + title/subtitle). It was missing the icon that Battle,
   // Arcade and every other section header carry, which is a big part of why this
   // screen read as plainer/less "game-like" next to Battle Setup.
-  // Color adapts to selected category.
+  // Color adapts to selected category - used by inline headers in each phase.
   const headerColor = selectedCategory ? getTopicColor(selectedCategory) : TRIVIA_ACCENT;
-  const GameHeader = ({ showBack = true, onBackOverride }: { showBack?: boolean; onBackOverride?: () => void }) => (
-    <div className="px-4 pt-4 pb-3 border-b border-warm bg-cream">
-      <div className="flex items-center gap-3">
-        {showBack && (
-          <button 
-            onClick={onBackOverride || onBack} 
-            className="p-1 rounded transition-colors"
-            style={{ backgroundColor: `${headerColor}15` }}
-          >
-            <ChevronLeft className="w-5 h-5" style={{ color: headerColor }} />
-          </button>
-        )}
-        <Brain className="w-5 h-5" style={{ color: headerColor }} />
-        <div>
-          <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Solo Trivia</span>
-          <span className="text-[10px] text-gray-500 -mt-0.5 block">Answer fast, earn coins.</span>
-        </div>
-      </div>
-    </div>
-  );
+
+  // Result figures ramp up when the screen appears. Computed HERE, above the
+  // phase branches: inside `if (phase === 'result')` these would be conditional
+  // hook calls and React would lose the hook order on every phase change.
+  const resultAccuracy = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
+  const isResult = phase === 'result';
+  const animAccuracy = useCountUp(resultAccuracy, isResult);
+  const animNet = useCountUp(totalEarnings, isResult);
+  const animGains = useCountUp(totalGains, isResult);
+  const animLosses = useCountUp(totalLosses, isResult);
 
   // Result Phase - with question review
   if (phase === 'result') {
-    const accuracy = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
+    const accuracy = resultAccuracy;
     const resultColor = accuracy >= 80 ? '#10b981' : accuracy >= 50 ? '#E36B11' : '#ef4444';
     const resultText = accuracy >= 80 ? 'EXCELLENT!' : accuracy >= 50 ? 'GOOD JOB!' : 'KEEP TRYING!';
     const lastQuestion = questions[questions.length - 1];
@@ -709,8 +847,10 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
       const wasCorrect = answerHistory[reviewingQuestion] === 'correct';
       
       return (
-        <div className="flex flex-col h-full min-h-full bg-cream">
-          <div className="flex-1 m-2 sm:m-4 border border-warm bg-cream rounded-2xl flex flex-col p-4 sm:p-6 shadow-lg min-h-0">
+        <div className="flex flex-col h-full min-h-full bg-cream items-center">
+          {/* Centered container with max width */}
+          <div className="w-full max-w-4xl flex flex-col flex-1">
+          <div className="flex-1 m-2 sm:m-4 border border-warm bg-cream rounded-2xl flex flex-col p-4 sm:p-6 shadow-lg min-h-0 overflow-y-auto animate-[cardIn_0.4s_ease-out]">
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
               <button 
@@ -731,7 +871,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
             </div>
             
             {/* Answers - 2x2 grid */}
-            <div className="grid grid-cols-2 gap-3 flex-1">
+            <div className="grid grid-cols-2 gap-3">
               {q.options.map((option, i) => {
                 const isCorrectAnswer = i === q.correctIndex;
                 const isWrongSelection = !wasCorrect && i === q.correctIndex ? false : (!isCorrectAnswer && answerHistory[reviewingQuestion] !== 'correct');
@@ -779,80 +919,148 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
               })}
             </div>
           </div>
+          </div>{/* Close max-w-4xl container */}
         </div>
       );
     }
     
     return (
-      <div className="flex flex-col h-full min-h-full bg-cream">
-        <div className="flex-1 m-2 sm:m-4 border border-warm bg-cream rounded-2xl flex flex-col p-4 sm:p-6 shadow-lg min-h-0">
+      <div className="flex flex-col h-full min-h-full bg-cream items-center">
+        {/* Centered container with max width */}
+        <div className="w-full max-w-4xl flex flex-col flex-1">
+        {/* overflow-y-auto so a short viewport scrolls instead of clipping the
+            buttons - the wrapper now pins a definite height. */}
+        <div className="flex-1 m-2 sm:m-4 border border-warm bg-cream rounded-2xl flex flex-col p-4 sm:p-6 shadow-lg min-h-0 overflow-y-auto animate-[cardIn_0.4s_ease-out]">
           
-          {/* Result Banner */}
-          <div 
-            className="flex items-center justify-center gap-3 py-4 rounded-xl mb-4"
-            style={{ background: `linear-gradient(135deg, ${resultColor}dd 0%, ${resultColor} 100%)` }}
-          >
-            <span className="font-display text-2xl text-white tracking-wider">{resultText}</span>
-            <span className="text-white/80 text-sm">{accuracy}%</span>
+          {/* Header with Back button, Category (centered) and RESULT title */}
+          <div className="flex items-center justify-between mb-4 animate-[fadeIn_0.3s_ease-out]">
+            <button
+              onClick={onBack}
+              className="px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 font-display text-xs text-gray-600 tracking-wider transition-colors flex items-center gap-2"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Back to arcade
+            </button>
+            <span 
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-white uppercase tracking-wider font-display"
+              style={{ backgroundColor: headerColor }}
+            >
+              <CategoryIcon className="w-3.5 h-3.5" />
+              {lastQuestion?.category || 'Trivia'}
+            </span>
+            <span className="font-display text-lg sm:text-xl tracking-[0.15em] text-gray-400">RESULT</span>
+          </div>
+          <div className="mt-2 rounded-xl border border-warm bg-white/40 px-4 py-4 sm:px-5 sm:py-5 animate-[cardIn_0.45s_ease-out]">
+            <div className="flex items-center gap-4 sm:gap-6">
+              <div className="shrink-0">
+                <div
+                  className="font-display text-4xl sm:text-5xl leading-none tabular-nums animate-[headlineIn_0.5s_ease-out]"
+                  style={{ color: resultColor }}
+                >
+                  {Math.round(animAccuracy)}%
+                </div>
+                <div className="font-display text-[11px] sm:text-xs tracking-wide text-gray-500 mt-1">
+                  {correctCount} of {questions.length} correct
+                </div>
+              </div>
+              {/* LED bar - same style as countdown, driven by animAccuracy */}
+              <div className="flex-1 flex items-center gap-3 min-w-0">
+                <div className="flex-1 flex gap-1">
+                  {[...Array(10)].map((_, i) => {
+                    const threshold = (i + 1) * 10;
+                    const isActive = animAccuracy >= threshold;
+                    return (
+                      <span
+                        key={i}
+                        className="h-3 sm:h-4 flex-1 rounded transition-all duration-300"
+                        style={{
+                          backgroundColor: isActive ? resultColor : '#E5E0D8',
+                          boxShadow: isActive ? `0 0 6px ${resultColor}` : 'none'
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+                <span className="font-display text-[11px] text-gray-500 tabular-nums shrink-0">{Math.round(animAccuracy)}%</span>
+              </div>
+            </div>
+            <div
+              className="font-display text-sm tracking-wider mt-3 animate-[fadeInUp_0.5s_ease-out_0.5s_backwards]"
+              style={{ color: resultColor }}
+            >
+              {resultText}
+            </div>
           </div>
 
-          {/* Earnings */}
-          <div className="text-center mb-4">
-            <div className="flex items-center justify-center gap-3">
-              <img src="/images/bogxcoin.png" alt="" className="w-10 h-10" />
-              <span className={`font-display text-4xl ${totalEarnings >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                {totalEarnings >= 0 ? '+' : ''}{formatCurrency(totalEarnings)}
-              </span>
-            </div>
-            <p className="text-xs text-gray-500 mt-1">
-              <span className="text-green-600">+{formatCurrency(totalGains)}</span>
-              {' / '}
-              <span className="text-red-500">-{formatCurrency(totalLosses)}</span>
-            </p>
-          </div>
-
-          {/* Correct/Wrong Stats */}
-          <div className="grid grid-cols-2 gap-3 mb-4">
-            <div className="py-4 rounded-xl bg-green-100 border-2 border-green-300 flex flex-col items-center justify-center">
-              <span className="font-display text-3xl text-green-600">{correctCount}</span>
-              <span className="text-xs text-green-700 uppercase tracking-wider font-bold">Correct</span>
-            </div>
-            <div className="py-4 rounded-xl bg-red-100 border-2 border-red-300 flex flex-col items-center justify-center">
-              <span className="font-display text-3xl text-red-500">{wrongCount}</span>
-              <span className="text-xs text-red-600 uppercase tracking-wider font-bold">Wrong</span>
+          {/* Coins - net first, the two components underneath */}
+          <div className="mt-3 rounded-xl border border-warm bg-white/40 px-4 py-4 sm:px-5 flex items-center gap-4 animate-[cardIn_0.45s_ease-out_0.1s_backwards]">
+            <img src="/images/bogxcoin.png" alt="" className="w-11 h-11 sm:w-12 sm:h-12 shrink-0 animate-[popIcon_0.45s_ease-out_0.15s_backwards]" />
+            <div className="min-w-0">
+              <div className={`font-display text-2xl sm:text-3xl leading-none tabular-nums ${totalEarnings >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                {animNet >= 0 ? '+' : '-'}{formatCurrency(Math.abs(animNet))} BOGX
+              </div>
+              <div className="font-display text-[11px] sm:text-xs tracking-wide mt-1.5 tabular-nums">
+                <span className="text-green-600">+{formatCurrency(animGains)} earned</span>
+                <span className="text-gray-400"> · </span>
+                <span className="text-red-500">-{formatCurrency(animLosses)} penalties</span>
+              </div>
             </div>
           </div>
 
-          {/* Question Review - clickable */}
-          <div className="flex-1 flex flex-col">
-            <p className="text-xs text-gray-500 uppercase tracking-wider text-center mb-2">Tap to review</p>
-            <div className="flex items-center justify-center gap-2">
+          {/* QUESTIONS - tile per question with its outcome. Tiles and their
+              icons come in one after another so the round replays itself in
+              order instead of the whole row appearing at once. */}
+          <div className="flex flex-col mt-4 pt-4" style={{ borderTop: '1px solid rgba(0,0,0,0.07)' }}>
+            <span className="font-display text-[10px] text-gray-500 tracking-[0.12em]">Questions</span>
+            <div className="grid grid-cols-5 gap-2 sm:gap-3 mt-2">
               {questions.map((_, i) => {
                 const isCorrect = answerHistory[i] === 'correct';
+                const tileDelay = 0.35 + i * 0.09;
                 return (
                   <button
                     key={i}
                     onClick={() => setReviewingQuestion(i)}
-                    className={`w-12 h-12 rounded-xl font-display flex items-center justify-center transition-all hover:scale-105 ${
-                      isCorrect 
-                        ? 'bg-green-100 text-green-600 border-2 border-green-300' 
-                        : 'bg-red-100 text-red-600 border-2 border-red-300'
+                    className={`rounded-xl border flex flex-col items-center justify-center gap-2 py-3 transition-transform hover:scale-[1.03] ${
+                      isCorrect ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'
                     }`}
+                    style={{ animation: `chipIn 0.35s ease-out ${tileDelay}s backwards` }}
                   >
-                    Q{i + 1}
+                    <span className={`font-display text-[11px] sm:text-xs ${isCorrect ? 'text-green-700' : 'text-red-600'}`}>
+                      Q{i + 1}
+                    </span>
+                    <span
+                      className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center ${
+                        isCorrect ? 'bg-green-100' : 'bg-red-100'
+                      }`}
+                      style={{ animation: `popIcon 0.35s ease-out ${tileDelay + 0.12}s backwards` }}
+                    >
+                      {isCorrect
+                        ? <Check className="w-4 h-4 text-green-600" />
+                        : <X className="w-4 h-4 text-red-500" />}
+                    </span>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Bottom Buttons */}
-          <div className="flex items-center gap-3 mt-4">
+          {/* Bottom Buttons - last in, after the tiles have finished */}
+          <div
+            className="flex items-center gap-3 mt-4 pt-4"
+            style={{ borderTop: '1px solid rgba(0,0,0,0.07)', animation: 'fadeInUp 0.45s ease-out 0.85s backwards' }}
+          >
+            {/* Jumps straight to the first wrong answer - the reason to open the
+                review at all. With a clean round there is nothing to correct,
+                so it reviews from Q1 instead. */}
             <button
-              onClick={onBack}
-              className="px-6 py-3 border-2 border-warm bg-cream hover:bg-gray-50 text-gray-600 font-display text-sm tracking-widest rounded-xl transition-all"
+              onClick={() => {
+                const firstWrong = answerHistory.findIndex((a) => a !== 'correct');
+                setReviewingQuestion(firstWrong >= 0 ? firstWrong : 0);
+              }}
+              className="flex-1 py-3 border border-warm bg-cream hover:bg-white text-gray-600 font-display text-xs sm:text-sm tracking-widest rounded-xl transition-all flex items-center justify-center gap-2"
             >
-              Back
+              <FileText className="w-4 h-4" />
+              {wrongCount > 0 ? 'Review mistakes' : 'Review answers'}
             </button>
             <button
               onClick={() => {
@@ -866,14 +1074,15 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
                 setAnswerHistory([]);
                 setReviewingQuestion(null);
               }}
-              className="flex-1 py-3 text-white font-display text-sm tracking-widest rounded-xl transition-colors flex items-center justify-center gap-2 hover:opacity-90"
+              className="group flex-1 py-3 text-white font-display text-xs sm:text-sm tracking-widest rounded-xl transition-all flex items-center justify-center relative hover:opacity-90 hover:scale-[1.01] active:scale-[0.99]"
               style={{ background: `linear-gradient(135deg, ${resultColor}dd 0%, ${resultColor} 100%)` }}
             >
-              Play Again
-              <Play className="w-5 h-5" />
+              Play again
+              <ArrowRight className="w-4 h-4 absolute right-4 transition-transform group-hover:translate-x-1" />
             </button>
           </div>
         </div>
+        </div>{/* Close max-w-4xl container */}
       </div>
     );
   }
@@ -884,7 +1093,9 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
     const CategoryIcon = CATEGORY_ICONS[currentQuestion.category] || CATEGORY_ICONS[currentQuestion.category?.toUpperCase()] || HelpCircle;
     
     return (
-      <div className="flex flex-col h-full min-h-full bg-cream">
+      <div className="flex flex-col h-full min-h-full bg-cream items-center">
+        {/* Centered container with max width */}
+        <div className="w-full max-w-4xl flex flex-col flex-1">
         {/* Main Card - fills available height */}
         <div className="flex-1 m-2 sm:m-4 border border-warm bg-cream rounded-2xl flex flex-col p-4 sm:p-6 shadow-lg min-h-0">
           
@@ -930,7 +1141,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
               <div className={`font-display text-sm sm:text-xl tracking-wide ${totalEarnings >= 0 ? 'text-gray-900' : 'text-red-500'}`}>
                 {totalEarnings >= 0 ? '+' : ''}{formatCurrency(totalEarnings)}
               </div>
-              <div className="text-[9px] sm:text-xs text-gray-500">
+              <div className="font-display text-[9px] sm:text-xs text-gray-500 tabular-nums">
                 <span className="text-green-600">+{formatCurrency(totalGains)}</span>
                 {' / '}
                 <span className="text-red-500">-{formatCurrency(totalLosses)}</span>
@@ -948,10 +1159,10 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
               style={{ 
                 background: isGo 
                   ? 'linear-gradient(135deg, #10b981dd 0%, #10b981 100%)' 
-                  : 'linear-gradient(135deg, #6B7280dd 0%, #6B7280 100%)',
+                  : 'linear-gradient(135deg, #B0B8C4dd 0%, #B0B8C4 100%)',
                 boxShadow: isGo 
                   ? '0 0 25px rgba(16,185,129,0.6), inset 0 0 0 2px rgba(16,185,129,0.4)' 
-                  : '0 0 20px rgba(107,114,128,0.4), inset 0 0 0 2px rgba(107,114,128,0.4)',
+                  : '0 0 20px rgba(176,184,196,0.4), inset 0 0 0 2px rgba(176,184,196,0.4)',
                 animation: 'popIn 0.4s ease-out'
               }}
             >
@@ -977,8 +1188,8 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
                     key={i} 
                     className="h-2.5 sm:h-4 flex-1 rounded transition-all duration-300"
                     style={{ 
-                      backgroundColor: isActive ? (isGo ? '#10b981' : '#6B7280') : '#E5E0D8',
-                      boxShadow: isActive ? `0 0 8px ${isGo ? '#10b981' : '#6B7280'}` : 'none'
+                      backgroundColor: isActive ? (isGo ? '#10b981' : '#B0B8C4') : '#E5E0D8',
+                      boxShadow: isActive ? `0 0 8px ${isGo ? '#10b981' : '#B0B8C4'}` : 'none'
                     }}
                   />
                 );
@@ -1035,7 +1246,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
           </div>
 
           {/* Hidden Answers - 2x2 grid with "..." */}
-          <div className="grid grid-cols-2 gap-2 sm:gap-3 flex-1">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
             {[0, 1, 2, 3].map((i) => (
               <div 
                 key={i} 
@@ -1057,6 +1268,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
             </div>
           </div>
         </div>
+        </div>{/* Close max-w-4xl container */}
       </div>
     );
   }
@@ -1068,54 +1280,142 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
       CATEGORY_ICONS[cat] || CATEGORY_ICONS[cat.toUpperCase()] || HelpCircle;
     const categoryName =
       cat === 'all' ? 'Mixed questions' : cat.charAt(0).toUpperCase() + cat.slice(1);
+    // Use the category color, not hardcoded orange
+    const preparingColor = selectedCategory ? getTopicColor(selectedCategory) : TRIVIA_ACCENT;
 
     return (
-      <div className="w-full h-full min-h-full flex-1 flex flex-col" style={{ backgroundColor: '#F5F0E8' }}>
+      <div className="w-full h-full min-h-full flex-1 flex flex-col items-center" style={{ backgroundColor: '#F5F0E8' }}>
+        {/* Centered container with max width */}
+        <div className="w-full max-w-4xl flex flex-col flex-1">
         {/* Back returns to the category selection, not out of the game - the player
-            is mid-setup here, not mid-round. */}
-        <GameHeader onBackOverride={() => { setPhase('setup'); setQuestions([]); }} />
+            is mid-setup here, not mid-round. Inline header to ensure click handler works. */}
+        <div className="px-4 pt-4 pb-3 border-b border-warm bg-cream">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => { setPhase('setup'); setQuestions([]); }} 
+              className="p-1 rounded transition-colors"
+              style={{ backgroundColor: `${preparingColor}15` }}
+            >
+              <ChevronLeft className="w-5 h-5" style={{ color: preparingColor }} />
+            </button>
+            <Brain className="w-5 h-5" style={{ color: preparingColor }} />
+            <div>
+              <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Solo Trivia</span>
+              <span className="text-[10px] text-gray-500 -mt-0.5 block">Answer fast, earn coins.</span>
+            </div>
+          </div>
+        </div>
         <PreparingScreen
-          topicColor={TRIVIA_ACCENT}
+          topicColor={preparingColor}
           TopicIcon={CategoryIcon}
-          topicId={selectedCategory || undefined}
+          topicId={selectedCategory ? categorySlug(selectedCategory) : undefined}
+          topicLabel={categoryName}
           // Battle shows a "3 ROUNDS" pill under the heading here; Solo Trivia
           // never passed this prop even though the component supports it, so
           // the ring looked plainer next to Battle's for no real reason.
           rounds={QUESTION_COUNT}
-          subtitle={`Loading ${QUESTION_COUNT} questions · ${categoryName}`}
-          readySubtitle={`${QUESTION_COUNT} questions ready · ${categoryName}`}
+          subtitle={`Loading ${QUESTION_COUNT} questions`}
+          readySubtitle={`${QUESTION_COUNT} questions ready`}
           // Holds the ring short of full until the questions have really arrived.
           dataReady={!loading && questions.length > 0}
           onStart={runCountdown}
         >
-          {/* Round Info Card - sm:max-w-none matches Battle's Players Card exactly.
-              Without it this stayed capped at max-w-sm even on desktop, so it sat
-              at half the width of the orange banner above it while Battle's
-              equivalent card spans the same full width as its banner. */}
-          <div className="w-full max-w-sm sm:max-w-none bg-cream border border-warm rounded-xl p-4 sm:p-5 mb-6">
-            <div className="flex items-center gap-3">
-              <div
-                className="w-11 h-11 rounded-full flex items-center justify-center shrink-0"
-                style={{ backgroundColor: `${TRIVIA_ACCENT}1A` }}
-              >
-                <CategoryIcon className="w-5 h-5" style={{ color: TRIVIA_ACCENT }} />
-              </div>
-              <div className="flex-1">
-                <div className="font-display text-base tracking-wide text-gray-900">{categoryName}</div>
-                <div className="text-[11px] text-gray-400">{QUESTION_COUNT} questions · 10 sec each</div>
-              </div>
-              <div className="text-right">
-                <div className="flex items-center gap-1.5 justify-end">
-                  <img src="/images/bogxcoin.png" alt="" className="w-5 h-5" />
-                  <span className="font-display text-xl" style={{ color: TRIVIA_ACCENT }}>
-                    {(maxPoints * QUESTION_COUNT).toFixed(2)}
-                  </span>
+          {/* Round Info Card - same height as setup screen's info panel */}
+          <div className="w-full max-w-sm sm:max-w-none bg-cream border border-warm rounded-xl p-3 sm:p-4 mb-4">
+            {/* Desktop: 4 columns like setup screen */}
+            <div className="hidden sm:flex sm:items-stretch sm:justify-center text-center">
+              {/* Per correct answer */}
+              <div className="flex-1 flex flex-col items-center justify-center py-2 px-3">
+                <div className="flex items-center gap-1.5">
+                  <PlusCircle className="w-4 h-4 text-green-500" />
+                  <span className="font-display text-base text-green-600 tabular-nums">+{maxPoints.toFixed(2)}</span>
                 </div>
-                <div className="text-[10px] text-gray-400">Max win</div>
+                <span className="font-display text-[10px] tracking-wide text-gray-500 mt-0.5">Per correct answer</span>
+              </div>
+              
+              {/* Separator */}
+              <div className="w-px self-stretch my-1" style={{ backgroundColor: `${preparingColor}20` }} />
+              
+              {/* Per wrong answer */}
+              <div className="flex-1 flex flex-col items-center justify-center py-2 px-3">
+                <div className="flex items-center gap-1.5">
+                  <MinusCircle className="w-4 h-4 text-red-500" />
+                  <span className="font-display text-base text-red-500 tabular-nums">-{wrongPenalty.toFixed(2)}</span>
+                </div>
+                <span className="font-display text-[10px] tracking-wide text-gray-500 mt-0.5">Per wrong answer</span>
+              </div>
+              
+              {/* Separator */}
+              <div className="w-px self-stretch my-1" style={{ backgroundColor: `${preparingColor}20` }} />
+              
+              {/* Max win */}
+              <div className="flex-1 flex flex-col items-center justify-center py-2 px-3">
+                <div className="flex items-center gap-1.5">
+                  <Trophy className="w-4 h-4 text-amber-500" />
+                  <span className="font-display text-base text-green-600 tabular-nums">+{(maxPoints * QUESTION_COUNT).toFixed(2)}</span>
+                </div>
+                <span className="font-display text-[10px] tracking-wide text-gray-500 mt-0.5">Max win (5 correct)</span>
+              </div>
+              
+              {/* Separator */}
+              <div className="w-px self-stretch my-1" style={{ backgroundColor: `${preparingColor}20` }} />
+              
+              {/* Max loss */}
+              <div className="flex-1 flex flex-col items-center justify-center py-2 px-3">
+                <div className="flex items-center gap-1.5">
+                  <Shield className="w-4 h-4 text-red-400" />
+                  <span className="font-display text-base text-red-500 tabular-nums">-{(wrongPenalty * QUESTION_COUNT).toFixed(2)}</span>
+                </div>
+                <span className="font-display text-[10px] tracking-wide text-gray-500 mt-0.5">Max loss (5 wrong)</span>
               </div>
             </div>
+            
+            {/* Mobile: compact 2x2 grid with icons */}
+            <div className="sm:hidden">
+              {/* Correct / Wrong side by side */}
+              <div className="flex">
+                <div className="flex-1 flex flex-col items-center py-1.5">
+                  <div className="flex items-center gap-1">
+                    <PlusCircle className="w-3.5 h-3.5 text-green-500" />
+                    <span className="font-display text-sm text-green-600 tabular-nums">+{maxPoints.toFixed(2)}</span>
+                  </div>
+                  <span className="font-display text-[8px] tracking-wide text-gray-500 mt-0.5">Per correct</span>
+                </div>
+                <div className="w-px" style={{ backgroundColor: `${preparingColor}20` }} />
+                <div className="flex-1 flex flex-col items-center py-1.5">
+                  <div className="flex items-center gap-1">
+                    <MinusCircle className="w-3.5 h-3.5 text-red-500" />
+                    <span className="font-display text-sm text-red-500 tabular-nums">-{wrongPenalty.toFixed(2)}</span>
+                  </div>
+                  <span className="font-display text-[8px] tracking-wide text-gray-500 mt-0.5">Per wrong</span>
+                </div>
+              </div>
+              
+              {/* Divider */}
+              <div className="mt-1 pt-1 flex" style={{ borderTop: `1px solid ${preparingColor}20` }}>
+                <div className="flex-1 flex flex-col items-center py-1.5">
+                  <div className="flex items-center gap-1">
+                    <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                    <span className="font-display text-sm text-green-600 tabular-nums">+{(maxPoints * QUESTION_COUNT).toFixed(2)}</span>
+                  </div>
+                  <span className="font-display text-[8px] tracking-wide text-gray-500 mt-0.5">Max win (5 correct)</span>
+                </div>
+                <div className="w-px" style={{ backgroundColor: `${preparingColor}20` }} />
+                <div className="flex-1 flex flex-col items-center py-1.5">
+                  <div className="flex items-center gap-1">
+                    <Shield className="w-3.5 h-3.5 text-red-400" />
+                    <span className="font-display text-sm text-red-500 tabular-nums">-{(wrongPenalty * QUESTION_COUNT).toFixed(2)}</span>
+                  </div>
+                  <span className="font-display text-[8px] tracking-wide text-gray-500 mt-0.5">Max loss (5 wrong)</span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Footer line - same as setup screen */}
+            <p className="font-display text-[9px] sm:text-xs tracking-wide text-gray-500 text-center mt-1.5 pt-1.5 sm:mt-4 sm:pt-3" style={{ borderTop: `1px solid ${preparingColor}30` }}>5 Questions · 10 sec each · Faster = more points</p>
           </div>
         </PreparingScreen>
+        </div>{/* Close max-w-4xl container */}
       </div>
     );
   }
@@ -1124,12 +1424,84 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
   if (phase === 'setup') {
     // Accent color based on selected category
     const accentColor = selectedCategory ? getTopicColor(selectedCategory) : '#E36B11';
-    
-    return (
-      <div className="w-full h-full min-h-full flex-1 flex flex-col relative" style={{ backgroundColor: '#F5F0E8' }}>
-        <GameHeader />
+    // Shared by the stake panel AND the selected tab, so the tab can cover the
+    // panel's top border with the exact same colour and the seam disappears.
+    const panelFill = mixHex(accentColor, CREAM, 0.06);
+    // One frame colour for the tab and the panel it flows into - they have to
+    // match in BOTH states, or the tab's sides meet a different-coloured edge.
+    // Muted while step 2 is still inert, so the dimmed block does not shout.
+    const frameColor = selectedCategory ? accentColor : `${accentColor}30`;
+    // Which stake tile is the tab - the panel squares the corner underneath it
+    // when it sits at either end of the row.
+    const activeStakeIndex = POINT_OPTIONS.findIndex((p) => p === maxPoints);
+    // Quarter-circle fillet joining the tab's side border to the panel's top
+    // border. Half-pixel ramps on each stop keep the arc from looking jagged.
+    const filletGradient = (at: string) =>
+      `radial-gradient(circle at ${at}, transparent ${TAB_RADIUS - frameW - 0.5}px, ${frameColor} ${TAB_RADIUS - frameW}px, ${frameColor} ${TAB_RADIUS - 0.5}px, ${panelFill} ${TAB_RADIUS}px)`;
 
-        <div className="flex-1 overflow-y-auto px-4 py-4" style={{ scrollbarWidth: 'none' }}>
+    return (
+      <div className="w-full h-full min-h-full flex-1 flex flex-col items-center relative" style={{ backgroundColor: CREAM }}>
+        {/* Centered container with max width for consistent layout */}
+        <div className="w-full max-w-4xl flex flex-col flex-1">
+        {/* Inline header to ensure click handler works */}
+        <div className="relative px-4 pt-4 pb-3 border-b border-warm bg-cream">
+          {limitLoading && (
+            <div className="absolute left-0 right-0 -bottom-px h-0.5 overflow-hidden" style={{ backgroundColor: `${accentColor}20` }}>
+              <div
+                className="h-full w-2/5 rounded-full animate-[loadingBar_1.1s_ease-in-out_infinite]"
+                style={{ background: `linear-gradient(90deg, transparent, ${accentColor}, transparent)` }}
+              />
+            </div>
+          )}
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={onBack} 
+              className="p-1 rounded transition-colors"
+              style={{ backgroundColor: `${accentColor}15` }}
+            >
+              <ChevronLeft className="w-5 h-5" style={{ color: accentColor }} />
+            </button>
+            <Brain className="w-5 h-5" style={{ color: accentColor }} />
+            <div>
+              <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Solo Trivia</span>
+              <span className="text-[10px] text-gray-500 -mt-0.5 block">Answer fast, earn coins.</span>
+            </div>
+            {/* Remaining games belong next to the title, not under the Start
+                button: it is a precondition for playing, so it has to be
+                readable BEFORE scrolling through category and stake - at the
+                bottom it was only found after the decision was already made. */}
+            <div
+              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap"
+              style={canPlay || limitLoading ? { backgroundColor: `${accentColor}15`, color: accentColor } : { backgroundColor: '#fee2e2', color: '#dc2626' }}
+              aria-busy={limitLoading}
+            >
+              {limitLoading ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" />
+                  <span className="relative block h-2.5 w-24 rounded-full overflow-hidden" style={{ backgroundColor: `${accentColor}25` }}>
+                    <span
+                      className="absolute inset-0 -translate-x-full animate-[shimmer_1.2s_infinite]"
+                      style={{ background: `linear-gradient(90deg, transparent, ${accentColor}55, transparent)` }}
+                    />
+                  </span>
+                  <span className="sr-only">Loading games left today</span>
+                </>
+              ) : (
+                <span key="limit" className="flex items-center gap-1.5 animate-[fadeIn_0.3s_ease-out]">
+                  <Clock className="w-3.5 h-3.5 shrink-0" />
+                  {canPlay ? `${gamesRemaining} games left today` : 'No games left today'}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* min-h-0 is what makes overflow-y-auto work here. A flex item's
+            min-height defaults to `auto`, so without it this box refuses to
+            shrink below its content, grows past the viewport and the parent
+            clips it instead of scrolling - the setup screen was cut off on
+            mobile once the category grid and the stake panel got taller. */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4" style={{ scrollbarWidth: 'none' }}>
           {/* Step 1: Choose Category - 4x4 Grid */}
           <div>
             <div className="flex items-center gap-2 mb-3">
@@ -1139,57 +1511,54 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
               >1</span>
               <span className="font-display text-base text-gray-900 uppercase">Choose Category</span>
             </div>
-            {/* Mobile: horizontal slider, Desktop: 4-column grid */}
-            <div className="flex gap-2 overflow-x-auto pb-2 sm:grid sm:grid-cols-4 sm:overflow-visible sm:pb-0" style={{ scrollbarWidth: 'none' }}>
+            {/* Horizontal swipeable row on mobile, 3-column grid on larger screens */}
+            <div className="flex gap-2 overflow-x-auto pb-2 sm:grid sm:grid-cols-3 sm:overflow-visible sm:pb-0" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
               {(categories.length > 0 ? categories : DEFAULT_CATEGORIES).map((cat: string) => {
-                const Icon = CATEGORY_ICONS[cat] || CATEGORY_ICONS[cat.toUpperCase()] || HelpCircle;
-                const displayName = cat === 'all' ? 'Mixed' : cat.charAt(0).toUpperCase() + cat.slice(1);
-                const imageUrl = CATEGORY_IMAGES[cat.toLowerCase()] || CATEGORY_IMAGES['all'];
-                const catColor = getTopicColor(cat);
+                const slug = categorySlug(cat);
+                const Icon = categoryIcon(cat);
+                const displayName = slug === 'all' ? 'Mixed' : cat.charAt(0).toUpperCase() + cat.slice(1);
+                const imageUrl = CATEGORY_IMAGES[slug] || CATEGORY_IMAGES['all'];
+                const catColor = getTopicColor(slug);
                 const isSelected = selectedCategory === cat;
                 return (
                   <button
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
-                    className="group relative flex-shrink-0 px-4 py-2.5 sm:px-0 sm:py-0 sm:h-24 rounded-xl transition-all border-2 overflow-hidden flex items-center justify-center gap-2"
+                    className="group relative flex-shrink-0 w-28 h-20 sm:w-auto sm:h-24 rounded-xl transition-all border-2 overflow-hidden"
                     style={{
                       borderColor: isSelected ? catColor : 'transparent',
-                      backgroundColor: isSelected ? `${catColor}15` : `${catColor}08`,
-                      boxShadow: isSelected ? `0 0 0 2px ${catColor}30` : 'none',
+                      boxShadow: isSelected ? `0 0 0 3px ${catColor}33` : 'none',
                     }}
                   >
-                    {/* Desktop only: background image */}
+                    {/* Artwork */}
                     <div 
-                      className="absolute inset-0 hidden sm:block bg-cover bg-center transition-transform duration-300 group-hover:scale-110"
+                      className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-110"
                       style={{ backgroundImage: `url(${imageUrl})` }}
                     />
                     {/* Gradient overlay - uses category color when selected */}
                     <div 
-                      className="absolute inset-0 hidden sm:block transition-all duration-300"
+                      className="absolute inset-0 transition-all duration-300"
                       style={{
                         background: isSelected 
                           ? `linear-gradient(to top, ${catColor} 0%, ${catColor}cc 40%, ${catColor}99 100%)`
                           : 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.2) 50%, transparent 100%)'
                       }}
                     />
-                    {/* Mobile: icon + text (category color), Desktop: text always white on image */}
-                    <Icon 
-                      className={`relative z-10 sm:hidden ${isSelected ? 'w-6 h-6' : 'w-5 h-5'}`}
-                      style={{ color: isSelected ? 'white' : catColor }}
-                    />
-                    {/* Mobile text - colored */}
-                    <span 
-                      className={`relative z-10 font-display uppercase tracking-wider sm:hidden ${
-                        isSelected ? 'text-lg font-bold' : 'text-base'
-                      }`}
-                      style={{ color: isSelected ? 'white' : catColor }}
-                    >{displayName}</span>
-                    {/* Desktop text - always white on dark overlay, SAME position as before */}
-                    <span 
-                      className={`relative z-10 font-display uppercase tracking-wider hidden sm:absolute sm:bottom-2 sm:left-2 sm:block text-white drop-shadow-lg transition-all duration-300 group-hover:translate-x-1 ${
-                        isSelected ? 'text-xl font-bold' : 'text-base'
-                      }`}
-                    >{displayName}</span>
+                    {/* Checkmark badge */}
+                    {isSelected && (
+                      <span className="absolute top-1.5 right-1.5 z-20 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white flex items-center justify-center shadow">
+                        <Check className="w-3 h-3 sm:w-4 sm:h-4" strokeWidth={3} style={{ color: catColor }} />
+                      </span>
+                    )}
+                    {/* Icon next to the label */}
+                    <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1.5">
+                      <Icon className="w-4 h-4 sm:w-6 sm:h-6 text-white/90 drop-shadow" />
+                      <span 
+                        className={`font-display uppercase tracking-wider text-white drop-shadow-lg transition-all duration-300 group-hover:translate-x-1 ${
+                          isSelected ? 'text-sm sm:text-xl font-bold' : 'text-xs sm:text-base'
+                        }`}
+                      >{displayName}</span>
+                    </div>
                   </button>
                 );
               })}
@@ -1205,9 +1574,28 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
               >2</span>
               <span className="font-display text-base text-gray-900 uppercase">Choose Correct Answer Value</span>
             </div>
-            <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+            {/* The selected value is a TAB that hangs into the panel below: it
+                drops its bottom corners and its bottom border and overlaps the
+                panel's top edge by 2px, so the two read as one shape. That is
+                what ties a chosen stake to the numbers it produces - as two
+                separate boxes with a gap between them, the panel looked like
+                unrelated info rather than the consequence of the pick. */}
+            {/* No overflow-x here on purpose: `overflow-x: auto` forces the Y axis
+                to a non-visible value too, which clipped the 2px cover strip the
+                tab hangs below itself. The tiles shrink instead of scrolling.
+                No negative margin on the ROW either: that pulled every tile over
+                the panel's top border, and since the inactive tiles are
+                translucent the border showed through dimmed under them and at
+                full strength in the gaps - the row grew little purple drips.
+                Only the active tab may reach into the panel. */}
+            <div className="relative z-10 flex gap-1.5 sm:gap-2">
               {POINT_OPTIONS.map((points) => {
                 const penalty = Math.round(points * PENALTY_RATE * 100) / 100;
+                // The tab exists in BOTH states: 0.30 is a real default stake and
+                // the panel below already shows its numbers, so hiding the tab
+                // while the block is dimmed left the panel looking unattached.
+                // It is the frame COLOUR that conveys "not active yet".
+                const isActive = maxPoints === points;
                 return (
                   <button
                     key={points}
@@ -1217,152 +1605,247 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
                       setCurrentPoints(points);
                     }}
                     disabled={!selectedCategory}
-                    className="flex-1 min-w-[60px] rounded-xl border-2 p-2 sm:p-3 flex flex-col items-center text-center transition-all"
+                    // Active tab: rounded TOP, straight sides running all the way
+                    // down. The rounding at the bottom is NOT on the tab itself -
+                    // it is the two concave fillets below, which flare OUTWARD
+                    // into the panel. A rounded-xl bottom curved the sides INWARD
+                    // instead, so the tab pinched in where it should widen.
+                    // Inactive tiles stop TILE_GAP short of the panel line, the
+                    // active one runs down to it (the row stretches every tile to
+                    // the same height, the margin only shortens the inactive ones).
+                    // Flush inactive tiles sat right on the line and crowded the
+                    // fillet; the gap is the free space the curve sweeps through.
+                    className={`relative flex-1 min-w-0 px-1 py-2 sm:p-3 flex flex-col items-center text-center transition-all ${
+                      isActive ? 'rounded-t-xl rounded-b-none' : 'rounded-xl'
+                    }`}
                     style={{
-                      borderColor: maxPoints === points ? accentColor : 'transparent',
-                      backgroundColor: maxPoints === points ? `${accentColor}15` : `${accentColor}08`,
+                      // The border is always 1.5px (transparent when unselected), so
+                      // picking a value cannot change the tile's width and shift the row.
+                      borderWidth: frameW,
+                      borderStyle: 'solid',
+                      borderColor: isActive ? frameColor : 'transparent',
+                      // Bottom edge is dropped on the active tab so it opens into
+                      // the panel rather than closing itself off above it.
+                      borderBottomColor: 'transparent',
+                      // Opaque and identical to the panel fill - see mixHex.
+                      backgroundColor: isActive ? panelFill : `${accentColor}08`,
+                      marginBottom: isActive ? 0 : TILE_GAP,
                     }}
                   >
                     <div className="flex items-center gap-0.5">
                       <img src="/images/bogxcoin.png" alt="" className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       <span className="font-display text-base sm:text-xl text-gray-900">{formatCurrency(points)}</span>
                     </div>
-                    <span className="text-[8px] sm:text-[9px] text-red-500 mt-0.5">-{formatCurrency(penalty)}</span>
+                    <span className="font-display text-[8px] sm:text-[9px] text-red-500 mt-0.5 tabular-nums">-{formatCurrency(penalty)}</span>
+                    {/* Cuts the panel's top border open under the tab.
+                        Offsets on an absolutely positioned child are measured from
+                        the PADDING box: bottom -4 / height 4 spans the tab's own
+                        2px bottom border plus the panel's 2px border below it.
+                        left/right 0 = inside the tab's side borders, which stay. */}
+                    {isActive && (
+                      <span
+                        aria-hidden
+                        className="absolute pointer-events-none"
+                        style={{ left: 0, right: 0, bottom: -2 * frameW, height: 2 * frameW, backgroundColor: panelFill }}
+                      />
+                    )}
+                    {/* Concave fillets: the tab's side border bends OUTWARD into
+                        the panel's top border along a quarter circle.
+                        Each is an r x r square whose radial gradient is centred on
+                        its OUTER top corner: inside r-2 -> transparent (the gap
+                        between tiles), r-2..r -> the 2px frame arc, beyond r ->
+                        panel fill. At the square's top edge the arc band lands
+                        exactly on the tab's 2px side border, at its bottom edge on
+                        the panel's 2px top border, so both join tangentially.
+                        Skipped on the outer side of the first/last tile: there is
+                        no panel to flare into, the side runs straight down into the
+                        panel's squared corner instead. */}
+                    {/* On the outer side the transparent bottom border takes half
+                        of the bottom corner's diagonal with it, leaving a visible
+                        notch where the side meets the panel's squared corner. The
+                        2x4 patch re-draws that corner in the frame colour.
+                        Verified headless in Chrome for first/middle/last. */}
+                    {isActive && (activeStakeIndex !== 0 ? (
+                      <span
+                        aria-hidden
+                        className="absolute pointer-events-none"
+                        style={{
+                          left: -TAB_RADIUS, bottom: -2 * frameW, width: TAB_RADIUS, height: TAB_RADIUS,
+                          background: filletGradient('0 0'),
+                        }}
+                      />
+                    ) : (
+                      <span
+                        aria-hidden
+                        className="absolute pointer-events-none"
+                        style={{ left: -frameW, bottom: -2 * frameW, width: frameW, height: 2 * frameW, backgroundColor: frameColor }}
+                      />
+                    ))}
+                    {isActive && (activeStakeIndex !== POINT_OPTIONS.length - 1 ? (
+                      <span
+                        aria-hidden
+                        className="absolute pointer-events-none"
+                        style={{
+                          right: -TAB_RADIUS, bottom: -2 * frameW, width: TAB_RADIUS, height: TAB_RADIUS,
+                          background: filletGradient('100% 0'),
+                        }}
+                      />
+                    ) : (
+                      <span
+                        aria-hidden
+                        className="absolute pointer-events-none"
+                        style={{ right: -frameW, bottom: -2 * frameW, width: frameW, height: 2 * frameW, backgroundColor: frameColor }}
+                      />
+                    ))}
                   </button>
                 );
               })}
             </div>
-          </div>
 
-          {/* Info Box - How it Works - disabled until category selected */}
+          {/* Info Box - the numbers the selected stake produces. Full accent
+              border only once a category is chosen, so the tab above continues
+              into the same colour; while the block is still inert it stays a
+              faint tint instead of shouting in the accent colour.
+
+              The corner under an outer tab is squared: the first/last tile's
+              side border is flush with the panel's edge, so a 12px radius curved
+              away from it and the frame visibly tore open there. */}
           <div 
-            className={`rounded-xl border mt-3 p-2 sm:p-5 transition-opacity ${selectedCategory ? '' : 'opacity-40'}`}
+            className={`p-2 sm:p-5 rounded-xl ${
+              activeStakeIndex === 0 ? 'rounded-tl-none' : ''
+            } ${activeStakeIndex === POINT_OPTIONS.length - 1 ? 'rounded-tr-none' : ''}`}
             style={{ 
-              backgroundColor: `${accentColor}08`,
-              borderColor: `${accentColor}30`,
+              backgroundColor: panelFill,
+              border: `${frameW}px solid ${frameColor}`,
             }}
           >
-            {/* Mobile: 2 rows with Correct/Wrong side by side, then Max Win/Loss */}
-            {/* Desktop: 4 columns */}
-            <div className="hidden sm:flex sm:items-center sm:justify-center gap-4 text-center">
-              {/* Desktop layout - 4 items with separator between Wrong and Max Win */}
-              <div className="flex-1">
-                <span className="font-display text-xs text-gray-500 uppercase">Correct</span>
-                <div className="flex items-center justify-center gap-1 mt-1.5">
-                  <img src="/images/bogxcoin.png" alt="" className="w-6 h-6" />
-                  <span className="text-green-500 font-bold text-xl">+</span>
-                  <span className="font-display text-3xl text-green-600 tabular-nums">{formatCurrency(displayCorrect)}</span>
+            {/* Desktop: 4 columns with icons like original */}
+            <div className="hidden sm:flex sm:items-stretch sm:justify-center text-center">
+              {/* Per correct answer */}
+              <div className="flex-1 flex flex-col items-center justify-center py-2 px-3">
+                <div className="flex items-center gap-1.5">
+                  <PlusCircle className="w-4 h-4 text-green-500" />
+                  <span className="font-display text-base text-green-600 tabular-nums">+{formatCurrency(displayCorrect)}</span>
                 </div>
-                <span className="text-[9px] text-gray-400">max per answer</span>
-              </div>
-              <div className="flex-1">
-                <span className="font-display text-xs text-gray-500 uppercase">Wrong</span>
-                <div className="flex items-center justify-center gap-1 mt-1.5">
-                  <img src="/images/bogxcoin.png" alt="" className="w-6 h-6" />
-                  <span className="text-red-500 font-bold text-xl">-</span>
-                  <span className="font-display text-3xl text-red-500 tabular-nums">{formatCurrency(displayWrong)}</span>
-                </div>
-                <span className="text-[9px] text-gray-400">per wrong/timeout</span>
+                <span className="font-display text-[10px] tracking-wide text-gray-500 mt-0.5">Per correct answer</span>
               </div>
               
               {/* Separator */}
-              <div className="w-px h-16 mx-2" style={{ backgroundColor: `${accentColor}30` }} />
+              <div className="w-px self-stretch my-1" style={{ backgroundColor: `${accentColor}20` }} />
               
-              <div className="flex-1">
-                <span className="font-display text-xs text-gray-500 uppercase">Max Win</span>
-                <div className="flex items-center justify-center gap-1 mt-1.5">
-                  <img src="/images/bogxcoin.png" alt="" className="w-6 h-6" />
-                  <span className="text-green-500 font-bold text-xl">+</span>
-                  <span className="font-display text-3xl text-green-600 tabular-nums">{formatCurrency(displayMaxWin)}</span>
+              {/* Per wrong answer */}
+              <div className="flex-1 flex flex-col items-center justify-center py-2 px-3">
+                <div className="flex items-center gap-1.5">
+                  <MinusCircle className="w-4 h-4 text-red-500" />
+                  <span className="font-display text-base text-red-500 tabular-nums">-{formatCurrency(displayWrong)}</span>
                 </div>
-                <span className="text-[9px] text-gray-400">5 correct</span>
+                <span className="font-display text-[10px] tracking-wide text-gray-500 mt-0.5">Per wrong answer</span>
               </div>
-              <div className="flex-1">
-                <span className="font-display text-xs text-gray-500 uppercase">Max Loss</span>
-                <div className="flex items-center justify-center gap-1 mt-1.5">
-                  <img src="/images/bogxcoin.png" alt="" className="w-6 h-6" />
-                  <span className="text-red-500 font-bold text-xl">-</span>
-                  <span className="font-display text-3xl text-red-500 tabular-nums">{formatCurrency(displayMaxLoss)}</span>
+              
+              {/* Separator */}
+              <div className="w-px self-stretch my-1" style={{ backgroundColor: `${accentColor}20` }} />
+              
+              {/* Max win */}
+              <div className="flex-1 flex flex-col items-center justify-center py-2 px-3">
+                <div className="flex items-center gap-1.5">
+                  <Trophy className="w-4 h-4 text-amber-500" />
+                  <span className="font-display text-base text-green-600 tabular-nums">+{formatCurrency(displayMaxWin)}</span>
                 </div>
-                <span className="text-[9px] text-gray-400">5 wrong</span>
+                <span className="font-display text-[10px] tracking-wide text-gray-500 mt-0.5">Max win (5 correct)</span>
+              </div>
+              
+              {/* Separator */}
+              <div className="w-px self-stretch my-1" style={{ backgroundColor: `${accentColor}20` }} />
+              
+              {/* Max loss */}
+              <div className="flex-1 flex flex-col items-center justify-center py-2 px-3">
+                <div className="flex items-center gap-1.5">
+                  <Shield className="w-4 h-4 text-red-400" />
+                  <span className="font-display text-base text-red-500 tabular-nums">-{formatCurrency(displayMaxLoss)}</span>
+                </div>
+                <span className="font-display text-[10px] tracking-wide text-gray-500 mt-0.5">Max loss (5 wrong)</span>
               </div>
             </div>
             
-            {/* Mobile layout - 2x2 grid compact */}
+            {/* Mobile layout - 2x2 grid compact with icons */}
             <div className="sm:hidden">
               {/* Correct / Wrong side by side */}
-              <div className="flex gap-2">
-                <div className="flex-1 text-center">
-                  <span className="text-[9px] text-gray-500 uppercase">Correct</span>
-                  <div className="flex items-center justify-center gap-0.5">
-                    <span className="text-green-500 font-bold text-sm">+</span>
-                    <span className="font-display text-base text-green-600 tabular-nums">{formatCurrency(displayCorrect)}</span>
-                    <img src="/images/bogxcoin.png" alt="" className="w-3 h-3" />
+              <div className="flex">
+                <div className="flex-1 flex flex-col items-center py-1.5">
+                  <div className="flex items-center gap-1">
+                    <PlusCircle className="w-3.5 h-3.5 text-green-500" />
+                    <span className="font-display text-sm text-green-600 tabular-nums">+{formatCurrency(displayCorrect)}</span>
                   </div>
+                  <span className="font-display text-[8px] tracking-wide text-gray-500 mt-0.5">Per correct</span>
                 </div>
-                <div className="w-px" style={{ backgroundColor: `${accentColor}30` }} />
-                <div className="flex-1 text-center">
-                  <span className="text-[9px] text-gray-500 uppercase">Wrong</span>
-                  <div className="flex items-center justify-center gap-0.5">
-                    <span className="text-red-500 font-bold text-sm">-</span>
-                    <span className="font-display text-base text-red-500 tabular-nums">{formatCurrency(displayWrong)}</span>
-                    <img src="/images/bogxcoin.png" alt="" className="w-3 h-3" />
+                <div className="w-px" style={{ backgroundColor: `${accentColor}20` }} />
+                <div className="flex-1 flex flex-col items-center py-1.5">
+                  <div className="flex items-center gap-1">
+                    <MinusCircle className="w-3.5 h-3.5 text-red-500" />
+                    <span className="font-display text-sm text-red-500 tabular-nums">-{formatCurrency(displayWrong)}</span>
                   </div>
+                  <span className="font-display text-[8px] tracking-wide text-gray-500 mt-0.5">Per wrong</span>
                 </div>
               </div>
               
               {/* Divider */}
-              <div className="mt-1.5 pt-1.5 flex gap-2" style={{ borderTop: `1px solid ${accentColor}30` }}>
-                <div className="flex-1 text-center">
-                  <span className="text-[9px] text-gray-500 uppercase">Max Win</span>
-                  <div className="flex items-center justify-center gap-0.5">
-                    <span className="text-green-500 font-bold text-sm">+</span>
-                    <span className="font-display text-base text-green-600 tabular-nums">{formatCurrency(displayMaxWin)}</span>
-                    <img src="/images/bogxcoin.png" alt="" className="w-3 h-3" />
+              <div className="mt-1 pt-1 flex" style={{ borderTop: `1px solid ${accentColor}20` }}>
+                <div className="flex-1 flex flex-col items-center py-1.5">
+                  <div className="flex items-center gap-1">
+                    <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                    <span className="font-display text-sm text-green-600 tabular-nums">+{formatCurrency(displayMaxWin)}</span>
                   </div>
+                  <span className="font-display text-[8px] tracking-wide text-gray-500 mt-0.5">Max win (5 correct)</span>
                 </div>
-                <div className="w-px" style={{ backgroundColor: `${accentColor}30` }} />
-                <div className="flex-1 text-center">
-                  <span className="text-[9px] text-gray-500 uppercase">Max Loss</span>
-                  <div className="flex items-center justify-center gap-0.5">
-                    <span className="text-red-500 font-bold text-sm">-</span>
-                    <span className="font-display text-base text-red-500 tabular-nums">{formatCurrency(displayMaxLoss)}</span>
-                    <img src="/images/bogxcoin.png" alt="" className="w-3 h-3" />
+                <div className="w-px" style={{ backgroundColor: `${accentColor}20` }} />
+                <div className="flex-1 flex flex-col items-center py-1.5">
+                  <div className="flex items-center gap-1">
+                    <Shield className="w-3.5 h-3.5 text-red-400" />
+                    <span className="font-display text-sm text-red-500 tabular-nums">-{formatCurrency(displayMaxLoss)}</span>
                   </div>
+                  <span className="font-display text-[8px] tracking-wide text-gray-500 mt-0.5">Max loss (5 wrong)</span>
                 </div>
               </div>
             </div>
             
-            <p className="text-[9px] sm:text-xs text-gray-500 text-center mt-1.5 pt-1.5 sm:mt-4 sm:pt-3" style={{ borderTop: `1px solid ${accentColor}30` }}>5 Questions · 10 sec each · Faster = more points</p>
+            <p className="font-display text-[9px] sm:text-xs tracking-wide text-gray-500 text-center mt-1.5 pt-1.5 sm:mt-4 sm:pt-3" style={{ borderTop: `1px solid ${accentColor}30` }}>5 Questions · 10 sec each · Faster = more points</p>
+          </div>
+          {/* Closes the step-2 wrapper. The panel lives INSIDE it so tab row and
+              panel share one opacity group while inert: with an opacity-40 on
+              each, the tab's cover strip was itself 40% and only half hid the
+              panel border under it, so the seam came back in the dimmed state. */}
           </div>
 
-          {/* Daily Games Remaining */}
-          <div className="flex items-center justify-center gap-2 mt-4">
-            <div 
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium"
-              style={canPlay ? { backgroundColor: `${accentColor}15`, color: accentColor } : { backgroundColor: '#fee2e2', color: '#dc2626' }}
-            >
-              <Clock className="w-3.5 h-3.5" />
-              {limitLoading ? '...' : canPlay ? `${gamesRemaining} games left today` : 'No games left today'}
-            </div>
-          </div>
+          {/* Daily games remaining moved into the header next to the title. */}
 
-          {/* Start Button - centered, narrower - disabled until category selected */}
+          {/* Start Button - full width of the panel above, the primary action
+              of the whole screen. hover:scale is toned down to 1.01: at full
+              width a 2% grow pushed the edges visibly past the panel. */}
           <div className="flex flex-col items-center mt-4 gap-3">
             <button
               onClick={startGame}
               disabled={loading || !canPlay || limitLoading || !selectedCategory}
-              className={`px-12 py-3.5 rounded-2xl text-white font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2 whitespace-nowrap ${
-                canPlay && selectedCategory ? 'hover:scale-[1.02] active:scale-[0.98]' : 'opacity-50 cursor-not-allowed'
+              /* `limitLoading` is part of the ready test here too. Without it
+                 the button looked fully enabled (orange, hover scale) while the
+                 allowance was still unknown, so it invited the very click the
+                 disabled attribute then swallowed. */
+              className={`w-full py-3.5 rounded-2xl text-white font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2 whitespace-nowrap ${
+                canPlay && selectedCategory && !limitLoading ? 'hover:scale-[1.01] active:scale-[0.99]' : 'opacity-50 cursor-not-allowed'
               } disabled:opacity-50`}
-              style={{ 
-                background: canPlay && selectedCategory 
-                  ? `linear-gradient(135deg, ${accentColor}cc 0%, ${accentColor} 50%, ${accentColor}99 100%)` 
-                  : '#9CA3AF' 
+              style={{
+                background: canPlay && selectedCategory && !limitLoading
+                  ? `linear-gradient(135deg, ${accentColor}cc 0%, ${accentColor} 50%, ${accentColor}99 100%)`
+                  : '#9CA3AF'
               }}
             >
-              <Play className="w-5 h-5" />
-              {!selectedCategory ? 'SELECT CATEGORY' : canPlay ? 'START GAME' : 'TOMORROW'}
+              {limitLoading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <Play className="w-5 h-5" />
+              )}
+              {limitLoading
+                ? 'CHECKING GAMES LEFT'
+                : !selectedCategory ? 'SELECT CATEGORY' : canPlay ? 'START GAME' : 'TOMORROW'}
             </button>
             {error && (
               <p className="text-red-500 text-sm text-center px-4">{error}</p>
@@ -1378,6 +1861,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
             <button style={{ color: accentColor }} className="hover:underline">How it works</button>
           </div>
         </div>
+        </div>{/* Close max-w-4xl container */}
       </div>
     );
   }
@@ -1397,7 +1881,9 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
     const CategoryIcon = CATEGORY_ICONS[currentQuestion.category] || CATEGORY_ICONS[currentQuestion.category?.toUpperCase()] || HelpCircle;
     
     return (
-      <div className="flex flex-col h-full min-h-full bg-cream">
+      <div className="flex flex-col h-full min-h-full bg-cream items-center">
+        {/* Centered container with max width */}
+        <div className="w-full max-w-4xl flex flex-col flex-1">
         {/* Main Card - fills available height */}
         <div className="flex-1 m-2 sm:m-4 border border-warm bg-cream rounded-2xl flex flex-col p-4 sm:p-6 shadow-lg min-h-0">
           
@@ -1596,7 +2082,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
           </div>
 
           {/* Answers - 2x2 grid with Battle animations */}
-          <div className="grid grid-cols-2 gap-2 sm:gap-3 flex-1">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
             {currentQuestion.options.map((option, i) => {
               const delay = `${i * 0.08}s`;
               let className = 'rounded-xl p-3 sm:p-4 min-h-[60px] sm:min-h-[72px] text-base sm:text-lg font-display tracking-wide flex items-center justify-center text-center transition-all cursor-pointer';
@@ -1717,6 +2203,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
             </div>
           )}
         </div>
+        </div>{/* Close max-w-4xl container */}
       </div>
     );
   }

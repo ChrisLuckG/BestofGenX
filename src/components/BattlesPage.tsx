@@ -3,9 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { 
-  Plus, ChevronLeft, ChevronRight, Swords, Check, X, Clock, HelpCircle, Trophy, Coins, Users,
+  Plus, ChevronLeft, ChevronRight, ChevronDown, Swords, Check, X, Clock, HelpCircle, Trophy, Coins, Users,
   Dumbbell, Music, Film, Landmark, Shirt, Gamepad2, Tv, Palette, UtensilsCrossed, Play, Lock, LayoutGrid,
-  Target, Zap, RefreshCcw, Shield, Loader2, Search, ArrowRight, ArrowLeft, Globe, BarChart3, Bell
+  Target, Zap, RefreshCcw, Shield, Loader2, Search, ArrowRight, ArrowLeft, Globe, BarChart3, Bell, Info
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -19,6 +19,7 @@ import InviteFlowModal from "@/components/battles/InviteFlowModal";
 import { formatCurrency, getCurrencySymbol } from "@/utils/currency";
 import { sounds } from "@/utils/sounds";
 import { compareBattleResults } from "@/utils/battleWinner";
+import { useCountUp } from "@/hooks/useCountUp";
 import OpenBattlesModal from "@/components/OpenBattlesModal";
 // Shared with Solo Trivia so both games start the same way.
 import PreparingScreen, { TOPIC_BACKGROUNDS } from "@/components/games/PreparingScreen";
@@ -205,6 +206,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   const [inviteSearchResults, setInviteSearchResults] = useState<any[]>([]);
   const [inviteOnlinePlayers, setInviteOnlinePlayers] = useState<any[]>([]);
   const [invitePlayerFilter, setInvitePlayerFilter] = useState<'all' | 'online' | 'country' | 'level'>('all');
+  const [inviteSelectedCountries, setInviteSelectedCountries] = useState<string[]>([]);
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [inviteIsSearching, setInviteIsSearching] = useState(false);
   const [inviteLoadingOnline, setInviteLoadingOnline] = useState(false);
   const [selectedInviteUser, setSelectedInviteUser] = useState<any>(
@@ -261,6 +264,36 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   const [showAnswer, setShowAnswer] = useState(false);
   const [isCreator, setIsCreator] = useState(false); // Track if current player is the creator
   
+  // Result-screen figures, ramped up like Solo Trivia's result page. Derived
+  // HERE rather than inside renderResultScreen(): that helper only runs for one
+  // screen value, so hooks called in it would be conditional and React would
+  // lose the hook order on every screen change.
+  const resultMyCorrect = myResults.filter(r => r.correct).length;
+  const resultOppCorrect = opponentResults.filter(r => r.correct).length;
+  const resultRounds = currentBattle?.rounds || 0;
+  const resultComplete = resultRounds > 0 && myResults.length >= resultRounds;
+  const resultAnimating = screen === 'result' && resultComplete;
+  const resultCmp = compareBattleResults(myResults, opponentResults);
+  // `wager` IS the BOGX amount - the local toBOGX() below is the identity
+  // function. Not calling it here because it is declared further down in the
+  // component body, so referencing it at this point hits the TDZ.
+  const resultWagerBogx = currentBattle?.wager ?? 0;
+  // A draw returns the wager, so nothing is won or lost.
+  const resultCoinDelta = resultCmp === 0 ? 0 : resultCmp > 0 ? resultWagerBogx : -resultWagerBogx;
+  const animResultAccuracy = useCountUp(
+    resultRounds > 0 ? Math.round((resultMyCorrect / resultRounds) * 100) : 0,
+    resultAnimating,
+  );
+  const animResultCoins = useCountUp(resultCoinDelta, resultAnimating);
+  const animResultMyScore = useCountUp(resultMyCorrect, resultAnimating, 700);
+  const animResultOppScore = useCountUp(resultOppCorrect, resultAnimating, 700);
+
+  // Animated prize pool for Create Battle screen
+  const animPrizePool = useCountUp(createWager * 2, showCreate, 400);
+
+  /** Section label, identical to Solo Trivia's RESULT / QUESTIONS headings. */
+  const resultSectionLabel = 'font-display text-[10px] text-gray-500 tracking-[0.12em]';
+
   // Refs
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
@@ -1970,159 +2003,184 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
       </div>
       
       {/* Create Battle Fullscreen */}
-      {showCreate && (
+      {showCreate && (() => {
+        const selectedTopic = TOPICS.find(t => t.id === createTopic);
+        const topicColor = selectedTopic?.color || '#6B7280';
+        const TopicIcon = selectedTopic?.icon || Target;
+        return (
         <div className="absolute inset-0 z-[100] overflow-y-auto" style={{ backgroundColor: '#F5F0E8', scrollbarWidth: 'none' }}>
-          {/* Header - same height as QuizzBattle header */}
-          <div className="sticky top-0 z-10 flex items-center justify-between px-3 pt-4 pb-3 border-b border-warm bg-[#F5F0E8]">
-            <div className="flex items-center gap-2">
-              <BackButton onClick={() => setShowCreate(false)} className="-ml-1" />
-              <img src="/images/Icon/trivia1.png" alt="" className="w-5 h-5 object-contain" />
+          {/* Header - adapts to selected topic color */}
+          <div className="sticky top-0 z-10 px-4 pt-4 pb-3 border-b border-warm bg-cream transition-colors">
+            <div className="flex items-center gap-3">
+              <button onClick={() => setShowCreate(false)} className="p-1 hover:bg-black/5 rounded transition-colors">
+                <ChevronLeft className="w-5 h-5" style={{ color: topicColor }} />
+              </button>
+              <TopicIcon className="w-5 h-5" style={{ color: topicColor }} />
               <div>
-                <span className="font-display text-lg tracking-wider text-gray-900">Create Battle</span>
-                <p className="text-[10px] text-gray-500 -mt-0.5 whitespace-nowrap">Set wager and topic.</p>
-              </div>
-            </div>
-            {/* Invisible placeholder to match pool header height */}
-            <div className="flex items-center gap-2 flex-shrink-0 opacity-0 pointer-events-none">
-              <div className="flex flex-col items-center px-2 py-1.5">
-                <Swords className="w-3.5 h-3.5" />
-                <span className="text-[10px]">INVITE</span>
-              </div>
-              <div className="flex flex-col items-center px-2 py-1.5">
-                <Plus className="w-3.5 h-3.5" />
-                <span className="text-[10px]">CREATE</span>
+                <span className="font-display text-lg tracking-wider block leading-none transition-colors" style={{ color: topicColor }}>CREATE BATTLE</span>
+                <span className="text-[10px] text-gray-500 -mt-0.5 block">Set wager and topic.</span>
               </div>
             </div>
           </div>
           
           <div className="p-4">
-            {/* Step 1: Wager - Green theme like success/score */}
+            {/* Step 1: Topic - same as Solo Trivia */}
             <div className="mb-4">
               <div className="flex items-center gap-1.5 mb-2">
-                <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
-                <span className="font-display text-base tracking-wider text-green-600">SELECT WAGER</span>
+                <Target className="w-4 h-4" style={{ color: topicColor }} />
+                <span className="font-display text-base tracking-wider transition-colors" style={{ color: topicColor }}>CHOOSE TOPIC</span>
               </div>
-              {/* 3x2 Grid - compact for mobile */}
-              <div className="grid grid-cols-3 gap-2">
-                {WAGERS.map(w => {
-                  const isSelected = createWager === w.amount;
-                  return (
-                    <button
-                      key={w.amount}
-                      onClick={() => setCreateWager(w.amount)}
-                      className={`relative py-2.5 px-2 rounded-xl transition-all duration-200 ${
-                        isSelected
-                          ? 'bg-green-500 text-white shadow-lg'
-                          : 'bg-white border border-warm text-green-600 active:scale-[0.98]'
-                      }`}
-                    >
-                      <div className="flex items-center justify-center gap-1.5 mb-0.5">
-                        <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
-                        <span className="font-display text-lg tracking-wide">
-                          {formatCurrency(w.amount)}
-                        </span>
-                      </div>
-                      <div className={`text-[10px] font-bold tracking-wider ${isSelected ? 'text-white/80' : 'text-green-500/60'}`}>
-                        {w.rounds} Rounds
-                      </div>
-                      {isSelected && (
-                        <div className="absolute top-1 right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center">
-                          <Check className="w-2.5 h-2.5 text-green-500" />
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            
-            {/* Step 2: Topic - each button in its own color */}
-            <div className="mb-4">
-              <div className="flex items-center gap-1.5 mb-2">
-                <Target className="w-4 h-4 text-gray-600" />
-                <span className="font-display text-base tracking-wider text-gray-900">CHOOSE TOPIC</span>
-              </div>
-              {/* 3 columns for compact mobile */}
+              {/* 3 columns with category images - same style as Solo Trivia */}
               <div className="grid grid-cols-3 gap-2">
                 {TOPICS.map(t => {
                   const isSelected = createTopic === t.id;
+                  const bgImage = TOPIC_BACKGROUNDS[t.id];
                   return (
                     <button
                       key={t.id}
                       onClick={() => setCreateTopic(t.id)}
-                      className={`relative py-2.5 font-display text-xs tracking-wider rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 border ${
-                        isSelected
-                          ? 'text-white shadow-lg border-transparent'
-                          : 'bg-white active:scale-[0.98]'
-                      }`}
-                      style={isSelected 
-                        ? { backgroundColor: t.color } 
-                        : { color: t.color, borderColor: `${t.color}40`, backgroundColor: `${t.color}08` }
-                      }
+                      className="group relative h-20 sm:h-24 rounded-xl transition-all border-2 overflow-hidden"
+                      style={{
+                        borderColor: isSelected ? t.color : 'transparent',
+                        boxShadow: isSelected ? `0 0 0 3px ${t.color}33` : 'none',
+                      }}
                     >
-                      <t.icon className="w-3.5 h-3.5" />
-                      <span className="uppercase">{t.label}</span>
-                      {isSelected && (
-                        <div className="absolute top-1 right-1 w-3.5 h-3.5 bg-white rounded-full flex items-center justify-center">
-                          <Check className="w-2 h-2" style={{ color: t.color }} />
-                        </div>
+                      {/* Artwork */}
+                      {bgImage && (
+                        <div 
+                          className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-110"
+                          style={{ backgroundImage: `url('${bgImage}')` }}
+                        />
                       )}
+                      {/* Gradient overlay - uses category color when selected */}
+                      <div 
+                        className="absolute inset-0 transition-all duration-300"
+                        style={{
+                          background: isSelected 
+                            ? `linear-gradient(to top, ${t.color} 0%, ${t.color}cc 40%, ${t.color}99 100%)`
+                            : 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.2) 50%, transparent 100%)'
+                        }}
+                      />
+                      {/* Checkmark badge */}
+                      {isSelected && (
+                        <span className="absolute top-1.5 right-1.5 z-20 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white flex items-center justify-center shadow">
+                          <Check className="w-3 h-3 sm:w-4 sm:h-4" strokeWidth={3} style={{ color: t.color }} />
+                        </span>
+                      )}
+                      {/* Icon + label at bottom left */}
+                      <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1.5">
+                        <t.icon className="w-4 h-4 sm:w-5 sm:h-5 text-white/90 drop-shadow" />
+                        <span 
+                          className={`font-display uppercase tracking-wider text-white drop-shadow-lg transition-all duration-300 group-hover:translate-x-1 ${
+                            isSelected ? 'text-sm sm:text-base font-bold' : 'text-xs sm:text-sm'
+                          }`}
+                        >{t.label}</span>
+                      </div>
                     </button>
                   );
                 })}
               </div>
             </div>
-            
-            {/* Prize Pool Preview - compact, uses topic color */}
-            {(() => {
-              const selectedTopic = TOPICS.find(t => t.id === createTopic);
-              const topicColor = selectedTopic?.color || '#6B7280';
-              return (
-                <>
-                  <div 
-                    className="flex items-center justify-between px-3 py-2 rounded-xl mb-3 border"
-                    style={{ backgroundColor: `${topicColor}15`, borderColor: `${topicColor}30` }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Trophy className="w-4 h-4" style={{ color: topicColor }} />
-                      <span className="text-xs font-bold text-gray-700">Prize Pool</span>
+
+            {/* Step 2: Wager - uses topic color */}
+            <div className="mb-4">
+              <div className="flex items-center gap-1.5 mb-2">
+                <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
+                <span className="font-display text-base tracking-wider transition-colors" style={{ color: topicColor }}>SELECT WAGER</span>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <img src="/images/bogxcoin.png" alt="" className="w-5 h-5" />
-                      <span className="font-display text-xl" style={{ color: topicColor }}>{formatCurrency(createWager * 2)}</span>
+                    {/* 3x2 Grid - compact for mobile */}
+                    <div className="grid grid-cols-3 gap-2">
+                      {WAGERS.map(w => {
+                        const isSelected = createWager === w.amount;
+                        return (
+                          <button
+                            key={w.amount}
+                            onClick={() => setCreateWager(w.amount)}
+                            className={`relative py-2.5 px-2 rounded-xl transition-all duration-200 ${
+                              isSelected
+                                ? 'text-white shadow-lg'
+                                : 'bg-white border border-warm active:scale-[0.98]'
+                            }`}
+                            style={isSelected 
+                              ? { backgroundColor: topicColor } 
+                              : { color: topicColor }
+                            }
+                          >
+                            <div className="flex items-center justify-center gap-1.5 mb-0.5">
+                              <img src="/images/bogxcoin.png" alt="" className="w-4 h-4" />
+                              <span className="font-display text-lg tracking-wide">
+                                {formatCurrency(w.amount)}
+                              </span>
+                            </div>
+                            <div 
+                              className="text-[10px] font-bold tracking-wider"
+                              style={{ color: isSelected ? 'rgba(255,255,255,0.8)' : `${topicColor}99` }}
+                            >
+                              {w.rounds} Rounds
+                            </div>
+                            {isSelected && (
+                              <div className="absolute top-1 right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center">
+                                <Check className="w-2.5 h-2.5" style={{ color: topicColor }} />
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
-                  
-                  {/* Start Battle Button */}
-                  <button
-                    onClick={() => handleCreateBattle(false)}
-                    disabled={isGenerating}
-                    className={`w-full py-3.5 rounded-xl font-display text-lg tracking-widest flex items-center justify-center gap-2 transition-all ${
-                      isGenerating 
-                        ? 'text-white/50 cursor-wait' 
-                        : 'text-white shadow-lg active:scale-[0.99] active:brightness-90'
-                    }`}
-                    style={{ backgroundColor: isGenerating ? `${topicColor}80` : topicColor }}
-                  >
-                    {isGenerating ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        GENERATING...
-                      </>
-                    ) : (
-                      <>
-                        <Swords className="w-5 h-5" />
-                        OPEN BATTLE
-                      </>
-                    )}
-                  </button>
-                  <p className="text-center text-gray-400 text-[10px] mt-2">Anyone can accept your challenge</p>
-                </>
-              );
-            })()}
+            
+            {/* Prize Pool Preview */}
+            <div 
+              className="flex items-center justify-between px-3 py-2 rounded-xl mb-3 border transition-colors"
+              style={{ backgroundColor: `${topicColor}15`, borderColor: `${topicColor}30` }}
+            >
+              <div className="flex items-center gap-2">
+                <Trophy className="w-4 h-4" style={{ color: topicColor }} />
+                <span className="text-xs font-bold text-gray-700">Prize Pool</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <img src="/images/bogxcoin.png" alt="" className="w-5 h-5" />
+                <span className="font-display text-xl tabular-nums transition-colors" style={{ color: topicColor }}>{formatCurrency(animPrizePool)}</span>
+              </div>
+            </div>
+            
+            {/* Cancel + Start Battle Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowCreate(false)}
+                className="flex-1 py-3.5 rounded-xl font-display text-base tracking-widest border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 hover:border-gray-400 active:scale-[0.99] flex items-center justify-center gap-2 transition-all"
+              >
+                <X className="w-5 h-5" />
+                CANCEL
+              </button>
+              <button
+                onClick={() => handleCreateBattle(false)}
+                disabled={isGenerating}
+                className={`flex-1 py-3.5 rounded-xl font-display text-base tracking-widest flex items-center justify-center gap-2 transition-all ${
+                  isGenerating 
+                    ? 'text-white/50 cursor-wait' 
+                    : 'text-white shadow-lg active:scale-[0.99] active:brightness-90'
+                }`}
+                style={{ backgroundColor: isGenerating ? `${topicColor}80` : topicColor }}
+              >
+                {isGenerating ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    GENERATING...
+                  </>
+                ) : (
+                  <>
+                    <Swords className="w-5 h-5" />
+                    OPEN {selectedTopic?.label?.toUpperCase() || 'BATTLE'} BATTLE
+                  </>
+                )}
+              </button>
+            </div>
+            <p className="text-center text-gray-400 text-[10px] mt-2">Anyone can accept your challenge</p>
           </div>
         </div>
-      )}
+        );
+      })()}
 
 
       {/* Battle List */}
@@ -2479,8 +2537,24 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
           if (invitePlayerFilter === 'online') {
             players = players.filter((p: any) => p.isOnline);
           }
-          if (invitePlayerFilter === 'country' && user?.country) {
-            players = players.filter((p: any) => p.country === user.country);
+          // Filter by selected countries
+          // countryFlag can be emoji (🇩🇪) or ISO code (DE)
+          if (inviteSelectedCountries.length > 0) {
+            const flagEmojiToCode = (flag: string): string | null => {
+              if (!flag) return null;
+              if (flag.length === 2 && flag.charCodeAt(0) < 127) return flag.toUpperCase();
+              const cps = Array.from(flag).map(c => c.codePointAt(0) ?? 0);
+              if (cps.length >= 2 && cps[0] >= 0x1f1e6 && cps[0] <= 0x1f1ff) {
+                const a = String.fromCharCode(cps[0] - 0x1f1e6 + 65);
+                const b = String.fromCharCode(cps[1] - 0x1f1e6 + 65);
+                return a + b;
+              }
+              return null;
+            };
+            players = players.filter((p: any) => {
+              const code = flagEmojiToCode(p.countryFlag);
+              return code && inviteSelectedCountries.includes(code);
+            });
           }
           setInviteOnlinePlayers(players);
         }
@@ -2492,7 +2566,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     };
     
     fetchPlayers();
-  }, [screen, invitePlayerFilter, user?.id, user?.country]);
+  }, [screen, invitePlayerFilter, inviteSelectedCountries, user?.id, user?.country]);
   
   // Search users for invite
   useEffect(() => {
@@ -2746,23 +2820,121 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         {inviteStep === 1 && (
           <>
             {/* Filter Tabs + Search in one row */}
-            <div className="flex gap-2 mb-3">
-              {(['online', 'country', 'level'] as const).map(filter => (
+            <div className="relative flex gap-2 mb-3">
+              {/* Online Filter */}
+              <button
+                onClick={() => setInvitePlayerFilter(invitePlayerFilter === 'online' ? 'all' : 'online')}
+                className={`py-2 px-3 text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                  invitePlayerFilter === 'online'
+                    ? 'bg-[#6B7280] text-white'
+                    : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300'
+                }`}
+              >
+                <div className={`w-2 h-2 rounded-full ${invitePlayerFilter === 'online' ? 'bg-green-400' : 'bg-green-500'}`} /> Online
+              </button>
+              
+              {/* Country Filter with Dropdown */}
+              <div>
                 <button
-                  key={filter}
-                  onClick={() => setInvitePlayerFilter(invitePlayerFilter === filter ? 'all' : filter)}
+                  onClick={() => setShowCountryPicker(!showCountryPicker)}
                   className={`py-2 px-3 text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap ${
-                    invitePlayerFilter === filter
+                    inviteSelectedCountries.length > 0
                       ? 'bg-[#6B7280] text-white'
                       : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300'
                   }`}
                 >
-                  {filter === 'online' && <><div className={`w-2 h-2 rounded-full ${invitePlayerFilter === filter ? 'bg-green-400' : 'bg-green-500'}`} /> Online</>}
-                  {filter === 'country' && <><Globe className="w-3.5 h-3.5" /> Country</>}
-                  {filter === 'level' && <><BarChart3 className="w-3.5 h-3.5" /> Level</>}
+                  <Globe className="w-3.5 h-3.5" />
+                  {inviteSelectedCountries.length > 0 ? `${inviteSelectedCountries.length} Countries` : 'Country'}
+                  <ChevronDown className="w-3 h-3" />
                 </button>
-              ))}
-              {/* Search Input - next to Level */}
+                
+                {/* Country Picker Dropdown - Full width, no scroll */}
+                {showCountryPicker && (
+                  <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl p-3 overflow-visible">
+                    {/* Header */}
+                    <div className="flex justify-between items-center mb-2 pb-1.5 border-b border-gray-100">
+                      <span className="text-xs font-display font-medium text-gray-900">SELECT COUNTRIES</span>
+                      {inviteSelectedCountries.length > 0 && (
+                        <button
+                          onClick={() => setInviteSelectedCountries([])}
+                          className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
+                        >
+                          Clear all ({inviteSelectedCountries.length})
+                        </button>
+                      )}
+                    </div>
+                    
+                    {/* Country Grid - responsive, fixed layout */}
+                    <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-1">
+                      {[
+                        { code: 'DE', name: 'Germany' },
+                        { code: 'AT', name: 'Austria' },
+                        { code: 'CH', name: 'Switzerland' },
+                        { code: 'GB', name: 'UK' },
+                        { code: 'FR', name: 'France' },
+                        { code: 'IT', name: 'Italy' },
+                        { code: 'ES', name: 'Spain' },
+                        { code: 'PT', name: 'Portugal' },
+                        { code: 'NL', name: 'Netherlands' },
+                        { code: 'BE', name: 'Belgium' },
+                        { code: 'PL', name: 'Poland' },
+                        { code: 'SE', name: 'Sweden' },
+                        { code: 'NO', name: 'Norway' },
+                        { code: 'DK', name: 'Denmark' },
+                        { code: 'FI', name: 'Finland' },
+                        { code: 'IE', name: 'Ireland' },
+                        { code: 'US', name: 'USA' },
+                        { code: 'CA', name: 'Canada' },
+                        { code: 'MX', name: 'Mexico' },
+                        { code: 'BR', name: 'Brazil' },
+                        { code: 'AR', name: 'Argentina' },
+                        { code: 'AU', name: 'Australia' },
+                        { code: 'NZ', name: 'New Zealand' },
+                        { code: 'JP', name: 'Japan' },
+                      ].map(country => {
+                        const isSelected = inviteSelectedCountries.includes(country.code);
+                        return (
+                          <button
+                            key={country.code}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (isSelected) {
+                                setInviteSelectedCountries(inviteSelectedCountries.filter(c => c !== country.code));
+                              } else {
+                                setInviteSelectedCountries([...inviteSelectedCountries, country.code]);
+                              }
+                            }}
+                            className={`flex items-center gap-1 px-1 py-1 rounded text-left transition-all border ${
+                              isSelected 
+                                ? 'bg-[#6B7280] text-white border-[#6B7280]' 
+                                : 'bg-white hover:bg-gray-50 border-gray-200 hover:border-gray-300'
+                            }`}
+                          >
+                            <CountryFlag flag={country.code} className="w-4 h-3 rounded-[2px] flex-shrink-0" />
+                            <span className={`text-[10px] truncate ${isSelected ? 'text-white' : 'text-gray-700'}`}>
+                              {country.name}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Level Filter */}
+              <button
+                onClick={() => setInvitePlayerFilter(invitePlayerFilter === 'level' ? 'all' : 'level')}
+                className={`py-2 px-3 text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                  invitePlayerFilter === 'level'
+                    ? 'bg-[#6B7280] text-white'
+                    : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300'
+                }`}
+              >
+                <BarChart3 className="w-3.5 h-3.5" /> Level
+              </button>
+              
+              {/* Search Input */}
               <div className="relative flex-1 min-w-0">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
@@ -2775,53 +2947,165 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
               </div>
             </div>
             
-            {/* Player List - taller to fill more space */}
-            <div className="bg-white border border-warm rounded-xl overflow-hidden shadow-sm overflow-y-auto" style={{ scrollbarWidth: 'none', maxHeight: 'calc(100vh - 280px)' }}>
+            {/* Click outside to close country picker */}
+            {showCountryPicker && (
+              <div 
+                className="fixed inset-0 z-40" 
+                onClick={() => setShowCountryPicker(false)}
+              />
+            )}
+            
+            {/* Player List - cards on desktop, list on mobile */}
+            <div className="overflow-y-auto" style={{ scrollbarWidth: 'none', maxHeight: 'calc(100vh - 280px)' }}>
               {inviteLoadingOnline || inviteIsSearching ? (
                 // Skeleton loading placeholders
-                <div className="divide-y divide-warm/30">
-                  {Array.from({ length: 8 }).map((_, i) => (
-                    <div key={i} className="flex items-center gap-3 px-3 py-2.5 animate-pulse">
-                      <div className="w-9 h-9 rounded-full bg-skeleton" />
-                      <div className="flex-1 space-y-1.5">
-                        <div className="h-3 w-24 bg-skeleton rounded" />
-                        <div className="h-2 w-16 bg-skeleton-light rounded" />
-                      </div>
-                      <div className="h-3 w-12 bg-skeleton rounded" />
+                <div className={`${isDesktop ? 'grid grid-cols-4 gap-2.5' : 'bg-white border border-warm rounded-xl overflow-hidden shadow-sm divide-y divide-warm/30'}`}>
+                  {Array.from({ length: isDesktop ? 12 : 8 }).map((_, i) => (
+                    <div key={i} className={`animate-pulse ${isDesktop ? 'p-3 bg-cream border border-warm rounded-xl' : 'flex items-center gap-3 px-3 py-2.5'}`}>
+                      {isDesktop ? (
+                        <>
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="w-10 h-10 rounded-full bg-skeleton" />
+                            <div className="flex-1 space-y-1">
+                              <div className="h-3 w-20 bg-skeleton rounded" />
+                              <div className="h-2 w-14 bg-skeleton-light rounded" />
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="w-9 h-9 rounded-full bg-skeleton" />
+                          <div className="flex-1 space-y-1.5">
+                            <div className="h-3 w-24 bg-skeleton rounded" />
+                            <div className="h-2 w-16 bg-skeleton-light rounded" />
+                          </div>
+                          <div className="h-3 w-12 bg-skeleton rounded" />
+                        </>
+                      )}
                     </div>
                   ))}
                 </div>
               ) : (inviteSearchQuery ? inviteSearchResults : inviteOnlinePlayers).length === 0 ? (
                 <div className="p-4 text-center text-gray-500 text-sm">No players found</div>
-              ) : (
-                (inviteSearchQuery ? inviteSearchResults : inviteOnlinePlayers).map((player: any) => (
-                  <button
-                    key={player._id}
-                    onClick={() => handleSelectPlayer(player)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 border-b border-warm/30 last:border-b-0 transition-colors hover:bg-[#6B7280]/5"
-                  >
-                    <div className="w-9 h-9 rounded-full overflow-hidden border border-warm bg-cream flex-shrink-0">
-                      {player.avatar ? (
-                        <img src={player.avatar} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm font-bold">
-                          {player.username?.[0]?.toUpperCase() || '?'}
+              ) : isDesktop ? (
+                // Desktop: Card grid like battle pool
+                <div className="grid grid-cols-4 gap-2.5">
+                  {(inviteSearchQuery ? inviteSearchResults : inviteOnlinePlayers).map((player: any) => {
+                    const isOnline = player.isOnline;
+                    const totalBattles = (player.battlesWon || 0) + (player.battlesLost || 0);
+                    const winRate = totalBattles > 0 ? Math.round((player.battlesWon / totalBattles) * 100) : 0;
+                    const h2h = player.h2h;
+                    return (
+                      <button
+                        key={player._id}
+                        onClick={() => handleSelectPlayer(player)}
+                        className={`relative p-3 bg-cream border-2 rounded-xl transition-all duration-200 active:scale-[0.97] text-left group ${
+                          isOnline 
+                            ? 'border-warm hover:border-[#6B7280] hover:bg-white hover:shadow-xl hover:-translate-y-1' 
+                            : 'border-gray-200 opacity-50 hover:opacity-70'
+                        }`}
+                      >
+                        {/* Online indicator - subtle line top right corner */}
+                        {isOnline && (
+                          <div className="absolute top-0 right-0 w-6 h-1 bg-green-500 rounded-bl rounded-tr-xl" />
+                        )}
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-warm bg-white flex-shrink-0 group-hover:border-[#6B7280] transition-colors">
+                            {player.avatar ? (
+                              <img src={player.avatar} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm font-bold">
+                                {player.username?.[0]?.toUpperCase() || '?'}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              {player.countryFlag && <CountryFlag flag={player.countryFlag} className="w-4 h-3 flex-shrink-0" />}
+                              <span className="font-display text-sm tracking-wide text-gray-900 truncate group-hover:text-[#6B7280] transition-colors">{player.username}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                              <span className="font-medium">#{player.rank || '—'}</span>
+                              <span className="flex items-center gap-0.5">
+                                <img src="/images/bogxcoin.png" alt="" className="w-3 h-3" />
+                                {(player.points ?? player.bogxCoins ?? 0).toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                      )}
-                    </div>
-                    <div className="flex-1 flex items-center gap-2 text-left min-w-0">
-                      <span className="font-display text-[13px] tracking-wide text-gray-900 truncate">{player.username}</span>
-                      {player.countryFlag && <CountryFlag flag={player.countryFlag} className="w-4 h-3 flex-shrink-0" />}
-                      {player.isOnline && <span className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0" />}
-                      {/* Coins fill the gap, right aligned */}
-                      <span className="ml-auto flex items-center gap-1 font-display text-sm tracking-wide text-gray-700 flex-shrink-0">
-                        <img src="/images/bogxcoin.png" alt="" className="w-3.5 h-3.5" />
-                        {(player.points ?? player.bogxCoins ?? 0).toFixed(2)}
-                      </span>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
-                  </button>
-                ))
+                        {/* Stats row - always show */}
+                        <div className="flex items-center justify-between text-[10px] text-gray-500 border-t border-warm/50 pt-2 mt-1">
+                          {/* Battle stats */}
+                          <div className="flex items-center gap-2">
+                            <span className="flex items-center gap-0.5">
+                              <Swords className="w-3 h-3" />
+                              {totalBattles}
+                            </span>
+                            {totalBattles > 0 && (
+                              <span className={`font-medium ${winRate >= 50 ? 'text-green-600' : 'text-gray-500'}`}>
+                                {winRate}%
+                              </span>
+                            )}
+                          </div>
+                          {/* H2H - form circles like football */}
+                          {h2h && (h2h.wins > 0 || h2h.losses > 0) ? (() => {
+                            const results: ('W' | 'L')[] = [];
+                            for (let i = 0; i < h2h.wins; i++) results.push('W');
+                            for (let i = 0; i < h2h.losses; i++) results.push('L');
+                            const display = results.slice(0, 5);
+                            return (
+                              <div className="flex items-center gap-0.5">
+                                {display.map((r, i) => (
+                                  <div
+                                    key={i}
+                                    className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white ${
+                                      r === 'W' ? 'bg-green-500' : 'bg-red-500'
+                                    }`}
+                                  >
+                                    {r}
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })() : (
+                            <span className="text-gray-400 italic">No H2H yet</span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                // Mobile: List view
+                <div className="bg-white border border-warm rounded-xl overflow-hidden shadow-sm">
+                  {(inviteSearchQuery ? inviteSearchResults : inviteOnlinePlayers).map((player: any) => (
+                    <button
+                      key={player._id}
+                      onClick={() => handleSelectPlayer(player)}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 border-b border-warm/30 last:border-b-0 transition-colors hover:bg-[#6B7280]/5"
+                    >
+                      <div className="w-9 h-9 rounded-full overflow-hidden border border-warm bg-cream flex-shrink-0">
+                        {player.avatar ? (
+                          <img src={player.avatar} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm font-bold">
+                            {player.username?.[0]?.toUpperCase() || '?'}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 flex items-center gap-2 text-left min-w-0">
+                        <span className="font-display text-[13px] tracking-wide text-gray-900 truncate">{player.username}</span>
+                        {player.countryFlag && <CountryFlag flag={player.countryFlag} className="w-4 h-3 flex-shrink-0" />}
+                        {player.isOnline && <span className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0" />}
+                        <span className="ml-auto flex items-center gap-1 font-display text-sm tracking-wide text-gray-700 flex-shrink-0">
+                          <img src="/images/bogxcoin.png" alt="" className="w-3.5 h-3.5" />
+                          {(player.points ?? player.bogxCoins ?? 0).toFixed(2)}
+                        </span>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
           </>
@@ -2876,44 +3160,53 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
               <span className="font-display text-base tracking-wider text-gray-900">SELECT TOPIC</span>
             </div>
 
-            {/* Same 3-column grid, tile size and selected state as the wager step,
-                so both steps read as one screen instead of two differently scaled
-                ones - including the white check badge on the active tile. */}
+            {/* Same style as Solo Trivia category selection */}
             <div className="grid grid-cols-3 gap-2 mb-4">
               {TOPICS.map((t) => {
                 const Icon = t.icon;
                 const isSelected = pendingTopic === t.id;
+                const bgImage = TOPIC_BACKGROUNDS[t.id];
                 return (
                   <button
                     key={t.id}
                     onClick={() => handleSelectTopic(t.id)}
-                    className={`relative rounded-xl overflow-hidden transition-all active:scale-[0.98] group border-2 ${
-                      isSelected ? 'shadow-lg' : ''
-                    }`}
-                    style={{ 
-                      backgroundColor: isSelected ? t.color : `${t.color}15`,
-                      borderColor: isSelected ? t.color : `${t.color}40`,
+                    className="group relative h-20 sm:h-24 rounded-xl transition-all border-2 overflow-hidden"
+                    style={{
+                      borderColor: isSelected ? t.color : 'transparent',
+                      boxShadow: isSelected ? `0 0 0 3px ${t.color}33` : 'none',
                     }}
                   >
-                    <div className="p-2.5 flex flex-col items-center justify-center gap-1.5">
+                    {/* Artwork */}
+                    {bgImage && (
                       <div 
-                        className="w-9 h-9 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110"
-                        style={{ backgroundColor: isSelected ? 'rgba(255,255,255,0.2)' : t.color }}
-                      >
-                        <Icon className="w-5 h-5 text-white" />
-                      </div>
-                      <span 
-                        className="font-display text-base tracking-wide"
-                        style={{ color: isSelected ? '#FFFFFF' : t.color }}
-                      >
-                        {t.label}
-                      </span>
-                    </div>
-                    {isSelected && (
-                      <div className="absolute top-1 right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center">
-                        <Check className="w-2.5 h-2.5" style={{ color: t.color }} />
-                      </div>
+                        className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-110"
+                        style={{ backgroundImage: `url('${bgImage}')` }}
+                      />
                     )}
+                    {/* Gradient overlay - uses category color when selected */}
+                    <div 
+                      className="absolute inset-0 transition-all duration-300"
+                      style={{
+                        background: isSelected 
+                          ? `linear-gradient(to top, ${t.color} 0%, ${t.color}cc 40%, ${t.color}99 100%)`
+                          : 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.2) 50%, transparent 100%)'
+                      }}
+                    />
+                    {/* Checkmark badge */}
+                    {isSelected && (
+                      <span className="absolute top-1.5 right-1.5 z-20 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white flex items-center justify-center shadow">
+                        <Check className="w-3 h-3 sm:w-4 sm:h-4" strokeWidth={3} style={{ color: t.color }} />
+                      </span>
+                    )}
+                    {/* Icon + label at bottom left */}
+                    <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1.5">
+                      <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white/90 drop-shadow" />
+                      <span 
+                        className={`font-display uppercase tracking-wider text-white drop-shadow-lg transition-all duration-300 group-hover:translate-x-1 ${
+                          isSelected ? 'text-sm sm:text-base font-bold' : 'text-xs sm:text-sm'
+                        }`}
+                      >{t.label}</span>
+                    </div>
                   </button>
                 );
               })}
@@ -3034,7 +3327,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                     </div>
                     <div className="flex items-center gap-1.5">
                       <img src="/images/bogxcoin.png" alt="" className="w-5 h-5" />
-                      <span className="font-display text-xl" style={{ color: topicColor }}>{formatCurrency(createWager * 2)}</span>
+                      <span className="font-display text-xl tabular-nums" style={{ color: topicColor }}>{formatCurrency(animPrizePool)}</span>
                     </div>
                   </div>
                   
@@ -3077,9 +3370,10 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
               topicColor={topicColor}
               TopicIcon={TopicIcon}
               topicId={createTopic}
+              topicLabel={selectedTopic?.label}
               rounds={createWager >= 1.00 ? 5 : 3}
-              player1={{ username: user?.username || 'You', avatar: user?.avatar }}
-              player2={{ username: selectedInviteUser.username, avatar: selectedInviteUser.avatar }}
+              player1={{ username: user?.username || 'You', avatar: user?.avatar, country: user?.country, countryFlag: user?.countryFlag }}
+              player2={{ username: selectedInviteUser.username, avatar: selectedInviteUser.avatar, country: selectedInviteUser.country, countryFlag: selectedInviteUser.countryFlag }}
               subtitle={`Setting up your battle against ${selectedInviteUser.username}`}
               readySubtitle={`Your battle against ${selectedInviteUser.username} is ready`}
               onStart={() => {
@@ -3095,32 +3389,15 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                 </p>
               }
             >
-              {/* Battle Info Card - full width */}
+              {/* Battle Info Card. Reduced to the prize pool: the banner above
+                  already shows both players, and the footer below already says
+                  that the opponent gets notified and has 24h - this card used
+                  to repeat the avatar, the name AND the notification line. */}
               <div className="w-full bg-cream border border-warm rounded-xl p-4 mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-warm">
-                    {selectedInviteUser.avatar ? (
-                      <img src={selectedInviteUser.avatar} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500 text-base font-bold">
-                        {selectedInviteUser.username?.[0]?.toUpperCase()}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-display text-xl tracking-wide text-gray-900">{selectedInviteUser.username}</div>
-                    <div className="font-display text-xs tracking-wide text-gray-500 flex items-center gap-1">
-                      <Bell className="w-3 h-3" />
-                      will be notified after you play
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="flex items-center gap-2 justify-end">
-                      <span className="font-display text-sm tracking-wide text-gray-900">Prize Pool</span>
-                      <img src="/images/bogxcoin.png" alt="" className="w-6 h-6" />
-                      <span className="font-display text-2xl" style={{ color: topicColor }}>{(createWager * 2).toFixed(2)}</span>
-                    </div>
-                  </div>
+                <div className="flex items-center justify-center gap-2">
+                  <span className="font-display text-sm tracking-wide text-gray-900">Prize Pool</span>
+                  <img src="/images/bogxcoin.png" alt="" className="w-6 h-6" />
+                  <span className="font-display text-2xl tabular-nums" style={{ color: topicColor }}>{formatCurrency(animPrizePool)}</span>
                 </div>
               </div>
             </PreparingScreen>
@@ -3325,7 +3602,11 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
               disabled={givingUp}
               className="p-1 rounded transition-colors disabled:opacity-50 hover:bg-black/5"
             >
-              <ChevronLeft className="w-5 h-5" style={{ color: topic.color }} />
+              {givingUp ? (
+                <Loader2 className="w-5 h-5 animate-spin" style={{ color: topic.color }} />
+              ) : (
+                <ChevronLeft className="w-5 h-5" style={{ color: topic.color }} />
+              )}
             </button>
             <Swords className="w-5 h-5" style={{ color: topic.color }} />
             <div>
@@ -3338,74 +3619,66 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
           topicColor={topic.color}
           TopicIcon={topic.icon}
           topicId={topic.id}
+          topicLabel={topic.label}
           rounds={currentBattle?.rounds || 5}
-          player1={{ username: user?.username || 'You', avatar: user?.avatar }}
-          player2={{ username: opponent?.username || 'Opponent', avatar: opponent?.avatar }}
+          player1={{ username: user?.username || 'You', avatar: user?.avatar, country: user?.country, countryFlag: user?.countryFlag }}
+          player2={{ username: opponent?.username || 'Opponent', avatar: opponent?.avatar, country: opponent?.country, countryFlag: opponent?.countryFlag }}
           subtitle={`Preparing battle against ${opponent?.username || 'Opponent'}`}
           readySubtitle={`Battle against ${opponent?.username || 'Opponent'} is ready`}
           dataReady={!isAccepting}
+          startLabel="START BATTLE"
           onStart={startFromPreparing}
+          onCancel={leavePreparing}
+          cancelLabel="CANCEL"
         >
-          {/* Players Card */}
-          <div className="w-full max-w-sm sm:max-w-none bg-cream border border-warm rounded-xl p-4 sm:p-5 mb-3">
-            <div className="flex items-center gap-4 sm:gap-16">
-              {/* You */}
-              <div className="flex flex-col items-center gap-1 sm:gap-1.5">
-                <div className="w-11 h-11 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 sm:border-[3px]" style={{ borderColor: topic.color }}>
-                  <img src={user?.avatar || 'https://i.pravatar.cc/80?img=47'} alt="" className="w-full h-full object-cover" />
+          {/* The Players Card that used to sit here is gone: the banner above
+              already shows both avatars, both names and the VS. It only existed
+              to label the topic and the round count, which the banner now
+              carries as pills (topicLabel/rounds). */}
+
+          {/* Wager -> Prize. The arrow between the two halves is the point of
+              this card: the second number is not a separate fact, it is what
+              the first one turns into if you win. */}
+          <div className="w-full max-w-sm sm:max-w-none bg-cream border border-warm rounded-xl p-3 sm:p-4 mb-3">
+            <div className="flex items-center">
+              {/* Your Wager */}
+              <div className="flex-1 min-w-0 flex flex-col items-center justify-center py-1">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Coins className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 shrink-0" />
+                  <span className="font-display text-[10px] sm:text-xs text-gray-500 tracking-wider">Your Wager</span>
                 </div>
-                <span className="text-[10px] sm:text-base font-display text-gray-600">You</span>
-              </div>
-              
-              {/* VS + Topic */}
-              <div className="flex-1 flex flex-col items-center gap-1 sm:gap-2">
-                <span className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-0.5 sm:py-1 rounded text-[9px] sm:text-sm uppercase tracking-wider font-bold" style={{ backgroundColor: `${topic.color}15`, color: topic.color }}>
-                  <topic.icon className="w-2.5 h-2.5 sm:w-5 sm:h-5" /> {topic.label}
-                </span>
-                <span className="font-display text-sm sm:text-2xl text-gray-400">VS</span>
-                <span className="text-[10px] sm:text-base text-gray-400">{currentBattle.rounds} rounds</span>
-              </div>
-              
-              {/* Opponent */}
-              <div className="flex flex-col items-center gap-1 sm:gap-1.5">
-                <div className="w-11 h-11 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 sm:border-[3px] border-warm">
-                  <img src={opponent?.avatar || 'https://i.pravatar.cc/80?img=12'} alt="" className="w-full h-full object-cover" />
+                <div className="flex items-center gap-1.5">
+                  <span className="font-display text-xl sm:text-3xl text-gray-800 tabular-nums">{formatCurrency(toBOGX(currentBattle.wager))}</span>
+                  <img src="/images/bogxcoin.png" alt="" className="w-4 h-4 sm:w-6 sm:h-6" />
                 </div>
-                <span className="text-[10px] sm:text-base font-display text-gray-600 truncate max-w-[60px] sm:max-w-[140px]">{opponent?.username || 'Opponent'}</span>
+              </div>
+
+              {/* Divider + direction */}
+              <div className="shrink-0 flex items-center px-1 sm:px-3">
+                <div className="w-px h-10 sm:h-12 bg-warm" />
+                <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 mx-1.5 sm:mx-3 shrink-0" />
+                <div className="w-px h-10 sm:h-12 bg-warm" />
+              </div>
+
+              {/* Winner takes */}
+              <div className="flex-1 min-w-0 flex flex-col items-center justify-center py-1">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" style={{ color: topic.color }} />
+                  <span className="font-display text-[10px] sm:text-xs tracking-wider" style={{ color: topic.color }}>Winner Takes</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-display text-xl sm:text-3xl tabular-nums" style={{ color: topic.color }}>{formatCurrency(toBOGX(currentBattle.wager * 2))}</span>
+                  <img src="/images/bogxcoin.png" alt="" className="w-4 h-4 sm:w-6 sm:h-6" />
+                </div>
               </div>
             </div>
           </div>
-          
-          {/* Wager + Prize Pool Card - side by side layout */}
-          <div className="w-full max-w-sm sm:max-w-none bg-cream border border-warm rounded-xl p-3 sm:p-4 mb-4">
-            <div className="flex items-stretch gap-3">
-              {/* Your Wager */}
-              <div className="flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-lg bg-gray-100/50">
-                <div className="flex items-center gap-1.5 mb-1">
-                  <Coins className="w-3.5 h-3.5 text-gray-400" />
-                  <span className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider">Your Wager</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-display text-lg sm:text-2xl text-gray-700">{formatCurrency(toBOGX(currentBattle.wager))}</span>
-                  <img src="/images/bogxcoin.png" alt="" className="w-4 h-4 sm:w-5 sm:h-5" />
-                </div>
-              </div>
-              
-              {/* Divider */}
-              <div className="w-px bg-warm self-stretch" />
-              
-              {/* Prize Pool */}
-              <div className="flex-1 flex flex-col items-center justify-center py-2 px-3 rounded-lg" style={{ backgroundColor: `${topic.color}10` }}>
-                <div className="flex items-center gap-1.5 mb-1">
-                  <Trophy className="w-3.5 h-3.5" style={{ color: topic.color }} />
-                  <span className="text-[10px] sm:text-xs uppercase tracking-wider" style={{ color: topic.color }}>Winner Takes</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-display text-lg sm:text-2xl" style={{ color: topic.color }}>{formatCurrency(toBOGX(currentBattle.wager * 2))}</span>
-                  <img src="/images/bogxcoin.png" alt="" className="w-4 h-4 sm:w-5 sm:h-5" />
-                </div>
-              </div>
-            </div>
+
+          {/* Spells out where the second number comes from - without it "winner
+              takes 1,00" on a 0,50 wager looks like free money. */}
+          <div className="w-full max-w-sm sm:max-w-none bg-black/[0.035] border border-warm rounded-xl px-3 py-2.5 mb-4 flex items-center justify-center gap-2">
+            <Info className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+            <span className="font-display text-[11px] sm:text-xs tracking-wide text-gray-500">Winner receives the full pot (both wagers).</span>
           </div>
         </PreparingScreen>
       </div>
@@ -3520,8 +3793,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                     key={i} 
                     className="h-2.5 sm:h-4 flex-1 rounded transition-all duration-300"
                     style={{ 
-                      backgroundColor: isActive ? (isGo ? '#10b981' : '#6B7280') : '#E5E0D8',
-                      boxShadow: isActive ? `0 0 8px ${isGo ? '#10b981' : '#6B7280'}` : 'none'
+                      backgroundColor: isActive ? (isGo ? '#10b981' : '#9CA3AF') : '#E5E0D8',
+                      boxShadow: isActive ? `0 0 8px ${isGo ? '#10b981' : '#9CA3AF'}` : 'none'
                     }}
                   />
                 );
@@ -3844,9 +4117,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     const myCorrect = myResults.filter(r => r.correct).length;
     const oppCorrect = opponentResults.filter(r => r.correct).length;
     
-    // Colors based on result
-    const resultColor = won ? '#6B7280' : '#ef4444';
-    const resultBandBg = won ? 'bg-[#6B7280]' : 'bg-red-500';
+    // The result cards colour themselves from won/isDraw directly - the old
+    // resultColor/resultBandBg pair died with the solid colour band.
     
     return (
       <div className="flex flex-col h-full bg-cream p-2 sm:p-4">
@@ -3864,20 +4136,82 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
             </span>
           </div>
 
-          {/* Result Banner - SINGLE ROW */}
+          {/* RESULT - score, share bar and verdict in one card, matching Solo
+              Trivia's result page. Replaces the solid colour band: that band
+              put the verdict and the coin amount on one line, leaving the score
+              itself nowhere to go. */}
           {isComplete && (
-            <div className={`${resultBandBg} py-3 sm:py-4 px-4 rounded-xl mb-4 flex-shrink-0 animate-[headlineIn_0.5s_ease-out_backwards]`}>
-              <div className="flex flex-row flex-nowrap items-center justify-center gap-3">
-                {won && <Trophy className="w-5 h-5 sm:w-6 sm:h-6 text-white animate-[popIcon_0.35s_ease-out] flex-shrink-0" />}
-                <span className="font-display text-lg sm:text-2xl text-white tracking-wider whitespace-nowrap">
+            <>
+              <span className={`${resultSectionLabel} flex-shrink-0 animate-[fadeIn_0.4s_ease-out]`}>Result</span>
+              <div className="mt-2 rounded-xl border border-warm bg-white/40 px-4 py-4 sm:px-5 sm:py-5 flex-shrink-0 animate-[cardIn_0.45s_ease-out]">
+                <div className="flex items-center gap-4 sm:gap-6">
+                  <div className="shrink-0">
+                    <div
+                      className="font-display text-4xl sm:text-5xl leading-none tabular-nums animate-[headlineIn_0.5s_ease-out]"
+                      style={{ color: won ? '#166534' : isDraw ? '#E36B11' : '#dc2626' }}
+                    >
+                      {Math.round(animResultMyScore)}
+                      <span className="text-gray-400"> : </span>
+                      {isCreator ? '?' : Math.round(animResultOppScore)}
+                    </div>
+                    <div className="font-display text-[11px] sm:text-xs tracking-wide text-gray-500 mt-1">
+                      {myCorrect} of {currentBattle.rounds} correct
+                    </div>
+                  </div>
+                  {/* Your share of the rounds, on the same ramp as the score so
+                      bar and figure never disagree mid-animation. */}
+                  <div className="flex-1 flex items-center gap-3 min-w-0">
+                    <div className="flex-1 h-2 rounded-full bg-gray-200 overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${animResultAccuracy}%`,
+                          backgroundColor: won ? '#166534' : isDraw ? '#E36B11' : '#dc2626',
+                        }}
+                      />
+                    </div>
+                    <span className="font-display text-[11px] text-gray-500 tabular-nums shrink-0">{Math.round(animResultAccuracy)}%</span>
+                  </div>
+                </div>
+                <div
+                  className="font-display text-sm tracking-wider mt-3 flex items-center gap-2 animate-[fadeInUp_0.5s_ease-out_0.5s_backwards]"
+                  style={{ color: won ? '#166534' : isDraw ? '#E36B11' : '#dc2626' }}
+                >
+                  {won && <Trophy className="w-4 h-4 animate-[popIcon_0.35s_ease-out] shrink-0" />}
                   {isDraw ? 'DRAW!' : won ? 'YOU WIN!' : 'YOU LOSE'}
-                </span>
-                <span className="font-display text-base sm:text-xl text-white/90 tracking-wider flex items-center gap-1 whitespace-nowrap">
-                  {isDraw ? '±0' : (won ? '+' : '-')}{formatCurrency(toBOGX(currentBattle.wager))}
-                  <img src="/images/bogxcoin.png" alt="BOGX" className="w-4 h-4 sm:w-5 sm:h-5" />
-                </span>
+                </div>
               </div>
-            </div>
+
+              {/* Coins - net first, the components underneath. */}
+              <div className="mt-3 mb-4 rounded-xl border border-warm bg-white/40 px-4 py-4 sm:px-5 flex items-center gap-4 flex-shrink-0 animate-[cardIn_0.45s_ease-out_0.1s_backwards]">
+                <img
+                  src="/images/bogxcoin.png"
+                  alt=""
+                  className="w-11 h-11 sm:w-12 sm:h-12 shrink-0 animate-[popIcon_0.45s_ease-out_0.15s_backwards]"
+                />
+                <div className="min-w-0">
+                  <div
+                    className="font-display text-2xl sm:text-3xl leading-none tabular-nums"
+                    style={{ color: won ? '#166534' : isDraw ? '#E36B11' : '#dc2626' }}
+                  >
+                    {isDraw
+                      ? `${formatCurrency(resultWagerBogx)} BOGX`
+                      : `${animResultCoins >= 0 ? '+' : '-'}${formatCurrency(Math.abs(animResultCoins))} BOGX`}
+                  </div>
+                  <div className="font-display text-[11px] sm:text-xs tracking-wide mt-1.5 text-gray-500 tabular-nums">
+                    {isDraw ? (
+                      <>wager returned · nothing won or lost</>
+                    ) : (
+                      <>
+                        <span>{formatCurrency(resultWagerBogx)} wagered</span>
+                        <span className="text-gray-400"> · </span>
+                        <span>{formatCurrency(resultWagerBogx * 2)} pot</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </>
           )}
 
           {/* Inter-round banner */}
@@ -3892,8 +4226,10 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
             </div>
           )}
 
-          {/* Players Comparison - Compact on mobile */}
-          <div className="flex items-stretch border border-warm rounded-xl bg-cream overflow-hidden mb-4 flex-shrink-0">
+          {/* Players Comparison - Compact on mobile. Labelled and on bg-white/40
+              so every card on this page shares one surface, like Solo Trivia. */}
+          {isComplete && <span className={`${resultSectionLabel} block mb-2 flex-shrink-0`}>Players</span>}
+          <div className="flex items-stretch border border-warm rounded-xl bg-white/40 overflow-hidden mb-4 flex-shrink-0">
             {/* You */}
             <div 
               className="flex-1 min-w-0 flex flex-col items-center gap-1 p-2 sm:p-4 border-r border-warm animate-[slideInLeft_0.4s_0.2s_ease-out_backwards]"
@@ -3910,32 +4246,13 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
               <div className="font-display text-xl sm:text-3xl tracking-wide" style={{ color: topic.color }}>{myCorrect}</div>
             </div>
 
-            {/* VS Center with round dots */}
-            <div className="flex flex-col items-center justify-center gap-1 sm:gap-2 px-1 sm:px-4 py-2 sm:py-3">
+            {/* VS Center. The R1/R2/R3 chips that used to sit here are gone:
+                they encoded per-round win/loss in three unlabelled colours
+                (grey meant "both the same", which nothing explained), and the
+                Round by Round table below shows the same rounds with the
+                actual points for both players. */}
+            <div className="flex flex-col items-center justify-center px-1 sm:px-4 py-2 sm:py-3">
               <span className="font-display text-xs sm:text-lg text-gray-300">VS</span>
-              <div className="flex gap-1 sm:gap-2">
-                {Array.from({ length: currentBattle.rounds }).map((_, i) => {
-                  const myR = myResults[i];
-                  const oppR = opponentResults[i];
-                  let color = '#e5e7eb';
-                  if (myR && oppR) {
-                    if (myR.correct && !oppR.correct) color = '#10b981';
-                    else if (!myR.correct && oppR.correct) color = '#ef4444';
-                    else color = '#9ca3af';
-                  } else if (myR) {
-                    color = myR.correct ? '#10b981' : '#ef4444';
-                  }
-                  return (
-                    <span 
-                      key={i} 
-                      className="min-w-[24px] h-6 sm:min-w-[36px] sm:h-8 px-1.5 sm:px-2 rounded-md flex items-center justify-center font-display text-[10px] sm:text-xs tracking-wider text-white"
-                      style={{ background: color }}
-                    >
-                      R{i + 1}
-                    </span>
-                  );
-                })}
-              </div>
             </div>
 
             {/* Opponent */}
@@ -3964,7 +4281,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
           {/* Round by Round Scoreboard - Table layout like standalone */}
           {isComplete && (
             <div className="px-0 sm:px-6 py-4 flex-shrink-0 animate-[fadeInUp_0.4s_0.3s_ease-out_backwards]">
-              <div className="text-xs font-bold tracking-widest text-gray-500 uppercase mb-3 sm:mb-4">
+              <div className={`${resultSectionLabel} mb-3 sm:mb-4`}>
                 Round by Round
               </div>
               <table className="w-full table-fixed">
@@ -4066,20 +4383,23 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
           {/* Buttons - ORIGINAL LOGIC PRESERVED, no extra padding since card has p-6 */}
           <div className="pt-4 border-t border-warm flex-shrink-0 animate-[fadeInUp_0.4s_0.4s_ease-out_backwards]">
             {isComplete ? (
-              <div className="flex gap-3">
+              /* Same pair as Solo Trivia: outlined secondary left, filled
+                 primary right with the icon pinned to the edge. */
+              <div className="flex items-center gap-3">
                 <button
                   onClick={backToPool}
-                  className="flex-1 py-4 bg-cream border-2 border-warm text-gray-600 font-display text-base tracking-widest rounded-xl flex items-center justify-center gap-2 hover:bg-gray-50 transition-colors"
+                  className="flex-1 py-3 border border-warm bg-cream hover:bg-white text-gray-600 font-display text-sm tracking-widest rounded-xl flex items-center justify-center gap-2 transition-all"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   Pool
                 </button>
                 <button
                   onClick={startBattle}
-                  className="flex-1 py-4 bg-[#6B7280] text-white font-display text-base tracking-widest rounded-xl flex items-center justify-center gap-2 hover:bg-[#9333EA] transition-colors"
+                  className="group flex-1 py-3 text-white font-display text-sm tracking-widest rounded-xl flex items-center justify-center relative transition-all hover:opacity-90 hover:scale-[1.01] active:scale-[0.99]"
+                  style={{ background: `linear-gradient(135deg, ${topic.color}dd 0%, ${topic.color} 100%)` }}
                 >
-                  <Swords className="w-4 h-4" />
                   Rematch
+                  <Swords className="w-4 h-4 absolute right-4 transition-transform group-hover:translate-x-1" />
                 </button>
               </div>
             ) : (

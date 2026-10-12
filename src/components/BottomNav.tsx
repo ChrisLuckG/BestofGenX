@@ -1,9 +1,9 @@
 "use client";
 
-import { Play, FileText, Swords, Vote, ShoppingBag, Trophy, User, Tv, Radio } from "lucide-react";
+import { Play, FileText, Vote, Clapperboard, Bell } from "lucide-react";
 import { sounds } from "@/utils/sounds";
 
-export type NavTab = "home" | "feed" | "articles" | "arcade" | "voting" | "shop" | "rankings" | "profile" | "notifications" | "battles" | "tv" | "rewards" | "radio";
+export type NavTab = "home" | "feed" | "articles" | "arcade" | "voting" | "shop" | "rankings" | "profile" | "notifications" | "battles" | "tv" | "rewards" | "radio" | "media";
 
 interface BottomNavProps {
   activeTab: NavTab;
@@ -12,6 +12,7 @@ interface BottomNavProps {
   profileHighlighted?: boolean;
   lockedToTab?: NavTab; // Lock navigation to this tab (e.g. during active battle)
   battleAlertCount?: number; // Pending challenges + active battles
+  unreadCount?: number; // Unread notifications (News)
 }
 
 const tabs = [
@@ -19,18 +20,21 @@ const tabs = [
   { id: "arcade" as NavTab, label: "Trivia", image: "/images/Icon/trivia1.png", imageActive: "/images/Icon/trivia2.png" },
   { id: "articles" as NavTab, label: "Articles", icon: FileText },
   { id: "voting" as NavTab, label: "Rankroll", icon: Vote },
-  { id: "radio" as NavTab, label: "Radio", icon: Radio },
-  { id: "tv" as NavTab, label: "TV", icon: Tv },
+  // Radio + TV share one item; the Media hub links to both. Moving them here
+  // freed the slot News needed, which in turn frees the header for the score.
+  { id: "media" as NavTab, label: "Media", icon: Clapperboard },
+  { id: "notifications" as NavTab, label: "News", icon: Bell },
   // Shop hidden for now - will be added later
   // { id: "shop" as NavTab, label: "Shop", icon: ShoppingBag },
 ];
 
-export default function BottomNav({ activeTab, onTabChange, userAvatar, profileHighlighted, lockedToTab, battleAlertCount = 0 }: BottomNavProps) {
+export default function BottomNav({ activeTab, onTabChange, userAvatar, profileHighlighted, lockedToTab, battleAlertCount = 0, unreadCount = 0 }: BottomNavProps) {
   return (
-    <div className="flex-shrink-0 flex items-center bg-cream border-t border-warm relative z-[10]" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 8px)' }}>
+    <div data-bottom-nav className="flex-shrink-0 flex items-center bg-cream border-t border-warm relative z-[10]" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 8px)' }}>
       {tabs.map((tab, index) => {
         const Icon = tab.icon;
-        const isActive = activeTab === tab.id;
+        const isActive = activeTab === tab.id || (tab.id === 'media' && (activeTab === 'radio' || activeTab === 'tv'));
+        const showNewsBadge = tab.id === 'notifications' && unreadCount > 0 && !isActive;
         const isArcade = tab.id === 'arcade';
         const showBattleBadge = isArcade && battleAlertCount > 0 && !isActive;
         
@@ -63,7 +67,14 @@ export default function BottomNav({ activeTab, onTabChange, userAvatar, profileH
                   )}
                 </div>
               ) : Icon ? (
-                <Icon className={`w-6 h-6 ${isActive ? 'text-[#E36B11]' : 'text-gray-700'}`} />
+                <div className="relative">
+                  <Icon className={`w-6 h-6 ${isActive ? 'text-[#E36B11]' : 'text-gray-700'}`} />
+                  {showNewsBadge && (
+                    <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 bg-[#E36B11] rounded-full flex items-center justify-center text-white text-[9px] font-black shadow">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </div>
               ) : null}
               <span className={`text-[10px] font-bold`} style={{ color: isActive ? '#E36B11' : '#374151' }}>
                 {tab.label}

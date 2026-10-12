@@ -12,6 +12,7 @@ export interface ITVVideo extends Document {
   featured: boolean;
   featuredPosition?: number; // 1, 2, or 3 for hero carousel
   active: boolean;
+  personRef?: mongoose.Types.ObjectId; // Link to Person from Menschen tab
   createdAt: Date;
   updatedAt: Date;
 }
@@ -62,6 +63,11 @@ const TVVideoSchema = new Schema<ITVVideo>(
     active: {
       type: Boolean,
       default: true,
+    },
+    personRef: {
+      type: Schema.Types.ObjectId,
+      ref: 'Person',
+      default: null,
     },
   },
   {

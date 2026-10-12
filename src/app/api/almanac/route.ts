@@ -26,6 +26,12 @@ const LIST_FIELDS = {
   cityDied: 1,
   nationality: 1,
   image: 1,
+  // Article coverage, maintained by the /api/articles POST path and
+  // /api/almanac/link-articles. Projected away before, so the Menschen list
+  // could only ever learn about an article from the live personRef lookup -
+  // which missed every person linked through this field instead.
+  hasArticle: 1,
+  articleId: 1,
 } as const;
 
 // GET - Fetch items
@@ -76,7 +82,18 @@ export async function GET(request: NextRequest) {
         }
       }
       if (filter && filterValue) {
-        query[filter] = { $regex: `^${filterValue}$`, $options: 'i' };
+        if (filter === 'profession' && filterValue.toLowerCase() === 'sport') {
+          // Sport is a meta-category - match all sport subcategories
+          const sportCategories = [
+            'football', 'tennis', 'basketball', 'ice-hockey', 'american-football',
+            'baseball', 'golf', 'motorsport', 'rugby', 'cricket', 'handball',
+            'boxing', 'volleyball', 'table-tennis', 'badminton', 'darts',
+            'snooker', 'esports', 'others', 'sport'
+          ];
+          query[filter] = { $regex: `^(${sportCategories.join('|')})$`, $options: 'i' };
+        } else {
+          query[filter] = { $regex: `^${filterValue}$`, $options: 'i' };
+        }
       }
       if (countryBorn) {
         query.countryBorn = { $regex: `^${countryBorn}$`, $options: 'i' };

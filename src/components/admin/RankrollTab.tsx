@@ -26,9 +26,12 @@ interface RankrollTabProps {
   initialNewItems?: Array<{ title: string; description: string; image: string }> | null;
   // Category for the ranking
   initialNewCategory?: string | null;
+  // Almanac person this ranking belongs to (set when started from the Menschen tab).
+  // Stored on the poll so the "already has a rankroll" marker survives a reload.
+  initialPersonRef?: string | null;
 }
 
-export default function RankrollTab({ initialEditPollId, onProposalHandled, hideListView, initialNewTitle, initialNewDescription, initialNewItems, initialNewCategory }: RankrollTabProps = {}) {
+export default function RankrollTab({ initialEditPollId, onProposalHandled, hideListView, initialNewTitle, initialNewDescription, initialNewItems, initialNewCategory, initialPersonRef }: RankrollTabProps = {}) {
   const [polls, setPolls] = useState<any[]>([]);
   const [pollsLoading, setPollsLoading] = useState(false);
   const [editingPoll, setEditingPoll] = useState<any | null>(null);
@@ -274,10 +277,12 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
       status: 'draft', // Must be: active, closed, draft
       featured: false,
       _fromProposal: true,
+      // Rides along into the poll POST via the `...editingPoll` spread in savePoll
+      personRef: initialPersonRef || undefined,
     });
     // Also set the AI topic so "Generate All" can use it
     setAiTopic(initialNewTitle);
-  }, [initialNewTitle, initialNewDescription, initialNewItems, initialNewCategory]);
+  }, [initialNewTitle, initialNewDescription, initialNewItems, initialNewCategory, initialPersonRef]);
 
   // Close the editor. If it was opened from a reporter proposal and was never actually
   // saved by the admin, DELETE the draft poll instead of leaving it orphaned.
@@ -387,6 +392,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
             coverImage: articlePayload.coverImage || editingPoll.items?.[0]?.image || '',
             status: 'published',
             contentType: 'rankroll', // Mark as rankroll article
+            personRef: editingPoll.personRef || undefined,
           }),
         });
         

@@ -82,6 +82,23 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
     type: "cancel" | "forfeit" | "cancelWaiting";
   }>({ isOpen: false, battle: null, type: "cancel" });
 
+  // Distance from the viewport bottom to the TOP of the mobile bottom nav. The
+  // panel is clipped there so it slides out from behind the nav instead of over
+  // it; a fixed `bottom-16` both guessed the height (safe-area makes it taller)
+  // and let the panel cover the nav while it was still off-screen. 0 = no nav.
+  const [navOffset, setNavOffset] = useState(0);
+  useEffect(() => {
+    if (!shouldRender) return;
+    const measure = () => {
+      const nav = document.querySelector<HTMLElement>('[data-bottom-nav]');
+      const top = nav && nav.offsetParent !== null ? nav.getBoundingClientRect().top : window.innerHeight;
+      setNavOffset(Math.max(0, window.innerHeight - top));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [shouldRender]);
+
   // Animate in/out with fade
   useEffect(() => {
     if (isOpen) {
@@ -296,8 +313,9 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
   if (!shouldRender) return null;
 
   const modalContent = (
-    <div 
-      className={`fixed left-0 right-0 z-[150] transition-transform duration-500 ease-out ${isVisible ? 'translate-y-0' : 'translate-y-full'} bottom-16 sm:bottom-0`}
+    <div className="fixed left-0 right-0 top-0 z-[150] overflow-hidden pointer-events-none" style={{ bottom: navOffset }}>
+    <div
+      className={`absolute left-0 right-0 bottom-0 pointer-events-auto transition-transform ease-out ${isVisible ? 'translate-y-0 duration-[900ms]' : 'translate-y-full duration-500'}`}
     >
       {/* Banner Container - grows up to 80% of viewport before scrolling */}
       <div className="shadow-[0_-4px_20px_rgba(0,0,0,0.15)] rounded-t-2xl overflow-hidden border-t border-warm" style={{ maxHeight: '80vh', backgroundColor: '#F5F0E8' }}>
@@ -702,6 +720,7 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 

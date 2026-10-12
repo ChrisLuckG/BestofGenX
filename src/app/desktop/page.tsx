@@ -27,6 +27,7 @@ import ShopPage from "@/components/ShopPage";
 import ProfilePage from "@/components/ProfilePage";
 import NotificationPage from "@/components/NotificationPage";
 import WelcomeNewsPanel from "@/components/WelcomeNewsPanel";
+import { isFirstVisit, markWelcomeSeen } from "@/lib/welcomeNotification";
 import DesktopRankingsPage from "@/components/desktop/DesktopRankingsPage";
 import LoginPage from "@/components/LoginPage";
 import DesktopLoginPage from "@/components/desktop/DesktopLoginPage";
@@ -52,8 +53,8 @@ import { useLiveRankings } from "@/hooks/useLiveRankings";
 const navTabs = [
   { id: "feed" as NavTab, label: "Feed", icon: Play },
   { id: "arcade" as NavTab, label: "Trivia", icon: Brain },
-  { id: "articles" as NavTab, label: "Articles", icon: FileText },
   { id: "voting" as NavTab, label: "Rankroll", icon: Vote },
+  { id: "articles" as NavTab, label: "Articles", icon: FileText },
 ];
 
 export default function DesktopPage() {
@@ -181,6 +182,7 @@ export default function DesktopPage() {
   const [welcomeLevelProgress, setWelcomeLevelProgress] = useState(0);
   const [welcomePointsToNextLevel, setWelcomePointsToNextLevel] = useState(0);
   const [welcomeAvatar, setWelcomeAvatar] = useState<string | undefined>(undefined);
+  const [welcomeTotalPlayers, setWelcomeTotalPlayers] = useState(0);
   const [welcomeLoading, setWelcomeLoading] = useState(true);
   
   // Fetch pending battle counts on login
@@ -254,6 +256,9 @@ export default function DesktopPage() {
     dailyRank: dailyUserEntry?.rank || 0,
     monthlyRank: monthlyUserEntry?.rank || 0,
     yearlyRank: yearlyUserEntry?.rank || 0,
+    dailyPoints: dailyUserEntry?.points,
+    monthlyPoints: monthlyUserEntry?.points,
+    yearlyPoints: yearlyUserEntry?.points,
     dailyChange: dailyUserEntry?.change,
     monthlyChange: monthlyUserEntry?.change,
     yearlyChange: yearlyUserEntry?.change,
@@ -271,6 +276,12 @@ export default function DesktopPage() {
   useEffect(() => {
     setMounted(true);
     loadAllData();
+    
+    // Show welcome page on first visit
+    if (isFirstVisit()) {
+      setShowWelcomePage(true);
+      markWelcomeSeen();
+    }
   }, []);
 
   // Check for checkout success/cancelled URL params
@@ -389,6 +400,7 @@ export default function DesktopPage() {
           setWelcomeLevelProgress(getLevelProgress(liveBogx));
           setWelcomePointsToNextLevel(getBogxToNextLevel(liveBogx));
           setWelcomeAvatar(welcomeRes.avatar || undefined);
+          setWelcomeTotalPlayers(welcomeRes.totalPlayers ?? 0);
         }
         if (leaderRes?.success && leaderRes.leaderboard?.[0]) {
           setCurrentLeader(leaderRes.leaderboard[0].username || null);
@@ -883,6 +895,9 @@ export default function DesktopPage() {
                   dailyRank={scoreRankPositions.dailyRank}
                   monthlyRank={scoreRankPositions.monthlyRank}
                   yearlyRank={scoreRankPositions.yearlyRank}
+                  dailyPoints={scoreRankPositions.dailyPoints}
+                  monthlyPoints={scoreRankPositions.monthlyPoints}
+                  yearlyPoints={scoreRankPositions.yearlyPoints}
                   dailyChange={scoreRankPositions.dailyChange}
                   monthlyChange={scoreRankPositions.monthlyChange}
                   yearlyChange={scoreRankPositions.yearlyChange}
@@ -894,7 +909,7 @@ export default function DesktopPage() {
                   breakCountdown={breakCountdown}
                   countdownMs={countdownMs}
                   isLoggedIn={isLoggedIn}
-                  onShowLogin={() => { setPreviousTab(activeTab); setActiveTab('profile'); setShowLoginPage(true); }}
+                  onShowLogin={() => setShowLoginPage(true)}
                 />
               </div>
             </div>
@@ -902,7 +917,7 @@ export default function DesktopPage() {
             {/* RIGHT – Profile only (TV, Radio, News moved to right sidebar widgets) */}
             <div className="w-60 flex-shrink-0 flex items-center justify-end gap-0 relative z-30">
               <button
-                onClick={() => isLoggedIn ? handleTabChange('profile') : (() => { setPreviousTab(activeTab); setActiveTab('profile'); setShowLoginPage(true); })()}
+                onClick={() => isLoggedIn ? handleTabChange('profile') : setShowLoginPage(true)}
                 className={`flex flex-col items-center px-2.5 py-2.5 rounded-xl transition-all group ${activeTab === 'profile' ? 'bg-[#E36B11]/10' : 'hover:bg-[#E36B11]/5'}`}
               >
                 <div className={`w-6 h-6 rounded-full overflow-hidden border-2 transition-colors ${activeTab === 'profile' ? 'border-[#E36B11]' : 'border-gray-300 group-hover:border-[#E36B11]'}`}>
@@ -929,8 +944,10 @@ export default function DesktopPage() {
             {/* Leaderboard */}
             <div className="rounded-xl border border-warm overflow-hidden shadow-sm relative" style={{ backgroundImage: 'url(/images/leader.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
               <div className="absolute inset-0 bg-[#F5F0E8]/0 pointer-events-none" />
-              {/* Header with Day Navigation */}
-              <div className="relative px-4 pt-4 pb-2 bg-[#F5F0E8]">
+              {/* Header with Day Navigation. The border-b matches every other
+                  sidebar widget (News, GenX TV): title row, rule, content. This
+                  was the only widget whose header ran straight into its body. */}
+              <div className="relative px-4 pt-3.5 pb-2.5 bg-[#F5F0E8] border-b border-warm">
                 <div className="flex items-center justify-between">
                   {/* Left arrow - go to previous day */}
                   <button
@@ -1011,7 +1028,9 @@ export default function DesktopPage() {
                 const accentPulse = isScrubbing ? 'bg-purple-500/25' : isBreakTime ? 'bg-amber-500/25' : 'bg-[#E36B11]/25';
                 
                 return (
-                  <div className="relative px-3 pb-2.5 bg-[#F5F0E8]">
+                  /* pt-2.5 so the countdown clears the header rule instead of
+                     hugging it - the block had no top padding before. */
+                  <div className="relative px-3 pt-2.5 pb-2.5 bg-[#F5F0E8]">
                     <div className="flex items-center gap-1.5 min-w-0">
                       <Clock className={`w-5 h-5 flex-shrink-0 ${accentColor}`} />
                       <span className="font-display text-xs leading-[1.1] text-gray-500 uppercase tracking-wide flex-shrink-0">
@@ -1254,6 +1273,23 @@ export default function DesktopPage() {
               )}
             </div>
 
+            {/* Rewards - same header structure as Shop / GenX TV */}
+            <button
+              onClick={() => handleTabChange('rewards')}
+              className="w-full bg-[#F5F0E8] rounded-xl border border-warm overflow-hidden shadow-sm text-left group hover:border-[#E36B11]/50 transition-colors"
+            >
+              <div className="flex items-center justify-between px-4 py-3 border-b border-warm">
+                <div className="flex items-center gap-2">
+                  <Gift className="w-4 h-4 text-[#E36B11]" />
+                  <span className="font-display text-sm tracking-wider uppercase text-gray-900">Rewards</span>
+                </div>
+                <span className="text-[10px] font-display text-[#E36B11] group-hover:underline">View All</span>
+              </div>
+              <div className="p-3">
+                <p className="text-[11px] text-gray-600">Earn free points & claim prizes.</p>
+              </div>
+            </button>
+
           </aside>
 
           {/* MAIN CONTENT */}
@@ -1293,7 +1329,10 @@ export default function DesktopPage() {
                     isLoggedIn={isLoggedIn}
                     onShowSignup={() => setShowLoginPage(true)}
                     onShowBogxers={() => handleTabChange('feed')}
+                    onShowArcade={() => handleTabChange('arcade')}
+                    onShowRankroll={() => handleTabChange('voting')}
                     onBack={closeNotificationView}
+                    onCoinAnimation={triggerCoinGain}
                   />
                 </DesktopContentWrapper>
               )}
@@ -1329,7 +1368,12 @@ export default function DesktopPage() {
                 ) : arcadeGame === 'genxmen' ? (
                   <GenXManGame onBack={() => setArcadeGame(null)} onScoreUpdate={() => {}} />
                 ) : arcadeGame === 'trivia' ? (
-                  <div className="h-full min-h-full flex flex-col bg-[#F5F0E8]">
+                  /* A DEFINITE height, not h-full: the scroll container above
+                     only sets min-h-[calc(100vh-108px)], so h-full resolved
+                     against an auto height and every phase ended up exactly as
+                     tall as its own content - setup, ready, result and review
+                     all different. BogxInvaders pins the same value. */
+                  <div className="h-[calc(100vh-108px)] flex flex-col bg-[#F5F0E8]">
                     <SoloTriviaGame onBack={() => setArcadeGame(null)} onCoinsChange={(amount) => animateCoins(amount)} onCoinAnimation={(amount) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} embedded={true} />
                   </div>
                 ) : arcadeGame === 'bogxinvaders' ? (
@@ -1350,7 +1394,7 @@ export default function DesktopPage() {
               {!staticPageSlug && !selectedPlayerId && activeTab === "tv" && <DesktopContentWrapper><TVPage /></DesktopContentWrapper>}
               {!staticPageSlug && !selectedPlayerId && activeTab === "radio" && <DesktopContentWrapper transparent><CommunitySoundPage isDesktop={true} onBack={() => handleTabChange('feed')} onShowLogin={() => setShowLoginPage(true)} /></DesktopContentWrapper>}
               {!staticPageSlug && !selectedPlayerId && activeTab === "notifications" && !showBattleResultId && <DesktopContentWrapper transparent><NotificationPage onGoToProfile={() => handleTabChange('profile')} onGoToBattle={(id) => { handleTabChange('arcade'); setArcadeGame('quizzbattle'); setPendingBattleId(id); }} onShowBattleResult={(id) => openNotificationView(() => setShowBattleResultId(id))} onShowChallenge={(battleId, notificationId) => openNotificationView(() => setShowChallenge({ battleId, notificationId }))} onOpenArticle={(id) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onPointsAwarded={(amount) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} onChallengeDeclined={() => setPendingChallengeCount(prev => Math.max(0, prev - 1))} autoOpenSettings={openNotificationSettings} onSettingsClosed={() => { setOpenNotificationSettings(false); if (previousTabBeforeSettings) { handleTabChange(previousTabBeforeSettings); setPreviousTabBeforeSettings(null); } }} onShowSignup={() => setShowLoginPage(true)} onShowBogxers={() => handleTabChange('feed')} /></DesktopContentWrapper>}
-              {!staticPageSlug && !selectedPlayerId && activeTab === "profile" && (isLoggedIn ? <DesktopContentWrapper><ProfilePage coins={coins} /></DesktopContentWrapper> : <DesktopLoginPage onClose={() => handleTabChange("feed")} onSuccess={() => {}} showBack={true} />)}
+              {!staticPageSlug && !selectedPlayerId && activeTab === "profile" && (isLoggedIn ? <DesktopContentWrapper><ProfilePage coins={coins} /></DesktopContentWrapper> : <DesktopLoginPage onClose={() => handleTabChange(previousTab || "feed")} onSuccess={() => {}} showBack={true} />)}
               {!staticPageSlug && activeTab === "rankings" && !selectedPlayerId && <DesktopRankingsPage currentUserScore={coins} onBack={() => handleTabChange('home')} onShowSignup={() => setShowLoginPage(true)} onShowRewards={() => handleTabChange('rewards')} selectedPlayerId={null} onPlayerClose={() => {}} />}
               {/* Player Profile - renders in content area, back returns to current tab */}
               {!staticPageSlug && selectedPlayerId && (
@@ -1477,66 +1521,30 @@ export default function DesktopPage() {
               </div>
             </button>
 
-            {/* 4. Rewards */}
-            <button
-              onClick={() => handleTabChange('rewards')}
-              className="w-full rounded-xl border border-warm overflow-hidden text-left group hover:brightness-105 transition-all shadow-sm relative bg-cover bg-center bg-no-repeat"
-              style={{ backgroundImage: 'url(/images/reward.png)' }}
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-[#FFF8E7] via-[#FFF8E7]/90 to-transparent" />
-              <div className="relative p-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <Gift className="w-4 h-4 text-[#E36B11]" />
-                  <span className="font-display text-sm tracking-wider uppercase text-gray-900">Rewards</span>
-                </div>
-                <p className="text-[11px] text-gray-600 mb-2">Earn free points & claim prizes.</p>
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-white bg-[#E36B11] px-2.5 py-1 rounded-md group-hover:bg-[#C4772A] transition-colors">
-                  CLAIM NOW <ChevronRight className="w-3 h-3" />
-                </span>
-              </div>
-            </button>
-
-            {/* Arcade */}
-            <button
-              onClick={() => { handleTabChange('arcade'); setArcadeGame(null); }}
-              className="w-full rounded-xl border border-warm overflow-hidden text-left group hover:brightness-105 transition-all shadow-sm relative bg-cover bg-center bg-no-repeat"
-              style={{ backgroundImage: 'url(/images/battle.png)' }}
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-[#E36B11] via-[#E36B11]/90 to-transparent" />
-              <div className="relative p-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <Brain className="w-5 h-5 text-white" />
-                  <span className="font-display text-lg tracking-wider uppercase text-white">Trivia</span>
-                </div>
-                <p className="text-xs text-white/80 mb-3">Test your GenX knowledge & win BOGX.</p>
-                <span className="inline-flex items-center gap-1 text-xs font-bold text-[#E36B11] bg-white px-3 py-1.5 rounded-lg">
-                  PLAY NOW <ChevronRight className="w-3 h-3" />
-                </span>
-              </div>
-            </button>
-
-            {/* Shop Widget */}
+            {/* Shop Widget - same header structure as GenX TV / News */}
             <button
               onClick={() => handleTabChange('shop')}
-              className="w-full rounded-xl border border-warm bg-[#FFFDF9] p-4 text-left group hover:border-[#E36B11]/30 transition-all shadow-sm"
+              className="w-full bg-[#F5F0E8] rounded-xl border border-warm overflow-hidden shadow-sm text-left group hover:border-[#E36B11]/50 transition-colors"
             >
-              <div className="flex items-center gap-2 mb-2">
-                <ShoppingBag className="w-5 h-5 text-[#E36B11]" />
-                <span className="font-display text-sm tracking-wider uppercase text-gray-900">Shop</span>
-              </div>
-              <p className="text-[11px] text-gray-600 mb-3">Exclusive GenX merchandise & collectibles.</p>
-              {shopProducts.length > 0 ? (
-                <div className="flex gap-2 mb-2">
-                  {shopProducts.slice(0, 3).map((product: any, i: number) => (
-                    <div key={i} className="w-12 h-12 rounded-lg bg-white border border-warm overflow-hidden">
-                      <img src={product.thumbnail || product.image} alt="" className="w-full h-full object-cover" />
-                    </div>
-                  ))}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-warm">
+                <div className="flex items-center gap-2">
+                  <ShoppingBag className="w-4 h-4 text-[#E36B11]" />
+                  <span className="font-display text-sm tracking-wider uppercase text-gray-900">Shop</span>
                 </div>
-              ) : null}
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-white bg-[#E36B11] px-2.5 py-1 rounded-md group-hover:bg-[#C4772A] transition-colors">
-                BROWSE SHOP <ChevronRight className="w-3 h-3" />
-              </span>
+                <span className="text-[10px] font-display text-[#E36B11] group-hover:underline">View All</span>
+              </div>
+              <div className="p-3">
+                <p className="text-[11px] text-gray-600 mb-3">Exclusive GenX merchandise & collectibles.</p>
+                {shopProducts.length > 0 ? (
+                  <div className="flex gap-2">
+                    {shopProducts.slice(0, 3).map((product: any, i: number) => (
+                      <div key={i} className="w-12 h-12 rounded-lg bg-white border border-warm overflow-hidden">
+                        <img src={product.thumbnail || product.image} alt="" className="w-full h-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             </button>
           </aside>
         </div>
@@ -1590,9 +1598,9 @@ export default function DesktopPage() {
 
       {/* Login Modal - fixed height based on tallest view (Signup wizard) */}
       {showLoginPage && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget) { setShowLoginPage(false); setActiveTab(previousTab); } }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowLoginPage(false); }}>
           <div className="relative w-full max-w-md mx-4 bg-[#F5F0E8] rounded-2xl shadow-2xl overflow-hidden" style={{ height: '820px', maxHeight: '90vh' }}>
-            <DesktopLoginPage onClose={() => { setShowLoginPage(false); setActiveTab(previousTab); }} onSuccess={() => setShowLoginPage(false)} isModal={true} />
+            <DesktopLoginPage onClose={() => setShowLoginPage(false)} onSuccess={() => setShowLoginPage(false)} isModal={true} />
           </div>
         </div>
       )}
@@ -1623,6 +1631,7 @@ export default function DesktopPage() {
           pendingChallengeCount={pendingChallengeCount}
           activeBattleCount={activeBattleCount}
           currentLeader={currentLeader}
+          totalPlayers={welcomeTotalPlayers}
           level={welcomeLevel}
           levelName={welcomeLevelName}
           levelProgress={welcomeLevelProgress}
@@ -1633,6 +1642,7 @@ export default function DesktopPage() {
             setArcadeGame('quizzbattle');
             setActiveTab('arcade');
           }}
+          isDesktop={true}
         />
       )}
 

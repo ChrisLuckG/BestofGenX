@@ -17,6 +17,7 @@ import BottomNav, { NavTab } from "@/components/BottomNav";
 import RankingsPage from "@/components/RankingsPage";
 import ShopPage from "@/components/ShopPage";
 import TVPage from "@/components/TVPage";
+import MediaPage from "@/components/MediaPage";
 import BattlesPage from "@/components/BattlesPage";
 import ArcadePage from "@/components/ArcadePage";
 import GenXManGame from "@/components/games/GenXManGame";
@@ -55,6 +56,7 @@ import { useBogxCoins } from "@/hooks/useBogxCoins";
 import { usePendingWager } from "@/hooks/usePendingWager";
 import { useLiveRankings } from "@/hooks/useLiveRankings";
 import { useSearchParams } from "next/navigation";
+import { isFirstVisit, markWelcomeSeen } from "@/lib/welcomeNotification";
 
 // Active bet type (for betting games)
 interface ActiveBet {
@@ -213,6 +215,9 @@ export default function MobilePage() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [coinAnimation, setCoinAnimation] = useState<{ show: boolean; amount: number; variant?: 'gain' | 'loss' | 'hold' }>({ show: false, amount: 0 });
   const [coinAnimKey, setCoinAnimKey] = useState(0);
+  // Video picked on the Media hub; TVPage opens its player on it.
+  const [tvInitialVideoId, setTvInitialVideoId] = useState<string | null>(null);
+  useEffect(() => { if (activeTab !== 'tv') setTvInitialVideoId(null); }, [activeTab]);
   const [showJustForFun, setShowJustForFun] = useState(false);
     const [showLoginPage, setShowLoginPage] = useState(false);
 
@@ -408,6 +413,15 @@ export default function MobilePage() {
   // Initialize client-side state after mount to avoid hydration errors
   useEffect(() => {
     setMounted(true);
+    
+    // Show welcome page on first visit
+    if (isFirstVisit()) {
+      setActiveTab('notifications');
+      // Set flag so NotificationPage auto-opens the welcome content
+      sessionStorage.setItem('bogx-open-welcome', 'true');
+      markWelcomeSeen();
+    }
+    
     const today = new Date().toISOString().split('T')[0];
     const userId = localStorage.getItem('oddsUserId');
     
@@ -1392,6 +1406,7 @@ export default function MobilePage() {
 
   // Stable reference so memoized children (e.g. LandingPage) don't re-render on every page render
   const triggerCoinGain = useCallback((amount: number) => {
+    setCoins(prev => prev + amount);
     setCoinAnimKey(k => k + 1);
     setCoinAnimation({ show: true, amount, variant: 'gain' });
   }, []);
@@ -1839,6 +1854,9 @@ export default function MobilePage() {
         dailyRank={dailyUserEntry?.rank || 0}
         monthlyRank={monthlyUserEntry?.rank || 0}
         yearlyRank={yearlyUserEntry?.rank || 0}
+        dailyPoints={dailyUserEntry?.points}
+        monthlyPoints={monthlyUserEntry?.points}
+        yearlyPoints={yearlyUserEntry?.points}
         pendingAmount={pendingAmount}
         isLoadingRanks={isLoadingRanks}
         isLoggedIn={isLoggedIn}
@@ -2043,12 +2061,18 @@ export default function MobilePage() {
           </div>
         )}
 
-        {/* Static Page - slides in as overlay between header and footer */}
-        {staticPageSlug && (
-          <div className="absolute inset-0 z-[55] bg-[#F5F0E8] overflow-y-auto">
-            <StaticPageInline slug={staticPageSlug} defaultTitle={staticPageSlug} onClose={() => setStaticPageSlug(null)} />
-          </div>
-        )}
+        {/* Static Page - slides in from right as overlay */}
+        <div 
+          className={`absolute inset-0 z-[55] bg-cream transition-transform duration-300 ease-out ${
+            staticPageSlug ? 'translate-x-0' : 'translate-x-full pointer-events-none'
+          }`}
+        >
+          {staticPageSlug && (
+            <div className="h-full overflow-y-auto">
+              <StaticPageInline slug={staticPageSlug} defaultTitle={staticPageSlug} onClose={() => setStaticPageSlug(null)} />
+            </div>
+          )}
+        </div>
 
         {/* Author Page - Overlay when open (on top of article) */}
         {openAuthorName && (
@@ -2154,6 +2178,7 @@ export default function MobilePage() {
                 userId={user?.id}
                 onCoinsChange={(amount, variant) => { setCoins(prev => prev + amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount, variant }); }}
                 onPlaySpecificBattle={(battleId) => { setPendingBattleId(battleId); setArcadeGame('quizzbattle'); }}
+                onShowLogin={() => { setLoginInitialView('login'); setShowLoginPage(true); }}
               />
             )
           )}
@@ -2195,12 +2220,22 @@ export default function MobilePage() {
         
         {/* Radio Tab */}
         <div className={`absolute inset-0 transition-opacity duration-150 ${activeTab === "radio" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"}`}>
-          {activeTab === "radio" && <CommunitySoundPage onShowLogin={() => setShowLoginPage(true)} />}
+          {activeTab === "radio" && <CommunitySoundPage onBack={() => setActiveTab('media')} onShowLogin={() => setShowLoginPage(true)} />}
+        </div>
+
+        {/* Media Tab - hub for Radio + TV */}
+        <div className={`absolute inset-0 transition-opacity duration-150 ${activeTab === "media" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"}`}>
+          {activeTab === "media" && (
+            <MediaPage
+              onOpenRadio={() => setActiveTab('radio')}
+              onOpenTV={(videoId) => { setTvInitialVideoId(videoId ?? null); setActiveTab('tv'); }}
+            />
+          )}
         </div>
         
         {/* TV Tab */}
         <div className={`absolute inset-0 transition-opacity duration-150 ${activeTab === "tv" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"}`}>
-          {activeTab === "tv" && <TVPage />}
+          {activeTab === "tv" && <TVPage onBack={() => setActiveTab('media')} initialVideoId={tvInitialVideoId} />}
         </div>
         
         {/* Battles Tab (accessed from Arcade -> QuizzBattle) */}
@@ -2246,6 +2281,9 @@ export default function MobilePage() {
               // through this instance. Without them its two CTAs did nothing.
               onShowSignup={() => { setLoginInitialView('signup'); setShowLoginPage(true); }}
               onShowBogxers={() => setActiveTab('home')}
+              onShowArcade={() => setActiveTab('arcade')}
+              onShowRankroll={() => setActiveTab('voting')}
+              onCoinAnimation={triggerCoinGain}
             />
           )}
         </div>
@@ -2303,6 +2341,7 @@ export default function MobilePage() {
           userAvatar={isLoggedIn ? user?.avatar : undefined}
           lockedToTab={isBattleActive ? "battles" : undefined}
           battleAlertCount={pendingChallengeCount + activeBattleCount}
+          unreadCount={unreadNotifications}
         />
       </div>
 

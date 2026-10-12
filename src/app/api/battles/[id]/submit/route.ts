@@ -76,8 +76,8 @@ export async function POST(
             data: { battleId: battle._id.toString(), url: '/battles' }
           });
         } else if (creatorWon) {
-          await User.findByIdAndUpdate(battle.creator, { $inc: { bogxCoins: wager * 2, wins: 1, gamesPlayed: 1 } });
-          await User.findByIdAndUpdate(battle.opponent, { $inc: { gamesPlayed: 1 } });
+          await User.findByIdAndUpdate(battle.creator, { $inc: { bogxCoins: wager * 2, wins: 1, gamesPlayed: 1, battlesWon: 1 } });
+          await User.findByIdAndUpdate(battle.opponent, { $inc: { gamesPlayed: 1, battlesLost: 1 } });
           await saveBattleGameResult(battle.creator.toString(), opponentUser.username || 'bot', wager, true);
           if (battle.opponent) await saveBattleGameResult(battle.opponent.toString(), creator?.username || 'creator', -wager, false);
           await Notification.create({
@@ -89,8 +89,8 @@ export async function POST(
             data: { battleId: battle._id.toString(), url: '/battles' }
           });
         } else {
-          await User.findByIdAndUpdate(battle.opponent, { $inc: { bogxCoins: wager * 2, wins: 1, gamesPlayed: 1 } });
-          await User.findByIdAndUpdate(battle.creator, { $inc: { gamesPlayed: 1 } });
+          await User.findByIdAndUpdate(battle.opponent, { $inc: { bogxCoins: wager * 2, wins: 1, gamesPlayed: 1, battlesWon: 1 } });
+          await User.findByIdAndUpdate(battle.creator, { $inc: { gamesPlayed: 1, battlesLost: 1 } });
           await saveBattleGameResult(battle.creator.toString(), opponentUser.username || 'bot', -wager, false);
           if (battle.opponent) await saveBattleGameResult(battle.opponent.toString(), creator?.username || 'creator', wager, true);
           await Notification.create({
@@ -218,8 +218,11 @@ export async function POST(
         // Winner gets both wagers back (their own + opponent's)
         const winnerId = battle.winner.toString();
         const loserId = winnerId === battle.creator.toString() ? battle.opponent?.toString() : battle.creator.toString();
-        await User.findByIdAndUpdate(winnerId, { $inc: { bogxCoins: wager * 2 } });
+        await User.findByIdAndUpdate(winnerId, { $inc: { bogxCoins: wager * 2, battlesWon: 1 } });
         // Loser already lost their wager when they joined, nothing more to deduct
+        if (loserId) {
+          await User.findByIdAndUpdate(loserId, { $inc: { battlesLost: 1 } });
+        }
         
         // Track for ranking (winner: +wager net, loser: -wager)
         const winnerUser = await User.findById(winnerId).select('username');

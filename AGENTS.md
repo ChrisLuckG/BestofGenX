@@ -7,6 +7,23 @@
 
 `tsc` alone is not sufficient — see the client/server bundling trap below.
 
+### Visual check for fiddly CSS (borders, tabs, fillets)
+
+Chrome is installed and can render a screenshot headless, which the agent can then
+read as an image. Use it BEFORE handing over pixel-level geometry; the Solo Trivia
+stake tab took four blind rounds that a single render would have caught (an
+absolutely positioned child's `bottom` is measured from the PADDING box, a
+transparent border eats half of a corner's diagonal, etc.).
+
+```
+"/c/Program Files/Google/Chrome/Application/chrome.exe" --headless=new --disable-gpu \
+  --hide-scrollbars --force-device-scale-factor=3 --window-size=940,560 \
+  --screenshot="F:/Projekte/sporttock/tmp.png" "file:///F:/Projekte/sporttock/tmp.html"
+```
+
+Reproduce the construction in a throwaway HTML file, render the edge cases (first /
+middle / last), then delete the temp files.
+
 ## Client/server bundling trap
 
 `"use client"` components must not import from a module that (even indirectly, even
@@ -337,6 +354,31 @@ as a broken thumbnail and then gets compiled into the article.
 
 `scripts/check-history-roster.ts` asserts the exclusion against the live endpoint and
 the 21-day memory semantics.
+
+## Community Radio articles: two flags that only work together
+
+`src/components/admin/RadioModal.tsx` (Articles tab) and the Radio row in
+`NewsroomConference` both POST to `/api/editorial/chat` with `articleMode: true`.
+Unlike the History path, **the route creates the Article itself** and returns
+`articleDraftId`; `status` is `autoPublish ? 'published' : 'draft'`, so omitting
+`autoPublish` is what keeps it a draft.
+
+`skipYoutube: true` and `spotifyLinks` must be sent **together**:
+
+- `skipYoutube` switches off the YouTube search, selects the radio JSON format
+  (`spotifyEmbed` per section instead of `youtubeSearch`) and turns on @username
+  highlighting
+- `spotifyLinks` is what the route matches against, keyed `song|band`. With
+  `skipYoutube` but no links the sections have nothing to embed
+
+Songs come from `/api/song-request?status=added` only - the ones curated in the
+Requests tab. A request without `link` cannot be embedded, so the modal marks it.
+
+Despite the field being called `spotifyEmbed`, the output is **inline
+`<a href="open.spotify.com/track/...">` links inside the prose**, not iframe
+players. Measured on the 12 Aug article: 16 track links, 0 iframes, 0 YouTube
+iframes, 4 highlighted usernames. Do not "fix" a missing player - there never was
+one. `scripts/probe-radio-embeds.ts` reports these counts.
 
 ## History events must fall on the EXACT day
 

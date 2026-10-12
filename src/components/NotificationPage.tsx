@@ -79,9 +79,15 @@ interface NotificationPageProps {
   onShowSignup?: () => void;
   /** Opens the rankings from the welcome page's "Show me the BOGXers" CTA. */
   onShowBogxers?: () => void;
+  /** Welcome page: navigate to the arcade (trivia/battles). */
+  onShowArcade?: () => void;
+  /** Welcome page: navigate to the rankroll voting tab. */
+  onShowRankroll?: () => void;
   /** Host renders the welcome page itself (desktop content area). Without it the
    *  compact widget falls back to opening the News tab. */
   onShowWelcome?: () => void;
+  /** Trigger coin animation in header (for bonus question reward). */
+  onCoinAnimation?: (amount: number) => void;
 }
 
 /**
@@ -292,7 +298,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray;
 }
 
-export default function NotificationPage({ isOpen = true, onClose, onGoToProfile, onGoToBattle, onShowBattleResult, onOpenArticle, onShowChallenge, autoEnable, onNewNotification, onPointsAwarded, autoOpenSettings, onSettingsClosed, onChallengeDeclined, compact = false, onViewAll, onOpenSettings, initialChallengeId, onInitialChallengeHandled, onShowSignup, onShowBogxers, onShowWelcome }: NotificationPageProps & { onNewNotification?: () => void }) {
+export default function NotificationPage({ isOpen = true, onClose, onGoToProfile, onGoToBattle, onShowBattleResult, onOpenArticle, onShowChallenge, autoEnable, onNewNotification, onPointsAwarded, autoOpenSettings, onSettingsClosed, onChallengeDeclined, compact = false, onViewAll, onOpenSettings, initialChallengeId, onInitialChallengeHandled, onShowSignup, onShowBogxers, onShowArcade, onShowRankroll, onShowWelcome, onCoinAnimation }: NotificationPageProps & { onNewNotification?: () => void }) {
   const { user, isLoggedIn } = useAuth();
   const [showSettings, setShowSettings] = useState(false);
   
@@ -1184,7 +1190,10 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
           isLoggedIn={isLoggedIn}
           onShowSignup={onShowSignup}
           onShowBogxers={onShowBogxers}
+          onShowArcade={onShowArcade}
+          onShowRankroll={onShowRankroll}
           onBack={() => setSelectedWelcome(false)}
+          onCoinAnimation={onCoinAnimation}
         />
       )}
 

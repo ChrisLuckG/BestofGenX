@@ -57,6 +57,9 @@ export interface IPoll {
   items?: IRankingItem[];
   totalVotes: number;
   linkedArticleId?: mongoose.Types.ObjectId;
+  // Almanac person this ranking was created for (set when started from the
+  // Menschen tab), so "already has a rankroll" survives a reload.
+  personRef?: mongoose.Types.ObjectId;
   category: 'general' | 'personality' | 'opinion' | 'prediction' | 'ranking';
   type: 'simple' | 'quiz' | 'ranking'; // simple = 1 question, quiz = multiple questions, ranking = up/down list
   status: 'active' | 'closed' | 'draft';
@@ -119,6 +122,7 @@ const PollSchema = new mongoose.Schema({
   items: { type: [RankingItemSchema], default: [] },
   totalVotes: { type: Number, default: 0 },
   linkedArticleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Article' },
+  personRef: { type: mongoose.Schema.Types.ObjectId, ref: 'Person' },
   category: { 
     type: String, 
     enum: ['general', 'personality', 'opinion', 'prediction', 'ranking'],

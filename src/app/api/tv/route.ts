@@ -46,6 +46,7 @@ export async function POST(request: Request) {
       language: data.language || 'en',
       featured: data.featured || false,
       active: true,
+      personRef: data.personRef || null,
     });
 
     return NextResponse.json({ success: true, video });
@@ -74,6 +75,7 @@ export async function PUT(request: Request) {
         featured: data.featured,
         featuredPosition: data.featuredPosition,
         active: data.active !== undefined ? data.active : true,
+        personRef: data.personRef || null,
       },
       { new: true }
     );

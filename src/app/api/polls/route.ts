@@ -25,7 +25,18 @@ export async function GET(request: NextRequest) {
     }
     
     await dbConnect();
-    
+
+    // Special mode: just the person -> ranking mapping for MenschenTab. Deliberately
+    // uncached and unprojected beyond these fields; the full poll list carries items
+    // and images and is far too heavy to pull only for a checkmark.
+    if (searchParams.get('personRefs') === 'true') {
+      const refs = await Poll.find(
+        { personRef: { $exists: true, $ne: null } },
+        { personRef: 1, title: 1, status: 1 }
+      ).lean();
+      return NextResponse.json({ success: true, polls: refs });
+    }
+
     const query: any = {};
     
     if (status !== 'all') {
@@ -168,6 +179,8 @@ export async function POST(request: NextRequest) {
         status: status || 'active',
         featured: featured || false,
         closesAt: closesAt ? new Date(closesAt) : undefined,
+        // Set when the ranking was started from a person in the Menschen tab
+        personRef: body.personRef || undefined,
       });
 
       // NOTE: Poll and Article are independent entities. Creating a ranking poll

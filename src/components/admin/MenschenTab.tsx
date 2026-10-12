@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { 
   Loader2, Trash2, Search, X, FileText, 
-  Table as TableIcon, CalendarDays, ArrowUpDown, CheckCircle2, ListOrdered
+  Table as TableIcon, CalendarDays, ArrowUpDown, CheckCircle2, ListOrdered, Youtube
 } from "lucide-react";
 import ImagePickerModal from "./ImagePickerModal";
 import BlockEditor from "./BlockEditor";
@@ -179,6 +179,10 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
   
   // Article tracking
   const [personArticles, setPersonArticles] = useState<Record<string, { title: string; status: string }>>({});
+  // Rankroll tracking - same contract as personArticles, keyed by person id
+  const [personRankrolls, setPersonRankrolls] = useState<Record<string, { title: string; status: string }>>({});
+  // TV video tracking - keyed by person id
+  const [personTvVideos, setPersonTvVideos] = useState<Record<string, { title: string; videoId: string; dbId: string; position?: number }>>({});
   
   // Country counts for filter dropdown
   const [countriesWithCounts, setCountriesWithCounts] = useState<{ country: string; count: number }[]>([]);
@@ -190,6 +194,13 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
   const [articleSaving, setArticleSaving] = useState(false);
   // Rankroll editor overlay - shows the full RankrollTab editor
   const [rankrollEditorTopic, setRankrollEditorTopic] = useState<string | null>(null);
+  const [rankrollEditorPerson, setRankrollEditorPerson] = useState<string | null>(null);
+  // TV video modal
+  const [tvModal, setTvModal] = useState<Person | null>(null);
+  const [tvModalUrl, setTvModalUrl] = useState('');
+  const [tvModalSaving, setTvModalSaving] = useState(false);
+  const [tvModalVideoId, setTvModalVideoId] = useState<string | null>(null); // DB _id for editing
+  const [tvModalPosition, setTvModalPosition] = useState<number | null>(null); // 1, 2, 3 or null
   const [articleData, setArticleData] = useState({
     title: '',
     subtitle: '',
@@ -257,21 +268,63 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
     fetchPeople();
   }, [fetchPeople]);
 
-  // Fetch article refs
-  useEffect(() => {
+  // Fetch article + rankroll refs. Both markers are derived from the server, never
+  // from local state alone: the optimistic update after saving used to be the ONLY
+  // record of it, so the checkmark vanished on the next reload.
+  // Rankroll articles (contentType 'rankroll') are kept out of the article map, or
+  // publishing a ranking with its article would also tick "has article".
+  const refreshRefs = useCallback(() => {
     fetch('/api/articles?personRefs=true')
       .then(r => r.json())
       .then(data => {
         if (data.success) {
           const map: Record<string, { title: string; status: string }> = {};
           (data.data || []).forEach((a: any) => {
-            if (a.personRef) map[a.personRef.toString()] = { title: a.title, status: a.status };
+            if (a.personRef && a.contentType !== 'rankroll') {
+              map[a.personRef.toString()] = { title: a.title, status: a.status };
+            }
           });
           setPersonArticles(map);
         }
       })
       .catch(() => {});
+
+    fetch('/api/polls?personRefs=true')
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          const map: Record<string, { title: string; status: string }> = {};
+          (data.polls || []).forEach((p: any) => {
+            if (p.personRef) map[p.personRef.toString()] = { title: p.title, status: p.status };
+          });
+          setPersonRankrolls(map);
+        }
+      })
+      .catch(() => {});
+
+    // TV videos linked to persons
+    fetch('/api/tv?all=true')
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          const map: Record<string, { title: string; videoId: string; dbId: string; position?: number }> = {};
+          (data.videos || []).forEach((v: any) => {
+            if (v.personRef) map[v.personRef.toString()] = { 
+              title: v.title, 
+              videoId: v.youtubeId, 
+              dbId: v._id,
+              position: v.featuredPosition 
+            };
+          });
+          setPersonTvVideos(map);
+        }
+      })
+      .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    refreshRefs();
+  }, [refreshRefs]);
 
   // Calculate country counts
   useEffect(() => {
@@ -539,13 +592,15 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
       });
       const data = await res.json();
       if (data.success) {
-        alert('✅ Article saved as DRAFT! Go to Articles tab to review and publish.');
-        setArticleModal(null);
-        // Update person articles
+        // Optimistic for instant feedback, then confirmed from the server so the
+        // marker is backed by a real personRef rather than by local state only.
         setPersonArticles(prev => ({
           ...prev,
           [articleModal._id]: { title: articleData.title, status: 'draft' }
         }));
+        alert('✅ Article saved as DRAFT! Go to Articles tab to review and publish.');
+        setArticleModal(null);
+        refreshRefs();
       } else {
         alert('Error: ' + data.error);
       }
@@ -564,6 +619,99 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
     const name = `${person.firstname} ${person.lastname}`;
     const topic = person.knownfor || person.profession || 'career highlights';
     setRankrollEditorTopic(`Iconic ${topic} moments by ${name}`);
+    setRankrollEditorPerson(person._id);
+  };
+
+  // Open TV modal for adding or editing a YouTube video
+  const openTvModal = (person: Person) => {
+    const existing = personTvVideos[person._id];
+    setTvModal(person);
+    if (existing) {
+      setTvModalUrl(`https://www.youtube.com/watch?v=${existing.videoId}`);
+      setTvModalVideoId(existing.dbId);
+      setTvModalPosition(existing.position || null);
+    } else {
+      setTvModalUrl('');
+      setTvModalVideoId(null);
+      setTvModalPosition(null);
+    }
+  };
+
+  // Save TV video from modal (create or update)
+  const saveTvVideo = async () => {
+    if (!tvModal || !tvModalUrl.trim()) return;
+    
+    // Extract video ID from URL
+    const urlMatch = tvModalUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+    if (!urlMatch) {
+      alert('Invalid YouTube URL. Please paste a valid YouTube link.');
+      return;
+    }
+    
+    const videoId = urlMatch[1];
+    const personName = `${tvModal.firstname} ${tvModal.lastname}`.trim();
+    
+    setTvModalSaving(true);
+    try {
+      // Fetch video metadata from YouTube
+      const metaRes = await fetch(`/api/youtube/metadata?videoId=${videoId}`);
+      const metaData = await metaRes.json();
+      
+      const title = metaData.title || personName;
+      const thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+      
+      const isUpdate = !!tvModalVideoId;
+      
+      // Add or update in GenX TV
+      const tvRes = await fetch('/api/tv', {
+        method: isUpdate ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...(isUpdate ? { _id: tvModalVideoId } : {}),
+          title,
+          description: `${personName} - ${tvModal.profession || 'GenX Icon'}`,
+          youtubeUrl: `https://www.youtube.com/watch?v=${videoId}`,
+          youtubeId: videoId,
+          thumbnail,
+          category: tvModal.profession === 'Music' ? 'Music Videos' : 'Documentaries',
+          language: 'en',
+          personRef: tvModal._id,
+          featuredPosition: tvModalPosition,
+        }),
+      });
+      
+      const tvData = await tvRes.json();
+      if (tvData.success) {
+        const newDbId = tvData.video?._id || tvModalVideoId;
+        setPersonTvVideos(prev => ({
+          ...prev,
+          [tvModal._id]: { title, videoId, dbId: newDbId, position: tvModalPosition || undefined }
+        }));
+        setTvModal(null);
+        setTvModalUrl('');
+        setTvModalVideoId(null);
+        setTvModalPosition(null);
+      } else {
+        alert('Error: ' + tvData.error);
+      }
+    } catch (e) {
+      alert('Error saving TV video');
+    } finally {
+      setTvModalSaving(false);
+    }
+  };
+
+  // Coverage comes from two independent places and BOTH have to count, or the
+  // marker is wrong for a large part of the data:
+  //  - `personArticles`: articles carrying a personRef (the Menschen tab's own
+  //    "Create Article" path)
+  //  - `person.hasArticle`: set on the Person by the article POST route and by
+  //    /api/almanac/link-articles, which match on name/birthday instead
+  const articleFor = (person: Person): { title: string; status: string } | undefined => {
+    const byRef = personArticles[person._id];
+    if (byRef) return byRef;
+    if (person.hasArticle) return { title: '', status: 'linked' };
+    return undefined;
   };
 
   // Sort header component
@@ -720,7 +868,8 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
               </thead>
               <tbody>
                 {sortedPeople.map((person) => {
-                  const article = personArticles[person._id];
+                  const article = articleFor(person);
+                  const rankroll = personRankrolls[person._id];
                   const score = interestScore(person);
                   return (
                     <tr key={person._id} className={selectedIds.has(person._id) ? 'bg-orange-50' : ''}>
@@ -775,8 +924,20 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                           <button onClick={() => openArticleModal(person)} className={article ? 'admin-text-success' : 'admin-text-muted hover:text-[#E36B11]'} title="Create Article">
                             {article ? <CheckCircle2 className="w-3 h-3" /> : <FileText className="w-3 h-3" />}
                           </button>
-                          <button onClick={() => openRankrollEditor(person)} className="admin-text-muted hover:text-purple-600" title="Create Rankroll">
-                            <ListOrdered className="w-3 h-3" />
+                          <button onClick={() => openRankrollEditor(person)} className={rankroll ? 'admin-text-success' : 'admin-text-muted hover:text-purple-600'} title={rankroll ? `Rankroll: ${rankroll.title}` : 'Create Rankroll'}>
+                            {rankroll ? <CheckCircle2 className="w-3 h-3" /> : <ListOrdered className="w-3 h-3" />}
+                          </button>
+                          <button 
+                            onClick={() => openTvModal(person)} 
+                            className={`relative ${personTvVideos[person._id] ? 'admin-text-success' : 'admin-text-muted hover:text-red-500'}`} 
+                            title={personTvVideos[person._id] ? `Edit TV: ${personTvVideos[person._id].title}` : 'Add to GenX TV'}
+                          >
+                            <Youtube className="w-3 h-3" />
+                            {personTvVideos[person._id]?.position && (
+                              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#E36B11] text-white text-[6px] font-bold rounded-full flex items-center justify-center">
+                                {personTvVideos[person._id].position}
+                              </span>
+                            )}
                           </button>
                           <button onClick={() => deletePerson(person._id)} className="admin-text-muted hover:text-red-500" title="Delete">
                             <Trash2 className="w-3 h-3" />
@@ -801,7 +962,8 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                 </div>
                 <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
                   {dayPeople.map((person) => {
-                    const article = personArticles[person._id];
+                    const article = articleFor(person);
+                    const rankroll = personRankrolls[person._id];
                     const score = interestScore(person);
                     const subcat = getSubcat(person);
                     const flagUrl = getFlagUrl(undefined, person.countryBorn, '24x18');
@@ -861,9 +1023,29 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                           </button>
                           <button 
                             onClick={() => openRankrollEditor(person)} 
-                            className="flex-1 py-1.5 rounded text-xs font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                            className={`flex-1 py-1.5 rounded text-xs font-medium border transition-colors ${
+                              rankroll
+                                ? 'border-gray-200 text-gray-400 bg-gray-50'
+                                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                            }`}
                           >
-                            Create Rankroll
+                            {rankroll ? '✓ Rankroll' : 'Create Rankroll'}
+                          </button>
+                          <button 
+                            onClick={() => openTvModal(person)}
+                            className={`relative p-1.5 rounded transition-colors ${
+                              personTvVideos[person._id] 
+                                ? 'text-red-500 hover:bg-red-50' 
+                                : 'text-gray-300 hover:text-red-500 hover:bg-red-50'
+                            }`}
+                            title={personTvVideos[person._id] ? `Edit TV: ${personTvVideos[person._id].title}` : 'Add to GenX TV'}
+                          >
+                            <Youtube className="w-4 h-4" />
+                            {personTvVideos[person._id]?.position && (
+                              <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-[#E36B11] text-white text-[8px] font-bold rounded-full flex items-center justify-center">
+                                {personTvVideos[person._id].position}
+                              </span>
+                            )}
                           </button>
                           <button 
                             onClick={() => deletePerson(person._id)} 
@@ -882,6 +1064,108 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
           </div>
         )}
       </div>
+
+      {/* TV VIDEO MODAL */}
+      {tvModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setTvModal(null)}>
+          <div className="bg-white rounded-lg w-[500px] max-w-[95vw] shadow-xl" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50">
+              <div>
+                <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                  <Youtube className="w-4 h-4 text-red-500" />
+                  Add to GenX TV
+                </h3>
+                <p className="text-xs text-gray-500">{tvModal.firstname} {tvModal.lastname} · {tvModal.profession}</p>
+              </div>
+              <button onClick={() => setTvModal(null)} className="p-1 hover:bg-gray-200 rounded">
+                <X className="w-4 h-4 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="text-xs font-medium text-gray-700 block mb-1">YouTube URL</label>
+                <input
+                  type="text"
+                  value={tvModalUrl}
+                  onChange={e => setTvModalUrl(e.target.value)}
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#E36B11]/50"
+                  autoFocus
+                />
+                <p className="text-[10px] text-gray-400 mt-1">Paste a YouTube video URL for {tvModal.firstname} {tvModal.lastname}</p>
+              </div>
+
+              {/* Preview */}
+              {tvModalUrl && (() => {
+                const match = tvModalUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+                if (match) {
+                  return (
+                    <div className="rounded-lg overflow-hidden border border-gray-200">
+                      <img 
+                        src={`https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`} 
+                        alt="Video preview" 
+                        className="w-full h-auto"
+                      />
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
+              {/* Featured Position */}
+              <div>
+                <label className="text-xs font-medium text-gray-700 block mb-1">Featured Position (Hero Carousel)</label>
+                <div className="flex gap-2">
+                  {[1, 2, 3].map(pos => (
+                    <button
+                      key={pos}
+                      onClick={() => setTvModalPosition(tvModalPosition === pos ? null : pos)}
+                      className={`w-10 h-10 rounded-lg border-2 font-bold text-sm transition-colors ${
+                        tvModalPosition === pos 
+                          ? 'border-[#E36B11] bg-[#E36B11] text-white' 
+                          : 'border-gray-300 text-gray-500 hover:border-gray-400'
+                      }`}
+                    >
+                      {pos}
+                    </button>
+                  ))}
+                  <span className="text-[10px] text-gray-400 self-center ml-2">Optional: Set 1, 2, or 3 for hero carousel</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-2 px-4 py-3 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => { setTvModal(null); setTvModalVideoId(null); setTvModalPosition(null); }}
+                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveTvVideo}
+                disabled={!tvModalUrl.trim() || tvModalSaving}
+                className="px-4 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {tvModalSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {tvModalVideoId ? 'Updating...' : 'Adding...'}
+                  </>
+                ) : (
+                  <>
+                    <Youtube className="w-4 h-4" />
+                    {tvModalVideoId ? 'Update Video' : 'Add to TV'}
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* IMAGE PICKER MODAL */}
       <ImagePickerModal
@@ -1075,7 +1359,14 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
         <RankrollTab
           hideListView={true}
           initialNewTitle={rankrollEditorTopic}
-          onProposalHandled={() => setRankrollEditorTopic(null)}
+          initialPersonRef={rankrollEditorPerson}
+          onProposalHandled={() => {
+            setRankrollEditorTopic(null);
+            setRankrollEditorPerson(null);
+            // Re-read from the server rather than ticking the marker locally: the
+            // editor also closes on discard, where no ranking was actually saved.
+            refreshRefs();
+          }}
         />
       )}
       <ConfirmDialog />

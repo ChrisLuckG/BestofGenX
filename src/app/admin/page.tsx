@@ -4,18 +4,24 @@ import { useState, useEffect, useCallback } from "react";
 import { Lock, Loader2, Monitor, Tablet, Smartphone } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import ArcadeTab from "@/components/admin/CardsTab";
-import MikeTab from "@/components/admin/MikeTabNew";
 import RankrollTab from "@/components/admin/RankrollTab";
 import UsersTab from "@/components/admin/UsersTab";
 import RewardsTab from "@/components/admin/RewardsTab";
 import ArticlesTab from "@/components/admin/ArticlesTab";
-import CurrencyTab from "@/components/admin/SettingsTab";
 import RequestsTab from "@/components/admin/RequestsTab";
-
-import MarketingTab from "@/components/admin/MarketingTab";
 import TVTab from "@/components/admin/TVTab";
 import MenschenTab from "@/components/admin/MenschenTab";
-import NewsroomConference from "@/components/admin/NewsroomConference";
+
+// DEACTIVATED TABS - Conference, Marketing, Currency and Mike.
+// The imports are commented out on purpose rather than just the render: an import
+// alone keeps the component in the admin bundle, so the code would still be
+// downloaded and (for Conference, which was mounted even while hidden) still run
+// its effects. Restoring a tab means uncommenting its import, its CONFIG_TABS
+// entry, its render line and its id in the localStorage whitelist below.
+// import MikeTab from "@/components/admin/MikeTabNew";
+// import CurrencyTab from "@/components/admin/SettingsTab";
+// import MarketingTab from "@/components/admin/MarketingTab";
+// import NewsroomConference from "@/components/admin/NewsroomConference";
 
 const PRINTFUL_URL = 'https://www.printful.com/dashboard/default';
 
@@ -40,10 +46,11 @@ const CONTENT_TABS: { id: TabType; label: string }[] = [
 const CONFIG_TABS: { id: TabType; label: string }[] = [
   { id: 'rewards', label: 'Rewards' },
   { id: 'users', label: 'Users' },
-  { id: 'marketing', label: 'Marketing' },
-  { id: 'currency', label: 'Currency' },
-  { id: 'mike', label: 'Mike' },
-  { id: 'conference', label: '?? Conference' },
+  // Deactivated - see the import block at the top.
+  // { id: 'marketing', label: 'Marketing' },
+  // { id: 'currency', label: 'Currency' },
+  // { id: 'mike', label: 'Mike' },
+  // { id: 'conference', label: 'Conference' },
 ];
 
 export default function AdminPage() {
@@ -58,7 +65,10 @@ export default function AdminPage() {
     // Restore last active tab from localStorage
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('admin-active-tab') as TabType | null;
-      if (saved && ['articles', 'arcade', 'rewards', 'rankroll', 'users', 'currency', 'requests', 'marketing', 'tv', 'mike', 'menschen', 'conference'].includes(saved)) {
+      // Deactivated ids are NOT listed: whoever had Mike or Conference open last
+      // would otherwise be restored onto a tab that no longer renders anything -
+      // a blank admin with no visible cause. They fall back to the default instead.
+      if (saved && ['articles', 'arcade', 'rewards', 'rankroll', 'users', 'requests', 'tv', 'menschen'].includes(saved)) {
         return saved;
       }
     }
@@ -129,17 +139,17 @@ export default function AdminPage() {
           <h1 className="text-lg font-bold">Admin Panel</h1>
           <div className="flex items-center gap-1">
             {PREVIEW_SIZES.map((size) => (
-              <button
+              <a
                 key={size.label}
-                onClick={() => {
-                  window.open('/', '_blank', `width=${size.width},height=${size.height},menubar=no,toolbar=no,location=no,status=no`);
-                }}
+                href="/"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex items-center gap-1 px-2 py-1 rounded border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-900 text-xs font-medium transition-colors"
-                title={`Open in ${size.width}×${size.height} window`}
+                title={`Open ${size.label} view in new tab`}
               >
                 <size.icon className="w-3.5 h-3.5" />
                 {size.label}
-              </button>
+              </a>
             ))}
           </div>
         </div>
@@ -211,29 +221,19 @@ export default function AdminPage() {
             hideListView={activeTab !== 'rankroll'}
           />
         )}
-        {activeTab === 'currency' && <CurrencyTab />}
         {activeTab === 'requests' && <RequestsTab onArticleCreated={() => setActiveTab('articles')} onStatusChange={fetchNewRequestsCount} />}
-        {activeTab === 'marketing' && <MarketingTab />}
         {/* TV stays mounted so video searches continue when switching tabs */}
         <div className={activeTab === 'tv' ? '' : 'hidden'}>
           <TVTab />
         </div>
-        {activeTab === 'mike' && <MikeTab />}
         {/* Menschen stays mounted so birthday searches continue when switching tabs */}
         <div className={activeTab === 'menschen' ? '' : 'hidden'}>
           <MenschenTab userId={user?.id} />
         </div>
-        {/* Conference stays mounted so background searches continue when switching tabs */}
-        <div className={activeTab === 'conference' ? '' : 'hidden'}>
-          <NewsroomConference
-            userId={user?.id}
-            onRankrollProposed={(title: string, description: string) => {
-              // Stay on the Conference tab - the editor opens as an overlay on top of it.
-              setPendingRankrollTitle(title);
-              setPendingRankrollDescription(description);
-            }}
-          />
-        </div>
+        {/* Deactivated renders - Currency, Marketing, Mike, Conference.
+            Conference was mounted even while hidden, so it ran its effects on
+            every admin load, including the OpenAI status check (a real paid
+            completion). That no longer happens. */}
       </div>
 
       

@@ -143,10 +143,13 @@ export async function POST(
     const winner = await User.findById(winnerId);
     const loser = await User.findById(loserId);
     
-    // Award full pot to winner (both wagers)
+    // Award full pot to winner (both wagers) and update battle stats
     const totalPot = battle.wager * 2;
     await User.findByIdAndUpdate(winnerId, {
-      $inc: { bogxCoins: totalPot }
+      $inc: { bogxCoins: totalPot, battlesWon: 1 }
+    });
+    await User.findByIdAndUpdate(loserId, {
+      $inc: { battlesLost: 1 }
     });
     
     // Update battle

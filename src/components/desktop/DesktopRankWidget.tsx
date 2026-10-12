@@ -4,6 +4,10 @@ import { ArrowUp, ArrowDown, Lock } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { type RankPeriod, rankUnrankedTip, rankUnrankedGuestTip } from "@/lib/rankPeriod";
 
+// After an explicit animation, balance changes are its own tail (count-up ticks,
+// deferred server sync at OPTIMISTIC_WINDOW_MS 2.5s + request) - not new events.
+const EXPLICIT_QUIET_MS = 4000;
+
 interface DesktopRankWidgetProps {
   rank: number | null;
   coins: number;
@@ -13,6 +17,9 @@ interface DesktopRankWidgetProps {
   dailyRank?: number;      // User's rank position in daily leaderboard
   monthlyRank?: number;    // User's rank position in monthly leaderboard
   yearlyRank?: number;     // User's rank position in yearly leaderboard
+  dailyPoints?: number;    // Points for showing negative balance when unranked
+  monthlyPoints?: number;
+  yearlyPoints?: number;
   dailyChange?: 'up' | 'down' | null;
   monthlyChange?: 'up' | 'down' | null;
   yearlyChange?: 'up' | 'down' | null;
@@ -72,8 +79,16 @@ function useRankDirection(label: string, value: number): 'up' | 'down' | null {
   return direction;
 }
 
-function RankPosition({ value, label, isActive, change, onHoverChange }: { value: number; label: string; isActive?: boolean; change?: 'up' | 'down' | null; onHoverChange?: (hovering: boolean) => void }) {
+function RankPosition({ value, label, isActive, change, onHoverChange, points }: { value: number; label: string; isActive?: boolean; change?: 'up' | 'down' | null; onHoverChange?: (hovering: boolean) => void; points?: number }) {
   const hasRank = value > 0;
+  
+  // Format unranked display: show negative points if available, otherwise "?"
+  const formatUnranked = () => {
+    if (points !== undefined && points < 0) {
+      return points.toFixed(2).replace('.', ',');
+    }
+    return '?';
+  };
 
   // A live change from the rankings hook wins, otherwise fall back to the
   // persisted comparison so an arrow is always shown.
@@ -116,8 +131,8 @@ function RankPosition({ value, label, isActive, change, onHoverChange }: { value
       onMouseLeave={() => !hasRank && onHoverChange?.(false)}
     >
       {!hasRank ? (
-        // No rank ("?" or "—") - no arrow, just spacing
-        <span className="w-3 h-3 shrink-0" />
+        // No rank - show red down arrow for negative points
+        <ArrowDown className={`w-3 h-3 shrink-0 transition-colors ${isActive ? 'text-white' : 'text-red-500 group-hover/main:text-white'}`} />
       ) : shown === 'up' ? (
         <ArrowUp style={arrowAnim} className={`w-3 h-3 shrink-0 transition-colors animate-bounce-subtle-up ${isActive ? 'text-white' : 'text-green-500 group-hover/main:text-white'}`} />
       ) : shown === 'down' ? (
@@ -144,15 +159,15 @@ function RankPosition({ value, label, isActive, change, onHoverChange }: { value
             // and is taller than the glyph, so scaling the "?" around the BOX
             // centre visibly shifted it up and to the left. An inline-block box
             // hugs the glyph, so it grows in place.
-            className={`inline-block align-top text-lg font-display tabular-nums leading-none transition-all origin-center ${
+            className={`inline-block align-top font-display tabular-nums leading-none transition-all origin-center ${
               isActive
-                ? 'text-white'
+                ? 'text-white text-lg'
                 : hasRank 
-                  ? 'text-gray-800 group-hover/main:text-white' 
-                  : 'text-[#E36B11] cursor-pointer group-hover/main:text-white group-hover/rank:scale-150'
+                  ? 'text-gray-800 text-lg group-hover/main:text-white' 
+                  : 'text-red-500 text-sm cursor-pointer group-hover/main:text-white group-hover/rank:scale-125'
             }`}
           >
-            {hasRank ? value.toString().padStart(2, '0') : '?'}
+            {hasRank ? value.toString().padStart(2, '0') : formatUnranked()}
           </span>
         </span>
         {/* text-gray-400 was nearly invisible against this widget's pale cream
@@ -175,6 +190,9 @@ export default function DesktopRankWidget({
   dailyRank = 0,
   monthlyRank = 0,
   yearlyRank = 0,
+  dailyPoints,
+  monthlyPoints,
+  yearlyPoints,
   dailyChange,
   monthlyChange,
   yearlyChange,
@@ -202,24 +220,52 @@ export default function DesktopRankWidget({
   // watching the wager count down to 0,00 while it slides away looks broken.
   const [displayAmount, setDisplayAmount] = useState(pendingAmount);
 
-  // Animate when explicit delta is provided (preferred - shows correct amount)
+  // The glow always clears itself, and it does so in an effect that depends on
+  // NOTHING BUT `coinAnim`.
+  //
+  // It used to be a timer created inside the trigger effect below, whose deps
+  // include `animateDelta`. The parent passes
+  // `animateDelta={coinAnimation.show ? coinAnimation.amount : undefined}`, and
+  // CoinAnimation flips `show` back to false after ~1200ms - BEFORE the 1400ms
+  // reset fired. That dep change ran the effect's cleanup, which cleared the
+  // pending reset, and the re-run then hit a falsy `animateDelta` and armed no
+  // new one. The widget stayed lit until a reload - very visible on a loss,
+  // because that glow is red.
   useEffect(() => {
-    if (animateDelta !== undefined && animateDelta !== 0 && animateKey !== undefined) {
-      setCoinAnim(animateDelta > 0 ? 'up' : 'down');
-      setCoinDelta(animateDelta);
-      prevCoinsRef.current = coins;
+    if (!coinAnim) return;
+    const timer = setTimeout(() => setCoinAnim(null), 1400);
+    return () => clearTimeout(timer);
+  }, [coinAnim]);
 
-      const timer = setTimeout(() => setCoinAnim(null), 1400);
-      return () => clearTimeout(timer);
-    }
+  // Animate when explicit delta is provided (preferred - shows correct amount).
+  // Keyed on `animateKey`, which the parent bumps once per event: re-running on
+  // a `coins` change used to restart the animation mid-flight.
+  const lastAnimKeyRef = useRef(animateKey);
+  const lastExplicitAtRef = useRef(0);
+  useEffect(() => {
+    if (animateKey === undefined || animateKey === lastAnimKeyRef.current) return;
+    lastAnimKeyRef.current = animateKey;
+    if (animateDelta === undefined || animateDelta === 0) return;
+
+    setCoinAnim(animateDelta > 0 ? 'up' : 'down');
+    setCoinDelta(animateDelta);
+    prevCoinsRef.current = coins;
+    lastExplicitAtRef.current = Date.now();
   }, [animateKey, animateDelta, coins]);
 
   // Fallback: Animate when coins change (for cases without explicit delta)
   // Use a small debounce to prevent flickering when multiple updates happen quickly
   const pendingAnimRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
-    // Skip if we have explicit delta
-    if (animateDelta !== undefined && animateKey !== undefined) return;
+    // Changes that belong to an explicit animation are absorbed silently: the
+    // parent's count-up keeps ticking after `animateDelta` is cleared (~1.2s), and
+    // the deferred server sync (useBogxCoins, ~2.5s after the last tick) lands a
+    // cent-level correction. Both used to replay as a second "±0,01" after every
+    // Solo Trivia answer.
+    if ((animateDelta !== undefined && animateKey !== undefined) || Date.now() - lastExplicitAtRef.current < EXPLICIT_QUIET_MS) {
+      prevCoinsRef.current = coins;
+      return;
+    }
     
     const diff = Math.round((coins - prevCoinsRef.current) * 100) / 100;
     if (diff !== 0) {
@@ -228,16 +274,17 @@ export default function DesktopRankWidget({
         clearTimeout(pendingAnimRef.current);
       }
       
-      // Small delay to batch rapid changes (e.g. refund + wager release)
+      // Small delay to batch rapid changes (e.g. refund + wager release).
+      // No reset timer here - the effect above owns clearing the glow. The
+      // `return () => clearTimeout(timer)` that used to sit in this callback was
+      // dead code anyway: a value returned from a setTimeout callback goes
+      // nowhere, it is not an effect cleanup.
       pendingAnimRef.current = setTimeout(() => {
         const finalDiff = Math.round((coins - prevCoinsRef.current) * 100) / 100;
         if (finalDiff !== 0) {
           setCoinAnim(finalDiff > 0 ? 'up' : 'down');
           setCoinDelta(finalDiff);
           prevCoinsRef.current = coins;
-
-          const timer = setTimeout(() => setCoinAnim(null), 1400);
-          return () => clearTimeout(timer);
         }
       }, 100);
     }
@@ -493,9 +540,9 @@ export default function DesktopRankWidget({
           ) : (
             // Normal rank positions
             <>
-              <RankPosition value={dailyRank} label="Day" isActive={active} change={dailyChange} onHoverChange={(h) => setTipFor(h ? 'day' : null)} />
-              <RankPosition value={monthlyRank} label="Month" isActive={active} change={monthlyChange} onHoverChange={(h) => setTipFor(h ? 'month' : null)} />
-              <RankPosition value={yearlyRank} label="Year" isActive={active} change={yearlyChange} onHoverChange={(h) => setTipFor(h ? 'year' : null)} />
+              <RankPosition value={dailyRank} label="Day" isActive={active} change={dailyChange} onHoverChange={(h) => setTipFor(h ? 'day' : null)} points={dailyPoints} />
+              <RankPosition value={monthlyRank} label="Month" isActive={active} change={monthlyChange} onHoverChange={(h) => setTipFor(h ? 'month' : null)} points={monthlyPoints} />
+              <RankPosition value={yearlyRank} label="Year" isActive={active} change={yearlyChange} onHoverChange={(h) => setTipFor(h ? 'year' : null)} points={yearlyPoints} />
             </>
           )}
         </div>

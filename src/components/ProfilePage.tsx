@@ -7,6 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import PushNotifications from "./PushNotifications";
 import InviteModal from "./InviteModal";
 import CountryFlag from "./CountryFlag";
+import LogoutModal from "./LogoutModal";
 import { formatCurrency, getCurrencySymbol } from "@/utils/currency";
 import { COUNTRIES } from "@/utils/countries";
 import { ProfileSkeleton } from "@/components/desktop/DesktopSkeletons";
@@ -106,6 +107,35 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
 
   // Invite friends modal
   const [showInviteModal, setShowInviteModal] = useState(false);
+
+  // Session tracking for logout modal
+  const [sessionStartTime] = useState(() => {
+    // Try to get from sessionStorage, or set new
+    if (typeof window !== 'undefined') {
+      const stored = sessionStorage.getItem('bogx_session_start');
+      if (stored) return parseInt(stored, 10);
+      const now = Date.now();
+      sessionStorage.setItem('bogx_session_start', now.toString());
+      return now;
+    }
+    return Date.now();
+  });
+  
+  const [sessionStartStats] = useState(() => {
+    // Capture stats at session start
+    if (typeof window !== 'undefined') {
+      const stored = sessionStorage.getItem('bogx_session_stats');
+      if (stored) return JSON.parse(stored);
+      const stats = {
+        bogxCoins: user?.bogxCoins || 0,
+        gamesPlayed: user?.gamesPlayed || 0,
+        wins: user?.wins || 0,
+      };
+      sessionStorage.setItem('bogx_session_stats', JSON.stringify(stats));
+      return stats;
+    }
+    return { bogxCoins: 0, gamesPlayed: 0, wins: 0 };
+  });
 
   // Initial loading state for skeleton
   const [isLoading, setIsLoading] = useState(true);
@@ -701,74 +731,31 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
         username={user.username}
       />
 
-      {/* Logout "See you soon" Modal - rendered via portal to escape stacking contexts */}
-      {showLogoutModal && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-5">
-          <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-md"
-            onClick={() => setShowLogoutModal(false)}
-          />
-          <div className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden">
-            {/* Header */}
-            <div className="h-24 bg-gradient-to-br from-[#E36B11]/15 via-[#E36B11]/5 to-transparent relative">
-              <button
-                onClick={() => setShowLogoutModal(false)}
-                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/80 hover:bg-white border border-warm flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors shadow-sm"
-                aria-label="Close"
-              >
-                <X className="w-4 h-4" />
-              </button>
-              <div className="absolute -bottom-7 left-1/2 -translate-x-1/2">
-                <div className="w-14 h-14 rounded-2xl bg-white border border-warm shadow-md flex items-center justify-center">
-                  <img src="/images/genxlogo1.png" alt="Best of GenX" className="h-9 object-contain" />
-                </div>
-              </div>
-            </div>
-
-            <div className="px-7 pt-12 pb-7">
-              <h2 className="font-display text-[26px] tracking-wide text-gray-900 leading-tight text-center mb-1">
-                See you soon, {user.username}!
-              </h2>
-              <p className="text-gray-500 text-[13px] leading-relaxed text-center mb-5">
-                Here's a quick look at where you stand before you go.
-              </p>
-
-              {/* Session info */}
-              <div className="grid grid-cols-3 gap-2 mb-6">
-                <div className="rounded-2xl border border-warm bg-cream/50 p-3 text-center">
-                  <img src="/images/bogxcoin.png" alt="BOGX" className="w-4 h-4 mx-auto mb-1" />
-                  <div className="text-[15px] font-black text-gray-900">{formatCurrency(animatedCoins)}</div>
-                  <div className="text-[9px] uppercase tracking-wider text-gray-400 font-bold">BOGX</div>
-                </div>
-                <div className="rounded-2xl border border-warm bg-cream/50 p-3 text-center">
-                  <Trophy className="w-4 h-4 text-gray-900 mx-auto mb-1" />
-                  <div className="text-[15px] font-black text-gray-900">{animatedWins}</div>
-                  <div className="text-[9px] uppercase tracking-wider text-gray-400 font-bold">Wins</div>
-                </div>
-                <div className="rounded-2xl border border-warm bg-cream/50 p-3 text-center">
-                  <Target className="w-4 h-4 text-gray-900 mx-auto mb-1" />
-                  <div className="text-[15px] font-black text-gray-900">{animatedGames}</div>
-                  <div className="text-[9px] uppercase tracking-wider text-gray-400 font-bold">Games</div>
-                </div>
-              </div>
-
-              <button
-                onClick={() => { setShowLogoutModal(false); logout(); }}
-                className="w-full py-3.5 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl text-[15px] transition-colors shadow-sm"
-              >
-                Log out
-              </button>
-              <button
-                onClick={() => setShowLogoutModal(false)}
-                className="w-full py-2.5 mt-2 text-gray-500 hover:text-gray-700 text-[13px] font-medium transition-colors"
-              >
-                Stay logged in
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+      {/* Logout Modal - extracted to separate component */}
+      <LogoutModal
+        isOpen={showLogoutModal}
+        onClose={() => setShowLogoutModal(false)}
+        onLogout={() => {
+          // Clear session tracking on logout
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('bogx_session_start');
+            sessionStorage.removeItem('bogx_session_stats');
+            sessionStorage.removeItem('bogx_session_articles');
+            sessionStorage.removeItem('bogx_session_votes');
+          }
+          logout();
+        }}
+        username={user.username}
+        bogxCoins={user.bogxCoins || 0}
+        wins={user.wins || 0}
+        gamesPlayed={user.gamesPlayed || 0}
+        sessionStartTime={sessionStartTime}
+        sessionGamesPlayed={(user.gamesPlayed || 0) - (sessionStartStats.gamesPlayed || 0)}
+        sessionBogxEarned={(user.bogxCoins || 0) - (sessionStartStats.bogxCoins || 0)}
+        sessionWins={(user.wins || 0) - (sessionStartStats.wins || 0)}
+        sessionArticlesRead={typeof window !== 'undefined' ? parseInt(sessionStorage.getItem('bogx_session_articles') || '0', 10) : 0}
+        sessionVotes={typeof window !== 'undefined' ? parseInt(sessionStorage.getItem('bogx_session_votes') || '0', 10) : 0}
+      />
 
       {/* Avatar Picker Modal - rendered via portal to escape stacking contexts */}
       {showAvatarPicker && typeof document !== 'undefined' && createPortal(

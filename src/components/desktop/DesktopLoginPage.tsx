@@ -370,9 +370,20 @@ export default function DesktopLoginPage({ onClose, onSuccess, initialView = 'lo
                     <X className="w-4 h-4" />
                   </button>
                   <p className="text-sm font-bold mb-1 text-gray-900">Why no Google?</p>
-                  <p className="text-xs text-gray-700 leading-relaxed">
-                    Look, this isn't David vs. Goliath — we're not fighting anyone. We just want real people who actually make the effort to sign up. If typing an email feels like too much work... well, maybe TikTok is more your speed. We're GenX. We still remember passwords.
-                  </p>
+                  <div className="space-y-2">
+                    <p className="text-xs text-gray-700 leading-relaxed">
+                      Look, most of BogX is open — we're not fighting anyone. We just want real people who actually make the effort to sign up. It keeps the bots and fake accounts out and makes BogX a little more human.
+                    </p>
+                    <p className="text-xs text-gray-700 leading-relaxed">
+                      And relax — we won't ask for your life story. Just the basics. No endless forms, no twenty questions. Signing up is quick and logging back in is easy.
+                    </p>
+                    <p className="text-xs text-gray-700 leading-relaxed">
+                      Got a Google/Gmail account? No problem. Just use your Gmail address here like any other email address. We simply don't use the "Sign in with Google" button.
+                    </p>
+                    <p className="text-xs text-gray-700 leading-relaxed">
+                      A little less Big Tech. A little more GenX. 😉
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
@@ -581,18 +592,6 @@ export default function DesktopLoginPage({ onClose, onSuccess, initialView = 'lo
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setAgreeTerms(!agreeTerms)}
-                className="flex items-start gap-4 text-left w-full"
-              >
-                <div className={`w-6 h-6 rounded-md border-2 flex-shrink-0 flex items-center justify-center transition-all ${agreeTerms ? 'bg-[#E36B11] border-[#E36B11]' : 'border-gray-300'}`}>
-                  {agreeTerms && <Check className="w-4 h-4 text-white" />}
-                </div>
-                <p className="text-sm text-gray-600">
-                  I agree to the <span className="text-[#E36B11]">Terms of Service</span> and <span className="text-[#E36B11]">Privacy Policy</span>
-                </p>
-              </button>
             </div>
           )}
 
@@ -606,13 +605,28 @@ export default function DesktopLoginPage({ onClose, onSuccess, initialView = 'lo
                 Continue <ArrowRight className="w-5 h-5" />
               </button>
             ) : (
+              <>
+              {/* Terms checkbox - right above the button so it is always in view */}
+              <button
+                type="button"
+                onClick={() => { setAgreeTerms(!agreeTerms); setError(""); }}
+                className="flex items-center gap-4 text-left w-full mb-4"
+              >
+                <div className={`w-6 h-6 rounded-md border-2 flex-shrink-0 flex items-center justify-center transition-all ${agreeTerms ? 'bg-[#E36B11] border-[#E36B11]' : error ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-400 bg-white'}`}>
+                  {agreeTerms && <Check className="w-4 h-4 text-white" />}
+                </div>
+                <p className="text-sm text-gray-700">
+                  I agree to the <span className="text-[#E36B11]">Terms of Service</span> and <span className="text-[#E36B11]">Privacy Policy</span>
+                </p>
+              </button>
               <button
                 onClick={handleSignup}
-                disabled={loading || !agreeTerms}
+                disabled={loading}
                 className="w-full py-4 bg-[#E36B11] rounded-xl text-white font-bold flex items-center justify-center gap-2 hover:bg-[#C4772A] transition-all disabled:opacity-50"
               >
                 {loading ? "Creating..." : "Create My Account"} <ArrowRight className="w-5 h-5" />
               </button>
+              </>
             )}
 
             <button onClick={prevStep} className="w-full py-3 text-gray-500 text-sm flex items-center justify-center gap-1 mt-3 hover:text-[#E36B11] transition-colors">

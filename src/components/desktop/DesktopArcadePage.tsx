@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, User, HelpCircle, Trophy, BarChart3, Coins, Zap, Play, LucideIcon, Swords, Brain } from "lucide-react";
+import { Users, User, HelpCircle, Trophy, BarChart3, Coins, Zap, Play, LucideIcon, Swords, Brain, Info, PlusCircle, XCircle, ArrowRight } from "lucide-react";
 import OpenBattlesModal from "../OpenBattlesModal";
 
 interface DesktopArcadePageProps {
@@ -55,7 +55,7 @@ const GAMES: GameBanner[] = [
   },
   {
     game: 'trivia',
-    image: '/images/Hintergund/solo.png',
+    image: '/images/Hintergund/solo-hamster.png',
     badgeIcon: User,
     badge: 'Single Player',
     titleA: 'SOLO',
@@ -75,7 +75,7 @@ const GAMES: GameBanner[] = [
 // Preload banner images to prevent slow loading
 const PRELOAD_IMAGES = [
   '/images/Hintergund/battle.png',
-  '/images/Hintergund/solo.png',
+  '/images/Hintergund/solo-hamster.png',
 ];
 
 export default function DesktopArcadePage({ onSelectGame, userId, battleAlertCount = 0, onCoinsChange, onPlaySpecificBattle, onShowLogin }: DesktopArcadePageProps) {
@@ -185,7 +185,10 @@ export default function DesktopArcadePage({ onSelectGame, userId, battleAlertCou
             className="group relative overflow-hidden rounded-2xl shadow-lg transition-all bg-cover bg-center hover:scale-[1.01] active:scale-[0.99]"
             style={{ backgroundImage: "url('/images/Hintergund/battle.png')", minHeight: '320px' }}
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/50 to-transparent" />
+            {/* The content now spans the full width, so the right edge needs a
+                floor of its own - at to-transparent the stake grid sat on bare
+                artwork and the white numbers were unreadable. */}
+            <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/65 to-black/45" />
 
             {/* Online Badge - top right */}
             <div className="absolute top-4 right-4 flex items-center gap-2 bg-white/15 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/20 z-10">
@@ -198,63 +201,81 @@ export default function DesktopArcadePage({ onSelectGame, userId, battleAlertCou
               <span className="text-[10px] text-white/80 uppercase font-semibold">Online</span>
             </div>
 
-            <div className="relative h-full flex flex-col justify-center items-start text-left px-8 py-6 max-w-[60%]">
-              {/* Badge */}
-              <div className="inline-flex items-center gap-1.5 bg-black/50 backdrop-blur-sm border border-white/20 text-white text-[9px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-                <Users className="w-3.5 h-3.5" />
-                Multiplayer
+            {/* Three columns over the artwork, then a full-width action bar -
+                the layout from the reference wireframe. */}
+            <div className="relative h-full flex flex-col text-left px-8 py-6">
+              <div className="flex-1 flex items-stretch gap-7">
+                {/* Identity */}
+                <div className="w-[27%] flex flex-col justify-center shrink-0">
+                  <div className="self-start inline-flex items-center gap-1.5 bg-black/50 backdrop-blur-sm border border-white/20 text-white text-[9px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                    <Users className="w-3.5 h-3.5" />
+                    Multiplayer
+                  </div>
+                  <h3 className="font-display text-[44px] leading-none tracking-wide mt-3">
+                    <span className="text-white">QUIZZ</span>
+                    <span className="text-[#A855F7]">BATTLE</span>
+                  </h3>
+                  <p className="text-white text-[15px] font-semibold leading-snug mt-2.5">
+                    Challenge real players.<br />
+                    <span className="text-[#A855F7]">Winner takes 2x wager!</span>
+                  </p>
+                </div>
+
+                <div className="w-px bg-white/20 shrink-0" />
+
+                {/* How it works */}
+                <div className="flex-1 flex flex-col justify-center min-w-0">
+                  <span className="font-display text-white/60 text-[11px] tracking-[0.12em]">How it works</span>
+                  <div className="flex items-start gap-6 mt-4">
+                    {[
+                      { icon: Users, value: '3 – 5', label: 'Rounds', desc: 'A quick series\nof questions.' },
+                      { icon: Zap, value: '10 sec', label: 'Per question', desc: 'Think fast.\nEvery second counts.' },
+                      { icon: Trophy, value: 'High score', label: 'Wins', desc: 'Most correct answers\ntakes the pot.' },
+                    ].map((f) => {
+                      const FIcon = f.icon;
+                      return (
+                        <div key={f.label} className="flex-1 min-w-0">
+                          <div className="w-11 h-11 rounded-full border border-white/35 flex items-center justify-center">
+                            <FIcon className="w-5 h-5 text-[#A855F7]" />
+                          </div>
+                          <div className="font-display text-white text-[15px] tracking-wide mt-2.5 leading-none">{f.value}</div>
+                          <div className="font-display text-white/60 text-[11px] tracking-wide mt-1">{f.label}</div>
+                          <div className="font-display text-white/45 text-[10px] tracking-wide leading-snug mt-1.5 whitespace-pre-line">{f.desc}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="w-px bg-white/20 shrink-0" />
+
+                {/* Stake */}
+                <div className="w-[30%] flex flex-col justify-center shrink-0">
+                  <div className="flex items-baseline justify-between">
+                    <span className="font-display text-white/60 text-[11px] tracking-[0.12em]">Your stake</span>
+                    <span className="font-display text-white/40 text-[10px] tracking-wider">BOGX</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 mt-3">
+                    {[0.25, 0.50, 0.75, 1.00, 2.50, 5.00].map((w) => (
+                      <span
+                        key={w}
+                        className="py-2 rounded-lg font-display text-[13px] text-white text-center border border-white/35 bg-white/[0.07]"
+                      >
+                        {w.toFixed(2)}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2 mt-3.5">
+                    <Info className="w-4 h-4 text-white/40 shrink-0" />
+                    <span className="font-display text-white/50 text-[11px] tracking-wide">Tie = coins back to both players</span>
+                  </div>
+                </div>
               </div>
 
-              {/* Title */}
-              <h3 className="font-display text-[48px] leading-none tracking-wide mt-3">
-                <span className="text-white">QUIZZ</span>
-                <span className="text-[#A855F7]">BATTLE</span>
-              </h3>
-
-              {/* Subtitle */}
-              <p className="text-white text-[16px] font-semibold leading-tight mt-2.5">
-                Challenge real players.<br />
-                <span className="text-[#A855F7]">Winner takes 2x wager!</span>
-              </p>
-
-              {/* Features */}
-              <div className="flex items-center gap-5 mt-4">
-                <div className="flex items-center gap-2">
-                  <Users className="w-5 h-5 text-[#A855F7]" />
-                  <span className="text-white/90 text-[12px] font-medium leading-tight">3 or 5<br/>Rounds</span>
-                </div>
-                <div className="w-px h-8 bg-white/25" />
-                <div className="flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-[#A855F7]" />
-                  <span className="text-white/90 text-[12px] font-medium leading-tight">10 Sec<br/>Per Question</span>
-                </div>
-                <div className="w-px h-8 bg-white/25" />
-                <div className="flex items-center gap-2">
-                  <Trophy className="w-5 h-5 text-[#A855F7]" />
-                  <span className="text-white/90 text-[12px] font-medium leading-tight">High Score<br/>Wins</span>
-                </div>
-              </div>
-
-              {/* Wagers */}
-              <div className="flex items-center gap-2 mt-4">
-                <span className="text-white/70 text-[11px] uppercase font-bold">Wagers:</span>
-                {[0.25, 0.50, 0.75, 1.00, 2.50, 5.00].map((w) => (
-                  <span key={w} className="px-2.5 py-1 rounded text-[12px] font-bold bg-transparent text-white border border-white/40">
-                    {w.toFixed(2)}
-                  </span>
-                ))}
-                <span className="text-white/60 text-[11px] ml-1">BOGX</span>
-              </div>
-
-              {/* Play Now + Tie */}
-              <div className="flex items-center gap-4 mt-5">
-                <div className="flex items-center gap-2 font-bold text-[14px] px-6 py-3 rounded-lg shadow-md bg-[#A855F7]">
-                  <span className="text-white">PLAY NOW</span>
-                  <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center">
-                    <Play className="w-2.5 h-2.5 text-white fill-white ml-0.5" />
-                  </span>
-                </div>
-                <span className="text-white/50 text-[11px]">Tie = coins back to both</span>
+              {/* Action bar - full width, like the wireframe */}
+              <div className="mt-6 w-full flex items-center justify-center relative py-3.5 rounded-xl shadow-md bg-[#A855F7]">
+                <span className="font-display text-white text-[15px] tracking-wide">PLAY NOW</span>
+                <ArrowRight className="w-5 h-5 text-white absolute right-5" />
               </div>
             </div>
           </button>
@@ -266,55 +287,98 @@ export default function DesktopArcadePage({ onSelectGame, userId, battleAlertCou
               <button
                 key={g.game}
                 onClick={() => onSelectGame(g.game)}
-                className="group relative overflow-hidden rounded-2xl shadow-lg transition-all bg-cover bg-center aspect-[2.5/1] hover:scale-[1.01] active:scale-[0.99]"
-                style={{ backgroundImage: `url('${g.image}')` }}
+                className="group relative overflow-hidden rounded-2xl shadow-lg border border-warm transition-all bg-cover bg-center hover:scale-[1.01] active:scale-[0.99]"
+                style={{ backgroundImage: `url('${g.image}')`, minHeight: '320px' }}
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/50 to-transparent" />
+                {/* LIGHT overlay, unlike QuizzBattle above: the hamster-wheel
+                    banner is cream with pale line art, so a dark scrim would
+                    bury the artwork and leave a grey block. Text is dark on
+                    this card for the same reason. */}
+                <div className="absolute inset-0 bg-gradient-to-r from-[#F5F0E8]/80 via-[#F5F0E8]/35 to-transparent" />
 
-                <div className="relative h-full flex flex-col justify-center items-start text-left px-8 py-6 max-w-[60%]">
-                  {/* Badge */}
-                  <div className="inline-flex items-center gap-1.5 bg-black/50 backdrop-blur-sm border border-white/20 text-white text-[9px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-                    <BadgeIcon className="w-3.5 h-3.5" />
-                    {g.badge}
-                  </div>
+                {/* Same three-column + action bar structure as QuizzBattle. */}
+                <div className="relative h-full flex flex-col text-left px-8 py-6">
+                  <div className="flex-1 flex items-stretch gap-7">
+                    {/* Identity */}
+                    <div className="w-[27%] flex flex-col justify-center shrink-0">
+                      <div className="self-start inline-flex items-center gap-1.5 bg-white/70 backdrop-blur-sm border border-[#E36B11]/25 text-[#E36B11] text-[9px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                        <BadgeIcon className="w-3.5 h-3.5" />
+                        {g.badge}
+                      </div>
+                      <h3 className="font-display text-[44px] leading-none tracking-wide mt-3">
+                        <span className="text-gray-900">{g.titleA}</span>{' '}
+                        <span style={{ color: g.titleColor }}>{g.titleB}</span>
+                      </h3>
+                      <p className="text-gray-700 text-[15px] font-semibold leading-snug mt-2.5">
+                        Test your knowledge.<br />
+                        <span style={{ color: g.featureColor }}>Beat the clock.</span>
+                      </p>
+                    </div>
 
-                  {/* Title */}
-                  <h3 className="font-display text-[48px] leading-none tracking-wide mt-3">
-                    <span className="text-white">{g.titleA}</span>{' '}
-                    <span style={{ color: g.titleColor }}>{g.titleB}</span>
-                  </h3>
+                    <div className="w-px bg-black/10 shrink-0" />
 
-                  {/* Subtitle */}
-                  <p className="text-white text-[16px] font-semibold leading-tight mt-2.5">
-                    {g.subtitleA}<br />
-                    <span style={{ color: g.featureColor }}>{g.subtitleB}</span>
-                  </p>
+                    {/* Game settings */}
+                    <div className="flex-1 flex flex-col justify-center min-w-0">
+                      <span className="font-display text-gray-500 text-[11px] tracking-[0.12em]">Game settings</span>
+                      <div className="flex items-start gap-6 mt-4">
+                        {[
+                          { icon: HelpCircle, value: '5', label: 'Questions', desc: 'One short round\nper game.' },
+                          { icon: Zap, value: '10 sec', label: 'Per question', desc: 'Faster answers\nscore more.' },
+                          { icon: Trophy, value: '5 / day', label: 'Games', desc: 'Your daily\nallowance.' },
+                        ].map((f) => {
+                          const FIcon = f.icon;
+                          return (
+                            <div key={f.label} className="flex-1 min-w-0">
+                              <div className="w-11 h-11 rounded-full border border-[#E36B11]/30 bg-white/50 flex items-center justify-center">
+                                <FIcon className="w-5 h-5" style={{ color: g.featureColor }} />
+                              </div>
+                              <div className="font-display text-gray-900 text-[15px] tracking-wide mt-2.5 leading-none">{f.value}</div>
+                              <div className="font-display text-gray-500 text-[11px] tracking-wide mt-1">{f.label}</div>
+                              <div className="font-display text-gray-500 text-[10px] tracking-wide leading-snug mt-1.5 whitespace-pre-line">{f.desc}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
 
-                  {/* Features */}
-                  <div className="flex items-center gap-5 mt-4">
-                    {g.features.map((f, i) => {
-                      const FIcon = f.icon;
-                      return (
-                        <div key={i} className="flex items-center gap-2">
-                          {i > 0 && <div className="w-px h-8 bg-white/25 -ml-3 mr-1" />}
-                          <FIcon className="w-5 h-5 flex-shrink-0" style={{ color: g.featureColor }} />
-                          <span className="text-white/90 text-[12px] font-medium leading-tight">
-                            {f.lines[0]}<br />{f.lines[1]}
+                    <div className="w-px bg-black/10 shrink-0" />
+
+                    {/* Scoring - the stake column's counterpart */}
+                    <div className="w-[30%] flex flex-col justify-center shrink-0">
+                      <div className="flex items-baseline justify-between">
+                        <span className="font-display text-gray-500 text-[11px] tracking-[0.12em]">Your stake</span>
+                        <span className="font-display text-gray-400 text-[10px] tracking-wider">BOGX</span>
+                      </div>
+                      <div className="grid grid-cols-5 gap-1.5 mt-3">
+                        {[0.10, 0.20, 0.30, 0.40, 0.50].map((p) => (
+                          <span
+                            key={p}
+                            className="py-2 rounded-lg font-display text-[11px] text-gray-800 text-center border border-[#E36B11]/30 bg-white/55"
+                          >
+                            {p.toFixed(2)}
                           </span>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-4 mt-3.5">
+                        <div className="flex items-center gap-1.5">
+                          <PlusCircle className="w-4 h-4 text-green-400 shrink-0" />
+                          <span className="font-display text-gray-600 text-[11px] tracking-wide">Per correct</span>
                         </div>
-                      );
-                    })}
+                        <div className="flex items-center gap-1.5">
+                          <XCircle className="w-4 h-4 text-red-400 shrink-0" />
+                          <span className="font-display text-gray-600 text-[11px] tracking-wide">−20% per wrong</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Play Now */}
-                  <div 
-                    className="flex items-center gap-2 mt-5 font-bold text-[14px] px-6 py-3 rounded-lg shadow-md transition-colors"
+                  {/* Action bar */}
+                  <div
+                    className="mt-6 w-full flex items-center justify-center relative py-3.5 rounded-xl shadow-md"
                     style={{ backgroundColor: g.titleColor }}
                   >
-                    <span className="text-white">PLAY NOW</span>
-                    <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center">
-                      <Play className="w-2.5 h-2.5 text-white fill-white ml-0.5" />
-                    </span>
+                    <span className="font-display text-white text-[15px] tracking-wide">PLAY NOW</span>
+                    <ArrowRight className="w-5 h-5 text-white absolute right-5" />
                   </div>
                 </div>
               </button>

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Play, Tv, Search, Clock, Globe, Film, ChevronLeft, ChevronRight, X, ExternalLink } from "lucide-react";
 import CountryFlag from "@/components/CountryFlag";
+import BackButton from "@/components/BackButton";
 import { TVSkeleton } from "@/components/desktop/DesktopSkeletons";
 
 interface TVVideo {
@@ -160,7 +161,14 @@ function CategoryRow({ category, videos, showSeparator, onVideoClick }: {
 }
 
 
-export default function TVPage() {
+interface TVPageProps {
+  /** Mobile: back to the Media hub. */
+  onBack?: () => void;
+  /** Open the player on this video once the list has loaded (Media hub teaser). */
+  initialVideoId?: string | null;
+}
+
+export default function TVPage({ onBack, initialVideoId }: TVPageProps = {}) {
   const [videos, setVideos] = useState<TVVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -199,6 +207,12 @@ export default function TVPage() {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    if (!initialVideoId) return;
+    const video = videos.find(v => v._id === initialVideoId);
+    if (video) setPlayingVideo(video);
+  }, [initialVideoId, videos]);
+
   const filteredVideos = videos.filter(v => {
     const matchesSearch = !searchQuery || v.title.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesLanguage = languageFilter === 'all' || v.language === languageFilter;
@@ -222,6 +236,7 @@ export default function TVPage() {
       {/* Header - always visible */}
       <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
         <div className="flex items-center gap-3">
+          {onBack && <BackButton onClick={onBack} />}
           <Tv className="w-5 h-5 text-[#E36B11]" />
           <div>
             <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">TV</span>

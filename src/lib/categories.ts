@@ -193,12 +193,24 @@ const TOPIC_TO_SLUG: Record<string, string> = {
 };
 
 /**
+ * Quiz-only topic colours that don't map to editorial categories.
+ * 'all' (Mixed) is a quiz concept, not a content category.
+ */
+const TOPIC_ONLY_COLORS: Record<string, string> = {
+  all: '#E36B11',    // GenX orange for Mixed
+  mixed: '#E36B11',
+};
+
+/**
  * Accent colour for a quiz topic id. Same colour the editorial surfaces use for
  * that subject, so a Music battle and a Music article are never two different
  * colours - which is exactly what happened while both sides kept their own maps.
  */
 export function getTopicColor(topicId: string): string {
-  return getCategoryColor(TOPIC_TO_SLUG[topicId.toLowerCase()] ?? topicId);
+  const lower = topicId.toLowerCase();
+  // Quiz-only topics (like 'all'/Mixed) have their own colours
+  if (TOPIC_ONLY_COLORS[lower]) return TOPIC_ONLY_COLORS[lower];
+  return getCategoryColor(TOPIC_TO_SLUG[lower] ?? topicId);
 }
 
 /**

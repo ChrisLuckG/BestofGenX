@@ -219,7 +219,7 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
         <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
         
         {/* Modal */}
-        <div className={`relative w-[90%] max-w-md bg-cream rounded-2xl shadow-2xl overflow-y-auto flex flex-col transition-all duration-300 ${isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`}>
+        <div className={`relative w-[90%] max-w-md max-h-[92dvh] bg-cream rounded-2xl shadow-2xl overflow-y-auto flex flex-col transition-all duration-300 ${isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`}>
           {/* Header */}
           <div className="flex items-center justify-end px-4 pt-4 pb-2">
             <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-500">
@@ -339,9 +339,20 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
                     <X className="w-4 h-4" />
                   </button>
                   <p className="text-sm font-bold mb-1 text-gray-900">Why no Google?</p>
-                  <p className="text-xs text-gray-700 leading-relaxed">
-                    We just want real people who actually make the effort to sign up. We're GenX. We still remember passwords.
-                  </p>
+                  <div className="space-y-2">
+                    <p className="text-xs text-gray-700 leading-relaxed">
+                      Look, most of BogX is open — we're not fighting anyone. We just want real people who actually make the effort to sign up. It keeps the bots and fake accounts out and makes BogX a little more human.
+                    </p>
+                    <p className="text-xs text-gray-700 leading-relaxed">
+                      And relax — we won't ask for your life story. Just the basics. No endless forms, no twenty questions. Signing up is quick and logging back in is easy.
+                    </p>
+                    <p className="text-xs text-gray-700 leading-relaxed">
+                      Got a Google/Gmail account? No problem. Just use your Gmail address here like any other email address. We simply don't use the "Sign in with Google" button.
+                    </p>
+                    <p className="text-xs text-gray-700 leading-relaxed">
+                      A little less Big Tech. A little more GenX. 😉
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
@@ -366,7 +377,7 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       
       {/* Modal */}
-      <div className={`relative w-[90%] max-w-md bg-cream rounded-2xl shadow-2xl overflow-y-auto flex flex-col transition-all duration-300 ${isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`}>
+      <div className={`relative w-[90%] max-w-md max-h-[92dvh] bg-cream rounded-2xl shadow-2xl overflow-y-auto flex flex-col transition-all duration-300 ${isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`}>
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-4 pb-2">
           <span className="text-sm text-gray-500 pl-2">Step <span className="text-[#E36B11] font-bold">{signupStep}</span> of 5</span>
@@ -375,8 +386,8 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
           </button>
         </div>
 
-        {/* Content - fixed height ensures all steps are identical (no jumping) */}
-        <div className="px-6 pb-6 h-[320px] flex flex-col">
+        {/* Content - min height keeps steps 1-4 identical (no jumping) but never clips a taller step */}
+        <div className="px-6 pb-6 min-h-[320px] flex flex-col">
           <ProgressDots />
 
           {error && (
@@ -532,7 +543,7 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
               <p className="text-gray-500 text-sm mb-6">One last step to join the challenge.</p>
 
               {/* Benefits */}
-              <div className="bg-white border border-warm rounded-xl p-4 mb-5 text-left space-y-3">
+              <div className="bg-white border border-warm rounded-xl p-4 text-left space-y-3">
                 <div className="flex items-center gap-3">
                   <Trophy className="w-5 h-5 text-[#E36B11]" />
                   <span className="text-gray-700">Vote on your favorites</span>
@@ -546,20 +557,6 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
                   <span className="text-gray-700">Win epic prizes</span>
                 </div>
               </div>
-
-              {/* Terms checkbox */}
-              <button
-                type="button"
-                onClick={() => setAgreeTerms(!agreeTerms)}
-                className="flex items-start gap-3 text-left w-full"
-              >
-                <div className={`w-6 h-6 rounded-md border-2 flex-shrink-0 flex items-center justify-center transition-all ${agreeTerms ? 'bg-[#E36B11] border-[#E36B11]' : 'border-gray-300'}`}>
-                  {agreeTerms && <Check className="w-4 h-4 text-white" />}
-                </div>
-                <p className="text-sm text-gray-600">
-                  I agree to the <span className="text-[#E36B11]">Terms</span> and <span className="text-[#E36B11]">Privacy Policy</span>
-                </p>
-              </button>
             </div>
           )}
         </div>
@@ -574,13 +571,28 @@ export default function LoginPage({ isOpen, onClose, onSuccess, initialView = 'l
               Continue <ArrowRight className="w-5 h-5" />
             </button>
           ) : (
+            <>
+            {/* Terms checkbox - lives next to the button so it can never be pushed out of view */}
+            <button
+              type="button"
+              onClick={() => { setAgreeTerms(!agreeTerms); setError(""); }}
+              className="flex items-center gap-3 text-left w-full mb-3"
+            >
+              <div className={`w-6 h-6 rounded-md border-2 flex-shrink-0 flex items-center justify-center transition-all ${agreeTerms ? 'bg-[#E36B11] border-[#E36B11]' : error ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-400 bg-white'}`}>
+                {agreeTerms && <Check className="w-4 h-4 text-white" />}
+              </div>
+              <p className="text-sm text-gray-700">
+                I agree to the <span className="text-[#E36B11]">Terms</span> and <span className="text-[#E36B11]">Privacy Policy</span>
+              </p>
+            </button>
             <button
               onClick={handleSignup}
-              disabled={loading || !agreeTerms}
+              disabled={loading}
               className="w-full py-4 bg-[#E36B11] rounded-xl text-white font-bold flex items-center justify-center gap-2 hover:bg-[#C4772A] transition-all disabled:opacity-50"
             >
               {loading ? "Creating..." : "Create My Account"} <ArrowRight className="w-5 h-5" />
             </button>
+            </>
           )}
 
           <button onClick={prevStep} className="w-full py-3 text-gray-500 text-sm flex items-center justify-center gap-1 mt-2">

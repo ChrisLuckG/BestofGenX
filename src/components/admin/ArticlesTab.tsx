@@ -1,15 +1,18 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Plus, Edit2, Trash2, Save, X, Eye, EyeOff, Loader2, Sparkles, Upload, RefreshCw, MoreVertical, Copy, Archive, Calendar, MessageSquare, Link, Wand2, Image as ImageIcon, Star, ChevronUp, ChevronDown, Users, BookOpen } from "lucide-react";
+import { Plus, Edit2, Trash2, Save, X, Eye, EyeOff, Loader2, Sparkles, Upload, RefreshCw, MoreVertical, Copy, Archive, Calendar, MessageSquare, Link, Wand2, Image as ImageIcon, ChevronUp, ChevronDown, Users, BookOpen, Radio } from "lucide-react";
 import { getCategoryLabel } from "@/lib/categories";
 import { useConfirm } from "./ConfirmModal";
 import { computeContainerExcludes, computeBannerCategories } from "@/lib/containerFill";
 import { useCategories } from "@/hooks/useCategories";
+import { AUTHOR_STYLES } from "@/config/authorStyles";
 import BlockEditor from "./BlockEditor";
 import ContainerBlock from "./ContainerBlock";
 import ImagePickerModal from "./ImagePickerModal";
 import HistoryModal from "./HistoryModal";
+import RadioModal from "./RadioModal";
+import ApiStatusBadge from "./ApiStatusBadge";
 
 interface ArticleData {
   _id?: string;
@@ -186,9 +189,10 @@ export default function ArticlesTab({ userId, onGoToMenschen }: ArticlesTabProps
   const imageManagerFileRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const { confirm, ConfirmDialog } = useConfirm();
-  // "On This Day" flow, kept in its own file (HistoryModal) so this component
-  // does not grow further.
+  // "On This Day" and "Community Radio" flows, kept in their own files so this
+  // component does not grow further.
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showRadioModal, setShowRadioModal] = useState(false);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -491,26 +495,11 @@ export default function ArticlesTab({ userId, onGoToMenschen }: ArticlesTabProps
     setTimeout(() => setToast(null), 3000);
   };
 
-  const featureArticle = async (article: ArticleData) => {
-    if (!article._id || article.status !== 'published') return;
-    const next = !article.featured;
-    // Optimistic UI update
-    setArticles(prev => prev.map(a => a._id === article._id ? { ...a, featured: next } : a));
-    try {
-      // Star = allow this article into the Top Area, sorted chronologically (no fixed pin).
-      await fetch(`/api/articles/${article._id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, featured: next }),
-      });
-      setToast({ message: next ? '⭐ In Top Area' : 'Aus Top Area entfernt', articleId: article._id });
-      setTimeout(() => setToast(null), 2000);
-    } catch (err) {
-      console.error('Feature error:', err);
-      // Revert on failure
-      setArticles(prev => prev.map(a => a._id === article._id ? { ...a, featured: !next } : a));
-    }
-  };
+  // The star toggle that set `featured` was removed from the list on request.
+  // The field and its effect still exist: containerFill.ts lets a starred article
+  // into the Top Area even when its category is already taken by a banner
+  // (see resolveContainer / WelcomeReel). Nothing in the admin sets it now, and
+  // no article currently has it, so the exception is simply never granted.
 
   const archiveArticle = async (id: string) => {
     try {
@@ -943,12 +932,22 @@ export default function ArticlesTab({ userId, onGoToMenschen }: ArticlesTabProps
               History
             </button>
             <button
+              onClick={() => setShowRadioModal(true)}
+              className="flex items-center gap-1 px-2 py-1 bg-paper text-gray-700 border border-gray-200 text-xs font-medium rounded hover:bg-gray-50"
+            >
+              <Radio className="w-3 h-3" />
+              Radio
+            </button>
+            <button
               onClick={handleCreateArticle}
               className="flex items-center gap-1 px-2 py-1 bg-[#E36B11] text-paper text-xs font-medium rounded hover:bg-[#c85c0e]"
             >
               <Plus className="w-3 h-3" />
               New
             </button>
+            {/* OpenAI key/quota state - every button to the left of this needs a
+                working key, so a dead quota is visible before a click wastes time. */}
+            <ApiStatusBadge />
           </div>
         </div>
 
@@ -1147,7 +1146,7 @@ export default function ArticlesTab({ userId, onGoToMenschen }: ArticlesTabProps
                   </div>
                 )}
                 {/* Header */}
-                <div className="grid grid-cols-[28px_75px_40px_55px_75px_1fr_40px_70px_55px_70px_55px_105px] gap-2 px-4 py-2 text-[10px] text-gray-400 uppercase tracking-wider border-b border-gray-200 bg-gray-50">
+                <div className="grid grid-cols-[28px_85px_44px_60px_90px_1fr_80px_60px_76px_60px_105px] gap-3 px-4 py-2.5 text-[10px] text-gray-400 uppercase tracking-wider border-b border-gray-200 bg-gray-50">
                   <div>
                     <input
                       type="checkbox"
@@ -1175,7 +1174,6 @@ export default function ArticlesTab({ userId, onGoToMenschen }: ArticlesTabProps
                   <div>Type</div>
                   <div>Cat</div>
                   <div>Title</div>
-                  <div>Src</div>
                   <div>Status</div>
                   <div className="text-center">Views</div>
                   <div className="text-center">Moods</div>
@@ -1192,7 +1190,7 @@ export default function ArticlesTab({ userId, onGoToMenschen }: ArticlesTabProps
                     }}
                     onDragOver={(e) => handleDragOver(e, article._id!)}
                     onDragEnd={handleDragEnd}
-                    className={`grid grid-cols-[28px_75px_40px_55px_75px_1fr_40px_70px_55px_70px_55px_105px] gap-2 items-center px-4 py-1.5 text-xs border-b border-gray-100 cursor-move hover:bg-gray-50 transition-all ${
+                    className={`grid grid-cols-[28px_85px_44px_60px_90px_1fr_80px_60px_76px_60px_105px] gap-3 items-center px-4 py-2.5 text-xs border-b border-gray-100 cursor-move hover:bg-gray-50 transition-all ${
                       draggedArticle === article._id ? 'opacity-50' : ''
                     } ${hoveredTemplateArticle && hoveredTemplateArticle.split(',').includes(article._id!) ? 'bg-[#E36B11]/10 ring-1 ring-[#E36B11]/50' : ''}`}
                     onMouseEnter={() => setHoveredListArticle(article._id!)}
@@ -1314,14 +1312,6 @@ export default function ArticlesTab({ userId, onGoToMenschen }: ArticlesTabProps
                     {/* Title */}
                     <div className="min-w-0 text-xs text-gray-700 truncate">
                       {article.title}
-                    </div>
-                    {/* Source - AI generated or manually edited */}
-                    <div>
-                      {article.autoGenerated ? (
-                        <span className="px-1 py-0.5 bg-purple-600 text-paper text-[9px] font-bold rounded">AI</span>
-                      ) : (
-                        <span className="text-gray-500 text-[10px]">—</span>
-                      )}
                     </div>
                     {/* Status */}
                     <div>
@@ -1520,11 +1510,7 @@ export default function ArticlesTab({ userId, onGoToMenschen }: ArticlesTabProps
                       <button title="Archive" onClick={(e) => { e.stopPropagation(); archiveArticle(article._id!); }} className="p-1 text-gray-500 hover:text-gray-900 hover:bg-gray-200 rounded transition-colors">
                         <Archive className="w-3 h-3" />
                       </button>
-                      {article.status === 'published' && (
-                        <button title={article.featured ? 'In Top Area (klicken zum Entfernen)' : 'In Top Area anzeigen (chronologisch)'} onClick={(e) => { e.stopPropagation(); featureArticle(article); }} className={`p-1 rounded transition-colors ${article.featured ? 'text-yellow-400 bg-yellow-900/30' : 'text-yellow-400/70 hover:text-yellow-400 hover:bg-yellow-900/30'}`}>
-                          <Star className={`w-3 h-3 ${article.featured ? 'fill-yellow-400' : ''}`} />
-                        </button>
-                      )}
+
                       <button title="Delete" onClick={(e) => { e.stopPropagation(); deleteArticle(article._id!, article.title); }} className="p-1 text-red-400/70 hover:text-red-400 hover:bg-red-900/30 rounded transition-colors">
                         <Trash2 className="w-3 h-3" />
                       </button>
@@ -1549,95 +1535,132 @@ export default function ArticlesTab({ userId, onGoToMenschen }: ArticlesTabProps
         )}
       </div>
 
-      {/* Article Editor Modal - Full Width for Desktop */}
+      {/* Article Editor Modal - Like MenschenTab */}
       {editingArticle && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-2">
-          <div className="bg-paper rounded-xl w-full max-w-[95vw] max-h-[95vh] overflow-hidden flex flex-col">
-            <div className="px-4 py-2.5 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-paper z-10">
-              <h3 className="text-sm font-bold">{editingArticle._id ? 'Edit Article' : 'New Article'}</h3>
-              <button onClick={() => { setEditingArticle(null); setIsCreatingArticle(false); }} className="text-gray-500 hover:text-gray-900">
-                <X className="w-5 h-5" />
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => { setEditingArticle(null); setIsCreatingArticle(false); }}>
+          <div className="bg-white rounded-lg w-[900px] max-w-[95vw] max-h-[90vh] flex flex-col shadow-xl" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50">
+              <div>
+                <h3 className="text-sm font-bold text-gray-900">✍ {editingArticle._id ? 'Edit Article' : 'Create Article'}</h3>
+                <p className="text-xs text-gray-500">{editingArticle.category ? getCategoryLabel(editingArticle.category) : 'New article'}</p>
+              </div>
+              <button onClick={() => { setEditingArticle(null); setIsCreatingArticle(false); }} className="p-1 hover:bg-gray-200 rounded">
+                <X className="w-4 h-4 text-gray-500" />
               </button>
             </div>
-            
-            <div className="p-3 space-y-3 overflow-y-auto flex-1">
-              {/* AI Generate */}
-              <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-2.5 space-y-2">
+
+            {/* Content - scrollable */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {/* AI Generation Options */}
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                <h4 className="text-xs font-bold text-gray-700 mb-2">🤖 AI Generation</h4>
+                <div className="grid grid-cols-4 gap-2 mb-2">
+                  <div>
+                    <label className="text-[10px] text-gray-500">Focus</label>
+                    <input
+                      value={articleTopicInput}
+                      onChange={e => setArticleTopicInput(e.target.value)}
+                      placeholder="Topic..."
+                      className="w-full px-2 py-1 bg-white border border-gray-300 rounded text-xs text-gray-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500">Language</label>
+                    <select 
+                      value={editingArticle?.aiLength?.includes('Deutsch') ? 'Deutsch' : 'English'} 
+                      onChange={e => setEditingArticle(prev => prev ? { ...prev, aiLength: e.target.value === 'Deutsch' ? 'medium (Deutsch)' : 'medium' } : null)} 
+                      className="w-full px-2 py-1 bg-white border border-gray-300 rounded text-xs text-gray-900"
+                    >
+                      <option>English</option>
+                      <option>Deutsch</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500">Length</label>
+                    <select 
+                      value={editingArticle?.aiLength || 'medium'} 
+                      onChange={e => setEditingArticle(prev => prev ? { ...prev, aiLength: e.target.value } : null)} 
+                      className="w-full px-2 py-1 bg-white border border-gray-300 rounded text-xs text-gray-900"
+                    >
+                      <option value="short">Short (~300 words)</option>
+                      <option value="medium">Medium (~500 words)</option>
+                      <option value="long">Long (~800 words)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500">Style</label>
+                    <select 
+                      value={editingArticle?.aiTone || 'informative'} 
+                      onChange={e => setEditingArticle(prev => prev ? { ...prev, aiTone: e.target.value } : null)} 
+                      className="w-full px-2 py-1 bg-white border border-gray-300 rounded text-xs text-gray-900"
+                    >
+                      {AUTHOR_STYLES.map(style => (
+                        <option key={style.id} value={style.id}>{style.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
                 <div className="flex gap-2">
                   <input
-                    type="text"
-                    value={articleTopicInput}
-                    onChange={(e) => setArticleTopicInput(e.target.value)}
-                    placeholder="AI topic (e.g. 'Best 90s sitcoms')"
-                    className="flex-1 bg-gray-100 px-2 py-1.5 rounded text-xs"
+                    value={editingArticle?.aiInstructions || ''}
+                    onChange={e => setEditingArticle(prev => prev ? { ...prev, aiInstructions: e.target.value } : null)}
+                    placeholder="Extra instructions..."
+                    className="flex-1 px-2 py-1 bg-white border border-gray-300 rounded text-xs text-gray-900"
                   />
                   <button
                     onClick={generateArticleText}
                     disabled={isGeneratingArticleText}
-                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 rounded text-xs font-bold disabled:opacity-50 flex items-center gap-1.5 flex-shrink-0"
+                    className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded disabled:opacity-50 flex items-center gap-1"
                   >
-                    {isGeneratingArticleText ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                    Generate
+                    {isGeneratingArticleText ? <Loader2 className="w-3 h-3 animate-spin" /> : '⚡'}
+                    {isGeneratingArticleText ? 'Generating...' : 'Generate'}
                   </button>
                 </div>
-                {/* AI Options Row */}
-                <div className="flex gap-2 flex-wrap">
-                  <select
-                    value={editingArticle?.aiTone || 'nostalgic'}
-                    onChange={(e) => setEditingArticle(prev => prev ? { ...prev, aiTone: e.target.value } : null)}
-                    className="bg-gray-100 px-2 py-1 rounded text-[10px] text-gray-600"
-                  >
-                    <option value="nostalgic">Nostalgic & Fun</option>
-                    <option value="informative">Informative</option>
-                    <option value="humorous">Humorous</option>
-                    <option value="serious">Serious</option>
-                    <option value="listicle">Listicle Style</option>
-                  </select>
-                  <select
-                    value={editingArticle?.aiLength || 'medium'}
-                    onChange={(e) => setEditingArticle(prev => prev ? { ...prev, aiLength: e.target.value } : null)}
-                    className="bg-gray-100 px-2 py-1 rounded text-[10px] text-gray-600"
-                  >
-                    <option value="short">Short (~300 words)</option>
-                    <option value="medium">Medium (~500 words)</option>
-                    <option value="long">Long (~800 words)</option>
-                  </select>
-                  <input
-                    type="text"
-                    value={editingArticle?.aiInstructions || ''}
-                    onChange={(e) => setEditingArticle(prev => prev ? { ...prev, aiInstructions: e.target.value } : null)}
-                    placeholder="Special instructions (e.g. 'focus on music', 'include quotes')"
-                    className="flex-1 min-w-[150px] bg-gray-100 px-2 py-1 rounded text-[10px] text-gray-600 placeholder-gray-500"
-                  />
+              </div>
+
+              {/* Cover Image + Title/Subtitle */}
+              <div className="flex gap-3">
+                <div 
+                  onClick={() => setImageManagerArticle(editingArticle as ArticleData)}
+                  className="w-32 h-20 rounded bg-gray-100 flex-shrink-0 cursor-pointer hover:opacity-80 overflow-hidden border border-gray-200"
+                >
+                  {editingArticle.coverImage ? (
+                    <img 
+                      src={editingArticle.coverImage} 
+                      alt="Cover" 
+                      className="w-full h-full object-cover" 
+                      style={{ objectPosition: `${(editingArticle as any).imagePosX ?? 50}% ${(editingArticle as any).imagePosY ?? 50}%` }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">+ Cover</div>
+                  )}
+                </div>
+                <div className="flex-1 space-y-2">
+                  <div>
+                    <label className="text-[10px] text-gray-500">Title</label>
+                    <input
+                      value={editingArticle.title || ''}
+                      onChange={e => setEditingArticle({ ...editingArticle, title: e.target.value })}
+                      placeholder="Article title..."
+                      className="w-full px-2 py-1 bg-white border border-gray-200 rounded text-sm text-gray-900 font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500">Subtitle</label>
+                    <input
+                      value={editingArticle.subtitle || ''}
+                      onChange={e => setEditingArticle({ ...editingArticle, subtitle: e.target.value })}
+                      placeholder="Subtitle..."
+                      className="w-full px-2 py-1 bg-white border border-gray-200 rounded text-xs text-gray-900"
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Title & Subtitle - full width */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Title *</label>
-                  <input
-                    type="text"
-                    value={editingArticle.title || ''}
-                    onChange={(e) => setEditingArticle({ ...editingArticle, title: e.target.value })}
-                    className="w-full bg-gray-100 px-2 py-1.5 rounded text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Subtitle</label>
-                  <input
-                    type="text"
-                    value={editingArticle.subtitle || ''}
-                    onChange={(e) => setEditingArticle({ ...editingArticle, subtitle: e.target.value })}
-                    className="w-full bg-gray-100 px-2 py-1.5 rounded text-sm"
-                  />
-                </div>
-              </div>
-
-              {/* Two-column layout: Editor left, metadata sidebar right (lg+) */}
-              <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-3">
-                {/* LEFT - Content Editor (taller on desktop) */}
-                <div className="min-w-0">
+              {/* Content - Block Editor */}
+              <div>
+                <div className="bg-white rounded border border-gray-200 overflow-hidden">
                   <BlockEditor
                     value={editingArticle.content || ''}
                     onChange={(content: string) => setEditingArticle({ ...editingArticle, content })}
@@ -1648,192 +1671,123 @@ export default function ArticlesTab({ userId, onGoToMenschen }: ArticlesTabProps
                     }}
                   />
                 </div>
+              </div>
 
-                {/* RIGHT - Sidebar with all metadata */}
-                <div className="space-y-3">
-                  {/* Categories - stacked in sidebar */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Main</label>
-                      <select
-                        value={editingArticle.mainCategory || 'articles'}
-                        onChange={(e) => setEditingArticle({ ...editingArticle, mainCategory: e.target.value })}
-                        className="w-full bg-gray-100 px-2 py-1.5 rounded text-xs"
-                      >
-                        {MAIN_CATEGORIES.map(cat => (
-                          <option key={cat.value} value={cat.value}>{cat.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Sub</label>
-                      <select
-                        value={editingArticle.category || 'culture'}
-                        onChange={(e) => setEditingArticle({ ...editingArticle, category: e.target.value })}
-                        className="w-full bg-gray-100 px-2 py-1.5 rounded text-xs"
-                      >
-                        {categories.map(cat => (
-                          <option key={cat.slug} value={cat.slug}>{cat.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  {/* Schedule Date/Time - Separate inputs */}
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1.5 flex items-center gap-1">
-                      <Calendar className="w-3 h-3" /> Schedule Release
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="date"
-                        value={editingArticle.scheduledAt ? new Date(editingArticle.scheduledAt).toISOString().slice(0, 10) : ''}
-                        onChange={(e) => {
-                          const currentTime = editingArticle.scheduledAt 
-                            ? new Date(editingArticle.scheduledAt).toTimeString().slice(0, 5) 
-                            : '10:00';
-                          const newDate = e.target.value ? new Date(`${e.target.value}T${currentTime}`).toISOString() : undefined;
-                          setEditingArticle({ ...editingArticle, scheduledAt: newDate });
-                        }}
-                        className="flex-1 bg-gray-100 px-2 py-1.5 rounded text-xs [color-scheme:dark]"
-                      />
-                      <input
-                        type="time"
-                        value={editingArticle.scheduledAt ? new Date(editingArticle.scheduledAt).toTimeString().slice(0, 5) : '10:00'}
-                        onChange={(e) => {
-                          const currentDate = editingArticle.scheduledAt 
-                            ? new Date(editingArticle.scheduledAt).toISOString().slice(0, 10) 
-                            : new Date().toISOString().slice(0, 10);
-                          const newDate = new Date(`${currentDate}T${e.target.value}`).toISOString();
-                          setEditingArticle({ ...editingArticle, scheduledAt: newDate });
-                        }}
-                        className="w-20 bg-gray-100 px-2 py-1.5 rounded text-xs [color-scheme:dark]"
-                      />
-                    </div>
-                    {editingArticle.scheduledAt && (
-                      <button
-                        onClick={() => setEditingArticle({ ...editingArticle, scheduledAt: undefined })}
-                        className="text-[10px] text-red-400 hover:text-red-300 mt-1.5"
-                      >
-                        Clear schedule
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Comments Toggle */}
-                  <div className="flex items-center justify-between">
-                    <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                      <MessageSquare className="w-3 h-3 text-gray-500" />
-                      Comments
-                    </label>
-                    <button
-                      onClick={() => setEditingArticle({ ...editingArticle, commentsEnabled: !editingArticle.commentsEnabled })}
-                      className={`w-10 h-5 rounded-full transition-colors relative ${editingArticle.commentsEnabled !== false ? 'bg-green-500' : 'bg-gray-200'}`}
-                    >
-                      <div className={`absolute top-0.5 w-4 h-4 bg-paper rounded-full transition-transform ${editingArticle.commentsEnabled !== false ? 'left-5' : 'left-0.5'}`} />
-                    </button>
-                  </div>
-
-                  {/* Author */}
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Author</label>
-                    <input type="text" value={editingArticle.authorName || ''} onChange={(e) => setEditingArticle({ ...editingArticle, authorName: e.target.value })} className="w-full bg-gray-100 px-2 py-1.5 rounded text-xs" />
-                  </div>
-
-                  {/* Title Styling - collapsible */}
-                  <details className="bg-paper/40 rounded-lg p-2 group">
-                    <summary className="text-xs text-gray-500 cursor-pointer select-none flex items-center justify-between">
-                      <span>Title Styling</span>
-                      <span className="text-gray-500 group-open:rotate-180 transition-transform">▾</span>
-                    </summary>
-                    <div className="mt-2 space-y-2">
-                      <div>
-                        <label className="block text-[10px] text-gray-500 mb-1">Title Color</label>
-                        <div className="flex gap-2">
-                          <input
-                            type="color"
-                            value={editingArticle.titleColor || '#ffffff'}
-                            onChange={(e) => setEditingArticle({ ...editingArticle, titleColor: e.target.value })}
-                            className="w-9 h-7 rounded cursor-pointer"
-                          />
-                          <input
-                            type="text"
-                            value={editingArticle.titleColor || '#ffffff'}
-                            onChange={(e) => setEditingArticle({ ...editingArticle, titleColor: e.target.value })}
-                            placeholder="#ffffff"
-                            className="flex-1 bg-gray-100 px-2 py-1 rounded text-xs"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-gray-500 mb-1">Title Font</label>
-                        <select
-                          value={editingArticle.titleFont || 'default'}
-                          onChange={(e) => setEditingArticle({ ...editingArticle, titleFont: e.target.value as any })}
-                          className="w-full bg-gray-100 px-2 py-1.5 rounded text-xs"
-                        >
-                          <option value="default">Default</option>
-                          <option value="display">Display</option>
-                          <option value="serif">Serif</option>
-                          <option value="mono">Mono</option>
-                        </select>
-                      </div>
-                    </div>
-                  </details>
-
-                  {/* Tags */}
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Tags</label>
-                    <div className="flex flex-wrap gap-1 mb-1.5">
-                      {(editingArticle.tags || []).map((tag, i) => (
-                        <span key={i} className="px-2 py-0.5 bg-gray-100 rounded text-xs flex items-center gap-1">
-                          {tag}
-                          <button
-                            onClick={() => setEditingArticle({
-                              ...editingArticle,
-                              tags: editingArticle.tags?.filter((_, j) => j !== i)
-                            })}
-                            className="text-gray-500 hover:text-gray-900"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                    <input
-                      type="text"
-                      value={articleTagInput}
-                      onChange={(e) => setArticleTagInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && articleTagInput.trim()) {
-                          setEditingArticle({ ...editingArticle, tags: [...(editingArticle.tags || []), articleTagInput.trim()] });
-                          setArticleTagInput('');
-                        }
-                      }}
-                      placeholder="Add tag (Enter)"
-                      className="w-full bg-gray-100 px-2 py-1.5 rounded text-xs"
-                    />
-                  </div>
+              {/* Tags, Category, Type, Layout - Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] text-gray-500">Tags (comma-separated)</label>
+                  <input
+                    value={(editingArticle.tags || []).join(', ')}
+                    onChange={e => setEditingArticle({ ...editingArticle, tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean) })}
+                    placeholder="Gen X, Music, ..."
+                    className="w-full px-2 py-1 bg-white border border-gray-300 rounded text-xs text-gray-900"
+                  />
                 </div>
+                <div>
+                  <label className="text-[10px] text-gray-500">Category</label>
+                  <select
+                    value={editingArticle.category || 'lifestyle'}
+                    onChange={e => setEditingArticle({ ...editingArticle, category: e.target.value })}
+                    className="w-full px-2 py-1 bg-white border border-gray-300 rounded text-xs text-gray-900"
+                  >
+                    {categories.map(cat => (
+                      <option key={cat.slug} value={cat.slug}>{cat.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* More Options Row */}
+              <div className="grid grid-cols-4 gap-3">
+                <div>
+                  <label className="text-[10px] text-gray-500">Content Type</label>
+                  <select
+                    value={editingArticle.contentType || 'article'}
+                    onChange={e => setEditingArticle({ ...editingArticle, contentType: e.target.value as any })}
+                    className="w-full px-2 py-1 bg-white border border-gray-300 rounded text-xs text-gray-900"
+                  >
+                    <option value="article">Article</option>
+                    <option value="rankroll">Rankroll</option>
+                    <option value="tv">TV</option>
+                    <option value="radio">Radio</option>
+                    <option value="arcade">Arcade</option>
+                    <option value="shop">Shop</option>
+                    <option value="music-community">Music</option>
+                    <option value="banner-page">Banner Page</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-500">Layout</label>
+                  <select
+                    value={editingArticle.layout || 'standard'}
+                    onChange={e => setEditingArticle({ ...editingArticle, layout: e.target.value as any })}
+                    className="w-full px-2 py-1 bg-white border border-gray-300 rounded text-xs text-gray-900"
+                  >
+                    <option value="standard">Standard</option>
+                    <option value="featured">Featured</option>
+                    <option value="trending">Trending</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-500">Author</label>
+                  <input
+                    value={editingArticle.authorName || ''}
+                    onChange={e => setEditingArticle({ ...editingArticle, authorName: e.target.value })}
+                    placeholder="Author name..."
+                    className="w-full px-2 py-1 bg-white border border-gray-300 rounded text-xs text-gray-900"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-500">Schedule</label>
+                  <input
+                    type="datetime-local"
+                    value={editingArticle.scheduledAt ? new Date(editingArticle.scheduledAt).toISOString().slice(0, 16) : ''}
+                    onChange={e => setEditingArticle({ ...editingArticle, scheduledAt: e.target.value ? new Date(e.target.value).toISOString() : undefined })}
+                    className="w-full px-2 py-1 bg-white border border-gray-300 rounded text-xs text-gray-900"
+                  />
+                </div>
+              </div>
+
+              {/* Comments Toggle */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="comments-toggle"
+                  checked={editingArticle.commentsEnabled !== false}
+                  onChange={e => setEditingArticle({ ...editingArticle, commentsEnabled: e.target.checked })}
+                  className="w-4 h-4 accent-green-600"
+                />
+                <label htmlFor="comments-toggle" className="text-xs text-gray-700 cursor-pointer">Enable comments</label>
               </div>
             </div>
 
-            <div className="px-3 py-2 border-t border-gray-200 flex justify-end gap-2 sticky bottom-0 bg-paper">
-              <button 
-                onClick={() => setShowPreview(true)} 
-                disabled={!editingArticle.title} 
-                className="px-3 py-1.5 bg-gray-100 rounded hover:bg-gray-200 text-sm disabled:opacity-50 flex items-center gap-1.5"
-              >
-                <Eye className="w-3.5 h-3.5" />
-                Preview
-              </button>
-              <button 
-                onClick={saveArticle} 
-                disabled={!editingArticle.title || isSavingArticle} 
-                className="px-3 py-1.5 bg-[#E36B11] rounded hover:bg-[#C4772A] disabled:opacity-50 flex items-center gap-1.5 text-sm"
-              >
-                {isSavingArticle ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                {isSavingArticle ? 'Publishing...' : 'Publish'}
-              </button>
+            {/* Footer */}
+            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50">
+              <div className="text-xs text-gray-500">
+                {editingArticle.content ? `${editingArticle.content.split(' ').length} words` : 'No content yet'}
+              </div>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setShowPreview(true)} 
+                  disabled={!editingArticle.title} 
+                  className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs rounded disabled:opacity-50 flex items-center gap-1"
+                >
+                  <Eye className="w-3 h-3" />
+                  Preview
+                </button>
+                <button onClick={() => { setEditingArticle(null); setIsCreatingArticle(false); }} className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs rounded">
+                  Cancel
+                </button>
+                <button 
+                  onClick={saveArticle} 
+                  disabled={!editingArticle.title || !editingArticle.content || isSavingArticle} 
+                  className="px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded disabled:opacity-50 flex items-center gap-1"
+                >
+                  {isSavingArticle ? <Loader2 className="w-3 h-3 animate-spin" /> : '💾'}
+                  {isSavingArticle ? 'Saving...' : 'Save as Article'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -2313,6 +2267,20 @@ export default function ArticlesTab({ userId, onGoToMenschen }: ArticlesTabProps
           if (imageManagerArticle) {
             const posX = position?.x ?? 50;
             const posY = position?.y ?? 50;
+            
+            // If this is the article being edited (new or existing), update editingArticle state
+            if (editingArticle && (!imageManagerArticle._id || imageManagerArticle._id === editingArticle._id)) {
+              setEditingArticle({ 
+                ...editingArticle, 
+                coverImage: url, 
+                imagePosX: posX, 
+                imagePosY: posY 
+              });
+              setImageManagerArticle(null);
+              return;
+            }
+            
+            // Otherwise save to DB (for articles in the list)
             console.log('🖼️ Saving image position:', { posX, posY, position, articleId: imageManagerArticle._id });
             const res = await fetch(`/api/articles/${imageManagerArticle._id}`, {
               method: 'PUT',
@@ -2507,6 +2475,12 @@ export default function ArticlesTab({ userId, onGoToMenschen }: ArticlesTabProps
       {showHistoryModal && (
         <HistoryModal
           onClose={() => setShowHistoryModal(false)}
+          onCreated={fetchArticles}
+        />
+      )}
+      {showRadioModal && (
+        <RadioModal
+          onClose={() => setShowRadioModal(false)}
           onCreated={fetchArticles}
         />
       )}

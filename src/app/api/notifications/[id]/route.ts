@@ -23,12 +23,17 @@ export async function DELETE(
     
     console.log('[DELETE NOTIFICATION]', id, 'userId:', userId);
     
+    // Welcome notification is NEVER dismissable - it stays forever
+    if (id === WELCOME_NOTIFICATION_ID) {
+      console.log('[DELETE NOTIFICATION] Welcome notification cannot be dismissed');
+      return NextResponse.json({ success: false, error: 'Welcome notification cannot be dismissed' }, { status: 403 });
+    }
+    
     // Check if this is a virtual notification (battle-result, battle-active)
     // These are not stored in Notification collection, they're generated from Battles
     // We need to add them to user's dismissedNotifications array
     const isVirtualNotification = id.startsWith('battle-result-') || 
-                                   id.startsWith('battle-active-') || 
-                                   id === WELCOME_NOTIFICATION_ID;
+                                   id.startsWith('battle-active-');
     
     if (isVirtualNotification) {
       if (!userId) {

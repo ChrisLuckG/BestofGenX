@@ -141,10 +141,10 @@ export async function POST(
     } else if (opponentWon) {
       // Opponent (the user who accepted) won - gets both wagers
       await User.findByIdAndUpdate(battle.opponent, { 
-        $inc: { bogxCoins: wager * 2, wins: 1, gamesPlayed: 1 } 
+        $inc: { bogxCoins: wager * 2, wins: 1, gamesPlayed: 1, battlesWon: 1 } 
       });
       await User.findByIdAndUpdate(battle.creator, { 
-        $inc: { gamesPlayed: 1 } // Loser already lost wager, no more deduction
+        $inc: { gamesPlayed: 1, battlesLost: 1 } // Loser already lost wager, no more deduction
       });
       
       // Track for ranking (winner: +wager net, loser: -wager)
@@ -191,10 +191,10 @@ export async function POST(
     } else {
       // Creator won - gets both wagers
       await User.findByIdAndUpdate(battle.creator, { 
-        $inc: { bogxCoins: wager * 2, wins: 1, gamesPlayed: 1 } 
+        $inc: { bogxCoins: wager * 2, wins: 1, gamesPlayed: 1, battlesWon: 1 } 
       });
       await User.findByIdAndUpdate(battle.opponent, { 
-        $inc: { gamesPlayed: 1 } // Loser already lost wager, no more deduction
+        $inc: { gamesPlayed: 1, battlesLost: 1 } // Loser already lost wager, no more deduction
       });
       
       // Track for ranking (winner: +wager net, loser: -wager)

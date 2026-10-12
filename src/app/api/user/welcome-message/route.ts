@@ -242,6 +242,7 @@ export async function GET(request: NextRequest) {
       whileAwayEvents,
       lastSeenAt,
       dailyRewardReady,
+      totalPlayers: globalStats.totalPlayers,
       // Level data
       avatar: user.avatar || null,
       level: levelIndex + 1,

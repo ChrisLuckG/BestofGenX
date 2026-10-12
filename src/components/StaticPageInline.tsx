@@ -82,35 +82,40 @@ export default function StaticPageInline({ slug, defaultTitle, onClose, onNaviga
   const content = page?.content || defaults.content;
 
   return (
-    <div className="p-6">
-      {/* Back button (mobile only) + Title */}
-      <div className="flex items-center gap-3 mb-6">
+    <div className="h-full flex flex-col bg-cream">
+      {/* Header with back button */}
+      <div className="sticky top-0 z-10 bg-cream border-b border-warm px-4 py-3 flex items-center gap-3">
         <button
           onClick={onClose}
-          className="lg:hidden p-1.5 rounded-full hover:bg-[#E36B11]/10 transition-colors flex-shrink-0"
+          className="p-2 -ml-2 rounded-full hover:bg-[#E36B11]/10 transition-colors flex-shrink-0"
         >
-          <ArrowLeft className="w-5 h-5 text-gray-600" />
+          <ArrowLeft className="w-5 h-5 text-gray-700" />
         </button>
-        <h1 className="text-xl font-bold text-gray-900">{title}</h1>
+        <h1 className="font-display text-lg tracking-wide text-gray-900 uppercase">{title}</h1>
       </div>
 
-      {page?.coverImage && (
-        <div className="w-full h-40 overflow-hidden rounded-xl mb-6">
-          <img src={page.coverImage} alt="" className="w-full h-full object-cover" />
-        </div>
-      )}
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto">
+        {page?.coverImage && (
+          <div className="w-full h-48 overflow-hidden">
+            <img src={page.coverImage} alt="" className="w-full h-full object-cover" />
+          </div>
+        )}
 
-      {loading ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="w-6 h-6 text-[#E36B11] animate-spin" />
+        <div className="p-4">
+          {loading ? (
+            <div className="flex justify-center py-16">
+              <Loader2 className="w-6 h-6 text-[#E36B11] animate-spin" />
+            </div>
+          ) : (
+            <div
+              ref={contentRef}
+              className="max-w-none prose prose-sm prose-gray"
+              dangerouslySetInnerHTML={{ __html: content }}
+            />
+          )}
         </div>
-      ) : (
-        <div
-          ref={contentRef}
-          className="max-w-none"
-          dangerouslySetInnerHTML={{ __html: content }}
-        />
-      )}
+      </div>
     </div>
   );
 }

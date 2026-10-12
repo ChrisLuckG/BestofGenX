@@ -283,7 +283,7 @@ export default function ProductDetailInline({ product, onClose }: ProductDetailI
 
       {/* Main Image with Pinch-to-Zoom */}
       <div 
-        className="relative mx-3 mt-3 overflow-hidden bg-gray-800 border border-[#E36B11]/20 rounded-xl"
+        className="relative mx-3 mt-3 overflow-hidden bg-cream border border-[#E36B11]/20 rounded-xl"
         onTouchStart={(e) => {
           if (e.touches.length === 2) {
             const touch1 = e.touches[0];
@@ -326,18 +326,25 @@ export default function ProductDetailInline({ product, onClose }: ProductDetailI
           setIsDragging(false);
         }}
       >
-        <div className="aspect-square overflow-hidden">
-          <img 
-            src={images[selectedImageIndex]} 
-            alt={product.name}
-            className="w-full h-full object-cover select-none"
-            style={{
-              transform: `scale(${scale}) translate(${position.x / scale}px, ${position.y / scale}px)`,
-              transition: isDragging ? 'none' : 'transform 0.1s ease-out',
-              touchAction: 'none',
-            }}
-            draggable={false}
-          />
+        <div className="aspect-square overflow-hidden relative">
+          {/* All images stay mounted, the active one just gains opacity. Swapping
+              src on a single img left one unpainted frame -> white flash on click. */}
+          {images.map((imgSrc, i) => (
+            <img
+              key={`${imgSrc}-${i}`}
+              src={imgSrc}
+              alt={i === selectedImageIndex ? product.name : ''}
+              className={`absolute inset-0 w-full h-full object-cover select-none mix-blend-multiply ${
+                i === selectedImageIndex ? 'opacity-100' : 'opacity-0 pointer-events-none'
+              }`}
+              style={i === selectedImageIndex ? {
+                transform: `scale(${scale}) translate(${position.x / scale}px, ${position.y / scale}px)`,
+                transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+                touchAction: 'none',
+              } : undefined}
+              draggable={false}
+            />
+          ))}
         </div>
         
         {/* Image Navigation Arrows - only when not zoomed */}
@@ -388,13 +395,13 @@ export default function ProductDetailInline({ product, onClose }: ProductDetailI
             <button
               key={index}
               onClick={() => setSelectedImageIndex(index)}
-              className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
+              className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 bg-cream transition-all ${
                 selectedImageIndex === index 
                   ? 'border-[#E36B11]' 
                   : 'border-warm opacity-70 hover:opacity-100'
               }`}
             >
-              <img src={img} alt="" className="w-full h-full object-cover" />
+              <img src={img} alt="" className="w-full h-full object-cover mix-blend-multiply" />
             </button>
           ))}
         </div>

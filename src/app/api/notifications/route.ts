@@ -175,8 +175,10 @@ export async function GET(request: NextRequest) {
     // Sort by date
     notifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     
-    // Filter out dismissed notifications
-    const filteredNotifications = notifications.filter(n => !dismissedIds.has(n.id));
+    // Filter out dismissed notifications - but NEVER filter out the welcome notification
+    const filteredNotifications = notifications.filter(n => 
+      n.id === WELCOME_NOTIFICATION_ID || !dismissedIds.has(n.id)
+    );
     
     return NextResponse.json({ 
       success: true, 

@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Trophy, ChevronLeft, ChevronRight, ArrowRight, Swords, X, Check, Share2 } from "lucide-react";
+import { Trophy, ChevronLeft, ChevronRight, ArrowRight, Swords, X, Check, Share2, Info } from "lucide-react";
 import { Battle, RoundResult, getTopicConfig, toBOGX } from "./types";
 import { formatCurrency, getCurrencySymbol } from "@/utils/currency";
 import { compareBattleResults } from "@/utils/battleWinner";
+import { useCountUp } from "@/hooks/useCountUp";
 
 interface BattleResultScreenProps {
   battle: Battle;
@@ -102,8 +103,8 @@ export default function BattleResultScreen({
   const oppTotalTime = opponentResults.reduce((sum, r: any) => sum + (r.timeMs || 0), 0);
 
   // Colors based on result - use topic color for wins
-  const resultColor = won ? topic.color : '#ef4444';
-  const resultBandBg = won ? `bg-opacity-10` : 'bg-red-500/10';
+  // The result cards colour themselves from won/isDraw directly - the old
+  // resultColor/resultBandBg pair died with the colour band.
 
   // Plain-language reason for the outcome. The scoreboard alone can't explain a
   // win on equal answers (decided by time) or a pot lost without a single answer.
@@ -137,6 +138,21 @@ export default function BattleResultScreen({
     return `Both ${myCorrect}/${battle.rounds} correct — ${won ? 'you were' : `${opponentName} was`} ${formatGap(timeGap)} faster over all ${battle.rounds} rounds.`;
   })();
 
+  // Figures ramp up when the result appears, same as Solo Trivia's result page.
+  // Declared HERE, above the question-viewer early return, so the hook order
+  // stays stable when the view flips between result and question.
+  const accuracy = battle.rounds > 0 ? Math.round((myCorrect / battle.rounds) * 100) : 0;
+  const wagerBogx = toBOGX(battle.wager);
+  // A draw returns the wager, so nothing is won or lost.
+  const coinDelta = isDraw ? 0 : won ? wagerBogx : -wagerBogx;
+  const animAccuracy = useCountUp(accuracy, isComplete);
+  const animCoins = useCountUp(coinDelta, isComplete);
+  const animMyScore = useCountUp(myCorrect, isComplete, 700);
+  const animOppScore = useCountUp(oppCorrect, isComplete, 700);
+
+  /** Section label, identical to Solo Trivia's RESULT / QUESTIONS headings. */
+  const sectionLabel = `font-display ${isMobile ? 'text-[9px]' : 'text-[10px]'} text-gray-500 tracking-[0.12em]`;
+
   // Question viewer (flipped view) - same height as results
   if (viewingQuestion !== null && hasQuestions) {
     const q = battle.questions![viewingQuestion];
@@ -161,12 +177,12 @@ export default function BattleResultScreen({
           <div className={`flex items-center justify-between ${isMobile ? 'mb-3' : 'mb-6'}`}>
             <button 
               onClick={() => { setIsFlipped(false); setTimeout(() => setViewingQuestion(null), 150); }}
-              className={`${isMobile ? 'px-4 py-2 text-lg' : 'px-4 py-2 text-sm'} rounded-lg bg-[#E36B11] text-white font-display flex items-center gap-2 hover:bg-[#C4772A] transition-colors`}
+              className={`${isMobile ? 'px-4 py-2 text-lg' : 'px-4 py-2 text-sm'} rounded-lg bg-gray-700 text-white font-display flex items-center gap-2 hover:bg-gray-800 transition-colors`}
             >
               <ChevronLeft className={isMobile ? 'w-5 h-5' : 'w-4 h-4'} />
               Results
             </button>
-            <span className={`${isMobile ? 'px-3 py-1.5 text-lg' : 'px-3 py-1.5 text-sm'} bg-[#E36B11]/10 text-[#E36B11] rounded-lg uppercase tracking-wider font-display`}>
+            <span className={`${isMobile ? 'px-3 py-1.5 text-lg' : 'px-3 py-1.5 text-sm'} bg-gray-200 text-gray-700 rounded-lg uppercase tracking-wider font-display`}>
               Q{viewingQuestion + 1}/{battle.rounds}
             </span>
           </div>
@@ -187,69 +203,83 @@ export default function BattleResultScreen({
               const wasMyAnswer = typeof myAnswerIdx === 'number' && myAnswerIdx >= 0 && myAnswerIdx === i;
               const isWrongSelection = wasMyAnswer && !isCorrect;
               
-              // Opponent's answer
+              // Opponent's answer - always show if they answered this question
               const oppResult = opponentResults[viewingQuestion];
               const oppAnswerIdx = oppResult?.answerIndex;
-              const wasOppAnswer = !isCreator && typeof oppAnswerIdx === 'number' && oppAnswerIdx >= 0 && oppAnswerIdx === i;
+              const wasOppAnswer = typeof oppAnswerIdx === 'number' && oppAnswerIdx >= 0 && oppAnswerIdx === i;
+              const oppWasWrong = wasOppAnswer && !isCorrect;
+              const opponentName = (isCreator ? battle.opponent : battle.creator)?.username || 'Opponent';
               
               return (
                 <div 
                   key={i}
-                  className={`${isMobile ? 'relative px-1 py-0.5 pb-2 rounded border' : 'p-4 rounded-xl border-2 flex items-center gap-4'} ${
-                    isCorrect 
-                      ? 'border-green-500 bg-green-50' 
-                      : isWrongSelection
-                        ? 'border-red-500 bg-red-50'
-                        : 'border-warm bg-white'
-                  }`}
+                  className={`${isMobile ? 'relative px-1 py-0.5 pb-2 rounded border' : 'p-4 rounded-xl border-2 flex items-center gap-4'}`}
+                  style={{
+                    borderColor: isCorrect ? '#166534' : isWrongSelection || oppWasWrong ? '#dc2626' : '#E5DDD0',
+                    backgroundColor: isCorrect ? 'rgba(22, 101, 52, 0.08)' : isWrongSelection || oppWasWrong ? 'rgba(220, 38, 38, 0.06)' : '#F5F0E8'
+                  }}
                 >
                   {isMobile ? (
                     <>
                       {/* Answer text */}
-                      <span className={`text-xl font-display leading-tight block ${isCorrect ? 'text-green-700' : isWrongSelection ? 'text-red-600' : 'text-gray-800'}`}>
+                      <span className={`text-xl font-display leading-tight block`} style={{ color: isCorrect ? '#166534' : isWrongSelection ? '#dc2626' : '#1f2937' }}>
                         {answer}
                       </span>
                       {/* Letter badge - bottom left */}
-                      <span className={`absolute bottom-0.5 left-0.5 w-8 h-8 rounded-lg flex items-center justify-center text-lg font-display ${
-                        isCorrect ? 'bg-green-500 text-white' : isWrongSelection ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-600'
-                      }`}>
+                      <span 
+                        className="absolute bottom-0.5 left-0.5 w-8 h-8 rounded-lg flex items-center justify-center text-lg font-display text-white"
+                        style={{ backgroundColor: isCorrect ? '#166534' : isWrongSelection ? '#dc2626' : '#9ca3af' }}
+                      >
                         {String.fromCharCode(65 + i)}
                       </span>
                       {/* Time - bottom right */}
                       {wasMyAnswer && myResult?.timeMs && (
-                        <span className={`absolute bottom-1 right-1.5 text-xl font-display ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
+                        <span className="absolute bottom-1 right-1.5 text-xl font-display" style={{ color: isCorrect ? '#166534' : '#dc2626' }}>
                           {formatTime(myResult.timeMs)}
                         </span>
                       )}
                     </>
                   ) : (
                     <>
-                      <span className={`w-10 h-10 rounded-lg flex items-center justify-center text-base font-bold flex-shrink-0 ${
-                        isCorrect ? 'bg-green-500 text-white' : isWrongSelection ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-600'
-                      }`}>
+                      <span 
+                        className="w-10 h-10 rounded-lg flex items-center justify-center text-base font-bold flex-shrink-0 text-white"
+                        style={{ backgroundColor: isCorrect ? '#166534' : (isWrongSelection || oppWasWrong) ? '#dc2626' : '#d1d5db' }}
+                      >
                         {String.fromCharCode(65 + i)}
                       </span>
                       <div className="flex-1 min-w-0">
-                        <span className={`text-base ${isCorrect ? 'text-green-700 font-semibold' : isWrongSelection ? 'text-red-600 font-semibold' : 'text-gray-700'}`}>
+                        <span className="text-base" style={{ color: isCorrect ? '#166534' : (isWrongSelection || oppWasWrong) ? '#dc2626' : '#374151', fontWeight: isCorrect || isWrongSelection ? 600 : 400 }}>
                           {answer}
                         </span>
                         <div className="flex flex-wrap gap-2 mt-1">
                           {wasMyAnswer && myResult?.timeMs && (
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-bold ${isCorrect ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                            <span 
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-bold"
+                              style={{ 
+                                backgroundColor: isCorrect ? 'rgba(22, 101, 52, 0.15)' : 'rgba(220, 38, 38, 0.1)',
+                                color: isCorrect ? '#166534' : '#dc2626'
+                              }}
+                            >
                               You • {formatTime(myResult.timeMs)}
-                              {isCorrect && <span className="text-[#E36B11]">+{myResult.points}</span>}
+                              {isCorrect && <span style={{ color: '#166534' }}>+{myResult.points}</span>}
                             </span>
                           )}
                           {wasOppAnswer && oppResult?.timeMs && (
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-bold ${isCorrect ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'}`}>
-                              {battle.creator.username} • {formatTime(oppResult.timeMs)}
-                              {isCorrect && <span className="text-[#E36B11]">+{oppResult.points}</span>}
+                            <span 
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-bold"
+                              style={{ 
+                                backgroundColor: isCorrect ? 'rgba(22, 101, 52, 0.15)' : 'rgba(220, 38, 38, 0.1)',
+                                color: isCorrect ? '#166534' : '#dc2626'
+                              }}
+                            >
+                              {opponentName} • {formatTime(oppResult.timeMs)}
+                              {isCorrect && <span style={{ color: '#166534' }}>+{oppResult.points}</span>}
                             </span>
                           )}
                         </div>
                       </div>
-                      {isCorrect && <Check className="w-6 h-6 text-green-500 flex-shrink-0" />}
-                      {isWrongSelection && <X className="w-6 h-6 text-red-500 flex-shrink-0" />}
+                      {isCorrect && <Check className="w-6 h-6 flex-shrink-0" style={{ color: '#166534' }} />}
+                      {isWrongSelection && <X className="w-6 h-6 flex-shrink-0" style={{ color: '#dc2626' }} />}
                     </>
                   )}
                 </div>
@@ -270,13 +300,14 @@ export default function BattleResultScreen({
                 <button
                   key={i}
                   onClick={() => setViewingQuestion(i)}
-                  className={`${isMobile ? 'w-10 h-10 rounded-xl text-sm' : 'w-12 h-12 rounded-xl text-lg'} font-display flex items-center justify-center transition-all ${
+                  className={`${isMobile ? 'w-10 h-10 rounded-xl text-sm' : 'w-12 h-12 rounded-xl text-lg'} font-display flex items-center justify-center transition-all hover:scale-105`}
+                  style={
                     isActive 
-                      ? 'bg-[#E36B11] text-white scale-110 shadow-lg' 
+                      ? { backgroundColor: '#374151', color: '#ffffff', transform: 'scale(1.1)', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }
                       : isCorrect 
-                        ? 'bg-green-100 text-green-600 border-2 border-green-300 hover:scale-105' 
-                        : 'bg-red-100 text-red-600 border-2 border-red-300 hover:scale-105'
-                  }`}
+                        ? { backgroundColor: 'rgba(22, 101, 52, 0.15)', color: '#166534', border: '2px solid rgba(22, 101, 52, 0.4)' }
+                        : { backgroundColor: 'rgba(220, 38, 38, 0.12)', color: '#dc2626', border: '2px solid rgba(220, 38, 38, 0.3)' }
+                  }
                 >
                   {i + 1}
                 </button>
@@ -323,10 +354,10 @@ export default function BattleResultScreen({
                     navigator.clipboard.writeText(text + ' ' + window.location.origin);
                   }
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-600 hover:text-[#E36B11] hover:bg-[#E36B11]/10 rounded-lg transition-colors"
+                className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-gray-700 border border-warm rounded-full hover:bg-gray-50 transition-colors"
+                title="Share"
               >
                 <Share2 className="w-4 h-4" />
-                <span className="font-semibold uppercase tracking-wider">Share</span>
               </button>
             ) : (
               <span className="text-sm text-gray-500 font-bold tracking-wider uppercase">
@@ -336,65 +367,110 @@ export default function BattleResultScreen({
           </div>
         )}
 
-        {/* Result Banner with animation */}
+        {/* RESULT - score, accuracy bar and verdict in one card, matching Solo
+            Trivia's result page. Replaces the full-width colour band: the band
+            carried the verdict and the coin amount on one line, which left no
+            room for the score itself. */}
         {isComplete && (
-          <div 
-            className={`flex flex-row flex-nowrap items-center ${isMobile ? 'justify-between' : 'justify-center'} gap-3 sm:gap-4 ${isMobile ? 'py-3 px-3' : 'py-3 sm:py-4 px-4 sm:px-6'} rounded-xl mb-4 ${isMobile ? '' : 'mx-[-8px]'}`}
-            style={{ backgroundColor: won ? 'rgba(34, 197, 94, 0.1)' : isDraw ? 'rgba(227, 107, 17, 0.1)' : 'rgba(239, 68, 68, 0.1)' }}
-          >
-            {/* Topic badge - only on mobile, left side */}
-            {isMobile && (
-              <span 
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-display rounded-lg uppercase tracking-wider flex-shrink-0"
-                style={{ backgroundColor: `${topic.color}15`, color: topic.color, border: `1px solid ${topic.color}30` }}
-              >
-                <topic.icon className="w-4 h-4" /> {topic.label}
-              </span>
-            )}
-            {/* Center content */}
-            <div className="flex items-center gap-2">
-              {won && !isForfeit && <Trophy className={`${isMobile ? 'w-8 h-8' : 'w-5 h-5 sm:w-7 sm:h-7'} animate-[popIcon_0.35s_ease-out] flex-shrink-0`} style={{ color: '#166534' }} />}
-              {isForfeit && <span className={`${isMobile ? 'text-2xl' : 'text-lg sm:text-2xl'} animate-[popIcon_0.35s_ease-out] flex-shrink-0 leading-none`}>🏳️</span>}
-              {isDraw && (
+          <>
+            {/* Mobile has no header row, so the topic pill rides along with the
+                section label here - desktop already shows it top-left. */}
+            <div className="flex items-center justify-between gap-2 animate-[fadeIn_0.4s_ease-out]">
+              <span className={sectionLabel}>Result</span>
+              {isMobile && (
                 <span
-                  className={`font-display ${isMobile ? 'text-3xl' : 'text-xl sm:text-3xl'} animate-[popIcon_0.35s_ease-out] flex-shrink-0 leading-none`}
-                  style={{ color: '#E36B11' }}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-display rounded uppercase tracking-wider shrink-0"
+                  style={{ backgroundColor: `${topic.color}15`, color: topic.color }}
                 >
-                  =
-                </span>
-              )}
-              <span 
-                className={`font-display ${isMobile ? 'text-2xl' : 'text-lg sm:text-3xl'} tracking-wider whitespace-nowrap`}
-                style={{ color: won ? '#166534' : isDraw ? '#E36B11' : '#dc2626' }}
-              >
-                {won ? 'YOU WIN!' : isDraw ? 'DRAW' : 'YOU LOSE'}
-              </span>
-              {/* Reason on the same line - a forfeit is not a 0:0 result */}
-              {isForfeit && (
-                <span
-                  className={`font-display ${isMobile ? 'text-sm' : 'text-xs sm:text-base'} tracking-wide whitespace-nowrap`}
-                  style={{ color: won ? '#166534' : '#dc2626', opacity: 0.75 }}
-                >
-                  {actuallyIForfeited ? '· YOU GAVE UP' : '· OPPONENT GAVE UP'}
+                  <topic.icon className="w-3 h-3" /> {topic.label}
                 </span>
               )}
             </div>
-            {/* BOGX amount - right side on mobile. A draw returns the wager, so
-                it's shown as "back" instead of a plain amount that reads like a loss. */}
-            <span 
-              className={`font-display ${isMobile ? 'text-xl' : 'text-base sm:text-2xl'} tracking-wider flex items-center gap-1.5 whitespace-nowrap flex-shrink-0`}
-              style={{ color: won ? '#166534' : isDraw ? '#E36B11' : '#dc2626' }}
-            >
-              {won ? '+' : isDraw ? '' : '-'}{formatCurrency(toBOGX(battle.wager))}
-              <img src="/images/bogxcoin.png" alt="BOGX" className={`${isMobile ? 'w-6 h-6' : 'w-4 h-4 sm:w-5 sm:h-5'}`} />
-              {isDraw && <span className={`${isMobile ? 'text-sm' : 'text-xs sm:text-sm'} tracking-wide`}>BACK</span>}
-            </span>
-          </div>
+            {/* Combined Result + Coins card */}
+            <div className={`mt-2 mb-4 rounded-xl border border-warm bg-white/40 ${isMobile ? 'px-3 py-3' : 'px-5 py-4'} animate-[cardIn_0.45s_ease-out]`}>
+              {/* Top row: Verdict + Accuracy bar */}
+              <div className={`flex items-center ${isMobile ? 'gap-3' : 'gap-4'}`}>
+                {/* Verdict icon and text */}
+                <div
+                  className={`font-display ${isMobile ? 'text-base' : 'text-lg'} tracking-wider flex items-center gap-2 shrink-0 animate-[fadeInUp_0.4s_ease-out]`}
+                  style={{ color: won ? '#166534' : isDraw ? '#E36B11' : '#dc2626' }}
+                >
+                  {won && !isForfeit && <Trophy className={`${isMobile ? 'w-5 h-5' : 'w-6 h-6'} animate-[popIcon_0.35s_ease-out] shrink-0`} />}
+                  {isForfeit && <span className={`${isMobile ? 'text-lg' : 'text-xl'} leading-none animate-[popIcon_0.35s_ease-out] shrink-0`}>🏳️</span>}
+                  {won ? 'YOU WIN!' : isDraw ? 'DRAW' : 'YOU LOSE'}
+                  {isForfeit && (
+                    <span className="opacity-75 text-sm">
+                      {actuallyIForfeited ? '· YOU GAVE UP' : '· OPPONENT GAVE UP'}
+                    </span>
+                  )}
+                </div>
+                {/* LED accuracy bar */}
+                <div className="flex-1 flex items-center gap-3 min-w-0">
+                  <div className="flex-1 flex gap-1">
+                    {[...Array(10)].map((_, i) => {
+                      const threshold = (i + 1) * 10;
+                      const isActive = animAccuracy >= threshold;
+                      const ledColor = won ? '#166534' : isDraw ? '#E36B11' : '#dc2626';
+                      return (
+                        <span
+                          key={i}
+                          className={`${isMobile ? 'h-2.5' : 'h-3'} flex-1 rounded transition-all duration-300`}
+                          style={{
+                            backgroundColor: isActive ? ledColor : '#E5E0D8',
+                            boxShadow: isActive ? `0 0 6px ${ledColor}` : 'none'
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                  <span className={`font-display ${isMobile ? 'text-[10px]' : 'text-[11px]'} text-gray-500 tabular-nums shrink-0`}>
+                    {myCorrect}/{battle.rounds} · {Math.round(animAccuracy)}%
+                  </span>
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className={`border-t border-warm ${isMobile ? 'my-2.5' : 'my-3'}`} />
+
+              {/* Bottom row: BOGX earned */}
+              <div className="flex items-center gap-3">
+                <img
+                  src="/images/bogxcoin.png"
+                  alt=""
+                  className={`${isMobile ? 'w-8 h-8' : 'w-10 h-10'} shrink-0 animate-[popIcon_0.45s_ease-out_0.15s_backwards]`}
+                />
+                <div className="min-w-0 flex-1">
+                  <div
+                    className={`font-display ${isMobile ? 'text-lg' : 'text-2xl'} leading-none tabular-nums`}
+                    style={{ color: won ? '#166534' : isDraw ? '#E36B11' : '#dc2626' }}
+                  >
+                    {isDraw
+                      ? `${formatCurrency(wagerBogx)} BOGX`
+                      : `${animCoins >= 0 ? '+' : '-'}${formatCurrency(Math.abs(animCoins))} BOGX`}
+                  </div>
+                  <div className={`font-display ${isMobile ? 'text-[9px]' : 'text-[11px]'} tracking-wide mt-1 text-gray-500 tabular-nums`}>
+                    {isDraw ? (
+                      <>wager returned · nothing won or lost</>
+                    ) : (
+                      <>
+                        <span>{formatCurrency(wagerBogx)} wagered</span>
+                        <span className="text-gray-400"> · </span>
+                        <span>{formatCurrency(wagerBogx * 2)} pot</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
         )}
 
-        {/* Players Comparison - Vertical on mobile, horizontal on desktop */}
+        {/* Players Comparison - Vertical on mobile, horizontal on desktop.
+            Labelled like Solo Trivia's sections, and on bg-white/40 so all
+            cards on this page share one surface. */}
+        {isComplete && <span className={`${sectionLabel} block mb-2`}>Players</span>}
         {isMobile ? (
-          <div className="border border-warm rounded-xl bg-cream overflow-hidden mb-3">
+          <div className="border border-warm rounded-xl bg-white/40 overflow-hidden mb-3">
             {/* You */}
             <div className="flex items-center justify-between p-2.5 border-b border-warm" style={won ? { backgroundColor: `${topic.color}08` } : {}}>
               <div className="flex items-center gap-2">
@@ -445,7 +521,7 @@ export default function BattleResultScreen({
             })()}
           </div>
         ) : (
-          <div className="flex items-stretch border border-warm rounded-xl bg-cream overflow-hidden mb-6">
+          <div className="flex items-stretch border border-warm rounded-xl bg-white/40 overflow-hidden mb-6">
             {/* You */}
             <div className="flex-1 flex items-center justify-between gap-3 p-5 border-r border-warm animate-[slideInLeft_0.4s_0.2s_ease-out_backwards]">
               <div className="flex items-center gap-3 min-w-0">
@@ -455,7 +531,7 @@ export default function BattleResultScreen({
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-base text-gray-900 truncate">You</span>
-                    {won && <span className="px-2 py-0.5 bg-green-500 text-white text-[10px] font-bold rounded tracking-wider">WINNER</span>}
+                    {won && <span className="px-2 py-0.5 text-white text-[10px] font-bold rounded tracking-wider" style={{ backgroundColor: '#166534' }}>WINNER</span>}
                   </div>
                   <div className="font-display text-xl tracking-wide text-gray-600">{myCorrect}/{battle.rounds} CORRECT</div>
                 </div>
@@ -463,32 +539,12 @@ export default function BattleResultScreen({
               <div className="font-display text-4xl tracking-wide flex-shrink-0 text-gray-800">{myCorrect}</div>
             </div>
 
-            {/* VS Center */}
-            <div className="flex flex-col items-center justify-center gap-3 px-4 py-5">
-              <span 
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] uppercase tracking-wider font-bold whitespace-nowrap"
-                style={{ backgroundColor: `${topic.color}15`, color: topic.color }}
-              >
-                <topic.icon className="w-3 h-3" /> {topic.label}
-              </span>
+            {/* VS Center. The topic pill and the R1/R2/R3 chips that used to sit
+                here are gone: the topic is already in the header above, and the
+                chips encoded correct/wrong per round - exactly what the clickable
+                Round by Round table below shows, with the points on top. */}
+            <div className="flex flex-col items-center justify-center px-4 py-5">
               <span className="font-display text-xl text-gray-400">VS</span>
-              <div className="flex gap-1 sm:gap-2">
-                {Array.from({ length: battle.rounds }).map((_, i) => {
-                  const myR = myResults[i];
-                  const color = myR ? (myR.correct ? '#10b981' : '#ef4444') : '#e5e7eb';
-                  const isClickable = hasQuestions && i < battle.questions!.length;
-                  return (
-                    <span 
-                      key={i}
-                      onClick={() => isClickable && (setIsFlipped(true), setTimeout(() => setViewingQuestion(i), 150))}
-                      className={`min-w-[24px] h-6 sm:min-w-[36px] sm:h-8 px-1.5 sm:px-2 rounded-md flex items-center justify-center font-display text-[10px] sm:text-xs tracking-wider text-white animate-[chipIn_0.3s_ease-out] ${isClickable ? 'cursor-pointer hover:scale-110 transition-transform' : ''}`}
-                      style={{ background: color }}
-                    >
-                      R{i + 1}
-                    </span>
-                  );
-                })}
-              </div>
             </div>
 
             {/* Opponent */}
@@ -504,7 +560,7 @@ export default function BattleResultScreen({
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="min-w-0 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {!won && !isDraw && !hideOpponent && <span className="px-2 py-0.5 bg-green-500 text-white text-[10px] font-bold rounded tracking-wider">WINNER</span>}
+                        {!won && !isDraw && !hideOpponent && <span className="px-2 py-0.5 text-white text-[10px] font-bold rounded tracking-wider" style={{ backgroundColor: '#166534' }}>WINNER</span>}
                         <span className="font-bold text-base text-gray-900 truncate">{hideOpponent ? '???' : opponentName}</span>
                       </div>
                       <div className="font-display text-xl text-gray-500 tracking-wide">
@@ -527,140 +583,147 @@ export default function BattleResultScreen({
           </div>
         )}
 
-        {/* Round by Round - Grid layout. Skipped when nobody answered anything
-            (forfeit before the first question): a table of dashes says nothing. */}
+        {/* Round by Round + Outcome - Combined container */}
         {isComplete && !bothEmpty && (
           <div className={`${isMobile ? 'mb-4' : 'mb-6'} animate-[fadeInUp_0.4s_0.3s_ease-out_backwards]`}>
-            <div className={`${isMobile ? 'text-xs' : 'text-sm'} font-bold tracking-widest text-gray-500 uppercase mb-2`}>
+            <div className={`${sectionLabel} mb-2`}>
               Round by Round
             </div>
             
-            {/* Header Row */}
-            <div className={`grid ${isMobile ? 'gap-1' : 'gap-2'} mb-2`} style={{ gridTemplateColumns: isMobile ? `70px repeat(${battle.rounds}, 1fr) 50px` : `100px repeat(${battle.rounds}, 1fr) 70px` }}>
-              <div></div>
-              {Array.from({ length: battle.rounds }).map((_, i) => (
-                <div key={i} className={`text-center font-display ${isMobile ? 'text-[10px]' : 'text-sm'} text-gray-400 tracking-wider`}>R{i + 1}</div>
-              ))}
-              <div className={`text-center font-display ${isMobile ? 'text-[10px]' : 'text-sm'} text-gray-400 tracking-wider`}>TOT</div>
-            </div>
-
-            {/* Your Row */}
-            <div className={`grid ${isMobile ? 'gap-1' : 'gap-2'} mb-1 items-center`} style={{ gridTemplateColumns: isMobile ? `70px repeat(${battle.rounds}, 1fr) 50px` : `100px repeat(${battle.rounds}, 1fr) 70px` }}>
-              <div className={`font-bold ${isMobile ? 'text-xs' : 'text-base'} text-gray-900`}>You</div>
-              {Array.from({ length: battle.rounds }).map((_, i) => {
-                const r = myResults[i];
-                // An abandoned round is a loss, but for a different reason than a wrong
-                // answer - amber rather than red, so "I reloaded and lost that one" is
-                // not silently presented as "I answered and got it wrong".
-                const bgColor = r
-                  ? r.abandoned
-                    ? 'rgba(245, 158, 11, 0.18)'
-                    : r.correct ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.15)'
-                  : '#f3f4f6';
-                const isClickable = hasQuestions && i < battle.questions!.length;
-                return (
-                  <div 
-                    key={i} 
-                    onClick={() => isClickable && (setIsFlipped(true), setTimeout(() => setViewingQuestion(i), 150))}
-                    title={r?.abandoned ? 'Round left open (reload or lost connection) - counted as wrong' : undefined}
-                    className={`rounded-lg text-center ${isMobile ? 'py-1.5' : 'py-2'} ${isClickable ? 'cursor-pointer hover:shadow-md hover:scale-105 transition-all' : ''}`}
-                    style={{ backgroundColor: bgColor }}
-                  >
-                    <div className={`font-display ${isMobile ? 'text-xs' : 'text-base'} ${isMobile ? 'text-gray-900' : ''}`} style={isMobile ? {} : { color: r ? (r.abandoned ? '#B45309' : r.correct ? '#10b981' : '#ef4444') : '#9ca3af' }}>
-                      {r ? (r.abandoned ? 'OUT' : r.correct ? formatCurrency(r.points) : '—') : '—'}
-                    </div>
-                    {!isMobile && r?.timeMs && !r.abandoned && <div className="text-[10px] text-gray-400">{formatTime(r.timeMs, opponentResults[i]?.timeMs)}</div>}
-                  </div>
-                );
-              })}
-              {/* Total - highlight winner in green */}
-              <div 
-                className={`text-center font-display ${isMobile ? 'text-sm' : 'text-base'} rounded-lg ${isMobile ? 'py-1.5' : 'py-2'}`}
-                style={{ 
-                  backgroundColor: won || isDraw ? 'rgba(16, 185, 129, 0.15)' : undefined,
-                  color: won || isDraw ? '#10b981' : '#1f2937',
-                  fontWeight: won || isDraw ? 700 : 400
-                }}
-              >
-                {formatCurrency(myTotalPoints)}
-                {!isMobile && myTotalTime > 0 && <div className="text-[10px] font-sans font-normal normal-case text-gray-400">{formatTime(myTotalTime, oppTotalTime)}</div>}
+            {/* Combined container for rounds table and outcome */}
+            <div className={`rounded-xl border border-warm bg-white/40 ${isMobile ? 'p-3' : 'p-4'}`}>
+              {/* Header Row */}
+              <div className={`grid ${isMobile ? 'gap-1' : 'gap-2'} mb-2`} style={{ gridTemplateColumns: isMobile ? `70px repeat(${battle.rounds}, 1fr) 50px` : `140px repeat(${battle.rounds}, 1fr) 70px` }}>
+                <div></div>
+                {Array.from({ length: battle.rounds }).map((_, i) => (
+                  <div key={i} className={`text-center font-display ${isMobile ? 'text-[10px]' : 'text-sm'} text-gray-400 tracking-wider`}>R{i + 1}</div>
+                ))}
+                <div className={`text-center font-display ${isMobile ? 'text-[10px]' : 'text-sm'} text-gray-400 tracking-wider`}>TOT</div>
               </div>
-            </div>
 
-            {/* Opponent Row */}
-            {(() => {
-              // For mobile (completed battles from notifications), always show opponent data
-              const opponentData = isCreator ? battle.opponent : battle.creator;
-              const hideOpponentResults = !opponentHasPlayed; // Only hide while the opponent still has to play
-              return (
-                <div className={`grid ${isMobile ? 'gap-1' : 'gap-2'} items-center`} style={{ gridTemplateColumns: isMobile ? `70px repeat(${battle.rounds}, 1fr) 50px` : `100px repeat(${battle.rounds}, 1fr) 70px` }}>
-                  <div className={`font-bold ${isMobile ? 'text-xs' : 'text-base'} text-gray-900 truncate`}>{hideOpponentResults ? '???' : (opponentData?.username || 'Opponent')}</div>
-                  {Array.from({ length: battle.rounds }).map((_, i) => {
-                    if (hideOpponentResults) {
+              {/* Your Row */}
+              <div className={`grid ${isMobile ? 'gap-1' : 'gap-2'} mb-1 items-center`} style={{ gridTemplateColumns: isMobile ? `70px repeat(${battle.rounds}, 1fr) 50px` : `140px repeat(${battle.rounds}, 1fr) 70px` }}>
+                <div className={`font-bold ${isMobile ? 'text-xs' : 'text-base'} text-gray-900`}>You</div>
+                {Array.from({ length: battle.rounds }).map((_, i) => {
+                  const r = myResults[i];
+                  const bgColor = r
+                    ? r.abandoned
+                      ? 'rgba(245, 158, 11, 0.18)'
+                      : r.correct ? '#166534' : 'rgba(239, 68, 68, 0.15)'
+                    : '#f3f4f6';
+                  const textColor = r
+                    ? r.abandoned
+                      ? '#B45309'
+                      : r.correct ? '#ffffff' : '#ef4444'
+                    : '#9ca3af';
+                  const isClickable = hasQuestions && i < battle.questions!.length;
+                  return (
+                    <div 
+                      key={i} 
+                      onClick={() => isClickable && (setIsFlipped(true), setTimeout(() => setViewingQuestion(i), 150))}
+                      title={r?.abandoned ? 'Round left open (reload or lost connection) - counted as wrong' : undefined}
+                      className={`rounded-lg text-center ${isMobile ? 'py-1.5' : 'py-2'} ${isClickable ? 'cursor-pointer hover:shadow-md hover:scale-105 transition-all' : ''}`}
+                      style={{ backgroundColor: bgColor }}
+                    >
+                      <div className={`font-display ${isMobile ? 'text-xs' : 'text-base'}`} style={{ color: isMobile && !r?.correct ? 'inherit' : textColor }}>
+                        {r ? (r.abandoned ? 'OUT' : r.correct ? formatCurrency(r.points) : '—') : '—'}
+                      </div>
+                      {!isMobile && r?.timeMs && !r.abandoned && <div className="text-[10px]" style={{ color: r.correct ? 'rgba(255,255,255,0.7)' : '#9ca3af' }}>{formatTime(r.timeMs, opponentResults[i]?.timeMs)}</div>}
+                    </div>
+                  );
+                })}
+                {/* Total - highlight winner in green */}
+                <div 
+                  className={`text-center font-display ${isMobile ? 'text-sm' : 'text-base'} rounded-lg ${isMobile ? 'py-1.5' : 'py-2'}`}
+                  style={{ 
+                    backgroundColor: won || isDraw ? '#166534' : undefined,
+                    color: won || isDraw ? '#ffffff' : '#1f2937',
+                    fontWeight: won || isDraw ? 700 : 400
+                  }}
+                >
+                  {formatCurrency(myTotalPoints)}
+                  {!isMobile && myTotalTime > 0 && <div className="text-[10px] font-sans font-normal normal-case" style={{ color: won || isDraw ? 'rgba(255,255,255,0.7)' : '#9ca3af' }}>{formatTime(myTotalTime, oppTotalTime)}</div>}
+                </div>
+              </div>
+
+              {/* Opponent Row */}
+              {(() => {
+                const opponentData = isCreator ? battle.opponent : battle.creator;
+                const hideOpponentResults = !opponentHasPlayed;
+                return (
+                  <div className={`grid ${isMobile ? 'gap-1' : 'gap-2'} items-center`} style={{ gridTemplateColumns: isMobile ? `70px repeat(${battle.rounds}, 1fr) 50px` : `140px repeat(${battle.rounds}, 1fr) 70px` }}>
+                    <div className={`font-bold ${isMobile ? 'text-xs' : 'text-base'} text-gray-900`}>{hideOpponentResults ? '???' : (opponentData?.username || 'Opponent')}</div>
+                    {Array.from({ length: battle.rounds }).map((_, i) => {
+                      if (hideOpponentResults) {
+                        return (
+                          <div key={i} className={`rounded-lg bg-gray-100 text-center ${isMobile ? 'py-1.5' : 'py-2'}`}>
+                            <div className={`font-display ${isMobile ? 'text-xs' : 'text-base'} text-gray-400`}>?</div>
+                          </div>
+                        );
+                      }
+                      const r = opponentResults[i];
+                      const bgColor = r
+                        ? r.abandoned
+                          ? 'rgba(245, 158, 11, 0.18)'
+                          : r.correct ? '#166534' : 'rgba(239, 68, 68, 0.15)'
+                        : '#f3f4f6';
+                      const textColor = r
+                        ? r.abandoned
+                          ? '#B45309'
+                          : r.correct ? '#ffffff' : '#ef4444'
+                        : '#9ca3af';
                       return (
-                        <div key={i} className={`rounded-lg bg-gray-100 text-center ${isMobile ? 'py-1.5' : 'py-2'}`}>
-                          <div className={`font-display ${isMobile ? 'text-xs' : 'text-base'} text-gray-400`}>?</div>
+                        <div
+                          key={i}
+                          title={r?.abandoned ? 'Round left open (reload or lost connection) - counted as wrong' : undefined}
+                          className={`rounded-lg text-center ${isMobile ? 'py-1.5' : 'py-2'} animate-[chipIn_0.3s_ease-out]`}
+                          style={{ backgroundColor: bgColor }}
+                        >
+                          <div className={`font-display ${isMobile ? 'text-xs' : 'text-base'}`} style={{ color: isMobile && !r?.correct ? 'inherit' : textColor }}>
+                            {r ? (r.abandoned ? 'OUT' : r.correct ? formatCurrency(r.points) : '—') : '—'}
+                          </div>
+                          {!isMobile && r?.timeMs && !r.abandoned && <div className="text-[10px]" style={{ color: r.correct ? 'rgba(255,255,255,0.7)' : '#9ca3af' }}>{formatTime(r.timeMs, myResults[i]?.timeMs)}</div>}
                         </div>
                       );
-                    }
-                    const r = opponentResults[i];
-                    const bgColor = r
-                      ? r.abandoned
-                        ? 'rgba(245, 158, 11, 0.18)'
-                        : r.correct ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.15)'
-                      : '#f3f4f6';
-                    return (
-                      <div
-                        key={i}
-                        title={r?.abandoned ? 'Round left open (reload or lost connection) - counted as wrong' : undefined}
-                        className={`rounded-lg text-center ${isMobile ? 'py-1.5' : 'py-2'} animate-[chipIn_0.3s_ease-out]`}
-                        style={{ backgroundColor: bgColor }}
-                      >
-                        <div className={`font-display ${isMobile ? 'text-xs' : 'text-base'} ${isMobile ? 'text-gray-900' : ''}`} style={isMobile ? {} : { color: r ? (r.abandoned ? '#B45309' : r.correct ? '#10b981' : '#ef4444') : '#9ca3af' }}>
-                          {r ? (r.abandoned ? 'OUT' : r.correct ? formatCurrency(r.points) : '—') : '—'}
-                        </div>
-                        {!isMobile && r?.timeMs && !r.abandoned && <div className="text-[10px] text-gray-400">{formatTime(r.timeMs, myResults[i]?.timeMs)}</div>}
-                      </div>
-                    );
-                  })}
-                  {/* Total - highlight winner in green (opponent won if we lost) */}
-                  <div 
-                    className={`text-center font-display ${isMobile ? 'text-sm' : 'text-base'} rounded-lg ${isMobile ? 'py-1.5' : 'py-2'}`}
-                    style={{ 
-                      backgroundColor: !won && !isDraw ? 'rgba(16, 185, 129, 0.15)' : undefined,
-                      color: !won && !isDraw ? '#10b981' : '#6b7280',
-                      fontWeight: !won && !isDraw ? 700 : 400
-                    }}
-                  >
-                    {hideOpponentResults ? '?' : formatCurrency(opponentTotalPoints)}
-                    {!isMobile && !hideOpponentResults && oppTotalTime > 0 && <div className="text-[10px] font-sans font-normal normal-case text-gray-400">{formatTime(oppTotalTime, myTotalTime)}</div>}
+                    })}
+                    {/* Total - highlight winner in green (opponent won if we lost) */}
+                    <div 
+                      className={`text-center font-display ${isMobile ? 'text-sm' : 'text-base'} rounded-lg ${isMobile ? 'py-1.5' : 'py-2'}`}
+                      style={{ 
+                        backgroundColor: !won && !isDraw ? '#166534' : undefined,
+                        color: !won && !isDraw ? '#ffffff' : '#6b7280',
+                        fontWeight: !won && !isDraw ? 700 : 400
+                      }}
+                    >
+                      {hideOpponentResults ? '?' : formatCurrency(opponentTotalPoints)}
+                      {!isMobile && !hideOpponentResults && oppTotalTime > 0 && <div className="text-[10px] font-sans font-normal normal-case" style={{ color: !won && !isDraw ? 'rgba(255,255,255,0.7)' : '#9ca3af' }}>{formatTime(oppTotalTime, myTotalTime)}</div>}
+                    </div>
                   </div>
-                </div>
-              );
-            })()}
+                );
+              })()}
 
-            {/* Legend - only when it applies, so a clean game gets no extra noise */}
-            {(myResults.some((r: any) => r.abandoned) || (opponentHasPlayed && opponentResults.some((r: any) => r.abandoned))) && (
-              <p className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-500 mt-2 flex items-center gap-1.5`}>
-                <span className="px-1.5 py-0.5 rounded font-display" style={{ backgroundColor: 'rgba(245, 158, 11, 0.18)', color: '#B45309' }}>OUT</span>
-                Round left open - page reloaded or connection lost. Counted as wrong.
-              </p>
-            )}
-          </div>
-        )}
+              {/* Legend - only when it applies */}
+              {(myResults.some((r: any) => r.abandoned) || (opponentHasPlayed && opponentResults.some((r: any) => r.abandoned))) && (
+                <p className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-500 mt-2 flex items-center gap-1.5`}>
+                  <span className="px-1.5 py-0.5 rounded font-display" style={{ backgroundColor: 'rgba(245, 158, 11, 0.18)', color: '#B45309' }}>OUT</span>
+                  Round left open - page reloaded or connection lost. Counted as wrong.
+                </p>
+              )}
 
-        {/* Outcome explanation. Replaces the old "Questions" button - the rounds in
-            the table above are clickable, so a second entry point was redundant. */}
-        {isComplete && (
-          <div className={`mb-4 px-3 ${isMobile ? 'py-2' : 'py-2.5'} rounded-xl bg-white/60 border border-warm`}>
-            <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-600 text-center leading-snug`}>
-              {outcomeNote}
-            </p>
-            {hasQuestions && !bothEmpty && (
-              <p className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-400 text-center mt-1`}>
-                Tap a round above to see the question
-              </p>
-            )}
+              {/* Divider */}
+              <div className={`border-t border-warm ${isMobile ? 'my-2.5' : 'my-3'}`} />
+
+              {/* Outcome explanation */}
+              <div className={`flex items-center justify-center gap-2 ${isMobile ? 'text-xs' : 'text-sm'} text-gray-600 leading-snug`}>
+                <Info className={`${isMobile ? 'w-3.5 h-3.5' : 'w-4 h-4'} text-gray-400 shrink-0`} />
+                <p>{outcomeNote}</p>
+              </div>
+              {hasQuestions && (
+                <p className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-400 text-center mt-1`}>
+                  Tap a round above to see the question
+                </p>
+              )}
+            </div>
           </div>
         )}
 
@@ -669,20 +732,25 @@ export default function BattleResultScreen({
 
         {/* Buttons */}
         {isComplete ? (
-          <div className={`grid grid-cols-2 ${isMobile ? 'gap-2' : 'gap-3'}`}>
+          /* Same pair as Solo Trivia: outlined secondary on the left, filled
+             primary on the right with the icon pinned to the edge. */
+          <div
+            className={`flex items-center ${isMobile ? 'gap-2' : 'gap-3'}`}
+            style={{ animation: 'fadeInUp 0.45s ease-out 0.6s backwards' }}
+          >
             <button
               onClick={onBackToPool}
-              className={`${isMobile ? 'py-3 px-4 text-sm' : 'py-4 px-6 text-base'} bg-cream border-2 border-warm text-gray-600 font-display tracking-widest rounded-xl flex items-center justify-center gap-2 hover:opacity-80 transition-all`}
+              className={`flex-1 ${isMobile ? 'py-3 text-xs' : 'py-3 text-sm'} border border-warm bg-cream hover:bg-white text-gray-600 font-display tracking-widest rounded-xl flex items-center justify-center gap-2 transition-all`}
             >
-              <ChevronLeft className={isMobile ? 'w-3.5 h-3.5' : 'w-4 h-4'} />
+              <ChevronLeft className="w-4 h-4" />
               Back
             </button>
             <button
               onClick={onRematch}
-              className={`${isMobile ? 'py-3 px-4 text-sm' : 'py-4 px-6 text-base'} bg-[#E36B11] text-white font-display tracking-widest rounded-xl flex items-center justify-center gap-2 hover:bg-[#C4772A] transition-all`}
+              className={`group flex-1 ${isMobile ? 'py-3 text-xs' : 'py-3 text-sm'} text-white font-display tracking-widest rounded-xl flex items-center justify-center relative transition-all hover:opacity-90 hover:scale-[1.01] active:scale-[0.99] bg-gray-700 hover:bg-gray-800`}
             >
               Rematch
-              <Swords className={isMobile ? 'w-3.5 h-3.5' : 'w-4 h-4'} />
+              <Swords className="w-4 h-4 absolute right-4 transition-transform group-hover:translate-x-1" />
             </button>
           </div>
         ) : (

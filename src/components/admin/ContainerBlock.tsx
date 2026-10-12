@@ -1,11 +1,10 @@
 "use client";
 
-import { X, Upload, Loader2, GripVertical, ChevronUp, ChevronDown, Palette, Plus } from "lucide-react";
+import { X, Upload, ChevronUp, ChevronDown, Palette, Plus } from "lucide-react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import { resolveContainer } from "@/lib/containerFill";
-import { CATEGORIES } from "@/lib/categories";
 import { useCategories, ensureCategory } from "@/hooks/useCategories";
 
 const ImagePickerModal = dynamic(() => import("./ImagePickerModal"), { ssr: false });
@@ -227,6 +226,45 @@ function ArticleThumb({
   );
 }
 
+// VERTICAL preview row: a SQUARE thumbnail beside the title, not a full-width
+// banner. A banner is wrong here twice over - the live feed renders VERTICAL as a
+// stacked list with a small thumbnail, and a full-width 56px strip makes
+// object-cover crop a portrait down to a slice of forehead.
+function ArticleRow({
+  article,
+  onRemove,
+}: {
+  article: SimpleArticle | null | undefined;
+  onRemove?: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-2 rounded border border-gray-200 bg-gray-50 p-1 group/item">
+      <div className="w-10 h-10 rounded overflow-hidden bg-gray-200 flex-shrink-0">
+        {article?.coverImage ? (
+          <img
+            src={article.coverImage}
+            className="w-full h-full object-cover"
+            style={{ objectPosition: `${(article as any)?.imagePosX ?? 50}% ${(article as any)?.imagePosY ?? 50}%` }}
+            alt=""
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-[9px] text-gray-400">—</div>
+        )}
+      </div>
+      <span className="flex-1 min-w-0 text-xs text-gray-700 truncate">{article?.title || 'Untitled'}</span>
+      {onRemove && (
+        <button
+          onClick={onRemove}
+          className="flex-shrink-0 text-gray-300 hover:text-red-500 opacity-0 group-hover/item:opacity-100"
+          title="Remove from list"
+        >
+          <X className="w-3 h-3" />
+        </button>
+      )}
+    </div>
+  );
+}
+
 // Sub-component for FIXED banner with image upload + AI generation
 function FixedBannerBlock({ 
   block, 
@@ -234,6 +272,9 @@ function FixedBannerBlock({
   bIdx, 
   onUpdateBlock, 
   onRemoveBlock,
+  onMoveBlock,
+  isFirst,
+  isLast,
   articles,
   containerBlocks,
 }: { 
@@ -242,6 +283,9 @@ function FixedBannerBlock({
   bIdx: number; 
   onUpdateBlock: ContainerBlockProps['onUpdateBlock']; 
   onRemoveBlock: ContainerBlockProps['onRemoveBlock'];
+  onMoveBlock?: ContainerBlockProps['onMoveBlock'];
+  isFirst: boolean;
+  isLast: boolean;
   articles: SimpleArticle[];
   containerBlocks: ContainerBlockType[];
 }) {
@@ -260,49 +304,45 @@ function FixedBannerBlock({
   const previewImg = block.bannerImage || '';
 
   return (
-    <>
-      <div className="relative h-[80px] rounded-lg overflow-hidden border border-green-500/30 group">
+    <BlockCard
+      type="FIXED"
+      index={index}
+      bIdx={bIdx}
+      onRemoveBlock={onRemoveBlock}
+      onMoveBlock={onMoveBlock}
+      isFirst={isFirst}
+      isLast={isLast}
+    >
+      {/* A banner can be a video, not only an image - kept from the previous
+          version, the reference app only handles images here. */}
+      <div className="relative h-20 rounded overflow-hidden bg-gray-50 border border-gray-200">
         {previewImg ? (
           previewImg.match(/\.(mp4|webm|mov)($|\?)/i) || previewImg.includes('/video/') ? (
-            <video src={previewImg} className="absolute inset-0 w-full h-full object-cover opacity-80" muted autoPlay loop playsInline />
+            <video src={previewImg} className="absolute inset-0 w-full h-full object-cover" muted autoPlay loop playsInline />
           ) : (
-            <img src={previewImg} className="absolute inset-0 w-full h-full object-cover opacity-80" alt="" />
+            <img src={previewImg} className="absolute inset-0 w-full h-full object-cover" alt="" />
           )
         ) : (
-          <div className="absolute inset-0 bg-green-500/10 flex items-center justify-center">
-            <span className="text-[8px] text-green-400/60">No banner image set</span>
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-gray-400">
+            {latestArticle?.title ? `Auto: ${latestArticle.title}` : 'No banner image set'}
           </div>
         )}
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 pointer-events-none">
-          <span className="text-[7px] font-bold text-green-400 bg-black/60 px-1.5 py-0.5 rounded">FIXED BANNER</span>
-          <span className="text-[7px] text-paper/60 bg-black/40 px-1 rounded text-center">
-            {previewImg ? 'Custom image' : (latestArticle?.title?.slice(0, 30) || 'Auto: neuester Artikel')}
-          </span>
-        </div>
-        {/* Image picker button */}
+      </div>
+      <div className="flex items-center gap-2 mt-2">
         <button
           onClick={() => setShowPicker(true)}
-          className="absolute bottom-1 left-1 flex items-center gap-1 px-1.5 py-0.5 bg-green-600/90 hover:bg-green-600 text-paper rounded text-[7px] font-bold"
+          className="flex items-center gap-1 px-2 py-1 bg-green-50 hover:bg-green-100 text-green-700 rounded text-xs font-medium"
         >
-          <Upload className="w-2.5 h-2.5" />
-          {previewImg ? 'Change' : 'Set Image'}
+          <Upload className="w-3 h-3" /> {previewImg ? 'Change image' : 'Set image'}
         </button>
-        {/* Remove banner image */}
         {previewImg && (
           <button
             onClick={() => onUpdateBlock(index, bIdx, { bannerImage: '' })}
-            className="absolute bottom-1 left-14 flex items-center gap-1 px-1.5 py-0.5 bg-gray-600/90 hover:bg-gray-600 text-paper rounded text-[7px] font-bold"
+            className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded text-xs"
           >
-            <X className="w-2.5 h-2.5" />
             Clear
           </button>
         )}
-        <button 
-          onClick={() => onRemoveBlock(index, bIdx)} 
-          className="absolute top-1 right-1 text-paper hover:text-red-300 bg-red-500/80 hover:bg-red-500 rounded p-0.5"
-        >
-          <X className="w-3 h-3" />
-        </button>
       </div>
       {showPicker && typeof window !== 'undefined' && createPortal(
         <ImagePickerModal
@@ -319,7 +359,7 @@ function FixedBannerBlock({
         />,
         document.body
       )}
-    </>
+    </BlockCard>
   );
 }
 
@@ -487,389 +527,233 @@ export default function ContainerBlock({
           const art1 = (resolved.main || resolved.left) as SimpleArticle | null | undefined;
           const art2 = resolved.right as SimpleArticle | null | undefined;
 
-          return (
-            <div 
-              key={bIdx} 
-              className="relative rounded overflow-hidden group/block"
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const articleId = e.dataTransfer.getData('articleId');
-                if (!articleId) return;
-                
-                if (block.type === '2H') {
-                  if (!block.articleId) {
-                    onUpdateBlock(index, bIdx, { articleId });
-                  } else if (!block.articleId2) {
-                    onUpdateBlock(index, bIdx, { articleId2: articleId });
-                  }
-                } else if (block.type !== 'FIXED') {
-                  onUpdateBlock(index, bIdx, { articleId });
-                }
-              }}
-            >
-              {/* MAIN Block */}
-              {block.type === 'MAIN' && (
-                <div className="relative h-[90px] rounded-lg overflow-hidden">
-                  {art1?.coverImage ? (
-                    <>
-                      <img src={art1.coverImage} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: `${(art1 as any).imagePosX ?? 50}% ${(art1 as any).imagePosY ?? 50}%` }} alt="" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                      <div className="absolute bottom-1 left-1 right-6">
-                        <span className="text-[7px] font-bold text-[#E36B11] bg-black/50 px-1 rounded">MAIN</span>
-                        <div className="text-[8px] text-paper font-bold mt-0.5 line-clamp-2">{art1.title}</div>
-                      </div>
-                    </>
-                  ) : art1 ? (
-                    <div className="flex flex-col items-center justify-center h-full bg-[#E36B11]/20 p-1">
-                      <span className="text-[7px] font-bold text-[#E36B11] bg-black/40 px-1 rounded">MAIN · no image</span>
-                      <div className="text-[8px] text-paper font-bold mt-0.5 line-clamp-2 text-center">{art1.title}</div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center h-full bg-[#E36B11]/10 border border-dashed border-[#E36B11]/30">
-                      <div className="text-center">
-                        <span className="text-[8px] text-[#E36B11] font-bold">MAIN</span>
-                        <div className="text-[7px] text-gray-400">Drop article</div>
-                      </div>
-                    </div>
-                  )}
-                  <button 
-                    onClick={() => onRemoveBlock(index, bIdx)} 
-                    className="absolute top-1 right-1 text-paper/70 hover:text-paper bg-black/30 rounded p-0.5"
-                  >
-                    <X className="w-2.5 h-2.5" />
-                  </button>
-                </div>
-              )}
+          const isFirstBlock = bIdx === 0;
+          const isLastBlock = bIdx === containerBlocks.length - 1;
+          const cat = block.autoFillCategory?.toLowerCase() || '';
 
-              {/* 2H Block */}
-              {block.type === '2H' && (
-                <div className="relative grid grid-cols-2 gap-1 h-[70px]">
-                  <div className="relative rounded-lg overflow-hidden">
-                    {art1?.coverImage ? (
-                      <>
-                        <img src={art1.coverImage} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: `${(art1 as any).imagePosX ?? 50}% ${(art1 as any).imagePosY ?? 50}%` }} alt="" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                        <div className="absolute bottom-0.5 left-0.5 right-0.5 text-[6px] text-paper font-bold truncate">{art1.title}</div>
-                      </>
-                    ) : art1 ? (
-                      <div className="flex items-center justify-center h-full bg-pink-500/20 p-0.5 text-[6px] text-paper font-bold text-center line-clamp-3">{art1.title}</div>
-                    ) : (
-                      <div className="flex items-center justify-center h-full bg-pink-500/10 border border-dashed border-pink-500/30 text-[7px] text-gray-400">Drop 1</div>
-                    )}
-                  </div>
-                  <div className="relative rounded-lg overflow-hidden">
-                    {art2?.coverImage ? (
-                      <>
-                        <img src={art2.coverImage} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: `${(art2 as any).imagePosX ?? 50}% ${(art2 as any).imagePosY ?? 50}%` }} alt="" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                        <div className="absolute bottom-0.5 left-0.5 right-0.5 text-[6px] text-paper font-bold truncate">{art2.title}</div>
-                      </>
-                    ) : art2 ? (
-                      <div className="flex items-center justify-center h-full bg-pink-500/20 p-0.5 text-[6px] text-paper font-bold text-center line-clamp-3">{art2.title}</div>
-                    ) : (
-                      <div className="flex items-center justify-center h-full bg-pink-500/10 border border-dashed border-pink-500/30 text-[7px] text-gray-400">Drop 2</div>
-                    )}
-                  </div>
-                  <button 
-                    onClick={() => onRemoveBlock(index, bIdx)} 
-                    className="absolute top-1 right-1 text-paper/70 hover:text-paper bg-black/30 rounded p-0.5 z-10"
-                  >
-                    <X className="w-2.5 h-2.5" />
-                  </button>
-                </div>
-              )}
+          // Drop target only for the types that hold a single article reference.
+          // FIXED has its own banner field, SLIDER/VERTICAL manage their own list.
+          const dragProps = {
+            onDragOver: (e: React.DragEvent) => e.preventDefault(),
+            onDrop: (e: React.DragEvent) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const articleId = e.dataTransfer.getData('articleId');
+              if (!articleId) return;
+              if (block.type === '2H') {
+                if (!block.articleId) onUpdateBlock(index, bIdx, { articleId });
+                else if (!block.articleId2) onUpdateBlock(index, bIdx, { articleId2: articleId });
+              } else if (block.type !== 'FIXED') {
+                onUpdateBlock(index, bIdx, { articleId });
+              }
+            },
+          };
 
-              {/* SOCIAL Block */}
-              {block.type === 'SOCIAL' && (
-                <div className="relative h-[120px] rounded-lg overflow-hidden">
-                  {art1?.coverImage ? (
-                    <>
-                      <img src={art1.coverImage} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: `${(art1 as any).imagePosX ?? 50}% ${(art1 as any).imagePosY ?? 50}%` }} alt="" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                      <div className="absolute bottom-1 left-1 right-6">
-                        <span className="text-[7px] font-bold text-teal-400 bg-black/50 px-1 rounded">SOCIAL</span>
-                        <div className="text-[8px] text-paper font-bold mt-0.5 line-clamp-2">{art1.title}</div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex items-center justify-center h-full bg-teal-500/10 border border-dashed border-teal-500/30">
-                      <div className="text-center">
-                        <span className="text-[8px] text-teal-400 font-bold">SOCIAL</span>
-                        <div className="text-[7px] text-gray-400">Drop article</div>
-                      </div>
-                    </div>
-                  )}
-                  <button 
-                    onClick={() => onRemoveBlock(index, bIdx)} 
-                    className="absolute top-1 right-1 text-paper/70 hover:text-paper bg-black/30 rounded p-0.5"
-                  >
-                    <X className="w-2.5 h-2.5" />
-                  </button>
-                </div>
-              )}
-
-              {/* FIXED Block - with image upload */}
-              {block.type === 'FIXED' && (
-                <FixedBannerBlock
-                  block={block}
-                  index={index}
-                  bIdx={bIdx}
-                  onUpdateBlock={onUpdateBlock}
-                  onRemoveBlock={onRemoveBlock}
-                  articles={articles}
-                  containerBlocks={containerBlocks}
+          if (block.type === 'MAIN' || block.type === 'SOCIAL') {
+            return (
+              <BlockCard
+                key={bIdx}
+                type={block.type}
+                index={index}
+                bIdx={bIdx}
+                onRemoveBlock={onRemoveBlock}
+                onMoveBlock={onMoveBlock}
+                isFirst={isFirstBlock}
+                isLast={isLastBlock}
+                {...dragProps}
+              >
+                <ArticleThumb
+                  article={art1}
+                  placeholder="Drag an article here"
+                  height={block.type === 'SOCIAL' ? 'h-[120px]' : 'h-[90px]'}
                 />
-              )}
+              </BlockCard>
+            );
+          }
 
-              {/* Block move buttons - appear on hover */}
-              {onMoveBlock && (
-                <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-center gap-0.5 opacity-0 group-hover/block:opacity-100 transition-opacity z-20 px-0.5">
-                  <button
-                    type="button"
-                    onClick={() => onMoveBlock(index, bIdx, 'up')}
-                    disabled={bIdx === 0}
-                    className="bg-black/60 hover:bg-black/80 rounded p-0.5 disabled:opacity-20"
-                  >
-                    <ChevronUp className="w-2.5 h-2.5 text-paper" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onMoveBlock(index, bIdx, 'down')}
-                    disabled={bIdx === containerBlocks.length - 1}
-                    className="bg-black/60 hover:bg-black/80 rounded p-0.5 disabled:opacity-20"
-                  >
-                    <ChevronDown className="w-2.5 h-2.5 text-paper" />
-                  </button>
+          if (block.type === '2H') {
+            return (
+              <BlockCard
+                key={bIdx}
+                type="2H"
+                index={index}
+                bIdx={bIdx}
+                onRemoveBlock={onRemoveBlock}
+                onMoveBlock={onMoveBlock}
+                isFirst={isFirstBlock}
+                isLast={isLastBlock}
+                {...dragProps}
+              >
+                <div className="grid grid-cols-2 gap-1.5">
+                  <ArticleThumb article={art1} placeholder="Drop 1" height="h-[70px]" />
+                  <ArticleThumb article={art2} placeholder="Drop 2" height="h-[70px]" />
                 </div>
-              )}
+              </BlockCard>
+            );
+          }
 
-              {/* SLIDER Block - with category selection */}
-              {block.type === 'SLIDER' && (() => {
-                // Use shared resolver result (respects cross-container waterfall dedup)
-                const cat = block.autoFillCategory?.toLowerCase() || '';
-                const previewArticles = ((resolved.vertical || []) as SimpleArticle[]).slice(0, 5);
-                
-                return (
-                  <div className="relative rounded-lg overflow-hidden bg-gray-800 border border-cyan-500 p-2">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[9px] text-cyan-400 font-bold">SLIDER</span>
-                        <button 
-                          onClick={() => onRemoveBlock(index, bIdx)} 
-                          className="text-red-400 hover:text-red-300 bg-red-500/20 rounded p-0.5"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[8px] text-gray-400">Kategorie:</span>
-                        <select
-                          value={block.autoFillCategory || ''}
-                          onChange={(e) => {
-                            const cat = e.target.value;
-                            onUpdateBlock(index, bIdx, { 
-                              autoFill: cat ? 'category' : undefined,
-                              autoFillCategory: cat || undefined
-                            });
-                          }}
-                          className="bg-gray-700 text-[9px] text-paper px-2 py-1 rounded border border-cyan-500/50 flex-1"
-                        >
-                          <option value="">-- Wähle Kategorie --</option>
-                          {categories.map(cat => (
-                            <option key={cat.slug} value={cat.slug}>{cat.label}</option>
-                          ))}
-                        </select>
-                        <select
-                          value={block.autoFillLimit || 10}
-                          onChange={(e) => onUpdateBlock(index, bIdx, { autoFillLimit: parseInt(e.target.value) })}
-                          className="bg-gray-700 text-[9px] text-paper px-1 py-1 rounded border border-cyan-500/50 w-12"
-                        >
-                          <option value="5">5</option>
-                          <option value="10">10</option>
-                          <option value="20">20</option>
-                        </select>
-                      </div>
-                      {block.autoFillCategory && (
-                        <>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[8px] text-green-400 font-bold">✓ AUTO: {block.autoFillCategory.toUpperCase()}</span>
-                            <span className="text-[7px] text-cyan-300">({previewArticles.length > 0 ? `${previewArticles.length}+ Artikel` : 'Keine Artikel'})</span>
-                          </div>
-                          {/* Preview thumbnails - real articles from category */}
-                          {previewArticles.length > 0 && (
-                            <div className="flex gap-1 mt-1 overflow-hidden">
-                              {previewArticles.map((art, i) => (
-                                <div key={i} className="w-8 h-8 rounded overflow-hidden flex-shrink-0 border border-cyan-500/30">
-                                  <img src={art.coverImage} className="w-full h-full object-cover" alt="" />
-                                </div>
-                              ))}
-                              {(block.autoFillLimit || 10) > 5 && (
-                                <div className="w-8 h-8 rounded bg-cyan-500/20 flex items-center justify-center flex-shrink-0">
-                                  <span className="text-[7px] text-cyan-400">+{(block.autoFillLimit || 10) - 5}</span>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
+          if (block.type === 'FIXED') {
+            return (
+              <FixedBannerBlock
+                key={bIdx}
+                block={block}
+                index={index}
+                bIdx={bIdx}
+                onUpdateBlock={onUpdateBlock}
+                onRemoveBlock={onRemoveBlock}
+                onMoveBlock={onMoveBlock}
+                isFirst={isFirstBlock}
+                isLast={isLastBlock}
+                articles={articles}
+                containerBlocks={containerBlocks}
+              />
+            );
+          }
 
-              {/* VERTICAL Block - shows list of articles with auto-fill option */}
-              {block.type === 'VERTICAL' && (() => {
-                const cat = block.autoFillCategory?.toLowerCase() || '';
-                // Use shared resolver result (respects cross-container waterfall dedup)
-                const vertArticles = (resolved.vertical || []) as SimpleArticle[];
-                
-                return (
-                  <div 
-                    className="relative rounded-lg overflow-hidden bg-indigo-500/10 border border-indigo-500/30 p-2 transition-all"
-                    onDragOver={(e) => {
-                      if (cat) return; // No drag when auto-fill is active
-                      e.preventDefault();
-                      e.stopPropagation();
-                      e.currentTarget.classList.add('ring-2', 'ring-indigo-400', 'bg-indigo-500/20');
-                    }}
-                    onDragLeave={(e) => {
-                      e.currentTarget.classList.remove('ring-2', 'ring-indigo-400', 'bg-indigo-500/20');
-                    }}
-                    onDrop={(e) => {
-                      if (cat) return; // No drag when auto-fill is active
-                      e.preventDefault();
-                      e.stopPropagation();
-                      e.currentTarget.classList.remove('ring-2', 'ring-indigo-400', 'bg-indigo-500/20');
-                      const articleId = e.dataTransfer.getData('articleId');
-                      if (articleId) {
-                        const currentArticles = block.articles || [];
-                        if (!currentArticles.includes(articleId)) {
-                          onUpdateBlock(index, bIdx, { articles: [...currentArticles, articleId] });
-                        }
-                      }
-                    }}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[9px] text-indigo-400 font-bold">VERTICAL ({vertArticles.length})</span>
-                      <button 
-                        onClick={() => onRemoveBlock(index, bIdx)} 
-                        className="text-red-400 hover:text-red-300 bg-red-500/20 rounded p-0.5"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                    
-                    {/* Auto-fill category selector */}
-                    <div className="flex items-center gap-1 mb-1">
-                      <span className="text-[7px] text-gray-400">Auto:</span>
+          if (block.type === 'SLIDER' || block.type === 'VERTICAL') {
+            const isVertical = block.type === 'VERTICAL';
+            const list = (resolved.vertical || []) as SimpleArticle[];
+
+            // A category-filled list is not a drop target: the dropped article
+            // would be replaced by the auto-fill on the next render.
+            const listDrag = cat
+              ? {}
+              : {
+                  onDragOver: (e: React.DragEvent) => e.preventDefault(),
+                  onDrop: (e: React.DragEvent) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const articleId = e.dataTransfer.getData('articleId');
+                    if (!articleId) return;
+                    const current = block.articles || [];
+                    if (!current.includes(articleId)) {
+                      onUpdateBlock(index, bIdx, { articles: [...current, articleId] });
+                    }
+                  },
+                };
+
+            return (
+              <BlockCard
+                key={bIdx}
+                type={block.type}
+                index={index}
+                bIdx={bIdx}
+                onRemoveBlock={onRemoveBlock}
+                onMoveBlock={onMoveBlock}
+                isFirst={isFirstBlock}
+                isLast={isLastBlock}
+                extra={
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <select
+                      value={block.autoFillCategory || ''}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        onUpdateBlock(index, bIdx, {
+                          autoFill: next ? 'category' : undefined,
+                          autoFillCategory: next || undefined,
+                          // Choosing a category replaces a manual VERTICAL list so
+                          // the two cannot silently disagree.
+                          articles: isVertical && next ? [] : block.articles,
+                        });
+                      }}
+                      className="bg-paper border border-gray-200 rounded px-1.5 py-0.5 text-xs text-gray-700 max-w-[150px]"
+                    >
+                      <option value="">{isVertical ? 'Manual' : '-- Category --'}</option>
+                      {categories.map((c) => (
+                        <option key={c.slug} value={c.slug}>{c.label}</option>
+                      ))}
+                    </select>
+                    {(!isVertical || cat) && (
                       <select
-                        value={block.autoFillCategory || ''}
-                        onChange={(e) => {
-                          const newCat = e.target.value;
-                          onUpdateBlock(index, bIdx, { 
-                            autoFillCategory: newCat || undefined,
-                            articles: newCat ? [] : block.articles // Clear manual if auto
-                          });
-                        }}
-                        className="bg-gray-700 text-[8px] text-paper px-1 py-0.5 rounded border border-indigo-500/50 flex-1"
+                        value={block.autoFillLimit || (isVertical ? 3 : 10)}
+                        onChange={(e) => onUpdateBlock(index, bIdx, { autoFillLimit: parseInt(e.target.value) })}
+                        className="bg-paper border border-gray-200 rounded px-1.5 py-0.5 text-xs text-gray-700 w-14"
                       >
-                        <option value="">Manuell</option>
-                        {categories.map(cat => (
-                            <option key={cat.slug} value={cat.slug}>{cat.label}</option>
-                          ))}
-                      </select>
-                      {cat && (
-                        <select
-                          value={block.autoFillLimit || 3}
-                          onChange={(e) => onUpdateBlock(index, bIdx, { autoFillLimit: parseInt(e.target.value) })}
-                          className="bg-gray-700 text-[8px] text-paper px-1 py-0.5 rounded border border-indigo-500/50 w-10"
-                        >
-                          <option value="3">3</option>
-                          <option value="5">5</option>
-                          <option value="10">10</option>
-                        </select>
-                      )}
-                    </div>
-                    
-                    {vertArticles.length > 0 ? (
-                      <div className="space-y-1">
-                        {vertArticles.slice(0, 3).map((art, i) => (
-                          <div key={i} className="flex items-center gap-1 bg-gray-700/50 rounded p-0.5">
-                            {art?.coverImage && (
-                              <img src={art.coverImage} className="w-6 h-6 rounded object-cover" alt="" />
-                            )}
-                            <span className="text-[7px] text-paper truncate flex-1">{art?.title}</span>
-                            {!cat && (
-                              <button 
-                                onClick={() => {
-                                  const newArticles = (block.articles || []).filter(id => id !== art?._id);
-                                  onUpdateBlock(index, bIdx, { articles: newArticles });
-                                }}
-                                className="text-red-400 hover:text-red-300"
-                              >
-                                <X className="w-2.5 h-2.5" />
-                              </button>
-                            )}
-                          </div>
+                        {(isVertical ? [3, 5, 10] : [5, 10, 20]).map((n) => (
+                          <option key={n} value={n}>{n}</option>
                         ))}
-                        {vertArticles.length > 3 && (
-                          <div className="text-[7px] text-indigo-300 text-center">+{vertArticles.length - 3} mehr</div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="text-[7px] text-gray-400 text-center py-2 border border-dashed border-indigo-500/30 rounded">
-                        {cat ? 'Keine Artikel in Kategorie' : 'Artikel hierher ziehen'}
-                      </div>
+                      </select>
+                    )}
+                    {cat && (
+                      <span className="text-[10px] text-green-600 font-medium whitespace-nowrap">
+                        auto · {list.length}
+                      </span>
                     )}
                   </div>
-                );
-              })()}
-
-              {/* VIDEO Block - for livestreams */}
-              {block.type === 'VIDEO' && (
-                <div className="relative rounded-lg overflow-hidden bg-red-500/10 border border-red-500/30 p-2">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[9px] text-red-400 font-bold">🔴 VIDEO / LIVESTREAM</span>
-                    <button 
-                      onClick={() => onRemoveBlock(index, bIdx)} 
-                      className="text-red-400 hover:text-red-300 bg-red-500/20 rounded p-0.5"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
+                }
+                {...listDrag}
+              >
+                {list.length > 0 ? (
+                  isVertical ? (
+                    // Stacked rows - square thumb + title, mirroring the live list.
+                    <div className="space-y-1">
+                      {list.map((art, i) => (
+                        <ArticleRow
+                          key={i}
+                          article={art}
+                          onRemove={
+                            cat
+                              ? undefined
+                              : () =>
+                                  onUpdateBlock(index, bIdx, {
+                                    articles: (block.articles || []).filter((id) => id !== art?._id),
+                                  })
+                          }
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    // SLIDER: landscape cards, so a 16:9 crop is the right shape.
+                    <div className="flex gap-2 overflow-x-auto pb-1">
+                      {list.map((art, i) => (
+                        <div key={i} className="w-28 flex-shrink-0">
+                          <ArticleThumb article={art} placeholder="" height="h-16" />
+                        </div>
+                      ))}
+                    </div>
+                  )
+                ) : (
+                  <div className="h-16 rounded border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center text-xs text-gray-400">
+                    {cat ? 'No articles in this category' : 'Drag articles here'}
                   </div>
-                  
-                  {/* Video URL input */}
+                )}
+              </BlockCard>
+            );
+          }
+
+          if (block.type === 'VIDEO') {
+            return (
+              <BlockCard
+                key={bIdx}
+                type="VIDEO"
+                index={index}
+                bIdx={bIdx}
+                onRemoveBlock={onRemoveBlock}
+                onMoveBlock={onMoveBlock}
+                isFirst={isFirstBlock}
+                isLast={isLastBlock}
+              >
+                <div className="space-y-1.5">
                   <input
                     type="text"
                     placeholder="YouTube/Twitch URL..."
                     value={block.videoUrl || ''}
                     onChange={(e) => onUpdateBlock(index, bIdx, { videoUrl: e.target.value })}
-                    className="w-full bg-gray-700 text-[8px] text-paper px-2 py-1 rounded border border-red-500/50 mb-1"
+                    className="w-full bg-paper border border-gray-200 rounded px-2 py-1.5 text-xs text-gray-900"
                   />
-                  
-                  {/* Video Title input */}
                   <input
                     type="text"
-                    placeholder="Titel (z.B. 'LIVE: GenX Radio')"
+                    placeholder="Title (e.g. 'LIVE: GenX Radio')"
                     value={block.videoTitle || ''}
                     onChange={(e) => onUpdateBlock(index, bIdx, { videoTitle: e.target.value })}
-                    className="w-full bg-gray-700 text-[8px] text-paper px-2 py-1 rounded border border-red-500/50"
+                    className="w-full bg-paper border border-gray-200 rounded px-2 py-1.5 text-xs text-gray-900"
                   />
-                  
-                  {/* Preview */}
-                  {block.videoUrl && (
-                    <div className="mt-1 p-1 bg-black/30 rounded text-center">
-                      <span className="text-[7px] text-red-300">
-                        {block.videoTitle || 'Livestream'}
-                      </span>
-                    </div>
-                  )}
                 </div>
-              )}
-            </div>
-          );
+              </BlockCard>
+            );
+          }
+
+          return null;
           });
         })()}
       </div>
