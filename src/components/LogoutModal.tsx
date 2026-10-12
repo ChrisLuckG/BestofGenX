@@ -369,22 +369,22 @@ export default function LogoutModal({
           <div className="grid grid-cols-4 gap-1.5 mb-3">
             <div className="rounded-xl border border-warm bg-cream/50 p-2 text-center">
               <Gamepad2 className="w-3.5 h-3.5 text-red-500 mx-auto mb-0.5" />
-              <div className="text-[13px] font-black text-gray-900">{sessionGamesPlayed}</div>
+              <div className="font-display tracking-wide text-[16px] text-gray-900">{sessionGamesPlayed}</div>
               <div className="text-[7px] uppercase tracking-wider text-gray-400 font-bold">Games</div>
             </div>
             <div className="rounded-xl border border-warm bg-cream/50 p-2 text-center">
               <Trophy className="w-3.5 h-3.5 text-red-500 mx-auto mb-0.5" />
-              <div className="text-[13px] font-black text-gray-900">{sessionWins}</div>
+              <div className="font-display tracking-wide text-[16px] text-gray-900">{sessionWins}</div>
               <div className="text-[7px] uppercase tracking-wider text-gray-400 font-bold">Wins</div>
             </div>
             <div className="rounded-xl border border-warm bg-cream/50 p-2 text-center">
               <BookOpen className="w-3.5 h-3.5 text-red-500 mx-auto mb-0.5" />
-              <div className="text-[13px] font-black text-gray-900">{sessionArticlesRead}</div>
+              <div className="font-display tracking-wide text-[16px] text-gray-900">{sessionArticlesRead}</div>
               <div className="text-[7px] uppercase tracking-wider text-gray-400 font-bold">Read</div>
             </div>
             <div className="rounded-xl border border-warm bg-cream/50 p-2 text-center">
               <TrendingUp className="w-3.5 h-3.5 text-red-500 mx-auto mb-0.5" />
-              <div className={`text-[13px] font-black ${sessionBogxEarned >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+              <div className={`font-display tracking-wide text-[16px] ${sessionBogxEarned >= 0 ? 'text-green-600' : 'text-red-500'}`}>
                 {sessionBogxEarned >= 0 ? '+' : ''}{formatCurrency(sessionBogxEarned)}
               </div>
               <div className="text-[7px] uppercase tracking-wider text-gray-400 font-bold">BOGX</div>

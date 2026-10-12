@@ -30,6 +30,17 @@ export function rankUnrankedTip(period: RankPeriod): string {
   return `You appear in the ${rankPeriodAdjective(period)} ranking once your balance for ${rankPeriodWindow(period)} is positive. Wrong answers and lost battles reduce it. Day, month and year each count only their own window, so they can differ - a positive day can sit inside a negative month.`;
 }
 
+/**
+ * What an unranked period shows instead of a rank: the player's own net for the
+ * window ("-0,37", or "0,00" before the first game) so they can see how far off a
+ * rank they are. "?" only when the value is unknown (guest, still loading).
+ */
+export function formatUnrankedValue(points?: number): string {
+  if (points === undefined || points > 0) return '?';
+  if (Math.abs(points) < 0.005) return '0,00';
+  return points.toFixed(2).replace('.', ',');
+}
+
 /** Same situation, but the visitor has no account yet. */
 export function rankUnrankedGuestTip(period: RankPeriod): string {
   return ` to appear in the ${rankPeriodAdjective(period)} ranking and compete with other players.`;

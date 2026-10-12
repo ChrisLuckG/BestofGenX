@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { Bell, Vote, X, Trophy, Swords, TrendingUp, ChevronLeft } from "lucide-react";
+import { Bell, Vote, X, Trophy, Swords, TrendingUp } from "lucide-react";
+import BackButton from "@/components/BackButton";
+import type { ChallengeTarget } from "@/components/battles/types";
+import RankrollArticleLink from "@/components/RankrollArticleLink";
 import { sounds } from "@/utils/sounds";
 import BettingGame, { BetData } from "@/components/games/BettingGame";
 import GuessGame from "@/components/games/GuessGame";
@@ -165,9 +168,9 @@ export default function MobilePage() {
   const { hasPendingWager, pendingAmount } = usePendingWager(user?.id);
   // Live rankings for header score widget - stable date to avoid re-fetching
   const widgetToday = useMemo(() => new Date(), []);
-  const { currentUserEntry: dailyUserEntry, loading: dailyLoading } = useLiveRankings({ period: 'day', selectedDate: widgetToday, userId: user?.id });
-  const { currentUserEntry: monthlyUserEntry, loading: monthlyLoading } = useLiveRankings({ period: 'month', selectedDate: widgetToday, userId: user?.id });
-  const { currentUserEntry: yearlyUserEntry, loading: yearlyLoading } = useLiveRankings({ period: 'year', selectedDate: widgetToday, userId: user?.id });
+  const { currentUserEntry: dailyUserEntry, myPoints: dailyMyPoints, loading: dailyLoading } = useLiveRankings({ period: 'day', selectedDate: widgetToday, userId: user?.id });
+  const { currentUserEntry: monthlyUserEntry, myPoints: monthlyMyPoints, loading: monthlyLoading } = useLiveRankings({ period: 'month', selectedDate: widgetToday, userId: user?.id });
+  const { currentUserEntry: yearlyUserEntry, myPoints: yearlyMyPoints, loading: yearlyLoading } = useLiveRankings({ period: 'year', selectedDate: widgetToday, userId: user?.id });
   const isLoadingRanks = dailyLoading || monthlyLoading || yearlyLoading;
   const [activeTab, setActiveTab] = useState<NavTab>("home");
   const [previousTab, setPreviousTab] = useState<NavTab>("home"); // Track previous tab for toggle back
@@ -268,6 +271,7 @@ export default function MobilePage() {
   const [welcomeLoading, setWelcomeLoading] = useState(true);
   const [showLogoutToast, setShowLogoutToast] = useState(false);
   const [pendingBattleId, setPendingBattleId] = useState<string | null>(null);
+  const [challengeTarget, setChallengeTarget] = useState<ChallengeTarget | null>(null); // Rematch from a result screen
   // Battle to open the "Battle Challenge!" confirm modal for, from a raw push
   // notification tap. See handling below for why this doesn't go through
   // pendingBattleId directly.
@@ -1851,12 +1855,13 @@ export default function MobilePage() {
         notificationsEnabled={notificationsEnabled}
         unreadCount={unreadNotifications}
         coinAnimation={coinAnimation.show ? { amount: coinAnimation.amount } : null}
+        coinAnimationKey={coinAnimKey}
         dailyRank={dailyUserEntry?.rank || 0}
         monthlyRank={monthlyUserEntry?.rank || 0}
         yearlyRank={yearlyUserEntry?.rank || 0}
-        dailyPoints={dailyUserEntry?.points}
-        monthlyPoints={monthlyUserEntry?.points}
-        yearlyPoints={yearlyUserEntry?.points}
+        dailyPoints={dailyUserEntry?.points ?? dailyMyPoints}
+        monthlyPoints={monthlyUserEntry?.points ?? monthlyMyPoints}
+        yearlyPoints={yearlyUserEntry?.points ?? yearlyMyPoints}
         pendingAmount={pendingAmount}
         isLoadingRanks={isLoadingRanks}
         isLoggedIn={isLoggedIn}
@@ -1936,12 +1941,7 @@ export default function MobilePage() {
           {/* Header - sticky like other pages, solid background to prevent overlap */}
           <div className="sticky top-0 z-10 flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-[#F5F0E8]">
             <div className="flex items-center gap-3">
-              <button 
-                onClick={() => { setOpenRankrollData(null); setRankrollRefreshKey(k => k + 1); }}
-                className="w-8 h-8 rounded-lg bg-cream border border-warm flex items-center justify-center flex-shrink-0 hover:bg-[#E36B11]/10 transition-colors"
-              >
-                <ChevronLeft className="w-5 h-5 text-gray-600" />
-              </button>
+              <BackButton onClick={() => { setOpenRankrollData(null); setRankrollRefreshKey(k => k + 1); }} />
               <div>
                 <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Rankroll</span>
                 <span className="text-[10px] text-gray-500 -mt-0.5 block">Vote & rank your favorites</span>
@@ -1966,6 +1966,12 @@ export default function MobilePage() {
                 {openRankrollData.description && (
                   <p className="text-sm text-gray-600 mt-2">{openRankrollData.description}</p>
                 )}
+                {/* Link to article if this rankroll is embedded in one */}
+                <RankrollArticleLink
+                  pollId={openRankrollData._id}
+                  onOpenArticle={(articleId) => { setOpenRankrollData(null); handleOpenArticle(articleId); }}
+                  className="mt-3"
+                />
               </div>
               {/* Voting section */}
               <RankingPollCard 
@@ -2133,6 +2139,8 @@ export default function MobilePage() {
                 onGoToTrivia={() => setArcadeGame('trivia')}
                 onGoToArticles={() => setActiveTab('articles')}
                 skipSetup={true}
+                challengeTarget={challengeTarget}
+                onChallengeTargetHandled={() => setChallengeTarget(null)}
               />
             ) : arcadeGame === 'genxmen' ? (
               <GenXManGame 
@@ -2250,6 +2258,11 @@ export default function MobilePage() {
               onGoToProfile={() => { if (isLoggedIn) setActiveTab('profile'); else { setLoginInitialView('login'); setShowLoginPage(true); } }}
               onGoToBattle={(battleId) => {
                 setPendingBattleId(battleId);
+                setArcadeGame('quizzbattle');
+                setActiveTab('arcade');
+              }}
+              onRematch={(target) => {
+                setChallengeTarget(target);
                 setArcadeGame('quizzbattle');
                 setActiveTab('arcade');
               }}

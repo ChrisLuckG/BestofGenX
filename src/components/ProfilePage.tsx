@@ -404,7 +404,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
                     userRank === 3 ? 'bg-gradient-to-br from-amber-600 to-amber-800' :
                     'bg-[#E36B11]'
                   }`}>
-                    <span className="text-[10px] font-black text-white">#{userRank}</span>
+                    <span className="font-display text-[12px] text-white">#{userRank}</span>
                   </div>
                 )}
               </button>

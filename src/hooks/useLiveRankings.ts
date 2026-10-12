@@ -72,6 +72,8 @@ export function useLiveRankings({
   const [rankings, setRankings] = useState<RankingPlayer[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLive, setIsLive] = useState(true);
+  // Own net for the window, also when it is <= 0 and the player is not ranked
+  const [myPoints, setMyPoints] = useState<number | undefined>(undefined);
   const prevRankingsRef = useRef<Map<string, { rank: number; points: number; change: "up" | "down" | null }>>(new Map());
   
   // Load previous rankings from localStorage on first render (period-specific key)
@@ -102,6 +104,7 @@ export function useLiveRankings({
     } else if (period === "year") {
       params.set("year", formatDateForApi(selectedDate, "year"));
     }
+    if (userId) params.set("userId", userId);
     return params.toString();
   })();
 
@@ -114,6 +117,7 @@ export function useLiveRankings({
 
         const data = await res.json();
         setIsLive(data.isLive || isToday);
+        setMyPoints(data.me ? autoConvertToBOGX(data.me.points ?? 0) : undefined);
 
         const players: RankingPlayer[] = (data.rankings || []).map((r: any, index: number) => {
           const id = r._id || r.oderId || `user-${index}`;
@@ -203,6 +207,7 @@ export function useLiveRankings({
     loading,
     isLive,
     currentUserEntry,
+    myPoints,
     refresh: fetchRankings,
   };
 }

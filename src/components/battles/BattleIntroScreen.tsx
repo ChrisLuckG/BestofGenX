@@ -1,7 +1,8 @@
 "use client";
 
-import { Swords, HelpCircle, Coins, Trophy, ChevronLeft, Play } from "lucide-react";
+import { Swords, HelpCircle, Coins, Trophy, Play } from "lucide-react";
 import CountryFlag from "@/components/CountryFlag";
+import BackButton from "@/components/BackButton";
 import { formatCurrency } from "@/utils/currency";
 import { Battle, getTopicConfig, toBOGX } from "./types";
 
@@ -37,9 +38,7 @@ export default function BattleIntroScreen({
         
         {/* Header */}
         <div className="px-5 py-4 border-b border-warm flex items-center gap-3">
-          <button onClick={onBack} className="p-1.5 hover:bg-[#A855F7]/10 rounded-lg transition-colors">
-            <ChevronLeft className="w-5 h-5 text-gray-600" />
-          </button>
+          <BackButton onClick={onBack} />
           <Swords className="w-5 h-5 text-[#A855F7]" />
           <div>
             <span className="font-display text-xl tracking-wider text-gray-900">QuizzBattle</span>

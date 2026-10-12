@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChevronLeft, BookOpen } from "lucide-react";
+import BackButton from "@/components/BackButton";
 import { useAuth } from "@/context/AuthContext";
+import RankrollArticleLink from "@/components/RankrollArticleLink";
 import LoginRequiredModal from "@/components/LoginRequiredModal";
 import RankingItemRow from "@/components/RankingItemRow";
 
@@ -239,12 +240,7 @@ export default function DesktopRankingDetailPage({ poll, onBack, onOpenArticle, 
       {/* Header - sticky like other pages */}
       <div className="sticky top-0 z-10 flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
         <div className="flex items-center gap-3">
-          <button
-            onClick={onBack}
-            className="w-8 h-8 flex items-center justify-center rounded-lg bg-cream border border-warm hover:bg-[#E36B11]/10 transition-colors"
-          >
-            <ChevronLeft className="w-5 h-5 text-gray-600" />
-          </button>
+          <BackButton onClick={onBack} />
           <div>
             <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Rankroll</span>
             <span className="text-[10px] text-gray-500 -mt-0.5 block">Vote & rank your favorites</span>
@@ -257,15 +253,6 @@ export default function DesktopRankingDetailPage({ poll, onBack, onOpenArticle, 
               {(Object.keys(userVotes).length * 0.01).toFixed(2)} of {((poll.items?.length || 0) * 0.01).toFixed(2)} BOGX
             </span>
           </div>
-          {poll.linkedArticleId && onOpenArticle && (
-            <button
-              onClick={() => onOpenArticle(String(poll.linkedArticleId))}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#E36B11]/10 text-[#E36B11] text-xs font-semibold rounded-lg hover:bg-[#E36B11]/20 transition-colors"
-            >
-              <BookOpen className="w-4 h-4" />
-              Read Story
-            </button>
-          )}
         </div>
       </div>
 
@@ -286,6 +273,9 @@ export default function DesktopRankingDetailPage({ poll, onBack, onOpenArticle, 
             <p className="text-xs text-gray-400 mt-1">{localPoll.totalVotes} total votes</p>
           </div>
         </div>
+        {onOpenArticle && (
+          <RankrollArticleLink pollId={poll._id} onOpenArticle={onOpenArticle} className="mt-3" />
+        )}
       </div>
 
       {/* Items List */}

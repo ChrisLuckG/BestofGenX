@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Trophy, ChevronLeft, ChevronRight, ArrowRight, Swords, X, Check, Share2, Info } from "lucide-react";
-import { Battle, RoundResult, getTopicConfig, toBOGX } from "./types";
+import { Battle, RoundResult, getTopicConfig, toBOGX, type ChallengeTarget, rematchTargetFor } from "./types";
 import { formatCurrency, getCurrencySymbol } from "@/utils/currency";
 import { compareBattleResults } from "@/utils/battleWinner";
 import { useCountUp } from "@/hooks/useCountUp";
@@ -16,7 +16,8 @@ interface BattleResultScreenProps {
   isCreator: boolean;
   userAvatar?: string;
   onBackToPool: () => void;
-  onRematch: () => void;
+  /** Called with the other player + same topic/wager; the caller routes to BattlesPage. */
+  onRematch: (target: ChallengeTarget) => void;
   onContinue: () => void;
   isMobile?: boolean; // Mobile-optimized layout
 }
@@ -367,108 +368,24 @@ export default function BattleResultScreen({
           </div>
         )}
 
-        {/* RESULT - score, accuracy bar and verdict in one card, matching Solo
-            Trivia's result page. Replaces the full-width colour band: the band
-            carried the verdict and the coin amount on one line, which left no
-            room for the score itself. */}
-        {isComplete && (
-          <>
-            {/* Mobile has no header row, so the topic pill rides along with the
-                section label here - desktop already shows it top-left. */}
-            <div className="flex items-center justify-between gap-2 animate-[fadeIn_0.4s_ease-out]">
-              <span className={sectionLabel}>Result</span>
-              {isMobile && (
-                <span
-                  className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-display rounded uppercase tracking-wider shrink-0"
-                  style={{ backgroundColor: `${topic.color}15`, color: topic.color }}
-                >
-                  <topic.icon className="w-3 h-3" /> {topic.label}
-                </span>
-              )}
-            </div>
-            {/* Combined Result + Coins card */}
-            <div className={`mt-2 mb-4 rounded-xl border border-warm bg-white/40 ${isMobile ? 'px-3 py-3' : 'px-5 py-4'} animate-[cardIn_0.45s_ease-out]`}>
-              {/* Top row: Verdict + Accuracy bar */}
-              <div className={`flex items-center ${isMobile ? 'gap-3' : 'gap-4'}`}>
-                {/* Verdict icon and text */}
-                <div
-                  className={`font-display ${isMobile ? 'text-base' : 'text-lg'} tracking-wider flex items-center gap-2 shrink-0 animate-[fadeInUp_0.4s_ease-out]`}
-                  style={{ color: won ? '#166534' : isDraw ? '#E36B11' : '#dc2626' }}
-                >
-                  {won && !isForfeit && <Trophy className={`${isMobile ? 'w-5 h-5' : 'w-6 h-6'} animate-[popIcon_0.35s_ease-out] shrink-0`} />}
-                  {isForfeit && <span className={`${isMobile ? 'text-lg' : 'text-xl'} leading-none animate-[popIcon_0.35s_ease-out] shrink-0`}>🏳️</span>}
-                  {won ? 'YOU WIN!' : isDraw ? 'DRAW' : 'YOU LOSE'}
-                  {isForfeit && (
-                    <span className="opacity-75 text-sm">
-                      {actuallyIForfeited ? '· YOU GAVE UP' : '· OPPONENT GAVE UP'}
-                    </span>
-                  )}
-                </div>
-                {/* LED accuracy bar */}
-                <div className="flex-1 flex items-center gap-3 min-w-0">
-                  <div className="flex-1 flex gap-1">
-                    {[...Array(10)].map((_, i) => {
-                      const threshold = (i + 1) * 10;
-                      const isActive = animAccuracy >= threshold;
-                      const ledColor = won ? '#166534' : isDraw ? '#E36B11' : '#dc2626';
-                      return (
-                        <span
-                          key={i}
-                          className={`${isMobile ? 'h-2.5' : 'h-3'} flex-1 rounded transition-all duration-300`}
-                          style={{
-                            backgroundColor: isActive ? ledColor : '#E5E0D8',
-                            boxShadow: isActive ? `0 0 6px ${ledColor}` : 'none'
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
-                  <span className={`font-display ${isMobile ? 'text-[10px]' : 'text-[11px]'} text-gray-500 tabular-nums shrink-0`}>
-                    {myCorrect}/{battle.rounds} · {Math.round(animAccuracy)}%
-                  </span>
-                </div>
-              </div>
-
-              {/* Divider */}
-              <div className={`border-t border-warm ${isMobile ? 'my-2.5' : 'my-3'}`} />
-
-              {/* Bottom row: BOGX earned */}
-              <div className="flex items-center gap-3">
-                <img
-                  src="/images/bogxcoin.png"
-                  alt=""
-                  className={`${isMobile ? 'w-8 h-8' : 'w-10 h-10'} shrink-0 animate-[popIcon_0.45s_ease-out_0.15s_backwards]`}
-                />
-                <div className="min-w-0 flex-1">
-                  <div
-                    className={`font-display ${isMobile ? 'text-lg' : 'text-2xl'} leading-none tabular-nums`}
-                    style={{ color: won ? '#166534' : isDraw ? '#E36B11' : '#dc2626' }}
-                  >
-                    {isDraw
-                      ? `${formatCurrency(wagerBogx)} BOGX`
-                      : `${animCoins >= 0 ? '+' : '-'}${formatCurrency(Math.abs(animCoins))} BOGX`}
-                  </div>
-                  <div className={`font-display ${isMobile ? 'text-[9px]' : 'text-[11px]'} tracking-wide mt-1 text-gray-500 tabular-nums`}>
-                    {isDraw ? (
-                      <>wager returned · nothing won or lost</>
-                    ) : (
-                      <>
-                        <span>{formatCurrency(wagerBogx)} wagered</span>
-                        <span className="text-gray-400"> · </span>
-                        <span>{formatCurrency(wagerBogx * 2)} pot</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-
         {/* Players Comparison - Vertical on mobile, horizontal on desktop.
             Labelled like Solo Trivia's sections, and on bg-white/40 so all
             cards on this page share one surface. */}
-        {isComplete && <span className={`${sectionLabel} block mb-2`}>Players</span>}
+        {/* Mobile has no header row, so the topic pill rides along with the
+            first section label - desktop already shows it top-left. */}
+        {isComplete && (
+          <div className="flex items-center justify-between gap-2 mb-2 animate-[fadeIn_0.4s_ease-out]">
+            <span className={sectionLabel}>Players</span>
+            {isMobile && (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-display rounded uppercase tracking-wider shrink-0"
+                style={{ backgroundColor: `${topic.color}15`, color: topic.color }}
+              >
+                <topic.icon className="w-3 h-3" /> {topic.label}
+              </span>
+            )}
+          </div>
+        )}
         {isMobile ? (
           <div className="border border-warm rounded-xl bg-white/40 overflow-hidden mb-3">
             {/* You */}
@@ -581,6 +498,92 @@ export default function BattleResultScreen({
               );
             })()}
           </div>
+        )}
+
+        {/* RESULT - score, accuracy bar and verdict in one card, matching Solo
+            Trivia's result page. Replaces the full-width colour band: the band
+            carried the verdict and the coin amount on one line, which left no
+            room for the score itself. */}
+        {isComplete && (
+          <>
+            <span className={`${sectionLabel} block animate-[fadeIn_0.4s_ease-out]`}>Result</span>
+            {/* Combined Result + Coins card */}
+            <div className={`mt-2 mb-4 rounded-xl border border-warm bg-white/40 ${isMobile ? 'px-3 py-3' : 'px-5 py-4'} animate-[cardIn_0.45s_ease-out]`}>
+              {/* Top row: Verdict + Accuracy bar */}
+              <div className={`flex items-center ${isMobile ? 'gap-3' : 'gap-4'}`}>
+                {/* Verdict icon and text */}
+                <div
+                  className={`font-display ${isMobile ? 'text-base' : 'text-lg'} tracking-wider flex items-center gap-2 shrink-0 animate-[fadeInUp_0.4s_ease-out]`}
+                  style={{ color: won ? '#166534' : isDraw ? '#E36B11' : '#dc2626' }}
+                >
+                  {won && !isForfeit && <Trophy className={`${isMobile ? 'w-5 h-5' : 'w-6 h-6'} animate-[popIcon_0.35s_ease-out] shrink-0`} />}
+                  {isForfeit && <span className={`${isMobile ? 'text-lg' : 'text-xl'} leading-none animate-[popIcon_0.35s_ease-out] shrink-0`}>🏳️</span>}
+                  {won ? 'YOU WIN!' : isDraw ? 'DRAW' : 'YOU LOSE'}
+                  {isForfeit && (
+                    <span className="opacity-75 text-sm">
+                      {actuallyIForfeited ? '· YOU GAVE UP' : '· OPPONENT GAVE UP'}
+                    </span>
+                  )}
+                </div>
+                {/* LED accuracy bar */}
+                <div className="flex-1 flex items-center gap-3 min-w-0">
+                  <div className="flex-1 flex gap-1">
+                    {[...Array(10)].map((_, i) => {
+                      const threshold = (i + 1) * 10;
+                      const isActive = animAccuracy >= threshold;
+                      const ledColor = won ? '#166534' : isDraw ? '#E36B11' : '#dc2626';
+                      return (
+                        <span
+                          key={i}
+                          className={`${isMobile ? 'h-2.5' : 'h-3'} flex-1 rounded transition-all duration-300`}
+                          style={{
+                            backgroundColor: isActive ? ledColor : '#E5E0D8',
+                            boxShadow: isActive ? `0 0 6px ${ledColor}` : 'none'
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                  <span className={`font-display ${isMobile ? 'text-[10px]' : 'text-[11px]'} text-gray-500 tabular-nums shrink-0`}>
+                    {myCorrect}/{battle.rounds} · {Math.round(animAccuracy)}%
+                  </span>
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className={`border-t border-warm ${isMobile ? 'my-2.5' : 'my-3'}`} />
+
+              {/* Bottom row: BOGX earned */}
+              <div className="flex items-center gap-3">
+                <img
+                  src="/images/bogxcoin.png"
+                  alt=""
+                  className={`${isMobile ? 'w-8 h-8' : 'w-10 h-10'} shrink-0 animate-[popIcon_0.45s_ease-out_0.15s_backwards]`}
+                />
+                <div className="min-w-0 flex-1">
+                  <div
+                    className={`font-display ${isMobile ? 'text-lg' : 'text-2xl'} leading-none tabular-nums`}
+                    style={{ color: won ? '#166534' : isDraw ? '#E36B11' : '#dc2626' }}
+                  >
+                    {isDraw
+                      ? `${formatCurrency(wagerBogx)} BOGX`
+                      : `${animCoins >= 0 ? '+' : '-'}${formatCurrency(Math.abs(animCoins))} BOGX`}
+                  </div>
+                  <div className={`font-display ${isMobile ? 'text-[9px]' : 'text-[11px]'} tracking-wide mt-1 text-gray-500 tabular-nums`}>
+                    {isDraw ? (
+                      <>wager returned · nothing won or lost</>
+                    ) : (
+                      <>
+                        <span>{formatCurrency(wagerBogx)} wagered</span>
+                        <span className="text-gray-400"> · </span>
+                        <span>{formatCurrency(wagerBogx * 2)} pot</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
         )}
 
         {/* Round by Round + Outcome - Combined container */}
@@ -746,7 +749,10 @@ export default function BattleResultScreen({
               Back
             </button>
             <button
-              onClick={onRematch}
+              onClick={() => {
+                const target = rematchTargetFor(battle, isCreator);
+                if (target) onRematch(target);
+              }}
               className={`group flex-1 ${isMobile ? 'py-3 text-xs' : 'py-3 text-sm'} text-white font-display tracking-widest rounded-xl flex items-center justify-center relative transition-all hover:opacity-90 hover:scale-[1.01] active:scale-[0.99] bg-gray-700 hover:bg-gray-800`}
             >
               Rematch

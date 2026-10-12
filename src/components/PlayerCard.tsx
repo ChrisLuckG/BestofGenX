@@ -95,16 +95,13 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
       }
     >
       {/* Header - consistent style like other pages */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
+      <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-warm bg-cream">
         <BackButton onClick={onClose} />
-        <div className="flex items-center gap-2">
-          <User className="w-5 h-5 text-[#E36B11]" />
-          <span className="font-display text-lg tracking-wider text-gray-900 uppercase">
-            Player Profile
-          </span>
+        <User className="w-5 h-5 text-[#E36B11]" />
+        <div>
+          <span className="font-display text-lg tracking-wider text-gray-900 block leading-none uppercase">Player Profile</span>
+          <span className="text-[10px] text-gray-500 -mt-0.5 block">View stats and achievements</span>
         </div>
-        {/* Spacer for symmetry */}
-        <div className="w-14" />
       </div>
 
       {/* Content */}
@@ -144,12 +141,12 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
                         player.rank === 3 ? 'bg-gradient-to-br from-amber-600 to-amber-800' :
                         'bg-[#E36B11]'
                       }`}>
-                        <span className={`font-black text-white ${isDesktop ? 'text-[9px]' : 'text-xs'}`}>#{player.rank}</span>
+                        <span className={`font-display text-white ${isDesktop ? 'text-[11px]' : 'text-sm'}`}>#{player.rank}</span>
                       </div>
                     )}
                   </div>
                   <div className="pb-1 flex-1 min-w-0">
-                    <h2 className={`font-black text-gray-900 truncate ${isDesktop ? 'text-base' : 'text-xl'}`}>{player.username}</h2>
+                    <h2 className={`font-display tracking-wide text-gray-900 truncate ${isDesktop ? 'text-xl' : 'text-2xl'}`}>{player.username}</h2>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <CountryFlag flag={player.countryFlag} className="w-5 h-4 rounded-[2px]" />
                       <span className="text-sm text-gray-500">{player.country || 'World'}</span>
@@ -160,8 +157,8 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
                     <div className="flex items-center gap-2">
                       <img src="/images/bogxcoin.png" alt="" className={isDesktop ? 'w-6 h-6' : 'w-8 h-8'} />
                       <div className="text-right">
-                        <span className={`font-black text-[#E36B11] ${isDesktop ? 'text-lg' : 'text-2xl'}`}>{formatCurrency(player.points)}</span>
-                        <div className="text-[9px] font-bold tracking-widest uppercase text-gray-400">BOGX</div>
+                        <span className={`font-display tracking-wide text-[#E36B11] ${isDesktop ? 'text-2xl' : 'text-3xl'}`}>{formatCurrency(player.points)}</span>
+                        <div className="font-display text-[11px] tracking-widest uppercase text-gray-400">BOGX</div>
                       </div>
                     </div>
                   </div>
@@ -170,36 +167,36 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
                 {/* Rankings Row - Daily / Monthly / Annually */}
                 <div className={`grid grid-cols-3 gap-2 border-t border-warm/50 ${isDesktop ? 'mt-2 pt-2' : 'mt-4 pt-4'}`}>
                   <div className="text-center">
-                    <div className="text-[9px] font-bold tracking-widest uppercase text-gray-400 mb-1">Day</div>
+                    <div className="font-display text-[11px] tracking-widest uppercase text-gray-400 mb-1">Day</div>
                     <div className="flex items-center justify-center gap-0.5">
-                      <span className={`font-black text-gray-900 ${isDesktop ? 'text-sm' : 'text-lg'}`}>
+                      <span className={`font-display tracking-wide text-gray-900 ${isDesktop ? 'text-xl' : 'text-2xl'}`}>
                         {player.dailyRank ? `${player.dailyRank}` : '—'}
                       </span>
                     </div>
                     {player.dailyPoints !== undefined && player.dailyPoints > 0 && (
-                      <div className="text-[10px] text-green-600 font-semibold">+{formatCurrency(player.dailyPoints)}</div>
+                      <div className="font-display tracking-wide text-[13px] text-green-600">+{formatCurrency(player.dailyPoints)}</div>
                     )}
                   </div>
                   <div className="text-center border-x border-warm/50">
-                    <div className="text-[9px] font-bold tracking-widest uppercase text-gray-400 mb-1">Month</div>
+                    <div className="font-display text-[11px] tracking-widest uppercase text-gray-400 mb-1">Month</div>
                     <div className="flex items-center justify-center gap-0.5">
-                      <span className={`font-black text-gray-900 ${isDesktop ? 'text-sm' : 'text-lg'}`}>
+                      <span className={`font-display tracking-wide text-gray-900 ${isDesktop ? 'text-xl' : 'text-2xl'}`}>
                         {player.monthlyRank ? `${player.monthlyRank}` : '—'}
                       </span>
                     </div>
                     {player.monthlyPoints !== undefined && player.monthlyPoints > 0 && (
-                      <div className="text-[10px] text-green-600 font-semibold">+{formatCurrency(player.monthlyPoints)}</div>
+                      <div className="font-display tracking-wide text-[13px] text-green-600">+{formatCurrency(player.monthlyPoints)}</div>
                     )}
                   </div>
                   <div className="text-center">
-                    <div className="text-[9px] font-bold tracking-widest uppercase text-gray-400 mb-1">Year</div>
+                    <div className="font-display text-[11px] tracking-widest uppercase text-gray-400 mb-1">Year</div>
                     <div className="flex items-center justify-center gap-0.5">
-                      <span className={`font-black text-gray-900 ${isDesktop ? 'text-sm' : 'text-lg'}`}>
+                      <span className={`font-display tracking-wide text-gray-900 ${isDesktop ? 'text-xl' : 'text-2xl'}`}>
                         {player.annuallyRank ? `${player.annuallyRank}` : '—'}
                       </span>
                     </div>
                     {player.annuallyPoints !== undefined && player.annuallyPoints > 0 && (
-                      <div className="text-[10px] text-green-600 font-semibold">+{formatCurrency(player.annuallyPoints)}</div>
+                      <div className="font-display tracking-wide text-[13px] text-green-600">+{formatCurrency(player.annuallyPoints)}</div>
                     )}
                   </div>
                 </div>
@@ -218,7 +215,7 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
               return (
                 <div className={`mx-4 mt-2.5 rounded-2xl shadow-sm border border-warm overflow-hidden ${isDesktop ? 'bg-[#F5F0E8]' : 'bg-white'}`}>
                   <div className={isDesktop ? 'px-4 py-2.5' : 'p-4'}>
-                    <div style={{ color: level.color }} className="font-bold text-sm">{level.name.toUpperCase()}</div>
+                    <div style={{ color: level.color }} className="font-display text-sm tracking-wider">{level.name.toUpperCase()}</div>
                     <div className={`flex items-center gap-3 ${isDesktop ? 'mt-1.5' : 'mt-2'}`}>
                       {/* Segmented Progress Bar - Animated */}
                       <div className="flex gap-1 flex-1">
@@ -236,7 +233,7 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
                           />
                         ))}
                       </div>
-                      <span className="text-sm font-bold animate-fade-in" style={{ color: level.color, animationDelay: '600ms' }}>{progress}%</span>
+                      <span className="font-display text-lg tracking-wide animate-fade-in" style={{ color: level.color, animationDelay: '600ms' }}>{progress}%</span>
                     </div>
                     <div className="text-[10px] text-gray-600 mt-1.5 animate-fade-in" style={{ animationDelay: '700ms' }}>
                       {formatCurrency(playerBogx)} BOGX · {nextName ? (
@@ -270,16 +267,16 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
             <div className={`mx-4 mt-2.5 rounded-2xl shadow-sm border border-warm overflow-hidden ${isDesktop ? 'bg-[#F5F0E8]' : 'bg-white'}`}>
               <div className="grid grid-cols-3 divide-x divide-warm">
                 <div className={`text-center ${isDesktop ? 'p-2.5' : 'p-4'}`}>
-                  <p className={`font-black text-gray-900 ${isDesktop ? 'text-lg' : 'text-2xl'}`}>{player.points.toLocaleString()}</p>
-                  <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mt-1">BOGX</p>
+                  <p className={`font-display tracking-wide text-gray-900 ${isDesktop ? 'text-2xl' : 'text-3xl'}`}>{player.points.toLocaleString()}</p>
+                  <p className="font-display text-[11px] text-gray-500 uppercase tracking-wider mt-1">BOGX</p>
                 </div>
                 <div className={`text-center ${isDesktop ? 'p-2.5' : 'p-4'}`}>
-                  <p className={`font-black text-gray-900 ${isDesktop ? 'text-lg' : 'text-2xl'}`}>{player.wins}</p>
-                  <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mt-1">Wins</p>
+                  <p className={`font-display tracking-wide text-gray-900 ${isDesktop ? 'text-2xl' : 'text-3xl'}`}>{player.wins}</p>
+                  <p className="font-display text-[11px] text-gray-500 uppercase tracking-wider mt-1">Wins</p>
                 </div>
                 <div className={`text-center ${isDesktop ? 'p-2.5' : 'p-4'}`}>
-                  <p className={`font-black text-gray-900 ${isDesktop ? 'text-lg' : 'text-2xl'}`}>{player.gamesPlayed}</p>
-                  <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mt-1">Games</p>
+                  <p className={`font-display tracking-wide text-gray-900 ${isDesktop ? 'text-2xl' : 'text-3xl'}`}>{player.gamesPlayed}</p>
+                  <p className="font-display text-[11px] text-gray-500 uppercase tracking-wider mt-1">Games</p>
                 </div>
               </div>
             </div>
@@ -289,7 +286,7 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
                 fold next to a compact header instead of needing a scroll. */}
             <div className={`mx-4 mt-2.5 rounded-2xl shadow-sm border border-warm overflow-hidden ${isDesktop ? 'bg-[#F5F0E8]' : 'bg-white'}`}>
               <div className={`border-b border-warm/60 ${isDesktop ? 'px-4 py-2' : 'px-4 py-3'}`}>
-                <h3 className="text-[10px] font-bold tracking-widest uppercase text-gray-500 flex items-center gap-1.5">
+                <h3 className="font-display text-[11px] tracking-widest uppercase text-gray-500 flex items-center gap-1.5">
                   <TrendingUp className="w-3 h-3 text-[#E36B11]" />
                   Performance Stats
                 </h3>
@@ -303,11 +300,11 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
                       <Clock className="w-4 h-4 text-[#E36B11]/70" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">Avg. Answer Time</p>
+                      <p className="font-display text-sm text-gray-900">Avg. Answer Time</p>
                       <p className="text-[10px] text-gray-400">Speed matters!</p>
                     </div>
                   </div>
-                  <p className="text-base font-bold text-gray-900">
+                  <p className="font-display text-xl tracking-wide text-gray-900">
                     {player.avgAnswerTime ? `${player.avgAnswerTime.toFixed(1)}s` : '—'}
                   </p>
                 </div>
@@ -319,11 +316,11 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
                       <Target className="w-4 h-4 text-[#E36B11]/70" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">Accuracy</p>
+                      <p className="font-display text-sm text-gray-900">Accuracy</p>
                       <p className="text-[10px] text-gray-400">Correct answers</p>
                     </div>
                   </div>
-                  <p className="text-base font-bold text-gray-900">
+                  <p className="font-display text-xl tracking-wide text-gray-900">
                     {player.accuracy ? `${player.accuracy.toFixed(0)}%` : '—'}
                   </p>
                 </div>
@@ -335,11 +332,11 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
                       <Trophy className="w-4 h-4 text-[#E36B11]/70" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">Win Rate</p>
+                      <p className="font-display text-sm text-gray-900">Win Rate</p>
                       <p className="text-[10px] text-gray-400">Games won</p>
                     </div>
                   </div>
-                  <p className="text-base font-bold text-gray-900">
+                  <p className="font-display text-xl tracking-wide text-gray-900">
                     {player.winRate ? `${player.winRate.toFixed(0)}%` : 
                      player.gamesPlayed > 0 ? `${((player.wins / player.gamesPlayed) * 100).toFixed(0)}%` : '—'}
                   </p>
@@ -352,11 +349,11 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
                       <TrendingUp className="w-4 h-4 text-[#E36B11]/70" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">Current Streak</p>
+                      <p className="font-display text-sm text-gray-900">Current Streak</p>
                       <p className="text-[10px] text-gray-400">Days in a row</p>
                     </div>
                   </div>
-                  <p className="text-base font-bold text-gray-900">
+                  <p className="font-display text-xl tracking-wide text-gray-900">
                     {player.currentStreak ? `🔥 ${player.currentStreak}` : '—'}
                   </p>
                 </div>
@@ -370,11 +367,11 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
                       <Award className="w-4 h-4 text-[#E36B11]/70" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">Best Streak</p>
+                      <p className="font-display text-sm text-gray-900">Best Streak</p>
                       <p className="text-[10px] text-gray-400">Personal record</p>
                     </div>
                   </div>
-                  <p className="text-base font-bold text-gray-900">
+                  <p className="font-display text-xl tracking-wide text-gray-900">
                     {player.bestStreak ? `⭐ ${player.bestStreak}` : '—'}
                   </p>
                 </div>
@@ -392,7 +389,7 @@ export default function PlayerCard({ isOpen, playerId, onClose, onChallenge, cur
               <div className={`px-4 ${isDesktop ? 'pb-4' : 'pb-6'}`}>
                 <button
                   onClick={() => onChallenge(player._id, player.username, player.avatar, player.countryFlag)}
-                  className={`w-full bg-[#E36B11] hover:bg-[#C4772A] rounded-2xl text-white font-bold flex items-center justify-center gap-2 transition-colors shadow-sm ${isDesktop ? 'py-3 text-sm' : 'py-3.5 text-base'}`}
+                  className={`w-full bg-[#E36B11] hover:bg-[#C4772A] rounded-2xl text-white font-display tracking-wide flex items-center justify-center gap-2 transition-colors shadow-sm ${isDesktop ? 'py-3 text-sm' : 'py-3.5 text-base'}`}
                 >
                   <Swords className="w-5 h-5" />
                   Challenge {player.username}

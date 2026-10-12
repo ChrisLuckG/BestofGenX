@@ -625,7 +625,7 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
                       <img src={top3[1].avatar} alt="" className="w-full h-full object-cover" />
                     </div>
                     <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-[#A0A8B8] flex items-center justify-center">
-                      <span className="text-[10px] font-black text-black">2</span>
+                      <span className="font-display text-[12px] text-black">2</span>
                     </div>
                   </div>
                   <div className="font-display text-sm text-gray-900 text-center truncate w-full">{top3[1].name}</div>
@@ -651,7 +651,7 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
                       <img src={top3[0].avatar} alt="" className="w-full h-full object-cover" />
                     </div>
                     <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-[#FFB800] flex items-center justify-center">
-                      <span className="text-xs font-black text-black">1</span>
+                      <span className="font-display text-[14px] text-black">1</span>
                     </div>
                   </div>
                   <div className="font-display text-base text-gray-900 text-center truncate w-full">{top3[0].name}</div>
@@ -677,7 +677,7 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
                       <img src={top3[2].avatar} alt="" className="w-full h-full object-cover" />
                     </div>
                     <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-[#CD7F32] flex items-center justify-center">
-                      <span className="text-[10px] font-black text-black">3</span>
+                      <span className="font-display text-[12px] text-black">3</span>
                     </div>
                   </div>
                   <div className="font-display text-sm text-gray-900 text-center truncate w-full">{top3[2].name}</div>

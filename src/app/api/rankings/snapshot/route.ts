@@ -90,7 +90,7 @@ function rankingYearStartInstant(now: Date = new Date()): Date {
 // Build rankings from the GameResult collection (single source of truth) over a
 // [start, end) playedAt window. This guarantees consistency across day/month/year
 // (e.g. month always includes today) since they all sum the same events.
-async function buildPeriodRankings(startInstant: Date, endInstant?: Date) {
+async function buildPeriodRankings(startInstant: Date, endInstant?: Date, userId?: string | null) {
   const playedAtMatch: any = { $gte: startInstant };
   if (endInstant) playedAtMatch.$lt = endInstant;
 
@@ -149,7 +149,14 @@ async function buildPeriodRankings(startInstant: Date, endInstant?: Date) {
 
   rankings.sort((a, b) => b.points - a.points || b.totalPoints - a.totalPoints);
   const active = rankings.filter(r => r.points > 0);
-  return active.slice(0, 100).map((r, index) => ({ ...r, rank: index + 1 }));
+
+  // The requesting player's own net for this window, even when it is <= 0 and
+  // they are therefore NOT on the leaderboard. Lets the widgets show "-0,37" /
+  // "0,00" instead of a bare "?", so the player knows how far off a rank they are.
+  const mine = userId ? rankings.find(r => r._id?.toString() === userId) : undefined;
+  const me = userId ? { points: mine?.points ?? 0, gamesPlayed: mine?.gamesPlayed ?? 0 } : null;
+
+  return { rankings: active.slice(0, 100).map((r, index) => ({ ...r, rank: index + 1 })), me };
 }
 
 const NO_CACHE_HEADERS = {
@@ -362,6 +369,7 @@ export async function GET(request: Request) {
     const dateString = searchParams.get('date'); // YYYY-MM-DD format
     const monthString = searchParams.get('month'); // YYYY-MM format
     const yearString = searchParams.get('year'); // YYYY format
+    const userId = searchParams.get('userId'); // optional: adds `me` (own net, even when unranked)
     
     // MONTH rankings - coins earned THIS MONTH (10:00 Berlin on the 1st → now).
     // Unified source: sum of GameResult.pointsChange in the period window.
@@ -381,9 +389,9 @@ export async function GET(request: Request) {
       const nextY = m === 12 ? y + 1 : y;
       const end = isCurrent ? undefined : berlinInstant(nextY, nextM, 1, 10);
 
-      const rankings = await buildPeriodRankings(start, end);
+      const { rankings, me } = await buildPeriodRankings(start, end, userId);
       return NextResponse.json(
-        { rankings, isLive: isCurrent, period: 'month', month: targetMonth },
+        { rankings, me, isLive: isCurrent, period: 'month', month: targetMonth },
         { headers: NO_CACHE_HEADERS }
       );
     }
@@ -402,9 +410,9 @@ export async function GET(request: Request) {
       // Historical year ends at 10:00 Berlin on Jan 1st of the next year
       const end = isCurrent ? undefined : berlinInstant(y + 1, 1, 1, 10);
 
-      const rankings = await buildPeriodRankings(start, end);
+      const { rankings, me } = await buildPeriodRankings(start, end, userId);
       return NextResponse.json(
-        { rankings, isLive: isCurrent, period: 'year', year: targetYear },
+        { rankings, me, isLive: isCurrent, period: 'year', year: targetYear },
         { headers: NO_CACHE_HEADERS }
       );
     }
@@ -435,10 +443,10 @@ export async function GET(request: Request) {
       }
       
       // No cache for live rankings - they need to update immediately
-      const rankedResults = await buildPeriodRankings(dayStart, endInstant);
+      const { rankings: rankedResults, me } = await buildPeriodRankings(dayStart, endInstant, userId);
       
       return NextResponse.json(
-        { rankings: rankedResults, isLive: !untilTimeParam, date: today, untilTime: untilTimeParam ? parseFloat(untilTimeParam) : null },
+        { rankings: rankedResults, me, isLive: !untilTimeParam, date: today, untilTime: untilTimeParam ? parseFloat(untilTimeParam) : null },
         { headers: NO_CACHE_HEADERS }
       );
     }
@@ -457,10 +465,10 @@ export async function GET(request: Request) {
       9 // break starts at 09:00 → day ends here
     );
 
-    const rankedResults = await buildPeriodRankings(dayStart, dayEnd);
+    const { rankings: rankedResults, me } = await buildPeriodRankings(dayStart, dayEnd, userId);
 
     return NextResponse.json(
-      { rankings: rankedResults, isLive: false, date: dateString },
+      { rankings: rankedResults, me, isLive: false, date: dateString },
       { headers: NO_CACHE_HEADERS }
     );
   } catch (error) {

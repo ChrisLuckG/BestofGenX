@@ -83,10 +83,15 @@ correct behaviour rather than a bug. Measured for Bacon77 on 02.09.:
 day **+0.13 → #22**, month **−2.37 → no rank**, year **+101.56 → #2** — losses on
 the 1st outweighed the small gain on the 2nd.
 
-Therefore an unranked period must render as an explained "?", never as a bare "—":
-35 games played in the month looks identical to never having played. Do not "fix"
-this by removing the filter without asking — whether a negative player is listed
-last or not listed at all is a product decision about the leaderboard.
+Therefore an unranked period must render the player's OWN net for that window
+("-2,37", or "0,00" before the first game), never a bare "—": 35 games played in the
+month looks identical to never having played, and a plain "?" left players guessing
+how far off a rank they were. "?" remains only when the value is unknown (guest,
+still loading). The value comes from `me` in `/api/rankings/snapshot?userId=…`,
+computed from the unfiltered list, exposed as `myPoints` by `useLiveRankings`, and
+formatted by `formatUnrankedValue()` in `src/lib/rankPeriod.ts`. Do not "fix" this by
+removing the filter without asking — whether a negative player is listed last or
+not listed at all is a product decision about the leaderboard.
 
 The tooltip wording lives in `src/lib/rankPeriod.ts` and is used by BOTH
 `src/components/Header.tsx` (mobile, tap + 5s auto-close, no `mouseleave` on touch)

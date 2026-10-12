@@ -208,7 +208,12 @@ export default function RankingListCard({ poll, onOpenArticle, onOpenRankroll, o
           
           return (
             <div key={item.id} className="px-3 h-[56px] flex items-center gap-3 border-b border-warm last:border-b-0">
-              <RankingItemImage image={item.image} videoUrl={item.videoUrl} rank={rank} title={item.title} disableVideo={true} />
+              <RankingItemImage
+                image={item.image}
+                rank={rank}
+                title={item.title}
+                disableVideo
+              />
               
               {/* Content */}
               <div className="flex-1 min-w-0">
@@ -248,6 +253,8 @@ export default function RankingListCard({ poll, onOpenArticle, onOpenRankroll, o
           </span>
         </div>
       )}
+
+
     </button>
   );
 }

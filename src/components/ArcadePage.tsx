@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, User, HelpCircle, Trophy, BarChart3, Coins, Zap, Play, Swords, Brain, ArrowRight } from "lucide-react";
+import { Users, User, Swords, Brain } from "lucide-react";
 import OpenBattlesModal from "./OpenBattlesModal";
+import PosterBanner from "./PosterBanner";
+import { DAILY_GAME_LIMIT } from "./games/SoloTriviaGame";
 
 interface ArcadePageProps {
   onSelectGame: (game: 'quizzbattle' | 'trivia' | 'spacegenx' | 'memory' | 'genxmen' | 'nextplay' | 'faceblur' | 'bogxinvaders') => void;
@@ -34,6 +36,17 @@ export default function ArcadePage({ onSelectGame, onShowRankings, onShowBattles
       .catch(() => setOnlineLoading(false));
   }, []);
 
+  // Solo games played today (logged in only - guests see the static rule)
+  const [soloPlayedToday, setSoloPlayedToday] = useState<number | null>(null);
+  useEffect(() => {
+    if (!userId) { setSoloPlayedToday(null); return; }
+    fetch(`/api/user/daily-trivia-count?userId=${userId}`)
+      .then(r => r.json())
+      .then(data => { if (data.success) setSoloPlayedToday(data.count || 0); })
+      .catch(() => {});
+  }, [userId]);
+  const soloLeft = soloPlayedToday === null ? null : Math.max(0, DAILY_GAME_LIMIT - soloPlayedToday);
+
   // Fetch live battle count every time arcade is shown — independent of bottom nav badge
   const refreshBattleCount = () => {
     if (!userId) return;
@@ -54,6 +67,16 @@ export default function ArcadePage({ onSelectGame, onShowRankings, onShowBattles
     return () => clearInterval(interval);
   }, [userId]);
 
+  const battleLive = userId && liveBattleCount > 0
+    ? `${liveBattleCount} battle${liveBattleCount === 1 ? '' : 's'} waiting for you`
+    : 'Wager 0.25 – 5.00 BOGX · tie = money back';
+
+  const soloLive = soloLeft === null
+    ? `${DAILY_GAME_LIMIT} games a day · 10 sec per question`
+    : soloLeft > 0
+      ? `${soloLeft} of ${DAILY_GAME_LIMIT} games left today`
+      : `All ${DAILY_GAME_LIMIT} played. Back at 10:00.`;
+
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-cream">
       {/* Header */}
@@ -66,7 +89,7 @@ export default function ArcadePage({ onSelectGame, onShowRankings, onShowBattles
           </div>
           {/* Open battles button - absolute so height never grows the header */}
           <button
-            onClick={() => userId ? setShowOpenBattles(v => !v) : onShowLogin?.()}
+            onClick={() => setShowOpenBattles(v => !v)}
             className={`absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1.5 px-3 py-3 rounded-lg border transition-colors text-[10px] tracking-wider ${
               showOpenBattles
                 ? 'border-[#A855F7] bg-[#A855F7] font-bold shadow-sm'
@@ -98,169 +121,40 @@ export default function ArcadePage({ onSelectGame, onShowRankings, onShowBattles
         onCountChange={setLiveBattleCount}
       />
 
-      {/* Split Layout - Two Game Cards */}
-      <div className="flex-1 flex flex-col px-4 py-4 gap-4 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
-        
-        {/* QuizzBattle - Multiplayer Banner with full info */}
-        <button
+      {/* Two poster banners - like the Media page, no scrolling needed */}
+      <div className="flex-1 flex flex-col px-4 py-4 gap-4">
+        <PosterBanner
+          color="#A855F7"
+          media={{ type: 'image', src: '/images/Hintergund/battle-bats.png', lineArt: true }}
+          badge={{ icon: Users, label: 'Multiplayer' }}
+          topRight={
+            <div className="flex items-center gap-1.5 bg-white/20 backdrop-blur-sm px-2 py-1 rounded-full">
+              <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+              {onlineLoading ? (
+                <div className="w-4 h-3 bg-white/20 rounded animate-pulse" />
+              ) : (
+                <span className="text-[10px] font-bold text-white">{onlinePlayers}</span>
+              )}
+              <span className="text-[8px] text-white/80 uppercase">Online</span>
+            </div>
+          }
+          title="QUIZZ"
+          accent="BATTLE"
+          tagline="Pick a fight. Winner takes the pot."
+          info={battleLive}
           onClick={() => onSelectGame('quizzbattle')}
-          className="w-full relative overflow-hidden rounded-2xl shadow-md border border-warm transition-all hover:scale-[1.02] active:scale-[0.98] bg-cover bg-center"
-          style={{ backgroundImage: "url('/images/Hintergund/battle-bats.png')", minHeight: '290px' }}
-        >
-          {/* The action bar now runs the full width, so the right edge needs a
-              floor of its own instead of fading to bare artwork. */}
-          <div className="absolute inset-0 bg-gradient-to-r from-[#F5F0E8]/80 via-[#F5F0E8]/35 to-transparent" />
+        />
 
-          {/* Online Players Badge - top right */}
-          <div className="absolute top-2 right-2 flex items-center gap-1.5 bg-white/70 backdrop-blur-sm border border-[#A855F7]/25 px-2 py-1 rounded-full z-10">
-            <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-            {onlineLoading ? (
-              <div className="w-4 h-3 bg-black/10 rounded animate-pulse" />
-            ) : (
-              <span className="text-[10px] font-bold text-gray-800">{onlinePlayers}</span>
-            )}
-            <span className="text-[8px] text-gray-500 uppercase">Online</span>
-          </div>
-
-          {/* Same sections as desktop, stacked - three columns do not fit here. */}
-          <div className="relative h-full flex flex-col text-left px-4 py-3">
-            {/* Badge */}
-            <div className="self-start inline-flex items-center gap-1 bg-white/70 backdrop-blur-sm border border-[#A855F7]/25 text-[#A855F7] text-[7px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-              <Users className="w-2.5 h-2.5" />
-              Multiplayer
-            </div>
-
-            {/* Title */}
-            <h3 className="font-display text-[28px] leading-none tracking-wide mt-2">
-              <span className="text-gray-900">QUIZZ</span><span className="text-[#A855F7]">BATTLE</span>
-            </h3>
-
-            {/* Subtitle */}
-            <p className="text-gray-700 text-[11px] font-semibold leading-tight mt-1">
-              Challenge real players. <span className="text-[#A855F7]">Winner takes 2x wager!</span>
-            </p>
-
-            {/* How it works */}
-            <span className="font-display text-gray-500 text-[8px] tracking-[0.12em] mt-3">How it works</span>
-            <div className="flex items-start gap-3 mt-1.5">
-              {[
-                { icon: Users, value: '3 – 5', label: 'Rounds' },
-                { icon: Zap, value: '10 sec', label: 'Per question' },
-                { icon: Trophy, value: 'High score', label: 'Wins' },
-              ].map((f) => {
-                const FIcon = f.icon;
-                return (
-                  <div key={f.label} className="flex items-center gap-1.5 min-w-0">
-                    <span className="w-6 h-6 rounded-full border border-[#A855F7]/30 bg-white/50 flex items-center justify-center shrink-0">
-                      <FIcon className="w-3 h-3 text-[#A855F7]" />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="font-display text-gray-900 text-[10px] tracking-wide block leading-none">{f.value}</span>
-                      <span className="font-display text-gray-500 text-[8px] tracking-wide block leading-tight">{f.label}</span>
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Stake */}
-            <div className="flex items-baseline justify-between mt-3 max-w-[78%]">
-              <span className="font-display text-gray-500 text-[8px] tracking-[0.12em]">Your stake</span>
-              <span className="font-display text-gray-400 text-[7px] tracking-wider">BOGX</span>
-            </div>
-            <div className="grid grid-cols-6 gap-1 mt-1.5 max-w-[78%]">
-              {[0.25, 0.50, 0.75, 1.00, 2.50, 5.00].map((w) => (
-                <span key={w} className="py-1 rounded font-display text-[8px] text-gray-800 text-center border border-[#A855F7]/30 bg-white/55">
-                  {w.toFixed(2)}
-                </span>
-              ))}
-            </div>
-
-            {/* Action bar */}
-            <div className="mt-3 w-full flex items-center justify-center relative py-2 rounded-lg bg-[#A855F7]">
-              <span className="font-display text-white text-[10px] tracking-wide">PLAY NOW</span>
-              <ArrowRight className="w-3.5 h-3.5 text-white absolute right-3" />
-            </div>
-            <span className="font-display text-gray-500 text-[8px] tracking-wide mt-1.5 text-center">Tie = coins back to both players</span>
-          </div>
-        </button>
-
-        {/* Solo Trivia - Single Player Banner.
-            LIGHT treatment: the hamster-wheel banner is cream with pale line
-            art, so the dark gradient this card used to carry would have buried
-            it completely and left a grey block. Text is dark here instead. */}
-        <button
+        <PosterBanner
+          color="#E36B11"
+          media={{ type: 'image', src: '/images/Hintergund/solo-hamster.png', lineArt: true }}
+          badge={{ icon: User, label: 'Single Player' }}
+          title="SOLO "
+          accent="TRIVIA"
+          tagline="Beat the clock. The faster you answer, the more you win."
+          info={soloLive}
           onClick={() => onSelectGame('trivia')}
-          className="w-full relative overflow-hidden rounded-2xl shadow-md border border-warm transition-all hover:scale-[1.02] active:scale-[0.98] bg-cover bg-center"
-          style={{ backgroundImage: "url('/images/Hintergund/solo-hamster.png')", minHeight: '290px' }}
-        >
-          {/* Lifts the left side just enough to read against, while the wheel
-              on the right stays visible. */}
-          <div className="absolute inset-0 bg-gradient-to-r from-[#F5F0E8]/80 via-[#F5F0E8]/35 to-transparent" />
-
-          {/* Badge - top right */}
-          <div className="absolute top-2 right-2 inline-flex items-center gap-1 bg-white/70 backdrop-blur-sm border border-[#E36B11]/25 text-[#E36B11] text-[7px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider z-10">
-            <User className="w-2.5 h-2.5" />
-            Single Player
-          </div>
-
-          <div className="relative h-full flex flex-col text-left px-4 py-3">
-            {/* Title */}
-            <h3 className="font-display text-[30px] leading-none tracking-wide mt-5">
-              <span className="text-gray-900">SOLO</span> <span className="text-[#E36B11]">TRIVIA</span>
-            </h3>
-
-            {/* Subtitle */}
-            <p className="text-gray-700 text-[12px] font-semibold leading-tight mt-1.5">
-              Test your knowledge.<br />
-              <span className="text-[#E36B11]">Beat the clock.</span>
-            </p>
-
-            {/* Game settings */}
-            <span className="font-display text-gray-500 text-[8px] tracking-[0.12em] mt-3">Game settings</span>
-            <div className="flex items-start gap-3 mt-1.5">
-              {[
-                { icon: HelpCircle, value: '5', label: 'Questions' },
-                { icon: Zap, value: '10 sec', label: 'Per question' },
-                { icon: Trophy, value: '5 / day', label: 'Games' },
-              ].map((f) => {
-                const FIcon = f.icon;
-                return (
-                  <div key={f.label} className="flex items-center gap-1.5 min-w-0">
-                    <span className="w-6 h-6 rounded-full border border-[#E36B11]/30 bg-white/50 flex items-center justify-center shrink-0">
-                      <FIcon className="w-3 h-3 text-[#E36B11]" />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="font-display text-gray-900 text-[10px] tracking-wide block leading-none">{f.value}</span>
-                      <span className="font-display text-gray-500 text-[8px] tracking-wide block leading-tight">{f.label}</span>
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Stake */}
-            <div className="flex items-baseline justify-between mt-3 max-w-[78%]">
-              <span className="font-display text-gray-500 text-[8px] tracking-[0.12em]">Your stake</span>
-              <span className="font-display text-gray-400 text-[7px] tracking-wider">BOGX</span>
-            </div>
-            <div className="grid grid-cols-5 gap-1 mt-1.5 max-w-[78%]">
-              {[0.10, 0.20, 0.30, 0.40, 0.50].map((p) => (
-                <span key={p} className="py-1 rounded font-display text-[8px] text-gray-800 text-center border border-[#E36B11]/30 bg-white/55">
-                  {p.toFixed(2)}
-                </span>
-              ))}
-            </div>
-
-            {/* Action bar */}
-            <div className="mt-3 w-full flex items-center justify-center relative py-2 rounded-lg bg-[#E36B11]">
-              <span className="font-display text-white text-[10px] tracking-wide">PLAY NOW</span>
-              <ArrowRight className="w-3.5 h-3.5 text-white absolute right-3" />
-            </div>
-            <span className="font-display text-gray-500 text-[8px] tracking-wide mt-1.5 text-center">Win your stake per correct · −20% per wrong</span>
-          </div>
-        </button>
-
+        />
       </div>
     </div>
   );

@@ -575,7 +575,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                     </div>
                     <div className={`absolute top-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-cream ${top3[1].isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
                     <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-[#A0A8B8] flex items-center justify-center">
-                      <span className="text-[10px] font-black text-black">2</span>
+                      <span className="font-display text-[12px] text-black">2</span>
                     </div>
                   </div>
                   <div className="font-display text-sm text-gray-900 text-center truncate w-full">{top3[1].name}</div>
@@ -596,7 +596,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                     </div>
                     <div className={`absolute top-0 right-0 w-4 h-4 rounded-full border-2 border-cream ${top3[0].isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
                     <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-[#FFB800] flex items-center justify-center">
-                      <span className="text-xs font-black text-black">1</span>
+                      <span className="font-display text-[14px] text-black">1</span>
                     </div>
                   </div>
                   <div className="font-display text-base text-gray-900 text-center truncate w-full">{top3[0].name}</div>
@@ -617,7 +617,7 @@ export default function RankingsPage({ currentUserScore, onBack, onShowSignup, o
                     </div>
                     <div className={`absolute top-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-cream ${top3[2].isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
                     <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-[#CD7F32] flex items-center justify-center">
-                      <span className="text-[10px] font-black text-black">3</span>
+                      <span className="font-display text-[12px] text-black">3</span>
                     </div>
                   </div>
                   <div className="font-display text-sm text-gray-900 text-center truncate w-full">{top3[2].name}</div>

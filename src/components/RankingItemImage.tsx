@@ -10,6 +10,7 @@ interface RankingItemImageProps {
   title?: string;
   size?: "default" | "large";
   disableVideo?: boolean; // If true, show thumbnail as static image (no play button, no video)
+  onPlay?: (youtubeId: string) => void; // If set: keep the play button, but hand playback to the caller (overlay) instead of playing inline
 }
 
 // Extract YouTube video ID from various URL formats
@@ -38,7 +39,7 @@ function getYoutubeVideoId(url?: string): string | null {
  * If videoUrl is provided, clicking plays the video inline (like articles).
  * If only image has a YouTube thumbnail, it also plays inline.
  */
-export default function RankingItemImage({ image, videoUrl, rank, title, size = "default", disableVideo = false }: RankingItemImageProps) {
+export default function RankingItemImage({ image, videoUrl, rank, title, size = "default", disableVideo = false, onPlay }: RankingItemImageProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const sizeClasses = size === "large" ? "w-44 h-28" : "w-20 h-12";
   
@@ -49,9 +50,9 @@ export default function RankingItemImage({ image, videoUrl, rank, title, size = 
   const handlePlayClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    if (youtubeId) {
-      setIsPlaying(true);
-    }
+    if (!youtubeId) return;
+    if (onPlay) onPlay(youtubeId);
+    else setIsPlaying(true);
   };
 
   // If playing, show embedded video

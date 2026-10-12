@@ -1,6 +1,7 @@
 "use client";
 
 import BattlesPage from "@/components/BattlesPage";
+import type { ChallengeTarget } from "@/components/battles/types";
 
 interface DesktopBattlesPageProps {
   coins: number;
@@ -11,7 +12,7 @@ interface DesktopBattlesPageProps {
   pendingBattleId?: string | null;
   onPendingBattleHandled?: () => void;
   onBack?: () => void;
-  challengeTarget?: { id: string; username: string } | null;
+  challengeTarget?: ChallengeTarget | null;
   onChallengeTargetHandled?: () => void;
 }
 

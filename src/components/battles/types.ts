@@ -56,6 +56,26 @@ export interface RoundResult {
 
 export type GameScreen = 'setup' | 'pool' | 'intro' | 'countdown' | 'quiz' | 'inter' | 'result' | 'loading';
 
+/**
+ * A player to challenge, handed to BattlesPage from outside (PlayerCard, result
+ * screens). With topic + wager it is a rematch and the challenge is sent at once.
+ */
+export interface ChallengeTarget {
+  id: string;
+  username: string;
+  avatar?: string;
+  countryFlag?: string;
+  topic?: string;
+  wager?: number;
+}
+
+/** Rematch target for a finished battle: the other player, same topic and wager. */
+export function rematchTargetFor(battle: Battle, isCreator: boolean): ChallengeTarget | null {
+  const opp = isCreator ? battle.opponent : battle.creator;
+  if (!opp?._id) return null;
+  return { id: String(opp._id), username: opp.username, avatar: opp.avatar, countryFlag: opp.countryFlag, topic: battle.topic, wager: battle.wager };
+}
+
 // ═══════════════════════════════════════════════════════════════
 // TOPIC CONFIG
 // ═══════════════════════════════════════════════════════════════

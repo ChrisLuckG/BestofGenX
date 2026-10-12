@@ -9,7 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import LogoLoader from "./LogoLoader";
 import BackButton from "./BackButton";
 import WelcomeNewsPanel from "./WelcomeNewsPanel";
-import { BattleResultScreen } from "./battles";
+import { BattleResultScreen, type ChallengeTarget } from "./battles";
 
 import { NewsSkeleton } from "@/components/desktop/DesktopSkeletons";
 import CoinAnimation from "./CoinAnimation";
@@ -60,6 +60,7 @@ interface NotificationPageProps {
   onOpenArticle?: (articleId: string) => void; // Open the article a comment belongs to
   onShowChallenge?: (battleId: string, notificationId?: string) => void; // Show challenge in content area (desktop)
   onShowBattleResult?: (battleId: string) => void; // Show battle result in content area (desktop)
+  onRematch?: (target: ChallengeTarget) => void; // Rematch from the result screen - parent routes to BattlesPage
   autoEnable?: 'email' | 'sms' | null;
   onPointsAwarded?: (amount: number) => void; // Trigger coin animation
   autoOpenSettings?: boolean; // Open settings view directly
@@ -298,7 +299,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray;
 }
 
-export default function NotificationPage({ isOpen = true, onClose, onGoToProfile, onGoToBattle, onShowBattleResult, onOpenArticle, onShowChallenge, autoEnable, onNewNotification, onPointsAwarded, autoOpenSettings, onSettingsClosed, onChallengeDeclined, compact = false, onViewAll, onOpenSettings, initialChallengeId, onInitialChallengeHandled, onShowSignup, onShowBogxers, onShowArcade, onShowRankroll, onShowWelcome, onCoinAnimation }: NotificationPageProps & { onNewNotification?: () => void }) {
+export default function NotificationPage({ isOpen = true, onClose, onGoToProfile, onGoToBattle, onShowBattleResult, onRematch, onOpenArticle, onShowChallenge, autoEnable, onNewNotification, onPointsAwarded, autoOpenSettings, onSettingsClosed, onChallengeDeclined, compact = false, onViewAll, onOpenSettings, initialChallengeId, onInitialChallengeHandled, onShowSignup, onShowBogxers, onShowArcade, onShowRankroll, onShowWelcome, onCoinAnimation }: NotificationPageProps & { onNewNotification?: () => void }) {
   const { user, isLoggedIn } = useAuth();
   const [showSettings, setShowSettings] = useState(false);
   
@@ -1166,7 +1167,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
             isCreator={selectedBattle.isCreator || false}
             userAvatar={selectedBattle.myAvatar}
             onBackToPool={() => setSelectedBattle(null)}
-            onRematch={() => setSelectedBattle(null)}
+            onRematch={(target) => { setSelectedBattle(null); onRematch?.(target); }}
             onContinue={() => setSelectedBattle(null)}
             isMobile={true}
           />

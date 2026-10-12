@@ -19,6 +19,7 @@ interface RankingItemRowProps {
   isVoting: boolean;
   isDesktop: boolean;
   onVote: (itemId: string, voteType: 'up' | 'down') => void;
+  onVideoPlay?: (video: { youtubeId: string; title: string; description?: string }) => void;
 }
 
 /**
@@ -26,21 +27,43 @@ interface RankingItemRowProps {
  * Used by: RankingPollCard (in articles) and DesktopRankingDetailPage (standalone).
  * Change the design HERE once and it applies everywhere.
  */
+// Extract YouTube video ID from various URL formats
+function getYoutubeVideoId(url?: string): string | null {
+  if (!url) return null;
+  const thumbMatch = url.match(/img\.youtube\.com\/vi\/([a-zA-Z0-9_-]{11})\//);
+  if (thumbMatch) return thumbMatch[1];
+  const watchMatch = url.match(/youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/);
+  if (watchMatch) return watchMatch[1];
+  const shortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+  if (shortMatch) return shortMatch[1];
+  const embedMatch = url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/);
+  if (embedMatch) return embedMatch[1];
+  return null;
+}
+
 export default function RankingItemRow({ 
   item, 
   rank, 
   userVote, 
   isVoting, 
   isDesktop,
-  onVote 
+  onVote,
+  onVideoPlay
 }: RankingItemRowProps) {
+  const youtubeId = getYoutubeVideoId(item.videoUrl) || getYoutubeVideoId(item.image);
+  
+  const handleImageClick = () => {
+    if (youtubeId && onVideoPlay) {
+      onVideoPlay({ youtubeId, title: item.title, description: item.description });
+    }
+  };
   return (
     <div className="p-3 hover:bg-[#E36B11]/[0.02] transition-colors">
       {isDesktop ? (
         /* Desktop: 3-column layout - Image | Text | Voting */
         <div className="flex items-center gap-4">
           {/* Column 1: Image/Video */}
-          <RankingItemImage image={item.image} videoUrl={item.videoUrl} rank={rank} title={item.title} size="large" />
+          <RankingItemImage image={item.image} videoUrl={item.videoUrl} rank={rank} title={item.title} size="large" onPlay={onVideoPlay ? handleImageClick : undefined} />
           
           {/* Column 2: Content - full text, aligned to top */}
           <div className="flex-1 min-w-0 self-start">
@@ -90,7 +113,7 @@ export default function RankingItemRow({
         /* Mobile: Large image with voting beside, text at bottom */
         <>
           <div className="flex items-stretch gap-3 mb-2">
-            <RankingItemImage image={item.image} videoUrl={item.videoUrl} rank={rank} title={item.title} size="large" />
+            <RankingItemImage image={item.image} videoUrl={item.videoUrl} rank={rank} title={item.title} size="large" onPlay={onVideoPlay ? handleImageClick : undefined} />
             
             {/* Voting buttons - vertical, fill remaining space */}
             <div className="flex-1 flex flex-col gap-1">

@@ -398,6 +398,32 @@ export async function POST(request: NextRequest) {
     });
 
     console.log('[BATTLE CREATE] done', battle._id.toString(), 'via', createdVia);
+
+    // Direct challenge to a BOT (e.g. a rematch): bots never pick up direct
+    // challenges from the pool (trigger-bots excludes challengedUser), so the bot
+    // accepts right here. With the bot set as opponent, the submit route simulates
+    // its answers and settles the battle as soon as the creator has played, and the
+    // forfeit route refunds both wagers if the creator backs out before START.
+    if (challengedUserId) {
+      const target = await User.findById(challengedUserId).select('isBot username');
+      if (target?.isBot) {
+        const botPaid = await User.findOneAndUpdate(
+          { _id: challengedUserId, bogxCoins: { $gte: wager } },
+          { $inc: { bogxCoins: -wager } }
+        );
+        if (!botPaid) {
+          await User.findByIdAndUpdate(creatorId, { $inc: { bogxCoins: wager } });
+          await Battle.findByIdAndDelete(battle._id);
+          return NextResponse.json({ success: false, error: `${target.username} can't cover that wager right now` }, { status: 400 });
+        }
+        battle.opponent = target._id;
+        battle.status = 'active';
+        battle.acceptedAt = new Date();
+        battle.acceptedVia = 'create:direct-challenge-bot';
+        await battle.save();
+        await battle.populate('opponent', 'username avatar country countryFlag points isBot');
+      }
+    }
     
     // Populate creator and challengedUser info
     await battle.populate('creator', 'username avatar country countryFlag points isBot');

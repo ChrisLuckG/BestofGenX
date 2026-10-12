@@ -16,6 +16,7 @@ import { incrementGamePlayCount } from "@/utils/gameIntro";
 import AlertModal from "@/components/AlertModal";
 import { useAlert } from "@/hooks/useAlert";
 import InviteFlowModal from "@/components/battles/InviteFlowModal";
+import { type ChallengeTarget, rematchTargetFor } from "@/components/battles/types";
 import { formatCurrency, getCurrencySymbol } from "@/utils/currency";
 import { sounds } from "@/utils/sounds";
 import { compareBattleResults } from "@/utils/battleWinner";
@@ -134,7 +135,9 @@ interface BattlePageProps {
   onGoToArticles?: () => void; // Navigate to articles
   isDesktop?: boolean; // If true, desktop layout
   skipSetup?: boolean; // If true, skip setup screen and go directly to pool
-  challengeTarget?: { id: string; username: string; avatar?: string; countryFlag?: string } | null; // Pre-selected player to challenge
+  // Pre-selected player to challenge. With topic + wager it is a REMATCH: the
+  // challenge is sent straight away instead of opening the invite flow.
+  challengeTarget?: ChallengeTarget | null;
   onChallengeTargetHandled?: () => void; // Callback when challenge target has been handled
 }
 
@@ -200,7 +203,9 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   // Invite screen state. Seeded from challengeTarget for the same reason as
   // `screen` above - starting at step 1 (pick a player) and only advancing once
   // the effect below runs would flash the player list for a frame first.
-  const [inviteStep, setInviteStep] = useState<1 | 2 | 3 | 4>(challengeTarget ? 2 : 1); // 1=player, 2=topic, 3=wager, 4=preparing
+  const [inviteStep, setInviteStep] = useState<1 | 2 | 3 | 4>(
+    challengeTarget ? (challengeTarget.topic && challengeTarget.wager ? 4 : 2) : 1
+  ); // 1=player, 2=topic, 3=wager, 4=preparing (a rematch starts at 4)
   const [sentBattleId, setSentBattleId] = useState<string | null>(null);
   const [inviteSearchQuery, setInviteSearchQuery] = useState('');
   const [inviteSearchResults, setInviteSearchResults] = useState<any[]>([]);
@@ -1442,11 +1447,25 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         throw new Error(data.error || `Submit failed (${res.status})`);
       }
       
-      if (iAmCreator) {
+      // Vs a bot opponent (direct challenge / rematch) the server answers for the
+      // bot and settles the battle right away, so the creator gets the result too.
+      const settledNow = iAmCreator && data.battle?.status === 'completed';
+      if (settledNow) {
+        const botSide: RoundResult[] = (data.battle.opponentResults || []).map((r: any) => ({
+          correct: r.correct, timeMs: r.timeMs, points: r.points, answerIndex: r.answerIndex,
+        }));
+        opponentResultsRef.current = botSide;
+        setOpponentResults(botSide);
+        setOpponentTotalPoints(data.battle.opponentTotalPoints || 0);
+        setCurrentBattle(prev => prev ? { ...prev, status: 'completed', opponent: data.battle.opponent || prev.opponent } : prev);
+        setScreen('result');
+      }
+
+      if (iAmCreator && !settledNow) {
         // Creator finished - show invitation sent screen (no blur popup)
         setScreen('invitation-sent');
       } else {
-        // Opponent finished - battle is complete, show result.
+        // Battle is complete, show result.
         // Use refs (not stale state) to compute the authoritative outcome.
         // Winner = most correct answers; tie-break by fastest total time.
         const cmp = compareBattleResults(resultsToSubmit, opponentResultsRef.current);
@@ -1755,11 +1774,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
       {/* Header - exact copy from ArcadePage */}
       <div className="px-4 pt-4 pb-3 border-b border-warm bg-cream">
         <div className="flex items-center gap-3">
-          {onBack && (
-            <button onClick={onBack} className="p-1 hover:bg-[#6B7280]/10 rounded transition-colors">
-              <ChevronLeft className="w-5 h-5 text-gray-600" />
-            </button>
-          )}
+          {onBack && <BackButton onClick={onBack} />}
           <div>
             <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">QuizzBattle</span>
             <span className="text-[10px] text-gray-500 -mt-0.5 block">Challenge players, win their wager.</span>
@@ -1857,11 +1872,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
       {/* Header - same style as Solo Trivia */}
       <div className="px-4 pt-4 pb-3 border-b border-warm bg-cream">
         <div className="relative flex items-center gap-3">
-          {onBack && (
-            <button onClick={onBack} className="p-1 hover:bg-[#6B7280]/10 rounded transition-colors">
-              <ChevronLeft className="w-5 h-5 text-gray-600" />
-            </button>
-          )}
+          {onBack && <BackButton onClick={onBack} />}
           <div>
             <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">QUIZZBATTLE</span>
             <span className="text-[10px] text-gray-500 -mt-0.5 block">Challenge others, win coins.</span>
@@ -2602,15 +2613,39 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     }
   }, [screen]);
 
-  // Handle pre-selected challenge target (from PlayerCard "Challenge" button)
+  // Rematch: same opponent, topic and wager, sent straight away. Lands on the same
+  // step 4 (preparing) as "PREPARE QUESTIONS" in the invite flow - the challenger
+  // answers first, then the opponent is notified (a bot answers immediately).
+  const startRematch = (target: ChallengeTarget) => {
+    if (!target.topic || !target.wager) return;
+    const invitee = { _id: target.id, username: target.username, avatar: target.avatar, countryFlag: target.countryFlag };
+    setCreateTopic(target.topic);
+    setCreateWager(target.wager);
+    setSelectedInviteUser(invitee);
+    setScreen('invite');
+    setInviteStep(4);
+    handleChallengeUser(invitee, target.wager, target.topic);
+  };
+
+  // Each target object is acted on once. Without this guard a dev-mode double
+  // effect (or a re-render before the parent clears the prop) would send the
+  // rematch twice and park two wagers.
+  const handledTargetRef = useRef<ChallengeTarget | null>(null);
+
+  // Handle pre-selected challenge target (PlayerCard "Challenge", or a rematch)
   useEffect(() => {
-    if (challengeTarget && user?.id) {
-      // Pre-select the player and go to invite flow step 2 (topic selection).
-      // avatar/countryFlag come along so the rest of the flow (preview, VS
-      // banner, preparing screen) shows the real photo instead of a monogram.
-      setSelectedInviteUser({ _id: challengeTarget.id, username: challengeTarget.username, avatar: challengeTarget.avatar, countryFlag: challengeTarget.countryFlag });
-      setInviteStep(2);
-      setScreen('invite');
+    if (challengeTarget && user?.id && handledTargetRef.current !== challengeTarget) {
+      handledTargetRef.current = challengeTarget;
+      if (challengeTarget.topic && challengeTarget.wager) {
+        startRematch(challengeTarget);
+      } else {
+        // Pre-select the player and go to invite flow step 2 (topic selection).
+        // avatar/countryFlag come along so the rest of the flow (preview, VS
+        // banner, preparing screen) shows the real photo instead of a monogram.
+        setSelectedInviteUser({ _id: challengeTarget.id, username: challengeTarget.username, avatar: challengeTarget.avatar, countryFlag: challengeTarget.countryFlag });
+        setInviteStep(2);
+        setScreen('invite');
+      }
       onChallengeTargetHandled?.();
     }
   }, [challengeTarget, user?.id, onChallengeTargetHandled]);
@@ -3447,9 +3482,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         {/* Header - same style as Pool Screen */}
         <div className="px-4 pt-4 pb-3 border-b border-warm bg-cream">
           <div className="flex items-center gap-3">
-            <button onClick={backToPool} className="p-1 hover:bg-[#6B7280]/10 rounded transition-colors">
-              <ChevronLeft className="w-5 h-5 text-gray-600" />
-            </button>
+            <BackButton onClick={backToPool} />
             <div>
               <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">QuizzBattle</span>
               <span className="text-[10px] text-gray-500 -mt-0.5 block">Challenge players, win their wager.</span>
@@ -4116,6 +4149,30 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     const isDraw = cmp === 0;
     const myCorrect = myResults.filter(r => r.correct).length;
     const oppCorrect = opponentResults.filter(r => r.correct).length;
+    // The other player from MY side. The creator normally never reaches this
+    // screen before the opponent has played, so their side stays hidden ('?') -
+    // except vs a bot (e.g. a rematch), which answers the moment the creator submits.
+    const oppUser = isCreator ? currentBattle.opponent : currentBattle.creator;
+    const oppHidden = isCreator && opponentResults.length === 0;
+
+    // Plain-language reason for the outcome - same wording as BattleResultScreen.
+    // Not shown to the creator while the opponent hasn't played yet.
+    const opponentName = oppUser?.username || 'Your opponent';
+    const myTotalMs = myResults.reduce((sum, r) => sum + (r.timeMs || 0), 0);
+    const oppTotalMs = opponentResults.reduce((sum, r) => sum + (r.timeMs || 0), 0);
+    const outcomeNote = oppHidden ? null : (() => {
+      if (myCorrect !== oppCorrect) {
+        const diff = Math.abs(myCorrect - oppCorrect);
+        return `${won ? 'You were' : `${opponentName} was`} ${diff} correct answer${diff === 1 ? '' : 's'} ahead.`;
+      }
+      if (myCorrect === 0) return 'Neither of you got a single answer right — your wager came back.';
+      // Gap from the ROUNDED totals shown in the table, so note and table agree
+      const shownGap = Math.abs(Number((myTotalMs / 1000).toFixed(1)) - Number((oppTotalMs / 1000).toFixed(1)));
+      const gapMs = Math.abs(myTotalMs - oppTotalMs);
+      if (gapMs === 0) return `Both ${myCorrect}/${currentBattle.rounds} and exactly the same time — your wager came back.`;
+      const gap = shownGap === 0 ? `${Math.round(gapMs)}ms` : `${shownGap.toFixed(1)}s`;
+      return `Both ${myCorrect}/${currentBattle.rounds} correct — ${won ? 'you were' : `${opponentName} was`} ${gap} faster over all ${currentBattle.rounds} rounds.`;
+    })();
     
     // The result cards colour themselves from won/isDraw directly - the old
     // resultColor/resultBandBg pair died with the solid colour band.
@@ -4125,94 +4182,20 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         {/* Main Card - fills available height */}
         <div className="flex-1 border border-warm bg-cream rounded-2xl flex flex-col p-4 sm:p-6 shadow-lg animate-[cardIn_0.4s_ease-out] min-h-0 overflow-y-auto">
           
-          {/* Header Row - inline like Quiz */}
+          {/* Header Row - topic pill like the Outcome screen (BattleResultScreen) */}
           <div className="flex items-center justify-between mb-4 flex-shrink-0 animate-[fadeIn_0.3s_ease-out]">
-            <div className="flex items-center gap-2">
-              <Swords className="w-5 h-5 text-[#6B7280]" />
-              <span className="font-display text-base sm:text-lg tracking-wider text-gray-900">BATTLE {isComplete ? 'COMPLETE' : `ROUND ${myResults.length}`}</span>
-            </div>
-            <span className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1 bg-[#6B7280]/10 rounded-lg text-[10px] sm:text-xs text-[#6B7280] uppercase tracking-wider font-bold">
-              <topic.icon className="w-3 h-3" /> {topic.label}
+            <span
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg uppercase tracking-wider font-bold"
+              style={{ backgroundColor: `${topic.color}15`, color: topic.color, border: `1px solid ${topic.color}30` }}
+            >
+              <topic.icon className="w-3.5 h-3.5" /> {topic.label}
             </span>
+            {!isComplete && (
+              <span className="text-sm text-gray-500 font-bold tracking-wider uppercase">
+                Round {myResults.length}/{currentBattle.rounds}
+              </span>
+            )}
           </div>
-
-          {/* RESULT - score, share bar and verdict in one card, matching Solo
-              Trivia's result page. Replaces the solid colour band: that band
-              put the verdict and the coin amount on one line, leaving the score
-              itself nowhere to go. */}
-          {isComplete && (
-            <>
-              <span className={`${resultSectionLabel} flex-shrink-0 animate-[fadeIn_0.4s_ease-out]`}>Result</span>
-              <div className="mt-2 rounded-xl border border-warm bg-white/40 px-4 py-4 sm:px-5 sm:py-5 flex-shrink-0 animate-[cardIn_0.45s_ease-out]">
-                <div className="flex items-center gap-4 sm:gap-6">
-                  <div className="shrink-0">
-                    <div
-                      className="font-display text-4xl sm:text-5xl leading-none tabular-nums animate-[headlineIn_0.5s_ease-out]"
-                      style={{ color: won ? '#166534' : isDraw ? '#E36B11' : '#dc2626' }}
-                    >
-                      {Math.round(animResultMyScore)}
-                      <span className="text-gray-400"> : </span>
-                      {isCreator ? '?' : Math.round(animResultOppScore)}
-                    </div>
-                    <div className="font-display text-[11px] sm:text-xs tracking-wide text-gray-500 mt-1">
-                      {myCorrect} of {currentBattle.rounds} correct
-                    </div>
-                  </div>
-                  {/* Your share of the rounds, on the same ramp as the score so
-                      bar and figure never disagree mid-animation. */}
-                  <div className="flex-1 flex items-center gap-3 min-w-0">
-                    <div className="flex-1 h-2 rounded-full bg-gray-200 overflow-hidden">
-                      <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: `${animResultAccuracy}%`,
-                          backgroundColor: won ? '#166534' : isDraw ? '#E36B11' : '#dc2626',
-                        }}
-                      />
-                    </div>
-                    <span className="font-display text-[11px] text-gray-500 tabular-nums shrink-0">{Math.round(animResultAccuracy)}%</span>
-                  </div>
-                </div>
-                <div
-                  className="font-display text-sm tracking-wider mt-3 flex items-center gap-2 animate-[fadeInUp_0.5s_ease-out_0.5s_backwards]"
-                  style={{ color: won ? '#166534' : isDraw ? '#E36B11' : '#dc2626' }}
-                >
-                  {won && <Trophy className="w-4 h-4 animate-[popIcon_0.35s_ease-out] shrink-0" />}
-                  {isDraw ? 'DRAW!' : won ? 'YOU WIN!' : 'YOU LOSE'}
-                </div>
-              </div>
-
-              {/* Coins - net first, the components underneath. */}
-              <div className="mt-3 mb-4 rounded-xl border border-warm bg-white/40 px-4 py-4 sm:px-5 flex items-center gap-4 flex-shrink-0 animate-[cardIn_0.45s_ease-out_0.1s_backwards]">
-                <img
-                  src="/images/bogxcoin.png"
-                  alt=""
-                  className="w-11 h-11 sm:w-12 sm:h-12 shrink-0 animate-[popIcon_0.45s_ease-out_0.15s_backwards]"
-                />
-                <div className="min-w-0">
-                  <div
-                    className="font-display text-2xl sm:text-3xl leading-none tabular-nums"
-                    style={{ color: won ? '#166534' : isDraw ? '#E36B11' : '#dc2626' }}
-                  >
-                    {isDraw
-                      ? `${formatCurrency(resultWagerBogx)} BOGX`
-                      : `${animResultCoins >= 0 ? '+' : '-'}${formatCurrency(Math.abs(animResultCoins))} BOGX`}
-                  </div>
-                  <div className="font-display text-[11px] sm:text-xs tracking-wide mt-1.5 text-gray-500 tabular-nums">
-                    {isDraw ? (
-                      <>wager returned · nothing won or lost</>
-                    ) : (
-                      <>
-                        <span>{formatCurrency(resultWagerBogx)} wagered</span>
-                        <span className="text-gray-400"> · </span>
-                        <span>{formatCurrency(resultWagerBogx * 2)} pot</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
 
           {/* Inter-round banner */}
           {!isComplete && (
@@ -4231,19 +4214,20 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
           {isComplete && <span className={`${resultSectionLabel} block mb-2 flex-shrink-0`}>Players</span>}
           <div className="flex items-stretch border border-warm rounded-xl bg-white/40 overflow-hidden mb-4 flex-shrink-0">
             {/* You */}
-            <div 
-              className="flex-1 min-w-0 flex flex-col items-center gap-1 p-2 sm:p-4 border-r border-warm animate-[slideInLeft_0.4s_0.2s_ease-out_backwards]"
-              style={won || isDraw ? { backgroundColor: `${topic.color}08` } : {}}
-            >
-              <div 
-                className={`w-8 h-8 sm:w-14 sm:h-14 rounded-full overflow-hidden border-2 sm:border-3 flex-shrink-0 ${!won ? 'border-warm' : ''}`}
-                style={won ? { borderColor: topic.color } : {}}
-              >
-                <img src={user?.avatar || 'https://i.pravatar.cc/80?img=47'} alt="" className="w-full h-full object-cover" />
+            <div className="flex-1 min-w-0 flex items-center justify-between gap-2 sm:gap-3 p-2.5 sm:p-5 border-r border-warm animate-[slideInLeft_0.4s_0.2s_ease-out_backwards]">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <div className="w-9 h-9 sm:w-14 sm:h-14 rounded-full overflow-hidden border-2 border-warm flex-shrink-0">
+                  <img src={user?.avatar || 'https://i.pravatar.cc/80?img=47'} alt="" className="w-full h-full object-cover" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <span className="font-bold text-sm sm:text-base text-gray-900 truncate">You</span>
+                    {won && <span className="px-1 sm:px-2 py-0.5 text-white text-[7px] sm:text-[10px] font-bold rounded tracking-wider" style={{ backgroundColor: '#166534' }}>WINNER</span>}
+                  </div>
+                  <div className="font-display text-[11px] sm:text-xl tracking-wide text-gray-600">{myCorrect}/{currentBattle.rounds} CORRECT</div>
+                </div>
               </div>
-              <div className="font-bold text-[10px] sm:text-sm text-gray-900 truncate">You</div>
-              {won && <span className="px-1 py-0.5 text-white text-[7px] sm:text-[9px] font-bold rounded tracking-wider" style={{ backgroundColor: topic.color }}>WINNER</span>}
-              <div className="font-display text-xl sm:text-3xl tracking-wide" style={{ color: topic.color }}>{myCorrect}</div>
+              <div className="font-display text-2xl sm:text-4xl tracking-wide flex-shrink-0 text-gray-800">{myCorrect}</div>
             </div>
 
             {/* VS Center. The R1/R2/R3 chips that used to sit here are gone:
@@ -4251,39 +4235,112 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                 (grey meant "both the same", which nothing explained), and the
                 Round by Round table below shows the same rounds with the
                 actual points for both players. */}
-            <div className="flex flex-col items-center justify-center px-1 sm:px-4 py-2 sm:py-3">
-              <span className="font-display text-xs sm:text-lg text-gray-300">VS</span>
+            <div className="flex flex-col items-center justify-center px-1.5 sm:px-4 py-2 sm:py-5">
+              <span className="font-display text-sm sm:text-xl text-gray-400">VS</span>
             </div>
 
             {/* Opponent */}
-            <div 
-              className="flex-1 min-w-0 flex flex-col items-center gap-1 p-2 sm:p-4 border-l border-warm animate-[slideInRightBattle_0.4s_0.2s_ease-out_backwards]"
-              style={!won && !isDraw && !isCreator ? { backgroundColor: `${topic.color}08` } : {}}
-            >
-              <div 
-                className={`w-8 h-8 sm:w-14 sm:h-14 rounded-full overflow-hidden border-2 sm:border-3 flex-shrink-0 ${won || isDraw || isCreator ? 'border-warm' : ''}`}
-                style={!won && !isDraw && !isCreator ? { borderColor: topic.color } : {}}
-              >
-                {isCreator ? (
-                  <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-xs sm:text-xl">?</div>
-                ) : (
-                  <img src={currentBattle.creator.avatar} alt="" className="w-full h-full object-cover" />
-                )}
+            <div className="flex-1 min-w-0 flex items-center justify-between gap-2 sm:gap-3 p-2.5 sm:p-5 border-l border-warm animate-[slideInRightBattle_0.4s_0.2s_ease-out_backwards]">
+              <div className="font-display text-2xl sm:text-4xl text-gray-600 tracking-wide flex-shrink-0">
+                {oppHidden ? '?' : oppCorrect}
               </div>
-              <div className="font-bold text-[10px] sm:text-sm text-gray-900 truncate text-center max-w-[80px] sm:max-w-none">{isCreator ? '???' : currentBattle.creator.username}</div>
-              {!won && !isDraw && !isCreator && <span className="px-1 py-0.5 text-white text-[7px] sm:text-[9px] font-bold rounded tracking-wider" style={{ backgroundColor: topic.color }}>WINNER</span>}
-              <div className="font-display text-xl sm:text-3xl text-gray-400 tracking-wide">
-                {isCreator ? '?' : oppCorrect}
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <div className="min-w-0 text-right">
+                  <div className="flex items-center justify-end gap-1.5 sm:gap-2">
+                    {!won && !isDraw && !oppHidden && <span className="px-1 sm:px-2 py-0.5 text-white text-[7px] sm:text-[10px] font-bold rounded tracking-wider" style={{ backgroundColor: '#166534' }}>WINNER</span>}
+                    <span className="font-bold text-sm sm:text-base text-gray-900 truncate">{oppHidden ? '???' : oppUser?.username}</span>
+                  </div>
+                  <div className="font-display text-[11px] sm:text-xl text-gray-500 tracking-wide">
+                    {oppHidden ? '?/?' : `${oppCorrect}/${currentBattle.rounds}`} CORRECT
+                  </div>
+                </div>
+                <div className="w-9 h-9 sm:w-14 sm:h-14 rounded-full overflow-hidden border-2 border-warm flex-shrink-0">
+                  {oppHidden ? (
+                    <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-xs sm:text-xl">?</div>
+                  ) : (
+                    <img src={oppUser?.avatar} alt="" className="w-full h-full object-cover" />
+                  )}
+                </div>
               </div>
             </div>
           </div>
+          {/* RESULT + coins in ONE card, same as the Outcome screen
+              (BattleResultScreen): verdict + LED bar on top, coins below. The
+              big X : Y score is gone - it repeated the Players row underneath. */}
+          {isComplete && (
+            <>
+              <span className={`${resultSectionLabel} flex-shrink-0 animate-[fadeIn_0.4s_ease-out]`}>Result</span>
+              <div className="mt-2 mb-4 rounded-xl border border-warm bg-white/40 px-3 py-3 sm:px-5 sm:py-4 flex-shrink-0 animate-[cardIn_0.45s_ease-out]">
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <div
+                    className="font-display text-base sm:text-lg tracking-wider flex items-center gap-2 shrink-0 animate-[fadeInUp_0.4s_ease-out]"
+                    style={{ color: won ? '#166534' : isDraw ? '#E36B11' : '#dc2626' }}
+                  >
+                    {won && <Trophy className="w-5 h-5 sm:w-6 sm:h-6 animate-[popIcon_0.35s_ease-out] shrink-0" />}
+                    {won ? 'YOU WIN!' : isDraw ? 'DRAW' : 'YOU LOSE'}
+                  </div>
+                  <div className="flex-1 flex items-center gap-3 min-w-0">
+                    <div className="flex-1 flex gap-1">
+                      {[...Array(10)].map((_, i) => {
+                        const isActive = animResultAccuracy >= (i + 1) * 10;
+                        const ledColor = won ? '#166534' : isDraw ? '#E36B11' : '#dc2626';
+                        return (
+                          <span
+                            key={i}
+                            className="h-2.5 sm:h-3 flex-1 rounded transition-all duration-300"
+                            style={{ backgroundColor: isActive ? ledColor : '#E5E0D8', boxShadow: isActive ? `0 0 6px ${ledColor}` : 'none' }}
+                          />
+                        );
+                      })}
+                    </div>
+                    <span className="font-display text-[10px] sm:text-[11px] text-gray-500 tabular-nums shrink-0">
+                      {myCorrect}/{currentBattle.rounds} · {Math.round(animResultAccuracy)}%
+                    </span>
+                  </div>
+                </div>
+
+                <div className="border-t border-warm my-2.5 sm:my-3" />
+
+                <div className="flex items-center gap-3">
+                  <img
+                    src="/images/bogxcoin.png"
+                    alt=""
+                    className="w-8 h-8 sm:w-10 sm:h-10 shrink-0 animate-[popIcon_0.45s_ease-out_0.15s_backwards]"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div
+                      className="font-display text-lg sm:text-2xl leading-none tabular-nums"
+                      style={{ color: won ? '#166534' : isDraw ? '#E36B11' : '#dc2626' }}
+                    >
+                      {isDraw
+                        ? `${formatCurrency(resultWagerBogx)} BOGX`
+                        : `${animResultCoins >= 0 ? '+' : '-'}${formatCurrency(Math.abs(animResultCoins))} BOGX`}
+                    </div>
+                    <div className="font-display text-[9px] sm:text-[11px] tracking-wide mt-1 text-gray-500 tabular-nums">
+                      {isDraw ? (
+                        <>wager returned · nothing won or lost</>
+                      ) : (
+                        <>
+                          <span>{formatCurrency(resultWagerBogx)} wagered</span>
+                          <span className="text-gray-400"> · </span>
+                          <span>{formatCurrency(resultWagerBogx * 2)} pot</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
 
           {/* Round by Round Scoreboard - Table layout like standalone */}
           {isComplete && (
-            <div className="px-0 sm:px-6 py-4 flex-shrink-0 animate-[fadeInUp_0.4s_0.3s_ease-out_backwards]">
-              <div className={`${resultSectionLabel} mb-3 sm:mb-4`}>
+            <div className="mb-4 flex-shrink-0 animate-[fadeInUp_0.4s_0.3s_ease-out_backwards]">
+              <div className={`${resultSectionLabel} mb-2`}>
                 Round by Round
               </div>
+              <div className="rounded-xl border border-warm bg-white/40 p-3 sm:p-4">
               <table className="w-full table-fixed">
                 <thead>
                   <tr>
@@ -4302,8 +4359,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                     </td>
                     {Array.from({ length: currentBattle.rounds }).map((_, i) => {
                       const r = myResults[i];
-                      const bgColor = r ? (r.correct ? 'bg-emerald-50' : 'bg-red-100') : 'bg-gray-100';
-                      const textColor = r ? (r.correct ? 'text-emerald-600' : 'text-red-500') : 'text-gray-400';
+                      const bgColor = r ? (r.correct ? 'bg-[#166534]' : 'bg-red-500/15') : 'bg-gray-100';
+                      const textColor = r ? (r.correct ? 'text-white' : 'text-red-500') : 'text-gray-400';
                       return (
                         <td key={i} className="py-2 px-0.5 sm:px-1">
                           <div className={`${bgColor} ${textColor} rounded-lg py-2 sm:py-3 px-0.5 sm:px-2 text-center font-display text-[11px] sm:text-base`}>
@@ -4333,11 +4390,11 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                   <tr>
                     <td className="py-2 pr-2 sm:pr-4">
                       <span className="font-bold text-gray-900 text-xs sm:text-sm uppercase truncate block">
-                        {isCreator ? '???' : currentBattle.creator.username}
+                        {oppHidden ? '???' : oppUser?.username}
                       </span>
                     </td>
                     {Array.from({ length: currentBattle.rounds }).map((_, i) => {
-                      if (isCreator) {
+                      if (oppHidden) {
                         return (
                           <td key={i} className="py-2 px-0.5 sm:px-1">
                             <div className="bg-gray-100 text-gray-400 rounded-lg py-2 sm:py-3 px-0.5 sm:px-2 text-center font-display text-[11px] sm:text-base">?</div>
@@ -4345,8 +4402,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                         );
                       }
                       const r = opponentResults[i];
-                      const bgColor = r ? (r.correct ? 'bg-emerald-50' : 'bg-red-100') : 'bg-gray-100';
-                      const textColor = r ? (r.correct ? 'text-emerald-600' : 'text-red-500') : 'text-gray-400';
+                      const bgColor = r ? (r.correct ? 'bg-[#166534]' : 'bg-red-500/15') : 'bg-gray-100';
+                      const textColor = r ? (r.correct ? 'text-white' : 'text-red-500') : 'text-gray-400';
                       return (
                         <td key={i} className="py-2 px-0.5 sm:px-1">
                           <div className={`${bgColor} ${textColor} rounded-lg py-2 sm:py-3 px-0.5 sm:px-2 text-center font-display text-[11px] sm:text-base`}>
@@ -4361,9 +4418,9 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                       const isTie = myCorrect === oppCorrect;
                       const oppWonByTime = isTie && oppTotalTime < myTotalTime;
                       return (
-                        <td className={`py-2 pl-1 sm:pl-4 text-center ${!won && !isDraw && !isCreator ? 'text-[#6B7280]' : 'text-gray-600'}`}>
-                          <div className="font-display text-xs sm:text-lg">{isCreator ? '?' : formatCurrency(opponentTotalPoints)}</div>
-                          {isTie && !isCreator && (
+                        <td className={`py-2 pl-1 sm:pl-4 text-center ${!won && !isDraw && !oppHidden ? 'text-[#6B7280]' : 'text-gray-600'}`}>
+                          <div className="font-display text-xs sm:text-lg">{oppHidden ? '?' : formatCurrency(opponentTotalPoints)}</div>
+                          {isTie && !oppHidden && (
                             <div className={`text-[9px] sm:text-xs ${oppWonByTime ? 'text-[#6B7280] font-bold' : 'text-gray-400'}`}>
                               ⏱ {oppTotalTime.toFixed(1)}s
                             </div>
@@ -4374,6 +4431,16 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                   </tr>
                 </tbody>
               </table>
+              {outcomeNote && (
+                <>
+                  <div className="border-t border-warm my-2.5 sm:my-3" />
+                  <div className="flex items-center justify-center gap-2 text-xs sm:text-sm text-gray-600 leading-snug">
+                    <Info className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 shrink-0" />
+                    <p>{outcomeNote}</p>
+                  </div>
+                </>
+              )}
+              </div>
             </div>
           )}
 
@@ -4394,7 +4461,10 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                   Pool
                 </button>
                 <button
-                  onClick={startBattle}
+                  onClick={() => {
+                    const target = rematchTargetFor(currentBattle, isCreator);
+                    if (target) startRematch(target);
+                  }}
                   className="group flex-1 py-3 text-white font-display text-sm tracking-widest rounded-xl flex items-center justify-center relative transition-all hover:opacity-90 hover:scale-[1.01] active:scale-[0.99]"
                   style={{ background: `linear-gradient(135deg, ${topic.color}dd 0%, ${topic.color} 100%)` }}
                 >

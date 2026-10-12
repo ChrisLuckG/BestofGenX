@@ -40,6 +40,7 @@ import DesktopRewardsPage from "@/components/desktop/DesktopRewardsPage";
 import DesktopContentWrapper from "@/components/desktop/DesktopContentWrapper";
 import DesktopBattlesPage from "@/components/desktop/DesktopBattlesPage";
 import BattleResultScreen from "@/components/battles/BattleResultScreen";
+import type { ChallengeTarget } from "@/components/battles/types";
 import DesktopRankWidget from "@/components/desktop/DesktopRankWidget";
 import OpenBattlesModal from "@/components/OpenBattlesModal";
 import CommunitySoundPage from "@/components/CommunitySoundPage";
@@ -153,7 +154,7 @@ export default function DesktopPage() {
   const [showBattleResultId, setShowBattleResultId] = useState<string | null>(null); // Battle result to show in content area
   const [showChallenge, setShowChallenge] = useState<{ battleId: string; notificationId?: string } | null>(null); // Challenge to show in content area
   const [showWelcomePage, setShowWelcomePage] = useState(false); // Welcome page to show in content area
-  const [challengeTarget, setChallengeTarget] = useState<{ id: string; username: string; avatar?: string; countryFlag?: string } | null>(null); // Pre-selected player to challenge
+  const [challengeTarget, setChallengeTarget] = useState<ChallengeTarget | null>(null); // Pre-selected player to challenge (or rematch)
   const [radioStations, setRadioStations] = useState<{_id: string; name: string; description: string; playlistId: string}[]>([]);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [leaderboardCountdown, setLeaderboardCountdown] = useState('');
@@ -248,17 +249,17 @@ export default function DesktopPage() {
   // The date MUST be stable: a fresh `new Date()` per render would change the
   // hook's dependencies every render and re-fetch in an endless loop.
   const widgetToday = useMemo(() => new Date(), []);
-  const { currentUserEntry: dailyUserEntry } = useLiveRankings({ period: 'day', selectedDate: widgetToday, userId: user?.id });
-  const { currentUserEntry: monthlyUserEntry } = useLiveRankings({ period: 'month', selectedDate: widgetToday, userId: user?.id });
-  const { currentUserEntry: yearlyUserEntry } = useLiveRankings({ period: 'year', selectedDate: widgetToday, userId: user?.id });
+  const { currentUserEntry: dailyUserEntry, myPoints: dailyMyPoints } = useLiveRankings({ period: 'day', selectedDate: widgetToday, userId: user?.id });
+  const { currentUserEntry: monthlyUserEntry, myPoints: monthlyMyPoints } = useLiveRankings({ period: 'month', selectedDate: widgetToday, userId: user?.id });
+  const { currentUserEntry: yearlyUserEntry, myPoints: yearlyMyPoints } = useLiveRankings({ period: 'year', selectedDate: widgetToday, userId: user?.id });
   
   const scoreRankPositions = {
     dailyRank: dailyUserEntry?.rank || 0,
     monthlyRank: monthlyUserEntry?.rank || 0,
     yearlyRank: yearlyUserEntry?.rank || 0,
-    dailyPoints: dailyUserEntry?.points,
-    monthlyPoints: monthlyUserEntry?.points,
-    yearlyPoints: yearlyUserEntry?.points,
+    dailyPoints: dailyUserEntry?.points ?? dailyMyPoints,
+    monthlyPoints: monthlyUserEntry?.points ?? monthlyMyPoints,
+    yearlyPoints: yearlyUserEntry?.points ?? yearlyMyPoints,
     dailyChange: dailyUserEntry?.change,
     monthlyChange: monthlyUserEntry?.change,
     yearlyChange: yearlyUserEntry?.change,
@@ -742,6 +743,20 @@ export default function DesktopPage() {
       setOpenArticleId(origin.articleId);
       notificationOriginRef.current = null;
     }
+  };
+
+  // Rematch from a result screen: leave the detail view and let BattlesPage send
+  // the same challenge (topic + wager) to the same opponent.
+  const startRematch = (target: ChallengeTarget) => {
+    setShowBattleResultId(null);
+    setShowChallenge(null);
+    setShowWelcomePage(false);
+    setSelectedPlayerId(null);
+    notificationOriginRef.current = null;
+    window.dispatchEvent(new CustomEvent('notification-view-closed'));
+    handleTabChange('arcade');
+    setArcadeGame('quizzbattle');
+    setChallengeTarget(target);
   };
 
   // Logout redirect: if on profile tab and logged out → go to feed
@@ -1304,7 +1319,7 @@ export default function DesktopPage() {
               {/* Battle Result inline view - exclusive, replaces all tab content */}
               {!staticPageSlug && !selectedPlayerId && showBattleResultId && (
                 <DesktopContentWrapper>
-                  <BattleResultInline battleId={showBattleResultId} userId={user?.id} userAvatar={user?.avatar} onBack={closeNotificationView} />
+                  <BattleResultInline battleId={showBattleResultId} userId={user?.id} userAvatar={user?.avatar} onBack={closeNotificationView} onRematch={startRematch} />
                 </DesktopContentWrapper>
               )}
               {/* Battle Challenge inline view - exclusive, replaces all tab content */}
@@ -1389,11 +1404,11 @@ export default function DesktopPage() {
                   old category on the way back instead of "All Categories". */}
               {!staticPageSlug && !selectedPlayerId && activeTab === "articles" && !openArticleId && <DesktopArticlesPage onOpenArticle={(id: string) => { setOpenArticleId(id); setArticlesCategoryFilter('all'); contentRef.current?.scrollTo(0, 0); }} onShowLogin={() => setShowLoginPage(true)} onCoinAnimation={(amount) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount, variant: 'gain' }); }} initialCategory={articlesCategoryFilter} />}
               {!staticPageSlug && !selectedPlayerId && activeTab === "voting" && !openArticleId && !openRankrollData && <DesktopRankrollPage onOpenArticle={(id: string) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onOpenRankroll={(poll: any) => { setOpenRankrollData(poll); contentRef.current?.scrollTo(0, 0); }} onShowLogin={() => setShowLoginPage(true)} onCoinAnimation={(amount) => { animateCoins(amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} />}
-              {!staticPageSlug && !selectedPlayerId && activeTab === "voting" && openRankrollData && <DesktopRankingDetailPage poll={openRankrollData} onBack={() => setOpenRankrollData(null)} onOpenArticle={(id: string) => { setOpenArticleId(id); }} onShowLogin={() => setShowLoginPage(true)} onCoinAnimation={(amount) => { animateCoins(amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} />}
+              {!staticPageSlug && !selectedPlayerId && activeTab === "voting" && !openArticleId && openRankrollData && <DesktopRankingDetailPage poll={openRankrollData} onBack={() => setOpenRankrollData(null)} onOpenArticle={(id: string) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onShowLogin={() => setShowLoginPage(true)} onCoinAnimation={(amount) => { animateCoins(amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} />}
               {!staticPageSlug && !selectedPlayerId && activeTab === "shop" && <DesktopContentWrapper><ShopPage coins={coins} onCoinsUsed={(amount) => { setCoins(prev => prev - amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount: -amount }); }} /></DesktopContentWrapper>}
               {!staticPageSlug && !selectedPlayerId && activeTab === "tv" && <DesktopContentWrapper><TVPage /></DesktopContentWrapper>}
               {!staticPageSlug && !selectedPlayerId && activeTab === "radio" && <DesktopContentWrapper transparent><CommunitySoundPage isDesktop={true} onBack={() => handleTabChange('feed')} onShowLogin={() => setShowLoginPage(true)} /></DesktopContentWrapper>}
-              {!staticPageSlug && !selectedPlayerId && activeTab === "notifications" && !showBattleResultId && <DesktopContentWrapper transparent><NotificationPage onGoToProfile={() => handleTabChange('profile')} onGoToBattle={(id) => { handleTabChange('arcade'); setArcadeGame('quizzbattle'); setPendingBattleId(id); }} onShowBattleResult={(id) => openNotificationView(() => setShowBattleResultId(id))} onShowChallenge={(battleId, notificationId) => openNotificationView(() => setShowChallenge({ battleId, notificationId }))} onOpenArticle={(id) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onPointsAwarded={(amount) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} onChallengeDeclined={() => setPendingChallengeCount(prev => Math.max(0, prev - 1))} autoOpenSettings={openNotificationSettings} onSettingsClosed={() => { setOpenNotificationSettings(false); if (previousTabBeforeSettings) { handleTabChange(previousTabBeforeSettings); setPreviousTabBeforeSettings(null); } }} onShowSignup={() => setShowLoginPage(true)} onShowBogxers={() => handleTabChange('feed')} /></DesktopContentWrapper>}
+              {!staticPageSlug && !selectedPlayerId && activeTab === "notifications" && !showBattleResultId && <DesktopContentWrapper transparent><NotificationPage onRematch={startRematch} onGoToProfile={() => handleTabChange('profile')} onGoToBattle={(id) => { handleTabChange('arcade'); setArcadeGame('quizzbattle'); setPendingBattleId(id); }} onShowBattleResult={(id) => openNotificationView(() => setShowBattleResultId(id))} onShowChallenge={(battleId, notificationId) => openNotificationView(() => setShowChallenge({ battleId, notificationId }))} onOpenArticle={(id) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onPointsAwarded={(amount) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} onChallengeDeclined={() => setPendingChallengeCount(prev => Math.max(0, prev - 1))} autoOpenSettings={openNotificationSettings} onSettingsClosed={() => { setOpenNotificationSettings(false); if (previousTabBeforeSettings) { handleTabChange(previousTabBeforeSettings); setPreviousTabBeforeSettings(null); } }} onShowSignup={() => setShowLoginPage(true)} onShowBogxers={() => handleTabChange('feed')} /></DesktopContentWrapper>}
               {!staticPageSlug && !selectedPlayerId && activeTab === "profile" && (isLoggedIn ? <DesktopContentWrapper><ProfilePage coins={coins} /></DesktopContentWrapper> : <DesktopLoginPage onClose={() => handleTabChange(previousTab || "feed")} onSuccess={() => {}} showBack={true} />)}
               {!staticPageSlug && activeTab === "rankings" && !selectedPlayerId && <DesktopRankingsPage currentUserScore={coins} onBack={() => handleTabChange('home')} onShowSignup={() => setShowLoginPage(true)} onShowRewards={() => handleTabChange('rewards')} selectedPlayerId={null} onPlayerClose={() => {}} />}
               {/* Player Profile - renders in content area, back returns to current tab */}
@@ -1940,7 +1955,7 @@ function BattleChallengeInline({ battleId, notificationId, userId, onAccept, onD
 }
 
 // Inline Battle Result component for desktop content area
-function BattleResultInline({ battleId, userId, userAvatar, onBack }: { battleId: string; userId?: string; userAvatar?: string; onBack: () => void }) {
+function BattleResultInline({ battleId, userId, userAvatar, onBack, onRematch }: { battleId: string; userId?: string; userAvatar?: string; onBack: () => void; onRematch: (target: ChallengeTarget) => void }) {
   const [loading, setLoading] = useState(true);
   const [battle, setBattle] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -2065,7 +2080,7 @@ function BattleResultInline({ battleId, userId, userAvatar, onBack }: { battleId
       isCreator={isCreator}
       userAvatar={userAvatar}
       onBackToPool={onBack}
-      onRematch={() => {}}
+      onRematch={onRematch}
       onContinue={onBack}
     />
   );

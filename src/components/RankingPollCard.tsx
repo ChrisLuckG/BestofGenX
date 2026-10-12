@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { X, ExternalLink } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import LoginRequiredModal from "@/components/LoginRequiredModal";
 import RankingItemRow from "@/components/RankingItemRow";
@@ -10,6 +12,7 @@ interface RankingItem {
   title: string;
   description?: string;
   image?: string;
+  videoUrl?: string;
   upvotes: number;
   downvotes: number;
   score: number;
@@ -42,6 +45,8 @@ export default function RankingPollCard({ poll, onPointsAwarded, onShowLogin, on
   const [userVotes, setUserVotes] = useState<Record<string, 'up' | 'down'>>({});
   const [votingItem, setVotingItem] = useState<string | null>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  // Video overlay state
+  const [playingVideo, setPlayingVideo] = useState<{ youtubeId: string; title: string; description?: string } | null>(null);
   // Guards against the race where a user can vote before we've confirmed
   // whether they already voted (existing-vote check is async).
   const [votesLoaded, setVotesLoaded] = useState(false);
@@ -202,6 +207,7 @@ export default function RankingPollCard({ poll, onPointsAwarded, onShowLogin, on
             isVoting={votingItem === item.id || !votesLoaded}
             isDesktop={isDesktop}
             onVote={handleVote}
+            onVideoPlay={setPlayingVideo}
           />
         ))}
       </div>
@@ -220,6 +226,61 @@ export default function RankingPollCard({ poll, onPointsAwarded, onShowLogin, on
         }}
         embedded={embedded}
       />
+
+      {/* Video Overlay */}
+      {playingVideo && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setPlayingVideo(null)}
+        >
+          <div 
+            className="w-full max-w-2xl bg-gray-900 rounded-xl overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button 
+              onClick={() => setPlayingVideo(null)}
+              className="absolute top-3 right-3 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            
+            {/* YouTube Embed */}
+            <div className="aspect-video">
+              <iframe
+                src={`https://www.youtube.com/embed/${playingVideo.youtubeId}?autoplay=1&rel=0`}
+                title={playingVideo.title}
+                className="w-full h-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+            
+            {/* Video Info */}
+            <div className="p-4 bg-gray-900">
+              <div className="flex items-start gap-3">
+                <div className="flex-1">
+                  <h3 className="text-white font-display text-lg tracking-wide">{playingVideo.title}</h3>
+                  {playingVideo.description && (
+                    <p className="text-gray-400 text-sm mt-1 line-clamp-2">{playingVideo.description}</p>
+                  )}
+                </div>
+                <a
+                  href={`https://www.youtube.com/watch?v=${playingVideo.youtubeId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  YouTube
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </>
   );
 

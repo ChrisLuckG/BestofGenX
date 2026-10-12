@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Bell, Crown, Radio, Tv, User, ArrowUp, ArrowDown, Lock } from "lucide-react";
 import Image from "next/image";
 import { formatCurrency, getCurrencySymbol } from "@/utils/currency";
-import { type RankPeriod, rankUnrankedTip, rankUnrankedGuestTip } from "@/lib/rankPeriod";
+import { type RankPeriod, rankUnrankedTip, rankUnrankedGuestTip, formatUnrankedValue } from "@/lib/rankPeriod";
 
 // Direction of a rank position compared to the last value we ever saw for it.
 // Returns null if the position hasn't changed (neutral).
@@ -99,6 +99,7 @@ interface HeaderProps {
   notificationsEnabled?: boolean; // Push notifications enabled
   unreadCount?: number; // Number of unread notifications
   coinAnimation?: { amount: number } | null; // Explicit animation trigger
+  coinAnimationKey?: number; // Bumped once per event - the trigger object is recreated every render
   // Rank positions like desktop
   dailyRank?: number;
   monthlyRank?: number;
@@ -117,7 +118,7 @@ interface HeaderProps {
   onShowLogin?: () => void;
 }
 
-export default function Header({ coins, userAvatar, userRank, hasPendingWager = false, rankingsOpen, onCoinsClick, onLogoClick, onNotificationClick, onProfileClick, onRadioClick, onTVClick, notificationOpen, profileOpen, radioOpen = false, tvOpen = false, notificationsEnabled, unreadCount = 0, coinAnimation, dailyRank = 0, monthlyRank = 0, yearlyRank = 0, dailyPoints, monthlyPoints, yearlyPoints, pendingAmount = 0, onWagerClick, isLoadingRanks = false, isLoggedIn = true, onShowLogin }: HeaderProps) {
+export default function Header({ coins, userAvatar, userRank, hasPendingWager = false, rankingsOpen, onCoinsClick, onLogoClick, onNotificationClick, onProfileClick, onRadioClick, onTVClick, notificationOpen, profileOpen, radioOpen = false, tvOpen = false, notificationsEnabled, unreadCount = 0, coinAnimation, coinAnimationKey, dailyRank = 0, monthlyRank = 0, yearlyRank = 0, dailyPoints, monthlyPoints, yearlyPoints, pendingAmount = 0, onWagerClick, isLoadingRanks = false, isLoggedIn = true, onShowLogin }: HeaderProps) {
   const [displayCoins, setDisplayCoins] = useState(coins);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isNegative, setIsNegative] = useState(false);
@@ -146,13 +147,8 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
   // Touch has no mouseleave, so the tip closes itself after a few seconds.
   const [tipFor, setTipFor] = useState<RankPeriod | null>(null);
 
-  // Format unranked display: show negative points if available, otherwise "?"
-  const formatUnranked = (points?: number) => {
-    if (points !== undefined && points < 0) {
-      return points.toFixed(2).replace('.', ',');
-    }
-    return '?';
-  };
+  // Unranked: own net for the period ("-0,37" / "0,00"), "?" only when unknown
+  const formatUnranked = formatUnrankedValue;
   useEffect(() => {
     if (!tipFor) return;
     const timer = setTimeout(() => setTipFor(null), 5000);
@@ -190,22 +186,31 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
     }
   };
 
-  // Update display coins silently when coins change (no animation)
-  useEffect(() => {
-    // Only update silently if no animation is active
-    if (!isAnimating) {
-      setDisplayCoins(coins);
-      prevCoinsRef.current = coins;
-    }
-  }, [coins, isAnimating]);
+  // Count-up runs in a ref-guarded interval. The guard must be a REF: the parent
+  // raises `coins` in the same render that triggers the animation, and a state flag
+  // is still false in that commit, so the silent sync below used to snap the
+  // display to the end value first - the count then ran from the end value upwards
+  // and jumped back when it finished.
+  const animatingRef = useRef(false);
+  const countIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const coinsRef = useRef(coins);
+  coinsRef.current = coins;
+  useEffect(() => () => { if (countIntervalRef.current) clearInterval(countIntervalRef.current); }, []);
 
-  // Only animate when explicitly triggered via coinAnimation prop
+  // Animate when explicitly triggered. Keyed on `coinAnimationKey` (bumped once per
+  // event by the parent): the `coinAnimation` object is recreated on every parent
+  // render, so keying on its identity restarted the count mid-flight.
+  // Declared BEFORE the silent sync so it claims the counter in the same commit.
   useEffect(() => {
-    if (!coinAnimation || coinAnimation === lastAnimationRef.current) return;
-    lastAnimationRef.current = coinAnimation;
+    if (!coinAnimation) return;
+    const marker = coinAnimationKey !== undefined ? { amount: coinAnimationKey } : coinAnimation;
+    if (coinAnimationKey !== undefined ? lastAnimationRef.current?.amount === coinAnimationKey : coinAnimation === lastAnimationRef.current) return;
+    lastAnimationRef.current = marker;
     
     const diff = coinAnimation.amount;
     if (diff === 0) return;
+    animatingRef.current = true;
+    if (countIntervalRef.current) clearInterval(countIntervalRef.current);
     
     // Show flying amount
     setFlyingAmount(diff);
@@ -231,51 +236,54 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
     // Update prevCoinsRef immediately to the target value
     prevCoinsRef.current = endValue;
     
-    // For small amounts (< 0.1), just update immediately with a short animation
-    if (Math.abs(diff) < 0.1) {
-      // Small amount - just flash and update
-      setTimeout(() => {
-        setDisplayCoins(endValue);
-        setIsAnimating(false);
-        setTimeout(() => {
-          setIsNegative(false);
-          setIsPositive(false);
-        }, 500);
-      }, 300);
-      return;
-    }
-    
+    // Small amounts count too (a Solo Trivia answer is often 0,05-0,30); they
+    // used to skip straight to the end value, which read as a jump.
     // Count EVERY SINGLE CENT: 0,01 -> 0,02 -> 0,03 -> ... -> 0,50
     //
     // `diff` arrives in BOGX (0,50), NOT in cents. Treating it as a step count meant
     // 0,50 became half a step: the first tick added a whole 1,00 to the balance and the
     // loop then ended immediately and snapped back to the real value - a visible jump on
     // every reward.
-    const totalCents = Math.round(Math.abs(diff) * 100);
-    const direction = diff > 0 ? 1 : -1;
-    let currentCent = 0;
-    
-    // 50ms per cent, but capped so a big win doesn't count for half a minute.
-    const msPerCent = Math.max(12, Math.min(50, Math.round(2500 / totalCents)));
+    const totalCents = Math.max(1, Math.round(Math.abs(diff) * 100));
+    // Fixed duration regardless of the amount: a 0,05 win used to be over in a
+    // quarter of a second. Up to MAX_STEPS cents every single cent is shown;
+    // beyond that it steps evenly so a big win doesn't count for half a minute.
+    const COUNT_DURATION_MS = 1800;
+    const MAX_STEPS = 45;
+    const steps = Math.min(totalCents, MAX_STEPS);
+    const msPerStep = Math.round(COUNT_DURATION_MS / steps);
+    let currentStep = 0;
 
-    const interval = setInterval(() => {
-      currentCent++;
-      const newValue = startValue + (currentCent * direction) / 100;
-      setDisplayCoins(newValue);
+    // No effect cleanup here on purpose: the interval lives in a ref and is only
+    // replaced by the next event or cleared on unmount, so a parent re-render can
+    // no longer cancel a running count.
+    countIntervalRef.current = setInterval(() => {
+      currentStep++;
+      const newValue = startValue + (diff * currentStep) / steps;
+      setDisplayCoins(Math.round(newValue * 100) / 100);
       
-      if (currentCent >= totalCents) {
-        setDisplayCoins(endValue);
+      if (currentStep >= steps) {
+        if (countIntervalRef.current) clearInterval(countIntervalRef.current);
+        countIntervalRef.current = null;
+        animatingRef.current = false;
+        // Land on the authoritative balance, not on start + diff.
+        setDisplayCoins(coinsRef.current);
+        prevCoinsRef.current = coinsRef.current;
         setIsAnimating(false);
         setTimeout(() => {
           setIsNegative(false);
           setIsPositive(false);
         }, 500);
-        clearInterval(interval);
       }
-    }, msPerCent);
+    }, msPerStep);
+  }, [coinAnimation, coinAnimationKey]);
 
-    return () => clearInterval(interval);
-  }, [coinAnimation]);
+  // Update display coins silently when coins change and nothing is counting
+  useEffect(() => {
+    if (animatingRef.current) return;
+    setDisplayCoins(coins);
+    prevCoinsRef.current = coins;
+  }, [coins]);
   return (
     <div className="absolute top-0 left-0 right-0 z-50 bg-cream border-b border-warm">
       <div className="relative flex items-center justify-between px-4 h-[72px]">
@@ -359,7 +367,7 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
                   {dailyRank > 0 && (dailyDir === 'up' || dailyDir === null) && (
                     <ArrowUp style={dailyArrowAnim} className={`w-3.5 h-3.5 shrink-0 animate-bounce-subtle-up ${rankingsOpen ? 'text-white' : 'text-green-500'}`} />
                   )}
-                  {dailyRank <= 0 && <ArrowDown className={`w-3.5 h-3.5 shrink-0 animate-bounce-subtle-down ${rankingsOpen ? 'text-white' : 'text-[#E36B11]'}`} />}
+                  {/* No arrow when unranked - neutral state */}
                   <span
                     key={`day-${dailyRank}-${dailyRoll ?? 'idle'}`}
                     onClick={dailyRank > 0 ? undefined : (e) => { e.stopPropagation(); setTipFor(prev => prev === 'day' ? null : 'day'); }}
@@ -386,7 +394,7 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
                   {monthlyRank > 0 && (monthlyDir === 'up' || monthlyDir === null) && (
                     <ArrowUp className={`w-3.5 h-3.5 shrink-0 animate-bounce-subtle-up ${rankingsOpen ? 'text-white' : 'text-green-500'}`} />
                   )}
-                  {monthlyRank <= 0 && <ArrowDown className={`w-3.5 h-3.5 shrink-0 animate-bounce-subtle-down ${rankingsOpen ? 'text-white' : 'text-[#E36B11]'}`} />}
+                  {/* No arrow when unranked - neutral state */}
                   <span
                     onClick={monthlyRank > 0 ? undefined : (e) => { e.stopPropagation(); setTipFor(prev => prev === 'month' ? null : 'month'); }}
                     className={`font-display font-bold tabular-nums leading-none ${rankingsOpen ? 'text-white text-[22px]' : monthlyRank > 0 ? 'text-gray-800 text-[22px]' : 'text-[#E36B11] text-[13px] cursor-pointer active:scale-110'}`}
@@ -411,7 +419,7 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
                   {yearlyRank > 0 && (yearlyDir === 'up' || yearlyDir === null) && (
                     <ArrowUp className={`w-3.5 h-3.5 shrink-0 animate-bounce-subtle-up ${rankingsOpen ? 'text-white' : 'text-green-500'}`} />
                   )}
-                  {yearlyRank <= 0 && <ArrowDown className={`w-3.5 h-3.5 shrink-0 animate-bounce-subtle-down ${rankingsOpen ? 'text-white' : 'text-[#E36B11]'}`} />}
+                  {/* No arrow when unranked - neutral state */}
                   <span
                     onClick={yearlyRank > 0 ? undefined : (e) => { e.stopPropagation(); setTipFor(prev => prev === 'year' ? null : 'year'); }}
                     className={`font-display font-bold tabular-nums leading-none ${rankingsOpen ? 'text-white text-[22px]' : yearlyRank > 0 ? 'text-gray-800 text-[22px]' : 'text-[#E36B11] text-[13px] cursor-pointer active:scale-110'}`}
@@ -445,16 +453,16 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
           onClick={onProfileClick}
           className="ml-1 shrink-0 flex flex-col items-center hover:opacity-80 transition-opacity"
         >
-          <div className={`w-10 h-10 rounded-full overflow-hidden border-2 ${profileOpen ? 'border-[#E36B11]' : 'border-white'} shadow-sm`}>
+          <div className={`w-[46px] h-[46px] rounded overflow-hidden border ${profileOpen ? 'border-[#E36B11]' : 'border-[#E36B11]/30'} shadow-sm bg-gradient-to-b from-[#FFFDF9] to-[#FDF8F0]`}>
             {userAvatar ? (
               <img src={userAvatar} alt="Profile" className="w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                <User className="w-5 h-5 text-gray-500" />
+              <div className="w-full h-full flex items-center justify-center">
+                <User className="w-6 h-6 text-[#E36B11]" />
               </div>
             )}
           </div>
-          <span className="relative -top-[6px] text-[10px] leading-[12px] font-normal font-display uppercase text-gray-500">Profile</span>
+
         </button>
 
         {/* Explanation for an unranked period */}

@@ -2,7 +2,7 @@
 
 import { ArrowUp, ArrowDown, Lock } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { type RankPeriod, rankUnrankedTip, rankUnrankedGuestTip } from "@/lib/rankPeriod";
+import { type RankPeriod, rankUnrankedTip, rankUnrankedGuestTip, formatUnrankedValue } from "@/lib/rankPeriod";
 
 // After an explicit animation, balance changes are its own tail (count-up ticks,
 // deferred server sync at OPTIMISTIC_WINDOW_MS 2.5s + request) - not new events.
@@ -82,13 +82,12 @@ function useRankDirection(label: string, value: number): 'up' | 'down' | null {
 function RankPosition({ value, label, isActive, change, onHoverChange, points }: { value: number; label: string; isActive?: boolean; change?: 'up' | 'down' | null; onHoverChange?: (hovering: boolean) => void; points?: number }) {
   const hasRank = value > 0;
   
-  // Format unranked display: show negative points if available, otherwise "?"
-  const formatUnranked = () => {
-    if (points !== undefined && points < 0) {
-      return points.toFixed(2).replace('.', ',');
-    }
-    return '?';
-  };
+  // Unranked: own net for the period ("-0,37" / "0,00"), "?" only when unknown
+  const formatUnranked = () => formatUnrankedValue(points);
+  const unrankedText = formatUnranked();
+  // A real number ("-0,48" / "0,00") is sized like a rank; only "?" stays small
+  const unrankedIsValue = !hasRank && unrankedText !== '?';
+  const isNegative = !hasRank && points !== undefined && points < 0 && unrankedText !== '0,00';
 
   // A live change from the rankings hook wins, otherwise fall back to the
   // persisted comparison so an arrow is always shown.
@@ -130,18 +129,16 @@ function RankPosition({ value, label, isActive, change, onHoverChange, points }:
       onMouseEnter={() => !hasRank && onHoverChange?.(true)}
       onMouseLeave={() => !hasRank && onHoverChange?.(false)}
     >
-      {!hasRank ? (
-        // No rank - show red down arrow for negative points
-        <ArrowDown className={`w-3 h-3 shrink-0 transition-colors ${isActive ? 'text-white' : 'text-red-500 group-hover/main:text-white'}`} />
-      ) : shown === 'up' ? (
+      {/* Arrows: ranked with a change direction, or unranked with a negative
+          balance (down). Otherwise a spacer so the width never changes. */}
+      {hasRank && shown === 'up' ? (
         <ArrowUp style={arrowAnim} className={`w-3 h-3 shrink-0 transition-colors animate-bounce-subtle-up ${isActive ? 'text-white' : 'text-green-500 group-hover/main:text-white'}`} />
-      ) : shown === 'down' ? (
+      ) : (hasRank && shown === 'down') || isNegative ? (
         <ArrowDown style={arrowAnim} className={`w-3 h-3 shrink-0 transition-colors animate-bounce-subtle-down ${isActive ? 'text-white' : 'text-red-500 group-hover/main:text-white'}`} />
       ) : (
-        // Has rank but neutral (no change) - show green up arrow (you're ranked!)
-        <ArrowUp className={`w-3 h-3 shrink-0 transition-colors animate-bounce-subtle-up ${isActive ? 'text-white' : 'text-green-500 group-hover/main:text-white'}`} />
+        <span className="w-3 h-3 shrink-0" />
       )}
-      <div className="flex flex-col justify-center">
+      <div className="flex flex-col items-center justify-center">
         {/* Clipping wrapper: the incoming number slides in from outside it, which is
             what makes it read as a flip-clock rather than a fade. */}
         <span className={`block h-[18px] text-center ${!hasRank ? 'overflow-visible' : 'overflow-hidden'}`}>
@@ -164,10 +161,12 @@ function RankPosition({ value, label, isActive, change, onHoverChange, points }:
                 ? 'text-white text-lg'
                 : hasRank 
                   ? 'text-gray-800 text-lg group-hover/main:text-white' 
-                  : 'text-red-500 text-sm cursor-pointer group-hover/main:text-white group-hover/rank:scale-125'
+                  : unrankedIsValue
+                    ? `${isNegative ? 'text-red-500' : 'text-gray-800'} text-lg cursor-pointer group-hover/main:text-white`
+                    : 'text-red-500 text-sm cursor-pointer group-hover/main:text-white group-hover/rank:scale-125'
             }`}
           >
-            {hasRank ? value.toString().padStart(2, '0') : formatUnranked()}
+            {hasRank ? value.toString().padStart(2, '0') : unrankedText}
           </span>
         </span>
         {/* text-gray-400 was nearly invisible against this widget's pale cream
@@ -176,7 +175,8 @@ function RankPosition({ value, label, isActive, change, onHoverChange, points }:
             the bold number above it. */}
         <span className={`text-[9px] font-display uppercase transition-colors ${isActive ? 'text-white/60' : 'text-gray-600 group-hover/main:text-white/60'}`}>{label}</span>
       </div>
-      
+      {/* Mirrors the arrow slot so the value sits centred between the separators */}
+      <span className="w-3 h-3 shrink-0" />
     </div>
   );
 }
@@ -481,7 +481,7 @@ export default function DesktopRankWidget({
         }`} />
         
         {/* Coins Section - highlighted */}
-        <div className={`relative flex items-center gap-2 pl-3 pr-3 py-2 border-r transition-colors ${active ? 'border-white/20' : 'border-[#E36B11]/10 group-hover/main:border-white/20'}`}>
+        <div className={`relative flex items-center gap-3 pl-5 pr-6 py-2 border-r transition-colors ${active ? 'border-white/20' : 'border-[#E36B11]/10 group-hover/main:border-white/20'}`}>
           <img 
             src="/images/bogxcoin.png" 
             alt="" 
@@ -538,10 +538,12 @@ export default function DesktopRankWidget({
               );
             })()
           ) : (
-            // Normal rank positions
+            // Normal rank positions with separators
             <>
               <RankPosition value={dailyRank} label="Day" isActive={active} change={dailyChange} onHoverChange={(h) => setTipFor(h ? 'day' : null)} points={dailyPoints} />
+              <div className={`w-px h-8 ${active ? 'bg-white/20' : 'bg-gray-300 group-hover/main:bg-white/20'}`} />
               <RankPosition value={monthlyRank} label="Month" isActive={active} change={monthlyChange} onHoverChange={(h) => setTipFor(h ? 'month' : null)} points={monthlyPoints} />
+              <div className={`w-px h-8 ${active ? 'bg-white/20' : 'bg-gray-300 group-hover/main:bg-white/20'}`} />
               <RankPosition value={yearlyRank} label="Year" isActive={active} change={yearlyChange} onHoverChange={(h) => setTipFor(h ? 'year' : null)} points={yearlyPoints} />
             </>
           )}

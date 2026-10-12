@@ -147,7 +147,7 @@ const TRIVIA_ACCENT = '#E36B11';
 const QUESTION_COUNT = 5; // Fixed 5 questions
 const POINT_OPTIONS = [0.10, 0.20, 0.30, 0.40, 0.50] as const;
 const PENALTY_RATE = 0.20; // 20% of max points
-const DAILY_GAME_LIMIT = 5; // Max games per day
+export const DAILY_GAME_LIMIT = 5; // Max games per day
 
 // Key for the localStorage counter. Must be the same ranking day the server
 // counts, otherwise the guest allowance and the logged-in allowance reset at
