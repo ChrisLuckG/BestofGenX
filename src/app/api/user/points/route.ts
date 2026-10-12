@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'User ID required' }, { status: 400 });
     }
     
-    const user = await User.findById(userId).select('points bogxCoins coins wins gamesPlayed authorEarnings isAuthor isAdmin');
+    const user = await User.findById(userId).select('username avatar country countryFlag points bogxCoins coins wins gamesPlayed authorEarnings isAuthor isAdmin');
     
     if (!user) {
       return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
@@ -22,6 +22,12 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json({ 
       success: true, 
+      // Profile fields too: the client restores the user from localStorage, so a
+      // rename/avatar change made elsewhere (admin, other device) never arrived.
+      username: user.username,
+      avatar: user.avatar,
+      country: user.country,
+      countryFlag: user.countryFlag,
       points: user.points || 0,
       bogxCoins: user.bogxCoins || 0,
       coins: user.coins || 0,

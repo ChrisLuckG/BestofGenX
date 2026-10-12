@@ -302,7 +302,7 @@ export default function ArticlesListPage({ onOpenArticle, onShowLogin, initialCa
                 className="w-full text-left flex gap-3 p-3 border rounded-xl hover:border-[#E36B11]/30 hover:shadow-sm transition-all group bg-cream border-warm"
               >
                 {/* Thumbnail - square */}
-                <div className="relative w-24 h-24 flex-shrink-0 overflow-hidden cursor-pointer" onClick={() => handleArticleClick(article._id)}>
+                <div className="fx-crt relative w-24 h-24 flex-shrink-0 overflow-hidden cursor-pointer" onClick={() => handleArticleClick(article._id)}>
                   {article.coverImage ? (
                     isVideoUrl(article.coverImage) ? (
                       <video

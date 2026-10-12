@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { X, Mail, MessageCircle, QrCode, Copy, Check, Share2 } from "lucide-react";
+import ModalPortal from "./ModalPortal";
 
 interface InviteModalProps {
   isOpen: boolean;
@@ -62,6 +63,7 @@ export default function InviteModal({ isOpen, onClose, userId, username, referra
   const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(inviteUrl)}`;
 
   return (
+    <ModalPortal>
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-5">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={onClose} />
       <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden">
@@ -164,5 +166,6 @@ export default function InviteModal({ isOpen, onClose, userId, username, referra
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

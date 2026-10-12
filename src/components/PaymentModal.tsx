@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X, CreditCard, Check, ShieldCheck } from "lucide-react";
 import LogoLoader from "./LogoLoader";
+import ModalPortal from "./ModalPortal";
 
 interface PaymentPackage {
   points: number;
@@ -43,6 +44,7 @@ export default function PaymentModal({ isOpen, package_, onClose, onSuccess }: P
   };
 
   return (
+    <ModalPortal>
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
       {/* Backdrop */}
       <div 
@@ -203,5 +205,6 @@ export default function PaymentModal({ isOpen, package_, onClose, onSuccess }: P
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

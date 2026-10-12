@@ -136,8 +136,6 @@ export default function RankingPollCard({ poll, onPointsAwarded, onShowLogin, on
     setUserVotes(prev => ({ ...prev, [itemId]: voteType }));
     if (isNewVote) {
       onCoinAnimation?.(0.01);
-      // Notify leaderboard/rankings to refresh instantly
-      window.dispatchEvent(new CustomEvent('bogx-updated'));
     }
 
     try {
@@ -152,6 +150,9 @@ export default function RankingPollCard({ poll, onPointsAwarded, onShowLogin, on
       if (!data.success) {
         console.error('Vote failed, rolling back:', data.error);
         rollbackVote(itemId, voteType, oldVoteType);
+      } else if (isNewVote) {
+        // Dispatch AFTER the POST (see AGENTS.md): before it, the refresh read the pre-credit ledger.
+        window.dispatchEvent(new CustomEvent('bogx-updated'));
       }
     } catch (e) {
       console.error('Vote failed, rolling back:', e);

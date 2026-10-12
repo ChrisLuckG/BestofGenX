@@ -53,7 +53,8 @@ export default function BottomNav({ activeTab, onTabChange, userAvatar, profileH
               }`}
             >
               {tab.image ? (
-                <div className="relative">
+                <div key={isActive ? 'on' : 'off'} className={`relative ${isActive ? 'fx-pop' : ''}`}>
+                  {/* key flips with isActive, so the icon pops once when tapped */}
                   <img 
                     src={isActive && tab.imageActive ? tab.imageActive : tab.image} 
                     alt="" 
@@ -67,7 +68,7 @@ export default function BottomNav({ activeTab, onTabChange, userAvatar, profileH
                   )}
                 </div>
               ) : Icon ? (
-                <div className="relative">
+                <div key={isActive ? 'on' : 'off'} className={`relative ${isActive ? 'fx-pop' : ''}`}>
                   <Icon className={`w-6 h-6 ${isActive ? 'text-[#E36B11]' : 'text-gray-700'}`} />
                   {showNewsBadge && (
                     <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 bg-[#E36B11] rounded-full flex items-center justify-center text-white text-[9px] font-black shadow">

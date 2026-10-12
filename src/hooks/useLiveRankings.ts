@@ -108,14 +108,30 @@ export function useLiveRankings({
     return params.toString();
   })();
 
+  // A response may only write state if it is for the CURRENT query and no newer
+  // response has been applied yet. Month/year are slow: the first fetch (before
+  // login resolved, no userId) landed AFTER the fetch with userId and overwrote
+  // the user's ranks with "?".
+  // Do NOT make this "only the newest REQUEST wins": the day polls every 5s, so
+  // once a response takes longer than that every single one is discarded and the
+  // widget freezes (Day stuck at -0,48 while the server already said -0,46).
+  const requestSeqRef = useRef(0);
+  const appliedSeqRef = useRef(0);
+  const queryRef = useRef(query);
+  queryRef.current = query;
+
   const fetchRankings = useCallback(
     async (silent = false) => {
+      const seq = ++requestSeqRef.current;
+      const isStale = () => query !== queryRef.current || seq < appliedSeqRef.current;
       if (!silent) setLoading(true);
       try {
         const res = await fetch(`/api/rankings/snapshot?${query}`);
-        if (!res.ok) return;
+        if (!res.ok || isStale()) return;
 
         const data = await res.json();
+        if (isStale()) return;
+        appliedSeqRef.current = seq;
         setIsLive(data.isLive || isToday);
         setMyPoints(data.me ? autoConvertToBOGX(data.me.points ?? 0) : undefined);
 
@@ -124,12 +140,15 @@ export function useLiveRankings({
           const currentRank = r.rank || index + 1;
           const prev = prevRankingsRef.current.get(id);
 
-          // Keep previous change if rank hasn't changed, otherwise calculate new change
+          // Arrows come from the server (rank now vs an hour ago / start of today),
+          // so every device shows the same direction. The per-browser comparison
+          // below is only a fallback for responses without `change`.
           let change: "up" | "down" | null = prev?.change || null;
-          if (prev) {
+          if ("change" in r) {
+            change = r.change ?? null;
+          } else if (prev) {
             if (currentRank < prev.rank) change = "up";
             else if (currentRank > prev.rank) change = "down";
-            // If rank is same, keep previous change value
           }
 
           return {
@@ -168,7 +187,7 @@ export function useLiveRankings({
       } catch (error) {
         console.error("Failed to fetch rankings:", error);
       } finally {
-        if (!silent) setLoading(false);
+        if (query === queryRef.current) setLoading(false);
       }
     },
     [query, isToday, storageKey, userId, limit]
@@ -179,25 +198,50 @@ export function useLiveRankings({
     fetchRankings(false);
   }, [fetchRankings]);
 
-  // Polling + instant refresh via bogx-updated event
-  useEffect(() => {
-    const isLiveDay = period === "day" && isToday;
+  // Does the window being shown include "now"? Only then can a balance change move it.
+  const now = new Date();
+  const isCurrentPeriod =
+    period === "day" ? isToday
+    : period === "month" ? selectedDate.getFullYear() === now.getFullYear() && selectedDate.getMonth() === now.getMonth()
+    : selectedDate.getFullYear() === now.getFullYear();
 
-    // Day: fast poll + bogx-updated event
-    // Month/Year: slow poll every 60s to pick up accumulated plays
+  // Polling + instant refresh whenever the balance moves.
+  //
+  // The scoreboard shows coins AND day/month/year side by side, so they must move
+  // together. Every current window (not only the day - month and year used to wait
+  // for their 60s poll) refreshes on:
+  //  - 'bogx-updated': a reward/battle was committed server-side
+  //  - 'bogx-balance-changed': useBogxCoins saw the balance change, whatever the
+  //    cause - catches flows that update coins without dispatching bogx-updated
+  // A second refresh follows after the ledger write window: optimistic coin updates
+  // run BEFORE the reward POST commits, so the first refresh can still read the old
+  // ledger (same reason as OPTIMISTIC_WINDOW_MS in useBogxCoins).
+  useEffect(() => {
     const interval = setInterval(
       () => fetchRankings(true),
-      isLiveDay ? pollIntervalMs : 60000
+      period === "day" && isToday ? pollIntervalMs : 60000
     );
+    if (!isCurrentPeriod) return () => clearInterval(interval);
 
-    const onBogxUpdate = () => fetchRankings(true);
-    if (isLiveDay) window.addEventListener("bogx-updated", onBogxUpdate);
+    let soon: ReturnType<typeof setTimeout> | null = null;
+    let settle: ReturnType<typeof setTimeout> | null = null;
+    const onBalanceMoved = () => {
+      if (soon) clearTimeout(soon);
+      if (settle) clearTimeout(settle);
+      soon = setTimeout(() => fetchRankings(true), 150);
+      settle = setTimeout(() => fetchRankings(true), 2800);
+    };
+    window.addEventListener("bogx-updated", onBalanceMoved);
+    window.addEventListener("bogx-balance-changed", onBalanceMoved);
 
     return () => {
       clearInterval(interval);
-      if (isLiveDay) window.removeEventListener("bogx-updated", onBogxUpdate);
+      if (soon) clearTimeout(soon);
+      if (settle) clearTimeout(settle);
+      window.removeEventListener("bogx-updated", onBalanceMoved);
+      window.removeEventListener("bogx-balance-changed", onBalanceMoved);
     };
-  }, [period, isToday, pollIntervalMs, fetchRankings]);
+  }, [period, isToday, isCurrentPeriod, pollIntervalMs, fetchRankings]);
 
   // Derived helpers
   const currentUserEntry = rankings.find((p) => p.isCurrentUser) || null;

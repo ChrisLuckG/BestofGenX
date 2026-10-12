@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Check, Clock, Play, Layers, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import CountryFlag from "@/components/CountryFlag";
+import ShineSweep from "@/components/ShineSweep";
 
 /**
  * Shared "preparing questions" screen used before a game starts.
@@ -232,6 +233,8 @@ export default function PreparingScreen({
             <div className="absolute inset-0 rounded-xl bg-gradient-to-t from-black/70 via-black/40 to-black/30" />
           </>
         )}
+        {/* Occasional soft glint across the hero once it is ready */}
+        <ShineSweep active={isComplete} intensity={0.18} minDelayMs={6000} maxDelayMs={12000} firstDelayMs={1800} />
         <div className="relative flex flex-col items-center">
           {/* Solo Trivia: Split layout with text left, animation right */}
           {!vsLayout && backgroundImage && (
@@ -493,11 +496,12 @@ export default function PreparingScreen({
           <button
             onClick={isComplete ? onStart : undefined}
             disabled={!isComplete}
-            className={`flex-1 py-3.5 md:py-4 rounded-xl font-display text-base md:text-lg tracking-wider transition-all shadow-lg flex items-center justify-center gap-2 border ${
+            className={`${isComplete ? 'hover-shine' : ''} relative overflow-hidden flex-1 py-3.5 md:py-4 rounded-xl font-display text-base md:text-lg tracking-wider transition-all shadow-lg flex items-center justify-center gap-2 border ${
               isComplete ? 'text-white hover:scale-[1.01] active:scale-[0.99] border-transparent' : 'text-gray-400 cursor-not-allowed bg-cream border-warm'
             }`}
             style={{ background: isComplete ? topicColor : undefined }}
           >
+            <ShineSweep active={isComplete} intensity={0.4} minDelayMs={3000} maxDelayMs={6500} firstDelayMs={700} />
             {isComplete ? (
               <>
                 {/* Play glyph in a rounded square, so the primary action reads as

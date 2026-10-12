@@ -1,7 +1,14 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { X, TrendingDown, TrendingUp, ChevronRight, Gift, Trophy, Target, Zap, Swords, Users, Star } from "lucide-react";
 import { LEVELS } from "@/utils/levels";
+import { getCategoryLabel, getTopicColor } from "@/lib/categories";
+import ModalPortal from "./ModalPortal";
+import LoadingDots from "./LoadingDots";
+
+type InboxPerson = { username: string; avatar?: string; countryFlag?: string; isBot?: boolean } | null;
+type InboxItem = { id: string; person: InboxPerson; topic: string; wager: number; rounds: number; kind: "challenge" | "turn" };
 
 export interface WelcomeBackRankChange {
   from: number;
@@ -10,7 +17,7 @@ export interface WelcomeBackRankChange {
 }
 
 export interface WhileAwayEvent {
-  type: "overtook" | "points" | "battle" | "newPlayers" | "challenge" | "community" | "winner" | "battles" | "topBattler" | "streak" | "level" | "motivation";
+  type: "overtook" | "passed" | "yourDay" | "points" | "battle" | "newPlayers" | "challenge" | "community" | "winner" | "battles" | "topBattler" | "streak" | "level" | "motivation";
   icon?: string;
   avatar?: string;
   text: string;
@@ -46,6 +53,7 @@ interface WelcomeBackModalProps {
   onClaimDailyReward?: () => void;
   onGoToBattles?: () => void;
   isDesktop?: boolean;
+  userId?: string; // desktop: loads the battle inbox (who challenged you, where it's your turn)
 }
 
 export default function WelcomeBackModal({
@@ -76,8 +84,27 @@ export default function WelcomeBackModal({
   onClaimDailyReward,
   onGoToBattles,
   isDesktop = false,
+  userId,
 }: WelcomeBackModalProps) {
   const hasBattleAlerts = pendingChallengeCount > 0 || activeBattleCount > 0;
+
+  const [inbox, setInbox] = useState<InboxItem[] | null>(null);
+  useEffect(() => {
+    if (!isOpen || !isDesktop || !userId) return;
+    let cancelled = false;
+    fetch(`/api/battles?userId=${userId}&countOnly=true&details=true`)
+      .then(r => r.json())
+      .then(d => {
+        if (cancelled) return;
+        if (!d.success) { setInbox([]); return; }
+        setInbox([
+          ...(d.challenges || []).map((c: any) => ({ id: c.id, person: c.from, topic: c.topic, wager: c.wager, rounds: c.rounds, kind: "challenge" as const })),
+          ...(d.yourTurn || []).map((c: any) => ({ id: c.id, person: c.vs, topic: c.topic, wager: c.wager, rounds: c.rounds, kind: "turn" as const })),
+        ]);
+      })
+      .catch(() => { if (!cancelled) setInbox([]); });
+    return () => { cancelled = true; };
+  }, [isOpen, isDesktop, userId]);
   const progressToNext = pointsToNextRank > 0 ? Math.min(100, Math.round((pointsToday / pointsToNextRank) * 100)) : 0;
 
   // Format points nicely: 2,460 or 9.48 (max 2 decimals)
@@ -92,83 +119,34 @@ export default function WelcomeBackModal({
   const levelColor = LEVELS[level - 1]?.color || '#E36B11';
   const nextLevelName = level < LEVELS.length ? LEVELS[level]?.name : null;
 
-  // Build display events - ensure we always have enough content
+  // Player events from the server first (yesterday's winner, overtakes, your
+  // battles...). Rank change and today's net are added because the rank card
+  // does not show them. The rank / total / level lines repeat what the card
+  // above already shows, so they are only a fallback for an empty list.
   const displayEvents: WhileAwayEvent[] = [...whileAwayEvents];
-  
-  // Always add these baseline events if not already present
-  if (!displayEvents.some(e => e.type === 'community') && totalPlayers > 0) {
-    displayEvents.push({
-      type: 'community',
-      text: `You're ranked #${currentRank}`,
-      highlight: `of ${totalPlayers} players`,
+  if (rankChange && rankChange.direction !== 'same') {
+    const up = rankChange.direction === 'up';
+    displayEvents.unshift({
+      type: 'overtook',
+      text: up ? `You moved up to #${rankChange.to}` : `You dropped to #${rankChange.to}`,
+      highlight: `${Math.abs(rankChange.from - rankChange.to)} place${Math.abs(rankChange.from - rankChange.to) === 1 ? '' : 's'}`,
     });
   }
-  
-  // Points collected
-  if (!displayEvents.some(e => e.text.includes('BOGX'))) {
-    displayEvents.push({
-      type: 'points',
-      text: `${formatPoints(totalPoints)} BOGX collected`,
-      highlight: 'total',
-    });
+  if (pointsToday !== 0) {
+    displayEvents.push({ type: 'points', text: 'Today so far', highlight: `${pointsToday > 0 ? '+' : ''}${formatPoints(pointsToday)} BOGX` });
   }
-  
-  // Level info
-  if (!displayEvents.some(e => e.type === 'level')) {
-    displayEvents.push({
-      type: 'level',
-      text: `Level ${level}: ${levelName}`,
-      highlight: nextLevelName ? `Next: ${nextLevelName}` : 'Max level!',
-    });
-  }
-  
-  // Streak
-  if (streak > 0 && !displayEvents.some(e => e.type === 'streak')) {
-    displayEvents.push({
-      type: 'streak',
-      text: `${streak}-day streak active`,
-      highlight: 'Keep going!',
-    });
-  }
-  
-  // Points to next rank
-  if (pointsToNextRank > 0 && currentRank && currentRank > 1) {
-    displayEvents.push({
-      type: 'points',
-      text: `${formatPoints(pointsToNextRank)} BOGX to rank`,
-      highlight: `#${currentRank - 1}`,
-    });
-  }
-  
-  // Points earned today
-  if (pointsToday > 0) {
-    displayEvents.push({
-      type: 'points',
-      text: `+${formatPoints(pointsToday)} BOGX`,
-      highlight: 'earned today',
-    });
-  }
-  
-  // Rank change info
-  if (rankChange) {
-    if (rankChange.direction === 'up') {
-      displayEvents.push({
-        type: 'overtook',
-        text: `You moved up`,
-        highlight: `${rankChange.from - rankChange.to} positions!`,
-      });
-    } else if (rankChange.direction === 'down') {
-      displayEvents.push({
-        type: 'overtook',
-        text: `You dropped`,
-        highlight: `${rankChange.to - rankChange.from} positions`,
-      });
+  if (displayEvents.length === 0) {
+    if (totalPlayers > 0) displayEvents.push({ type: 'community', text: `You're ranked #${currentRank}`, highlight: `of ${totalPlayers} players` });
+    displayEvents.push({ type: 'level', text: `Level ${level}: ${levelName}`, highlight: nextLevelName ? `Next: ${nextLevelName}` : 'Max level!' });
+    if (pointsToNextRank > 0 && currentRank && currentRank > 1) {
+      displayEvents.push({ type: 'points', text: `${formatPoints(pointsToNextRank)} BOGX to rank`, highlight: `#${currentRank - 1}` });
     }
   }
 
   // Desktop Layout
   if (isDesktop) {
     return (
+      <ModalPortal>
       <div className="fixed inset-0 z-[200] flex items-center justify-center p-8">
         <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={onClose} />
         <div className="relative w-full max-w-5xl bg-cream rounded-3xl shadow-2xl overflow-hidden border border-warm">
@@ -194,15 +172,70 @@ export default function WelcomeBackModal({
               </div>
 
               {/* Welcome Text */}
-              <div className="relative z-10 flex-1">
+              <div className="relative z-10">
                 <p className="text-white/70 text-sm uppercase tracking-wider mb-1">Good to have you back</p>
-                <h1 className="font-display text-4xl text-white leading-tight mb-2">
+                <h1 className="font-display text-4xl text-white leading-tight">
                   Welcome back,<br />
                   <span className="text-5xl">{username}!</span>
                 </h1>
-                <p className="text-white/80 text-sm mt-4 leading-relaxed">
-                  Ready to compete, improve and climb the ranks? Let's continue where you left off.
-                </p>
+              </div>
+
+              {/* Battle inbox - who challenged you, where it's your turn */}
+              <div className="relative z-10 flex-1 mt-6 flex flex-col min-h-0">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="flex items-center gap-1.5 text-white/80 text-[11px] font-display tracking-widest uppercase">
+                    <Swords className="w-3.5 h-3.5" /> Battle inbox
+                  </span>
+                  {pendingChallengeCount + activeBattleCount > 0 && (
+                    <span className="text-white/70 text-[11px]">
+                      {pendingChallengeCount > 0 && `${pendingChallengeCount} challenge${pendingChallengeCount === 1 ? '' : 's'}`}
+                      {pendingChallengeCount > 0 && activeBattleCount > 0 && ' · '}
+                      {activeBattleCount > 0 && `${activeBattleCount} active`}
+                    </span>
+                  )}
+                </div>
+                {inbox === null ? (
+                  <div className="flex-1 flex items-center justify-center rounded-xl bg-white/10 border border-white/15"><LoadingDots className="text-white" /></div>
+                ) : inbox.length === 0 ? (
+                  <button
+                    onClick={() => { onGoToBattles?.(); onClose(); }}
+                    className="flex-1 rounded-xl bg-white/10 border border-dashed border-white/30 p-4 text-left hover:bg-white/15 transition-colors"
+                  >
+                    <p className="text-white text-sm font-semibold">Nobody's called you out. Yet.</p>
+                    <p className="text-white/70 text-xs mt-1 leading-relaxed">No challenges waiting and no battle on your turn. Throw down the first one →</p>
+                  </button>
+                ) : (
+                  <div className="space-y-1.5 overflow-y-auto pr-1" style={{ scrollbarWidth: 'none' }}>
+                    {inbox.slice(0, 4).map(item => (
+                      <button
+                        key={item.id}
+                        onClick={() => { onGoToBattles?.(); onClose(); }}
+                        className="w-full flex items-center gap-2.5 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 px-2.5 py-2 text-left transition-colors"
+                      >
+                        <div className="w-8 h-8 rounded-full overflow-hidden bg-white/30 flex-shrink-0 border border-white/40">
+                          {item.person?.avatar
+                            ? <img src={item.person.avatar} alt="" className="w-full h-full object-cover" />
+                            : <span className="w-full h-full flex items-center justify-center text-white font-display">{item.person?.username?.[0] || '?'}</span>}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white text-xs leading-tight truncate">
+                            <span className="font-semibold">{item.person?.username || 'Someone'}</span>
+                            {item.kind === 'challenge' ? ' challenged you' : ' — your turn'}
+                          </p>
+                          <p className="flex items-center gap-1.5 mt-0.5 text-[10px] text-white/75">
+                            <span className="px-1 py-px rounded text-white" style={{ backgroundColor: getTopicColor(item.topic) }}>{getCategoryLabel(item.topic)}</span>
+                            {item.rounds} rounds
+                          </p>
+                        </div>
+                        <span className="flex items-center gap-1 text-white font-display text-sm flex-shrink-0">
+                          {item.wager.toFixed(2)}
+                          <img src="/images/bogxcoin.png" alt="" className="w-3.5 h-3.5" />
+                        </span>
+                      </button>
+                    ))}
+                    {inbox.length > 4 && <p className="text-white/70 text-[11px] text-center pt-1">+{inbox.length - 4} more in QuizzBattle</p>}
+                  </div>
+                )}
               </div>
 
               {/* CTA Button - moved here */}
@@ -394,29 +427,10 @@ export default function WelcomeBackModal({
                 </div>
               </div>
 
-              {/* Battle Alerts - compact */}
-              {hasBattleAlerts && (
-                <button
-                  onClick={() => { onGoToBattles?.(); onClose(); }}
-                  className="mt-3 w-full rounded-lg bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a] border border-[#E36B11]/40 px-3 py-2 flex items-center gap-3 hover:border-[#E36B11] transition-all group"
-                >
-                  <div className="relative flex-shrink-0">
-                    <Swords className="w-5 h-5 text-[#E36B11]" />
-                    <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 px-0.5 bg-red-500 rounded-full flex items-center justify-center text-white text-[8px] font-bold animate-pulse">
-                      {pendingChallengeCount + activeBattleCount}
-                    </span>
-                  </div>
-                  <p className="flex-1 text-left text-xs text-white">
-                    {pendingChallengeCount > 0 && `${pendingChallengeCount} challenge${pendingChallengeCount > 1 ? 's' : ''}`}
-                    {pendingChallengeCount > 0 && activeBattleCount > 0 && ' · '}
-                    {activeBattleCount > 0 && `${activeBattleCount} active`}
-                    <span className="text-[#E36B11] ml-1">→</span>
-                  </p>
-                </button>
-              )}
+              {/* Battle alerts moved to the battle inbox in the left column */}
 
               {/* Leader Info - compact */}
-              {!hasBattleAlerts && currentLeader && currentLeader !== username && (
+              {currentLeader && currentLeader !== username && (
                 <div className="mt-3 rounded-lg bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200/50 px-3 py-2 flex items-center gap-2">
                   <span className="text-sm">👑</span>
                   <p className="text-xs text-gray-700"><span className="font-semibold text-[#E36B11]">{currentLeader}</span> leads today</p>
@@ -434,11 +448,13 @@ export default function WelcomeBackModal({
           </div>
         </div>
       </div>
+      </ModalPortal>
     );
   }
 
   // Mobile Layout (original)
   return (
+    <ModalPortal>
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-md" />
       <div className="relative w-full max-w-lg bg-cream rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col border border-warm">
@@ -688,5 +704,6 @@ export default function WelcomeBackModal({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

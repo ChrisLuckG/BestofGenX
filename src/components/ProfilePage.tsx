@@ -2,12 +2,12 @@
 
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Camera, Edit2, Trophy, Coins, Target, LogOut, Lock, ChevronRight, User, Eye, EyeOff, X, Globe, FileText, Shield, HelpCircle, Phone, Check, Mail, Building, Bell, Share2, Upload, ArrowUp } from "lucide-react";
+import { Camera, Edit2, Trophy, Coins, Target, LogOut, Lock, ChevronRight, User, Eye, EyeOff, X, FileText, Shield, HelpCircle, Phone, Check, Mail, Building, Share2, Upload, Swords } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import PushNotifications from "./PushNotifications";
 import InviteModal from "./InviteModal";
 import CountryFlag from "./CountryFlag";
 import LogoutModal from "./LogoutModal";
+import LoadingDots from "./LoadingDots";
 import { formatCurrency, getCurrencySymbol } from "@/utils/currency";
 import { COUNTRIES } from "@/utils/countries";
 import { ProfileSkeleton } from "@/components/desktop/DesktopSkeletons";
@@ -64,12 +64,34 @@ interface ProfilePageProps {
   coins: number;
 }
 
+function AccountRow({ icon, label, value, onClick, href, danger }: {
+  icon: React.ReactNode; label: string; value?: string; onClick?: () => void; href?: string; danger?: boolean;
+}) {
+  const className = `w-full flex items-center justify-between px-4 py-3.5 transition-colors ${danger ? 'hover:bg-red-50' : 'hover:bg-[#E36B11]/5'}`;
+  const content = (
+    <>
+      <span className="flex items-center gap-3">
+        <span className="w-8 h-8 rounded-lg bg-white/70 border border-warm/60 flex items-center justify-center">{icon}</span>
+        <span className={`text-xl font-display tracking-wide ${danger ? 'text-red-500' : 'text-gray-900'}`}>{label}</span>
+      </span>
+      {!danger && (
+        <span className="flex items-center gap-1 text-sm text-gray-600">
+          {value && <span>{value}</span>}
+          <ChevronRight className="w-4 h-4 text-gray-400" />
+        </span>
+      )}
+    </>
+  );
+  return href
+    ? <a href={href} className={className}>{content}</a>
+    : <button onClick={onClick} className={className}>{content}</button>;
+}
+
 export default function ProfilePage({ coins }: ProfilePageProps) {
   const { user, isLoggedIn, logout, updateUser } = useAuth();
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [newUsername, setNewUsername] = useState(user?.username || "");
   
@@ -184,6 +206,25 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
       .catch(() => {});
   }, [user?.id]);
 
+  // QuizzBattle record - loaded when the Stats card is first opened
+  const [battleStats, setBattleStats] = useState<{
+    played: number; wins: number; losses: number; draws: number; winRate: number | null; net: number; biggestWin: number;
+    accuracy: number | null; avgAnswerSec: number | null; streak: { type: 'W' | 'L' | 'D'; count: number } | null; bestStreak: number;
+    topics: { key: string; label: string; played: number; wins: number; winRate: number }[];
+    rivals: { id: string; username: string; avatar: string | null; isBot: boolean; played: number; wins: number; losses: number; draws: number; net: number }[];
+  } | null>(null);
+
+  // Author earnings per article - loaded on first expand only
+  const [authorExpanded, setAuthorExpanded] = useState(false);
+  const [authorArticles, setAuthorArticles] = useState<{ id: string; title: string; reads: number; earned: number }[] | null>(null);
+  useEffect(() => {
+    if (!authorExpanded || authorArticles || !user?.id) return;
+    fetch(`/api/user/author-articles?userId=${user.id}`)
+      .then(res => res.json())
+      .then(data => setAuthorArticles(data.success ? data.articles : []))
+      .catch(() => setAuthorArticles([]));
+  }, [authorExpanded, authorArticles, user?.id]);
+
   // How the user earned their BOGX, derived server-side from the GameResult ledger
   const [earningsExpanded, setEarningsExpanded] = useState(false);
   const [earnings, setEarnings] = useState<{
@@ -218,6 +259,13 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
   const [categoryStrengths, setCategoryStrengths] = useState<{ name: string; key: string; correct: number; total: number; pct: number }[]>([]);
   const [categoryStrengthsLoading, setCategoryStrengthsLoading] = useState(false);
   const [categoryStrengthsExpanded, setCategoryStrengthsExpanded] = useState(false);
+  useEffect(() => {
+    if (!categoryStrengthsExpanded || battleStats || !user?.id) return;
+    fetch(`/api/user/battle-stats?userId=${user.id}`)
+      .then(res => res.json())
+      .then(data => { if (data.success) setBattleStats(data); })
+      .catch(() => {});
+  }, [categoryStrengthsExpanded, battleStats, user?.id]);
 
   useEffect(() => {
     if (!user?.id || !categoryStrengthsExpanded || categoryStrengths.length > 0) return;
@@ -424,78 +472,99 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
                     <button onClick={() => setIsEditing(false)} className="px-2 py-0.5 bg-cream rounded text-gray-600 text-xs">Cancel</button>
                   </div>
                 ) : (
-                  <h2 className="text-lg font-display font-black text-gray-900 truncate">{user.username}</h2>
+                  <h2 className="text-xl lg:text-2xl font-display text-gray-900 truncate">{user.username}</h2>
                 )}
-                <div className="flex items-center gap-1 mt-0.5">
+                <div className="flex items-center gap-1.5 mt-0.5">
                   <CountryFlag flag={user.countryFlag || 'DE'} className="w-4 h-3 rounded-[2px]" />
                   {/* text-gray-500 at 12px read as barely-there on this card's pale
                       cream/orange-wash background - text-gray-700 actually reads. */}
-                  <span className="text-xs text-gray-700">{user.country || 'World'}</span>
+                  <span className="text-sm text-gray-700">{user.country || 'World'}</span>
                 </div>
               </div>
               
-              {/* BOGX Balance - prominent on right */}
-              <div className="flex items-center gap-1.5 pb-0.5">
-                <img src="/images/bogxcoin.png" alt="" className="w-6 h-6" />
+              {/* BOGX Balance - prominent on right, in a subtle container so it doesn't float */}
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/60 border border-warm/40">
+                <img src="/images/bogxcoin.png" alt="" className="w-7 h-7 lg:w-8 lg:h-8" />
                 <div className="text-right">
-                  <span className="text-xl font-display font-black text-[#E36B11]">{formatCurrency(animatedCoins)}</span>
-                  <div className="text-[8px] font-display font-bold tracking-widest uppercase text-gray-600">BOGX</div>
+                  <span className="text-2xl lg:text-3xl font-display text-[#E36B11] leading-none">{formatCurrency(animatedCoins)}</span>
+                  <div className="text-[11px] font-display tracking-widest uppercase text-gray-600">BOGX</div>
                 </div>
               </div>
             </div>
 
-            {/* Rankings Row - Daily / Monthly / Annually */}
+            {/* Rankings Row - Daily / Monthly / Annually. No arrows: the profile has no
+                previous rank to compare against, so any arrow here would be decoration. */}
             <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-warm/50">
-              <div className="text-center">
-                <div className="text-sm font-display font-bold uppercase tracking-wide text-gray-900">Daily</div>
-                <div className="flex items-center justify-center gap-1">
-                  {dailyRank && <ArrowUp className="w-4 h-4 text-green-500" />}
-                  <span className="text-xl font-display font-black text-gray-900 leading-tight">
-                    {dailyRank ? `#${dailyRank}` : '—'}
-                  </span>
+              {([
+                ['Daily', dailyRank, dailyPoints],
+                ['Monthly', monthlyRank, monthlyPoints],
+                ['Annually', annuallyRank, annuallyPoints],
+              ] as const).map(([label, rank, points], i) => (
+                <div key={label} className={`text-center ${i === 1 ? 'border-x border-warm/50' : ''}`}>
+                  <div className="text-[13px] lg:text-sm font-display uppercase tracking-wider text-gray-600">{label}</div>
+                  <div className="text-3xl lg:text-4xl font-display text-gray-900 leading-tight">
+                    {rank ? `#${rank}` : '—'}
+                  </div>
+                  {points > 0 && (
+                    <div className="text-sm lg:text-base font-display text-green-600">+{formatCurrency(points)}</div>
+                  )}
                 </div>
-                {dailyPoints > 0 && (
-                  <div className="text-xs font-display text-green-600 font-semibold">+{formatCurrency(dailyPoints)}</div>
-                )}
-              </div>
-              <div className="text-center border-x border-warm/50">
-                <div className="text-sm font-display font-bold uppercase tracking-wide text-gray-900">Monthly</div>
-                <div className="flex items-center justify-center gap-1">
-                  {monthlyRank && <ArrowUp className="w-4 h-4 text-green-500" />}
-                  <span className="text-xl font-display font-black text-gray-900 leading-tight">
-                    {monthlyRank ? `#${monthlyRank}` : '—'}
-                  </span>
-                </div>
-                {monthlyPoints > 0 && (
-                  <div className="text-xs font-display text-green-600 font-semibold">+{formatCurrency(monthlyPoints)}</div>
-                )}
-              </div>
-              <div className="text-center">
-                <div className="text-sm font-display font-bold uppercase tracking-wide text-gray-900">Annually</div>
-                <div className="flex items-center justify-center gap-1">
-                  {annuallyRank && <ArrowUp className="w-4 h-4 text-green-500" />}
-                  <span className="text-xl font-display font-black text-gray-900 leading-tight">
-                    {annuallyRank ? `#${annuallyRank}` : '—'}
-                  </span>
-                </div>
-                {annuallyPoints > 0 && (
-                  <div className="text-xs font-display text-green-600 font-semibold">+{formatCurrency(annuallyPoints)}</div>
-                )}
-              </div>
+              ))}
             </div>
+
+            {/* Author earnings - only for authors/admins, expands to the articles behind it */}
+            {(user.isAuthor || user.isAdmin) && (
+              <div className="mt-4 pt-3 border-t border-warm/50">
+                <button onClick={() => setAuthorExpanded(v => !v)} className="w-full flex items-center justify-between text-left">
+                  <span className="flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-gray-900" />
+                    <span className="text-xl font-display tracking-wide text-gray-900">Author earnings</span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="text-2xl font-display text-gray-900 leading-none">{formatCurrency(user.authorEarnings || 0)}</span>
+                    <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${authorExpanded ? 'rotate-90' : ''}`} />
+                  </span>
+                </button>
+                {authorExpanded && (
+                  <div className="mt-2 animate-lv-fade-up">
+                    {!authorArticles ? (
+                      <div className="py-3 flex justify-center"><LoadingDots /></div>
+                    ) : authorArticles.length === 0 ? (
+                      <div className="py-3 text-center text-sm text-gray-500">No published articles yet</div>
+                    ) : (
+                      <>
+                        <div className="divide-y divide-warm/30">
+                          {authorArticles.map(a => (
+                            <div key={a.id} className="flex items-center gap-3 py-2">
+                              <span className="text-sm text-gray-700 flex-1 truncate">{a.title}</span>
+                              <span className="text-xs text-gray-500 tabular-nums whitespace-nowrap">{a.reads} {a.reads === 1 ? 'read' : 'reads'}</span>
+                              <span className={`text-base font-display tabular-nums min-w-[52px] text-right ${a.earned > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                                {a.earned > 0 ? '+' : ''}{formatCurrency(a.earned)}
+                              </span>
+                            </div>
+                          ))}
+                          {(() => {
+                            // Only one running total is stored; reads by since-deleted
+                            // accounts or of deleted articles can't be traced any more.
+                            const untraced = Math.round(((user.authorEarnings || 0) - authorArticles.reduce((s, a) => s + a.earned, 0)) * 100) / 100;
+                            return untraced >= 0.01 && (
+                              <div className="flex items-center gap-3 py-2">
+                                <span className="text-sm text-gray-500 italic flex-1 truncate">Earlier reads (deleted articles or accounts)</span>
+                                <span className="text-base font-display tabular-nums min-w-[52px] text-right text-green-600">+{formatCurrency(untraced)}</span>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                        <p className="mt-2 text-xs text-gray-500">You get 0,02 BOGX for every member who reads one of your articles for the first time.</p>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Author Earnings - only for authors/admins */}
-        {(user?.isAuthor || user?.isAdmin) && (
-          <div className="mx-4 mt-3 bg-cream rounded-2xl shadow-sm border border-warm p-3">
-            <div className="flex items-center justify-center gap-2">
-              <FileText className="w-4 h-4 text-gray-900" />
-              <span className="font-display text-xl text-gray-900">{formatCurrency(user.authorEarnings || 0)}</span>
-              <span className="text-[8px] font-display font-semibold tracking-widest uppercase text-gray-600">AUTHOR EARNINGS</span>
-            </div>
-          </div>
-        )}
 
         {/* BOGX Breakdown Card - collapsible, how the user earned their coins.
             The card is ALWAYS rendered so the layout never jumps: while loading it
@@ -505,8 +574,8 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
             onClick={() => setEarningsExpanded(prev => !prev)}
             className="w-full flex items-center justify-between text-left"
           >
-            <div className="text-sm font-display font-medium text-gray-900 flex items-center gap-1.5">
-              <img src="/images/bogxcoin.png" alt="BOGX" className="w-4 h-4" /> How You Earned Your BOGX
+            <div className="text-xl font-display tracking-wide text-gray-900 flex items-center gap-2">
+              <img src="/images/bogxcoin.png" alt="BOGX" className="w-5 h-5" /> How You Earned Your BOGX
             </div>
             <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${earningsExpanded ? 'rotate-90' : ''}`} />
           </button>
@@ -532,10 +601,10 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
             <div className="divide-y divide-warm/30">
               {earnings.breakdown.map(item => (
                 <div key={item.key} className="flex items-center gap-2 py-2">
-                  <span className="text-sm leading-none w-4 text-center">{item.icon}</span>
-                  <span className="text-xs text-gray-700 flex-1 truncate">{item.label}</span>
-                  {item.count > 0 && <span className="text-[10px] text-gray-400 tabular-nums">{item.count}x</span>}
-                  <span className={`text-xs font-bold tabular-nums min-w-[50px] text-right ${item.total < 0 ? 'text-red-500' : 'text-green-600'}`}>
+                  <span className="text-base leading-none w-5 text-center">{item.icon}</span>
+                  <span className="text-sm text-gray-700 flex-1 truncate">{item.label}</span>
+                  {item.count > 0 && <span className="text-xs text-gray-500 tabular-nums">{item.count}x</span>}
+                  <span className={`text-base font-display tabular-nums min-w-[60px] text-right ${item.total < 0 ? 'text-red-500' : 'text-green-600'}`}>
                     {item.total > 0 ? '+' : ''}{formatCurrency(item.total)}
                   </span>
                 </div>
@@ -544,13 +613,13 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
 
             {/* Summary row - compact */}
             <div className="flex items-center justify-between mt-2 pt-2 border-t border-warm/50">
-              <div className="flex items-center gap-3 text-[10px] tabular-nums">
-                <span className="text-green-600 font-semibold">+{formatCurrency(earnings.totalEarned)}</span>
+              <div className="flex items-center gap-3 text-sm font-display tabular-nums">
+                <span className="text-green-600">+{formatCurrency(earnings.totalEarned)}</span>
                 {earnings.totalSpent > 0 && (
-                  <span className="text-red-500 font-semibold">-{formatCurrency(earnings.totalSpent)}</span>
+                  <span className="text-red-500">-{formatCurrency(earnings.totalSpent)}</span>
                 )}
               </div>
-              <span className="text-sm font-bold text-gray-900 tabular-nums">
+              <span className="text-lg font-display text-gray-900 tabular-nums">
                 {formatCurrency(earnings.wallet)} {getCurrencySymbol()}
               </span>
             </div>
@@ -564,8 +633,8 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
             onClick={() => setCategoryStrengthsExpanded(prev => !prev)}
             className="w-full flex items-center justify-between text-left"
           >
-            <div className="text-sm font-display font-medium text-gray-900 flex items-center gap-1.5">
-              <Target className="w-4 h-4" /> Stats
+            <div className="text-xl font-display tracking-wide text-gray-900 flex items-center gap-2">
+              <Target className="w-5 h-5" /> Stats
             </div>
             <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${categoryStrengthsExpanded ? 'rotate-90' : ''}`} />
           </button>
@@ -575,20 +644,21 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
               {/* Quick Stats Row */}
               <div className="grid grid-cols-3 gap-2 pb-3 mb-3 border-b border-warm/50">
                 <div className="text-center">
-                  <span className="font-display text-lg text-gray-900 block">{animatedWins}</span>
-                  <span className="text-[8px] font-semibold tracking-widest uppercase text-gray-500">Wins</span>
+                  <span className="font-display text-2xl lg:text-3xl text-gray-900 block leading-tight">{animatedWins}</span>
+                  <span className="text-[11px] font-display tracking-widest uppercase text-gray-600">Wins</span>
                 </div>
                 <div className="text-center border-x border-warm/50">
-                  <span className="font-display text-lg text-gray-900 block">{animatedWinRate}%</span>
-                  <span className="text-[8px] font-semibold tracking-widest uppercase text-gray-500">Accuracy</span>
+                  <span className="font-display text-2xl lg:text-3xl text-gray-900 block leading-tight">{animatedWinRate}%</span>
+                  <span className="text-[11px] font-display tracking-widest uppercase text-gray-600">Accuracy</span>
                 </div>
                 <div className="text-center">
-                  <span className="font-display text-lg text-gray-900 block">{animatedGames}</span>
-                  <span className="text-[8px] font-semibold tracking-widest uppercase text-gray-500">Games</span>
+                  <span className="font-display text-2xl lg:text-3xl text-gray-900 block leading-tight">{animatedGames}</span>
+                  <span className="text-[11px] font-display tracking-widest uppercase text-gray-600">Games</span>
                 </div>
               </div>
 
               {/* Category Strengths */}
+              <div className="text-sm font-display tracking-wider uppercase text-gray-600 mb-2">Trivia by category</div>
               <div className="space-y-2.5">
                 {categoryStrengthsLoading ? (
                   <>
@@ -609,114 +679,126 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
                 ) : (
                   categoryStrengths.map(cat => (
                     <div key={cat.key} className="flex items-center gap-3">
-                      <span className="text-xs font-semibold tracking-wide uppercase text-gray-700 min-w-[64px]">{cat.name}</span>
-                      <div className="flex-1 h-[6px] bg-cream rounded-full overflow-hidden">
+                      <span className="text-sm font-display tracking-wide uppercase text-gray-700 min-w-[80px]">{cat.name}</span>
+                      <div className="flex-1 h-2 bg-warm/40 rounded-full overflow-hidden">
                         <div className="h-full bg-gradient-to-r from-[#E36B11] to-[#FFB800] rounded-full transition-all duration-700" style={{ width: `${cat.pct}%` }} />
                       </div>
-                      <span className="text-[11px] font-bold text-gray-700 min-w-[36px] text-right">{cat.pct}%</span>
-                      <span className="text-[9px] text-gray-400 min-w-[40px] text-right">{cat.correct}/{cat.total}</span>
+                      <span className="text-base font-display text-gray-900 min-w-[40px] text-right">{cat.pct}%</span>
+                      <span className="text-xs text-gray-500 min-w-[44px] text-right tabular-nums">{cat.correct}/{cat.total}</span>
                     </div>
                   ))
+                )}
+              </div>
+
+              {/* QuizzBattle record */}
+              <div className="mt-5 pt-4 border-t border-warm/50">
+                <div className="flex items-center gap-2 text-sm font-display tracking-wider uppercase text-gray-600 mb-3">
+                  <Swords className="w-4 h-4" /> QuizzBattle
+                </div>
+                {!battleStats ? (
+                  <div className="py-4 flex justify-center"><LoadingDots /></div>
+                ) : battleStats.played === 0 ? (
+                  <div className="py-3 text-center text-sm text-gray-500">No battles yet. Go pick a fight.</div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {[
+                        { label: 'Record', value: `${battleStats.wins}–${battleStats.losses}${battleStats.draws ? `–${battleStats.draws}` : ''}`, cls: 'text-gray-900' },
+                        { label: 'Win rate', value: battleStats.winRate != null ? `${battleStats.winRate}%` : '—', cls: 'text-gray-900' },
+                        { label: 'Net BOGX', value: `${battleStats.net > 0 ? '+' : ''}${formatCurrency(battleStats.net)}`, cls: battleStats.net < 0 ? 'text-red-500' : battleStats.net > 0 ? 'text-green-600' : 'text-gray-900' },
+                        { label: 'Streak', value: battleStats.streak ? `${battleStats.streak.count}${battleStats.streak.type}` : '—', cls: battleStats.streak?.type === 'W' ? 'text-green-600' : battleStats.streak?.type === 'L' ? 'text-red-500' : 'text-gray-900' },
+                        { label: 'Best win run', value: String(battleStats.bestStreak), cls: 'text-gray-900' },
+                        { label: 'Accuracy', value: battleStats.accuracy != null ? `${battleStats.accuracy}%` : '—', cls: 'text-gray-900' },
+                        { label: 'Avg answer', value: battleStats.avgAnswerSec != null ? `${battleStats.avgAnswerSec.toLocaleString('de-DE')}s` : '—', cls: 'text-gray-900' },
+                        { label: 'Biggest win', value: battleStats.biggestWin > 0 ? `+${formatCurrency(battleStats.biggestWin)}` : '—', cls: battleStats.biggestWin > 0 ? 'text-green-600' : 'text-gray-900' },
+                      ].map(s => (
+                        <div key={s.label} className="bg-white/60 border border-warm/60 rounded-xl px-2 py-2.5 text-center">
+                          <div className={`font-display text-2xl leading-tight tabular-nums ${s.cls}`}>{s.value}</div>
+                          <div className="text-[11px] font-display tracking-widest uppercase text-gray-600">{s.label}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {battleStats.topics.length > 0 && (
+                      <>
+                        <div className="text-sm font-display tracking-wider uppercase text-gray-600 mt-4 mb-2">Battle win rate by topic</div>
+                        <div className="space-y-2.5">
+                          {battleStats.topics.map(t => (
+                            <div key={t.key} className="flex items-center gap-3">
+                              <span className="text-sm font-display tracking-wide uppercase text-gray-700 min-w-[80px]">{t.label}</span>
+                              <div className="flex-1 h-2 bg-warm/40 rounded-full overflow-hidden">
+                                <div className="h-full bg-gradient-to-r from-[#E36B11] to-[#FFB800] rounded-full transition-all duration-700" style={{ width: `${t.winRate}%` }} />
+                              </div>
+                              <span className="text-base font-display text-gray-900 min-w-[40px] text-right">{t.winRate}%</span>
+                              <span className="text-xs text-gray-500 min-w-[44px] text-right tabular-nums">{t.wins}/{t.played}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+
+                    {battleStats.rivals.length > 0 && (
+                      <>
+                        <div className="text-sm font-display tracking-wider uppercase text-gray-600 mt-4 mb-1">Most played rivals</div>
+                        <div className="divide-y divide-warm/30">
+                          {battleStats.rivals.map(r => (
+                            <div key={r.id} className="flex items-center gap-3 py-2">
+                              <img src={r.avatar || `https://i.pravatar.cc/100?u=${r.id}`} alt="" className="w-8 h-8 rounded-full object-cover border border-warm" />
+                              <span className="flex-1 min-w-0 flex items-center gap-2">
+                                <span className="text-lg font-display tracking-wide text-gray-900 truncate">{r.username}</span>
+                                {r.isBot && <span className="text-[10px] font-display tracking-widest uppercase text-gray-500 border border-warm rounded px-1">Bot</span>}
+                              </span>
+                              <span className="text-xs text-gray-500 tabular-nums whitespace-nowrap">{r.played} battles</span>
+                              <span className="text-lg font-display text-gray-900 tabular-nums min-w-[52px] text-right">{r.wins}–{r.losses}</span>
+                              <span className={`text-base font-display tabular-nums min-w-[52px] text-right ${r.net < 0 ? 'text-red-500' : r.net > 0 ? 'text-green-600' : 'text-gray-500'}`}>
+                                {r.net > 0 ? '+' : ''}{formatCurrency(r.net)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </>
                 )}
               </div>
             </div>
           )}
         </div>
 
-        {/* Settings Card */}
-        <div className="mx-4 mt-3 bg-cream rounded-2xl shadow-sm border border-warm overflow-hidden">
-          <div className="px-4 py-3 border-b border-warm/60">
-            <div className="text-sm font-display font-medium text-gray-900">Settings</div>
-          </div>
-          <div className="divide-y divide-warm/60">
-            <button 
-              onClick={() => setShowCountryPicker(true)}
-              className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-cream transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <CountryFlag flag={user.countryFlag || 'DE'} className="w-6 h-5 rounded-sm" />
-                <span className="text-sm font-display font-medium text-gray-900">Country</span>
-              </div>
-              <div className="flex items-center gap-1 text-xs text-gray-500">
-                <span>{user.country || 'World'}</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </div>
-            </button>
-            
-            <button 
-              onClick={() => setShowNotificationSettings(true)}
-              className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-cream transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center">
-                  <Bell className="w-4 h-4 text-gray-900" />
-                </div>
-                <span className="text-sm font-display font-medium text-gray-900">Notifications</span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
-            </button>
-            
-            <button className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-cream transition-colors">
-              <div className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center">
-                  <Globe className="w-4 h-4 text-gray-900" />
-                </div>
-                <span className="text-sm font-display font-medium text-gray-900">Language</span>
-              </div>
-              <div className="flex items-center gap-1 text-xs text-gray-500">
-                <span>EN</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </div>
-            </button>
-            
-            <button 
-              onClick={() => setShowPasswordModal(true)}
-              className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-cream transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center">
-                  <Shield className="w-4 h-4 text-gray-900" />
-                </div>
-                <span className="text-sm font-display font-medium text-gray-900">Privacy & Security</span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
-            </button>
-          </div>
-        </div>
-
-        {/* Admin Button */}
-        {user.isAdmin && (
-          <div className="mx-4 mt-3">
-            <a 
-              href="/admin"
-              className="w-full flex items-center justify-center gap-2 p-3 bg-cream border border-[#E36B11]/40 rounded-2xl shadow-sm hover:bg-[#E36B11]/5 transition-colors"
-            >
-              <Shield className="w-4 h-4 text-gray-900" />
-              <span className="text-gray-900 text-sm font-bold">Admin Panel</span>
-            </a>
-          </div>
-        )}
-
-        {/* Invite Friends Button */}
+        {/* Invite Friends - the one promo on this page, so it gets the brand colour */}
         <div className="mx-4 mt-3">
           <button
             onClick={() => setShowInviteModal(true)}
-            className="w-full flex items-center justify-center gap-2 p-3.5 bg-cream border border-warm rounded-2xl shadow-sm hover:bg-[#E36B11]/5 transition-colors"
+            className="hover-shine relative overflow-hidden w-full flex items-center justify-between gap-3 px-4 py-3.5 bg-[#E36B11] rounded-2xl shadow-sm text-white transition-transform active:scale-[0.99]"
           >
-            <Share2 className="w-4 h-4 text-gray-900" />
-            <span className="text-gray-900 text-sm font-bold">Invite friends &middot; +5.00 BOGX each</span>
+            <span className="flex items-center gap-3">
+              <Share2 className="w-5 h-5" />
+              <span className="text-lg font-display tracking-wide">Invite friends</span>
+            </span>
+            <span className="text-lg font-display tracking-wide">+5,00 BOGX each</span>
           </button>
         </div>
 
-        {/* Logout Button */}
-        <div className="mx-4 mt-3">
-          <button 
-            onClick={() => setShowLogoutModal(true)}
-            className="w-full flex items-center justify-center gap-2 p-3.5 bg-cream border border-red-200 rounded-2xl shadow-sm hover:bg-red-50 transition-colors"
-          >
-            <LogOut className="w-4 h-4 text-red-500" />
-            <span className="text-red-500 text-sm font-bold">Log out</span>
-          </button>
+        {/* Account - everything you can actually change, in one list.
+            Notifications and Language were removed: neither had a working setting
+            behind it (the app is English-only, push settings were a dead end). */}
+        <div className="mx-4 mt-3 bg-cream rounded-2xl shadow-sm border border-warm overflow-hidden">
+          <div className="px-4 py-3 border-b border-warm/60">
+            <div className="text-xl font-display tracking-wide text-gray-900">Account</div>
+          </div>
+          <div className="divide-y divide-warm/60">
+            <AccountRow
+              icon={<CountryFlag flag={user.countryFlag || 'DE'} className="w-5 h-4 rounded-sm" />}
+              label="Country"
+              value={user.country || 'World'}
+              onClick={() => setShowCountryPicker(true)}
+            />
+            <AccountRow icon={<Lock className="w-4 h-4 text-gray-900" />} label="Change password" onClick={() => setShowPasswordModal(true)} />
+            {user.isAdmin && (
+              <AccountRow icon={<Shield className="w-4 h-4 text-gray-900" />} label="Admin panel" href="/admin" />
+            )}
+            <AccountRow icon={<LogOut className="w-4 h-4 text-red-500" />} label="Log out" danger onClick={() => setShowLogoutModal(true)} />
+          </div>
         </div>
 
         {/* Spacer */}
@@ -997,12 +1079,6 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
         </div>,
         document.body
       )}
-      
-      {/* Notification Settings Modal */}
-      <PushNotifications 
-        showSettings={showNotificationSettings} 
-        onClose={() => setShowNotificationSettings(false)} 
-      />
     </div>
   );
 }

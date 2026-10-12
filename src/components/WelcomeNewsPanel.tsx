@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useRef, useState } from "react";
 import {
@@ -31,6 +31,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import CountryFlag from "@/components/CountryFlag";
 import { countryNameToCode } from "@/lib/countryFlags";
+import ModalPortal from "./ModalPortal";
 
 // ============================================================
 // The welcome page shown when the welcome notification is opened.
@@ -238,6 +239,69 @@ function SectionCard({
       </div>
       <div className="p-6">{children}</div>
     </div>
+  );
+}
+
+// Eastercorn / Noodles story. Mobile keeps its slide-in panel below the header
+// (unchanged). On desktop that panel landed see-through on top of the feed, so
+// from lg up it is a centred window over a dark backdrop instead.
+function StoryPanel({ open, onClose, title, children }: {
+  open: boolean; onClose: () => void; title: React.ReactNode; children: React.ReactNode;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
+  return (
+    <>
+      <div
+        className={`lg:hidden fixed inset-x-0 bottom-0 top-16 z-[60] transition-transform duration-300 ease-out ${
+          open ? 'translate-x-0' : 'translate-x-full pointer-events-none'
+        }`}
+        style={{ willChange: 'transform' }}
+      >
+        <div className="h-full bg-cream flex flex-col">
+          <div className="sticky top-0 z-10 px-4 py-3 flex items-center gap-3 border-b border-warm bg-cream">
+            <button onClick={onClose} className="p-2 -ml-2 rounded-full hover:bg-[#E36B11]/10 transition-colors">
+              <ArrowLeft className="w-5 h-5 text-gray-700" />
+            </button>
+            <h3 className="font-display text-lg tracking-wide text-gray-900">{title}</h3>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">{children}</div>
+        </div>
+      </div>
+
+      {open && (
+        <ModalPortal>
+          <div
+            className="hidden lg:flex fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm items-center justify-center p-6"
+            onClick={onClose}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              className="bg-cream rounded-2xl shadow-2xl border border-warm w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-6 py-4 flex items-center border-b border-warm">
+                <h3 className="font-display text-2xl tracking-wide text-gray-900">{title}</h3>
+                <button
+                  onClick={onClose}
+                  aria-label="Close"
+                  className="ml-auto w-9 h-9 rounded-full hover:bg-[#E36B11]/10 flex items-center justify-center text-gray-600 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-6">{children}</div>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+    </>
   );
 }
 
@@ -1396,28 +1460,7 @@ export default function WelcomeNewsPanel({
       </div>
 
       {/* ── EASTERCORN LETTER - Slide-in Panel ────────────────────── */}
-      <div
-        className={`fixed inset-x-0 bottom-0 top-16 z-[60] transition-transform duration-300 ease-out ${
-          letterOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
-        }`}
-        style={{ willChange: 'transform' }}
-      >
-        <div className="h-full bg-cream flex flex-col">
-          {/* Header with back button */}
-          <div className="sticky top-0 z-10 px-4 py-3 flex items-center gap-3 border-b border-warm bg-cream">
-            <button
-              onClick={() => setLetterOpen(false)}
-              className="p-2 -ml-2 rounded-full hover:bg-[#E36B11]/10 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5 text-gray-700" />
-            </button>
-            <h3 className="font-display text-lg tracking-wide text-gray-900">
-              Hi, I&rsquo;m Eastercorn
-            </h3>
-          </div>
-
-          {/* Content - scrollable */}
-          <div className="flex-1 overflow-y-auto p-4">
+      <StoryPanel open={letterOpen} onClose={() => setLetterOpen(false)} title={<>Hi, I&rsquo;m Eastercorn</>}>
               <div className="prose-body space-y-4">
                 {/* Intro text */}
                 <p>
@@ -1520,33 +1563,10 @@ export default function WelcomeNewsPanel({
                   Write to me
                 </a>
               </div>
-          </div>
-        </div>
-      </div>
+      </StoryPanel>
 
       {/* ── NOODLES INTRO - Slide-in Panel ────────────────────────── */}
-      <div
-        className={`fixed inset-x-0 bottom-0 top-16 z-[60] transition-transform duration-300 ease-out ${
-          noodlesOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
-        }`}
-        style={{ willChange: 'transform' }}
-      >
-        <div className="h-full bg-cream flex flex-col">
-          {/* Header with back button */}
-          <div className="sticky top-0 z-10 px-4 py-3 flex items-center gap-3 border-b border-warm bg-cream">
-            <button
-              onClick={() => setNoodlesOpen(false)}
-              className="p-2 -ml-2 rounded-full hover:bg-[#E36B11]/10 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5 text-gray-700" />
-            </button>
-            <h3 className="font-display text-lg tracking-wide text-gray-900">
-              Hi, I&rsquo;m Noodles
-            </h3>
-          </div>
-
-          {/* Content - scrollable */}
-          <div className="flex-1 overflow-y-auto p-4">
+      <StoryPanel open={noodlesOpen} onClose={() => setNoodlesOpen(false)} title={<>Hi, I&rsquo;m Noodles</>}>
             <div className="flex flex-col gap-4">
               {/* Portrait */}
               <div className="w-32 aspect-[4/5] rounded-xl overflow-hidden bg-[#EFE7DB] flex items-center justify-center float-left mr-4 mb-2">
@@ -1610,12 +1630,11 @@ export default function WelcomeNewsPanel({
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
+      </StoryPanel>
 
       {/* ── HUMAN WANTED INTRO ───────────────────────────────────── */}
       {wantedOpen && (
+        <ModalPortal>
         <div
           className="fixed inset-0 z-50 bg-[#5A4637]/45 flex items-center justify-center p-4"
           onClick={() => setWantedOpen(false)}
@@ -1683,6 +1702,7 @@ export default function WelcomeNewsPanel({
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
     </div>
   );

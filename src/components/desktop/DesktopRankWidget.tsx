@@ -1,8 +1,11 @@
 "use client";
 
-import { ArrowUp, ArrowDown, Lock } from "lucide-react";
+import { ArrowUp, ArrowDown, Lock, Info } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { type RankPeriod, rankUnrankedTip, rankUnrankedGuestTip, formatUnrankedValue } from "@/lib/rankPeriod";
+import ShineSweep from "@/components/ShineSweep";
+import LoadingDots from "@/components/LoadingDots";
+import { useAnimatedValue, useIntroCount, animateUnranked } from "@/hooks/useCountUp";
 
 // After an explicit animation, balance changes are its own tail (count-up ticks,
 // deferred server sync at OPTIMISTIC_WINDOW_MS 2.5s + request) - not new events.
@@ -33,66 +36,28 @@ interface DesktopRankWidgetProps {
   countdownMs?: number;    // Centiseconds (0-99) for fast timer when under 1 hour
   isLoggedIn?: boolean;    // Whether user is logged in
   onShowLogin?: () => void; // Callback to show login modal
+  isLoadingCoins?: boolean; // Balance not loaded yet - placeholder instead of 0,00
+  isLoadingRanks?: boolean; // Ranks not loaded yet - placeholder instead of "?"
 }
 
-// Direction of a rank position compared to the last value we ever saw for it.
-// Returns null if the position hasn't changed (neutral).
-function useRankDirection(label: string, value: number): 'up' | 'down' | null {
-  const storageKey = `rank-dir-${label.toLowerCase()}`;
-  const [direction, setDirection] = useState<'up' | 'down' | null>(null);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    let stored: { rank: number; dir: 'up' | 'down' | null } | null = null;
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (raw) stored = JSON.parse(raw);
-    } catch { /* ignore */ }
-
-    // Unranked (no points in this period yet) - no arrow
-    if (value <= 0) {
-      setDirection(null);
-      return;
-    }
-
-    // Lower rank number = better position.
-    // null = no change (same position)
-    let dir: 'up' | 'down' | null = null;
-    if (stored && stored.rank > 0) {
-      if (value < stored.rank) {
-        dir = 'up';
-      } else if (value > stored.rank) {
-        dir = 'down';
-      }
-      // else: same position = null (no arrow)
-    }
-    // First time seeing this rank = null (no arrow)
-
-    setDirection(dir);
-    try {
-      // Only store the rank, not the direction - direction is computed fresh each time
-      localStorage.setItem(storageKey, JSON.stringify({ rank: value }));
-    } catch { /* ignore */ }
-  }, [storageKey, value]);
-
-  return direction;
-}
-
-function RankPosition({ value, label, isActive, change, onHoverChange, points }: { value: number; label: string; isActive?: boolean; change?: 'up' | 'down' | null; onHoverChange?: (hovering: boolean) => void; points?: number }) {
+function RankPosition({ value, label, isActive, change, onHoverChange, points, loading = false }: { value: number; label: string; isActive?: boolean; change?: 'up' | 'down' | null; onHoverChange?: (hovering: boolean) => void; points?: number; loading?: boolean }) {
   const hasRank = value > 0;
   
   // Unranked: own net for the period ("-0,37" / "0,00"), "?" only when unknown
-  const formatUnranked = () => formatUnrankedValue(points);
-  const unrankedText = formatUnranked();
+  // Counts from the old to the new balance instead of jumping
+  const animatedPoints = useAnimatedValue(loading ? undefined : points);
+  const unrankedText = formatUnrankedValue(animateUnranked(points, animatedPoints));
   // A real number ("-0,48" / "0,00") is sized like a rank; only "?" stays small
   const unrankedIsValue = !hasRank && unrankedText !== '?';
   const isNegative = !hasRank && points !== undefined && points < 0 && unrankedText !== '0,00';
+  // Intro gimmick: the rank counts up once it has loaded
+  const introRank = useIntroCount(loading || !hasRank ? undefined : value, 900);
+  const shownRank = introRank === null ? value : Math.max(1, Math.round(introRank));
 
-  // A live change from the rankings hook wins, otherwise fall back to the
-  // persisted comparison so an arrow is always shown.
-  const persisted = useRankDirection(label, value);
-  const shown = change || persisted;
+  // Direction comes from the server via the rankings hook - identical on mobile.
+  // The old localStorage fallback ("last rank this browser saw") is what made
+  // desktop and phone disagree.
+  const shown = change ?? null;
 
   // Roll the digits when the position actually moves.
   const prevValueRef = useRef(value);
@@ -166,14 +131,23 @@ function RankPosition({ value, label, isActive, change, onHoverChange, points }:
                     : 'text-red-500 text-sm cursor-pointer group-hover/main:text-white group-hover/rank:scale-125'
             }`}
           >
-            {hasRank ? value.toString().padStart(2, '0') : unrankedText}
+            {loading
+              ? <span className="inline-flex items-center h-4"><LoadingDots className={isActive ? 'text-white' : 'text-[#E36B11] group-hover/main:text-white'} /></span>
+              : hasRank ? shownRank.toString().padStart(2, '0') : unrankedText}
           </span>
         </span>
         {/* text-gray-400 was nearly invisible against this widget's pale cream
             background (#FFFDF9 -> #FDF8F0) - gray-600 gives the label enough
             contrast to actually read as a label instead of disappearing next to
             the bold number above it. */}
-        <span className={`text-[9px] font-display uppercase transition-colors ${isActive ? 'text-white/60' : 'text-gray-600 group-hover/main:text-white/60'}`}>{label}</span>
+        <span className={`relative text-[9px] font-display uppercase transition-colors ${isActive ? 'text-white/60' : 'text-gray-600 group-hover/main:text-white/60'}`}>
+          {label}
+          {/* Unranked: small ⓘ after the label - hovering it explains why there
+              is no rank. Absolute, so the label stays centred under the value. */}
+          {!hasRank && !loading && (
+            <Info className={`absolute left-full top-1/2 -translate-y-1/2 ml-0.5 w-2.5 h-2.5 cursor-help ${isActive ? 'text-white/70' : 'text-gray-400 group-hover/main:text-white/70'}`} />
+          )}
+        </span>
       </div>
       {/* Mirrors the arrow slot so the value sits centred between the separators */}
       <span className="w-3 h-3 shrink-0" />
@@ -205,9 +179,14 @@ export default function DesktopRankWidget({
   breakCountdown = '',
   countdownMs = 0,
   isLoggedIn = true,
-  onShowLogin
+  onShowLogin,
+  isLoadingCoins = false,
+  isLoadingRanks = false,
 }: DesktopRankWidgetProps) {
   const active = isActive;
+  // Intro gimmick: counts up from 0 once the balance has loaded. Later changes
+  // are animated by the page (animateCoins).
+  const introCoins = useIntroCount(isLoadingCoins ? undefined : coins);
   const prevCoinsRef = useRef(coins);
   const prevWagerRef = useRef(pendingAmount);
   const [coinAnim, setCoinAnim] = useState<'up' | 'down' | null>(null);
@@ -475,6 +454,9 @@ export default function DesktopRankWidget({
         } ${wagerVisible ? 'rounded-r-none border-r-0' : ''}`}
       >
         
+        {/* Occasional subtle glint - gold on the cream card, white when it is orange */}
+        <ShineSweep rgb={active ? '255, 255, 255' : '229, 165, 90'} intensity={active ? 0.25 : 0.28} minDelayMs={9000} maxDelayMs={18000} firstDelayMs={2500} firstJitterMs={2000} />
+
         {/* Left accent */}
         <div className={`absolute left-0 top-1 bottom-1 w-0.5 rounded-full transition-all ${
           active ? 'bg-gradient-to-b from-white to-white/80' : 'bg-gradient-to-b from-[#E36B11] to-[#E5A55A] group-hover/main:from-white group-hover/main:to-white/80'
@@ -497,13 +479,17 @@ export default function DesktopRankWidget({
                 branches carried no hover variant, so green won over the base rule.
                 On orange the number goes white; direction is still carried by the coin
                 spin, the shake-vs-bounce and the ± delta above it. */}
+            {isLoadingCoins ? (
+              <span className="inline-flex items-center h-[18px] px-1"><LoadingDots className={active ? 'text-white' : 'text-[#E36B11] group-hover/main:text-white'} /></span>
+            ) : (
             <span className={`text-lg font-display tabular-nums leading-none transition-all duration-300 ${
               coinAnim === 'up' ? (active ? 'text-white' : 'text-green-600 group-hover/main:text-white') : 
               coinAnim === 'down' ? (active ? 'text-white' : 'text-red-500 group-hover/main:text-white') : 
               active ? 'text-white' : 'text-[#E36B11] group-hover/main:text-white'
             }`}>
-              {coins.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {(introCoins ?? coins).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
+            )}
             <span className={`text-[9px] font-display uppercase transition-colors ${active ? 'text-white/60' : 'text-gray-600 group-hover/main:text-white/60'}`}>Coins</span>
           </div>
         </div>
@@ -540,11 +526,11 @@ export default function DesktopRankWidget({
           ) : (
             // Normal rank positions with separators
             <>
-              <RankPosition value={dailyRank} label="Day" isActive={active} change={dailyChange} onHoverChange={(h) => setTipFor(h ? 'day' : null)} points={dailyPoints} />
+              <RankPosition value={dailyRank} label="Day" isActive={active} change={dailyChange} onHoverChange={(h) => setTipFor(h ? 'day' : null)} points={dailyPoints} loading={isLoadingRanks} />
               <div className={`w-px h-8 ${active ? 'bg-white/20' : 'bg-gray-300 group-hover/main:bg-white/20'}`} />
-              <RankPosition value={monthlyRank} label="Month" isActive={active} change={monthlyChange} onHoverChange={(h) => setTipFor(h ? 'month' : null)} points={monthlyPoints} />
+              <RankPosition value={monthlyRank} label="Month" isActive={active} change={monthlyChange} onHoverChange={(h) => setTipFor(h ? 'month' : null)} points={monthlyPoints} loading={isLoadingRanks} />
               <div className={`w-px h-8 ${active ? 'bg-white/20' : 'bg-gray-300 group-hover/main:bg-white/20'}`} />
-              <RankPosition value={yearlyRank} label="Year" isActive={active} change={yearlyChange} onHoverChange={(h) => setTipFor(h ? 'year' : null)} points={yearlyPoints} />
+              <RankPosition value={yearlyRank} label="Year" isActive={active} change={yearlyChange} onHoverChange={(h) => setTipFor(h ? 'year' : null)} points={yearlyPoints} loading={isLoadingRanks} />
             </>
           )}
         </div>

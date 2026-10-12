@@ -181,6 +181,9 @@ export default function DesktopRankingDetailPage({ poll, onBack, onOpenArticle, 
       if (!data.success) {
         console.error('Vote failed, rolling back:', data.error);
         rollback();
+      } else {
+        // After the POST: the reward is in the ledger now, so coins + rankings read it.
+        window.dispatchEvent(new CustomEvent('bogx-updated'));
       }
     } catch (e) {
       console.error('Vote failed, rolling back:', e);

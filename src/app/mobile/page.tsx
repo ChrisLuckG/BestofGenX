@@ -163,7 +163,7 @@ export default function MobilePage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showRewards, setShowRewards] = useState(false);
   // Central BOGX hook - same source of truth on Desktop AND Mobile
-  const { coins, setCoins } = useBogxCoins(user?.id);
+  const { coins, setCoins, loaded: coinsLoaded } = useBogxCoins(user?.id);
   // Pending wager indicator - global source of truth (same on mobile & desktop)
   const { hasPendingWager, pendingAmount } = usePendingWager(user?.id);
   // Live rankings for header score widget - stable date to avoid re-fetching
@@ -1859,11 +1859,15 @@ export default function MobilePage() {
         dailyRank={dailyUserEntry?.rank || 0}
         monthlyRank={monthlyUserEntry?.rank || 0}
         yearlyRank={yearlyUserEntry?.rank || 0}
+        dailyChange={dailyUserEntry?.change ?? null}
+        monthlyChange={monthlyUserEntry?.change ?? null}
+        yearlyChange={yearlyUserEntry?.change ?? null}
         dailyPoints={dailyUserEntry?.points ?? dailyMyPoints}
         monthlyPoints={monthlyUserEntry?.points ?? monthlyMyPoints}
         yearlyPoints={yearlyUserEntry?.points ?? yearlyMyPoints}
         pendingAmount={pendingAmount}
         isLoadingRanks={isLoadingRanks}
+        isLoadingCoins={!coinsLoaded}
         isLoggedIn={isLoggedIn}
         onShowLogin={() => { closeAllOverlays(); setShowLoginPage(true); }}
         onWagerClick={() => setShowOpenBattlesModal(prev => !prev)}

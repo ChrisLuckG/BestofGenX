@@ -2,6 +2,7 @@
 
 import { X, Lightbulb, BookOpen, Play, ChevronRight } from "lucide-react";
 import { formatCurrency } from "@/utils/currency";
+import ModalPortal from "./ModalPortal";
 
 interface NoFundsModalProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ export default function NoFundsModal({
   const missingAmount = Math.max(0, requiredAmount - currentBalance);
 
   return (
+    <ModalPortal>
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-cream rounded-2xl max-w-sm w-full shadow-xl relative overflow-hidden">
         {/* Close button */}
@@ -159,5 +161,6 @@ export default function NoFundsModal({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

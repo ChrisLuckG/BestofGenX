@@ -138,7 +138,7 @@ export default function RankingListCard({ poll, onOpenArticle, onOpenRankroll, o
       className="w-full text-left rounded-2xl overflow-hidden hover:shadow-lg transition-all group border border-warm"
     >
       {/* Header with Background Image - use articleImage, fallback to image, then first item */}
-      <div className="relative aspect-[16/9]">
+      <div className="hover-shine relative aspect-[16/9]">
         {(poll.articleImage || poll.image || poll.items?.[0]?.image) ? (
           <img src={poll.articleImage || poll.image || poll.items?.[0]?.image} alt="" className="absolute inset-0 w-full h-full object-cover" />
         ) : (

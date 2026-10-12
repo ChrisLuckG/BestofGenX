@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { X, Bell, Swords, Trophy, TrendingUp } from 'lucide-react';
+import ModalPortal from "./ModalPortal";
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
 
@@ -208,6 +209,7 @@ export default function PushNotifications({ showSettings = false, onClose }: { s
   if (!showPrompt || !isLoggedIn) return null;
 
   return (
+    <ModalPortal>
     <div 
       className="fixed inset-0 z-50 flex items-end justify-center"
       onClick={dismiss}
@@ -308,5 +310,6 @@ export default function PushNotifications({ showSettings = false, onClose }: { s
         }
       `}</style>
     </div>
+    </ModalPortal>
   );
 }

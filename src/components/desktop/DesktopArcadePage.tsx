@@ -86,13 +86,14 @@ export default function DesktopArcadePage({ onSelectGame, userId, battleAlertCou
           {/* Open Battles button - absolute so height never grows the header */}
           <button
             onClick={() => setShowOpenBattles(v => !v)}
-            className={`absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1.5 px-3 py-3 rounded-lg border transition-colors text-[10px] tracking-wider ${
+            style={{ ['--fx-glow' as string]: 'rgba(168, 85, 247, 0.75)' }}
+            className={`fx-neon group absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1.5 px-3 py-3 rounded-lg border transition-colors text-[10px] tracking-wider ${
               showOpenBattles
                 ? 'border-[#A855F7] bg-[#A855F7] font-bold shadow-sm'
                 : 'border-[#A855F7]/40 bg-[#A855F7]/10 hover:bg-[#A855F7]/20 font-semibold'
             }`}
           >
-            <Swords className={`w-3.5 h-3.5 ${showOpenBattles ? 'text-white' : 'text-[#A855F7]'}`} />
+            <Swords className={`fx-wiggle w-3.5 h-3.5 ${showOpenBattles ? 'text-white' : 'text-[#A855F7]'}`} />
             <span className={showOpenBattles ? 'text-white' : 'text-[#A855F7]'}>OPEN BATTLES</span>
             {liveBattleCount > 0 && (
               <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">

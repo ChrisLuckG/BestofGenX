@@ -33,6 +33,9 @@ interface User {
 interface AuthContextType {
   user: User | null;
   isLoggedIn: boolean;
+  // false until the saved session has been read from localStorage. Before that,
+  // "no user" does not mean guest - it means "not known yet".
+  authReady: boolean;
   guestGamesPlayed: number;
   canPlayMore: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; needsVerification?: boolean; email?: string }>;
@@ -55,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [guestGamesPlayed, setGuestGamesPlayed] = useState(0);
   const [guestWins, setGuestWins] = useState(0);
   const [guestName] = useState(generateGuestName());
+  const [authReady, setAuthReady] = useState(false);
 
   // Load from localStorage on mount, then refresh from API
   useEffect(() => {
@@ -80,6 +84,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (data.success) {
               setUser(prev => prev ? {
                 ...prev,
+                // The saved session can be stale (renamed account still showed the
+                // old name in production) - the database wins.
+                username: data.username ?? prev.username,
+                avatar: data.avatar ?? prev.avatar,
+                country: data.country ?? prev.country,
+                countryFlag: data.countryFlag ?? prev.countryFlag,
                 coins: data.points ?? 0,
                 bogxCoins: data.bogxCoins ?? 0,
                 wins: data.wins ?? 0,
@@ -104,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Same day - load saved games
       setGuestGamesPlayed(parseInt(savedGuestGames));
     }
+    setAuthReady(true);
   }, []);
 
   // Save to localStorage when user changes
@@ -302,6 +313,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider value={{
       user: displayUser,
       isLoggedIn,
+      authReady,
       guestGamesPlayed,
       canPlayMore,
       login,

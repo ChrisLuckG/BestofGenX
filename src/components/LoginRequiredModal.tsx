@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
+import ModalPortal from "./ModalPortal";
 
 interface LoginRequiredModalProps {
   isOpen: boolean;
@@ -85,9 +86,11 @@ export default function LoginRequiredModal({
 
   // Mobile: fullscreen overlay
   return (
+    <ModalPortal>
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-5">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       {content}
     </div>
+    </ModalPortal>
   );
 }

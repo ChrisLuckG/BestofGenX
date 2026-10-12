@@ -7,6 +7,7 @@ import OpenAI from 'openai';
 import { combinePrompts } from '@/lib/loadPrompt';
 import { getQuestionsForUser } from '@/lib/questionService';
 import { themeForTopic } from '@/lib/battleTopics';
+import { headToHead } from '@/lib/headToHead';
 
 // GET - List open battles
 export async function GET(request: NextRequest) {
@@ -30,7 +31,37 @@ export async function GET(request: NextRequest) {
         // Battles the user created themselves, still waiting for an opponent to join
         Battle.countDocuments({ creator: userId, status: 'open' }),
       ]);
-      return NextResponse.json({ success: true, pendingChallenges, activeBattles, myOpenBattles });
+      if (searchParams.get('details') !== 'true') {
+        return NextResponse.json({ success: true, pendingChallenges, activeBattles, myOpenBattles });
+      }
+
+      // Welcome-back "battle inbox": who challenged you, and where it's your turn.
+      const pick = 'username avatar countryFlag isBot';
+      const [challengeDocs, activeDocs] = await Promise.all([
+        Battle.find({ challengedUser: userId, status: 'open' })
+          .select('creator topic wager rounds createdAt').populate('creator', pick)
+          .sort({ createdAt: -1 }).limit(4).lean(),
+        Battle.find({ $or: [{ creator: userId }, { opponent: userId }], status: 'active' })
+          .select('creator opponent topic wager rounds creatorResults opponentResults acceptedAt createdAt')
+          .populate('creator', pick).populate('opponent', pick)
+          .sort({ acceptedAt: -1, createdAt: -1 }).limit(10).lean(),
+      ]);
+      const person = (u: any) => u ? { username: u.username, avatar: u.avatar, countryFlag: u.countryFlag, isBot: !!u.isBot } : null;
+      const challenges = (challengeDocs as any[]).map(b => ({
+        id: String(b._id), from: person(b.creator), topic: b.topic, wager: b.wager, rounds: b.rounds, createdAt: b.createdAt,
+      }));
+      const yourTurn = (activeDocs as any[])
+        .filter(b => {
+          const mine = String(b.creator?._id) === userId ? b.creatorResults : b.opponentResults;
+          return (mine?.length || 0) < b.rounds;
+        })
+        .slice(0, 4)
+        .map(b => ({
+          id: String(b._id),
+          vs: person(String(b.creator?._id) === userId ? b.opponent : b.creator),
+          topic: b.topic, wager: b.wager, rounds: b.rounds, createdAt: b.acceptedAt || b.createdAt,
+        }));
+      return NextResponse.json({ success: true, pendingChallenges, activeBattles, myOpenBattles, challenges, yourTurn });
     }
     
     const query: any = { status };
@@ -120,6 +151,20 @@ export async function GET(request: NextRequest) {
       }
       return battle;
     });
+
+    // Your head-to-head against each open battle's creator (same shape as
+    // /api/users/online), so the pool cards can show W/L/T and the last 5.
+    if (status === 'open' && userId) {
+      const creatorIds = Array.from(new Set(
+        battlesWithRank.map((b: any) => b.creator?._id?.toString()).filter((id: string | undefined) => id && id !== userId)
+      ));
+      if (creatorIds.length) {
+        const h2h = await headToHead(userId, creatorIds as string[]);
+        for (const b of battlesWithRank as any[]) {
+          if (b.creator?._id) b.creator.h2h = h2h.get(b.creator._id.toString()) || null;
+        }
+      }
+    }
     
     // Auto-trigger bot battles if pool is too empty (async, don't wait)
     if (status === 'open' && battles.length < 3) {

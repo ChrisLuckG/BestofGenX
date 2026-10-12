@@ -794,7 +794,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       tabIndex={0}
       onClick={() => handleArticleClick(article._id)}
       onKeyDown={(e) => e.key === 'Enter' && onOpenArticle?.(article._id)}
-      className={`w-full h-[280px] md:h-[350px] lg:h-[400px] rounded-none overflow-hidden group text-left relative border ${cardTheme.border} hover:shadow-lg ${cardTheme.hoverBorder} transition-all duration-200 cursor-pointer ${loadingArticleId === article._id ? 'pointer-events-none' : ''}`}
+      className={`hover-shine w-full h-[280px] md:h-[350px] lg:h-[400px] rounded-none overflow-hidden group text-left relative border ${cardTheme.border} hover:shadow-lg ${cardTheme.hoverBorder} transition-all duration-200 cursor-pointer ${loadingArticleId === article._id ? 'pointer-events-none' : ''}`}
       style={{
         backgroundImage: article.coverImage ? `url(${article.coverImage})` : undefined,
         backgroundSize: 'cover',
@@ -963,7 +963,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       tabIndex={0}
       onClick={() => handleArticleClick(article._id)}
       onKeyDown={(e) => e.key === 'Enter' && onOpenArticle?.(article._id)}
-      className={`w-full h-[180px] rounded-none overflow-hidden group text-left relative border border-white/10 cursor-pointer ${loadingArticleId === article._id ? 'pointer-events-none' : ''}`}
+      className={`hover-shine w-full h-[180px] rounded-none overflow-hidden group text-left relative border border-white/10 cursor-pointer ${loadingArticleId === article._id ? 'pointer-events-none' : ''}`}
     >
       <LoadingOverlay articleId={article._id} />
       {/* Full background image/video */}
@@ -1027,7 +1027,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       tabIndex={0}
       onClick={() => handleArticleClick(article._id)}
       onKeyDown={(e) => e.key === 'Enter' && onOpenArticle?.(article._id)}
-      className={`w-full h-[180px] rounded-none overflow-hidden group text-left relative border border-warm hover:shadow-lg hover:border-[#E36B11]/30 transition-all duration-200 cursor-pointer ${loadingArticleId === article._id ? 'pointer-events-none' : ''}`}
+      className={`hover-shine w-full h-[180px] rounded-none overflow-hidden group text-left relative border border-warm hover:shadow-lg hover:border-[#E36B11]/30 transition-all duration-200 cursor-pointer ${loadingArticleId === article._id ? 'pointer-events-none' : ''}`}
     >
       <LoadingOverlay articleId={article._id} />
       {/* Full background image/video */}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import User from '@/models/User';
+import { headToHead } from '@/lib/headToHead';
 
 // GET - Search users by username
 // Returns WALLET balance (bogxCoins) = the score, consistent everywhere
@@ -29,10 +30,15 @@ export async function GET(request: NextRequest) {
       .limit(limit)
       .lean();
     
+    // Your record vs each result, same as the invite list (/api/users/online)
+    const excludeId = searchParams.get('exclude');
+    const h2h = excludeId ? await headToHead(excludeId, users.map(u => String(u._id))) : new Map();
+
     // Return WALLET balance (bogxCoins) = the score
     const usersWithCoins = users.map(u => ({
       ...u,
-      points: Math.round((u.bogxCoins || 0) * 100) / 100
+      points: Math.round((u.bogxCoins || 0) * 100) / 100,
+      h2h: h2h.get(String(u._id)) || null,
     }));
     
     return NextResponse.json({ success: true, users: usersWithCoins });

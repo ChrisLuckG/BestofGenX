@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Vote, ChevronRight, Clock, Check, Filter } from "lucide-react";
 import { PollsSkeleton } from "./DesktopSkeletons";
 import { useAuth } from "@/context/AuthContext";
+import LoadingDots from "@/components/LoadingDots";
 
 interface PollOption {
   id: string;
@@ -67,7 +68,7 @@ function useCountdown(endsAt?: string) {
 
 
 // Ranking Card - Image block left, content right
-function RankingCard({ poll, onOpenArticle, onOpenRankroll, hasVoted, votedCount = 0 }: { poll: Poll; onOpenArticle?: (articleId: string) => void; onOpenRankroll?: (poll: Poll) => void; hasVoted?: boolean; votedCount?: number }) {
+function RankingCard({ poll, onOpenArticle, onOpenRankroll, hasVoted, votedCount = 0, countLoading = false }: { poll: Poll; onOpenArticle?: (articleId: string) => void; onOpenRankroll?: (poll: Poll) => void; hasVoted?: boolean; votedCount?: number; countLoading?: boolean }) {
   const countdown = useCountdown(poll.closesAt);
   const top3 = [...(poll.items || [])].sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0)).slice(0, 3);
   const [linkedArticleId, setLinkedArticleId] = useState<string | null>(null);
@@ -159,7 +160,9 @@ function RankingCard({ poll, onOpenArticle, onOpenRankroll, hasVoted, votedCount
                   }}
                 >
                   <span className="text-base">🪙</span>
-                  <span className="text-base font-medium">{(votedCount * 0.01).toFixed(2)}/{(totalItems * 0.01).toFixed(2)} BOGX</span>
+                  <span className="text-base font-medium inline-flex items-center gap-1">
+                    {countLoading ? <LoadingDots className="text-white" /> : (votedCount * 0.01).toFixed(2)}/{(totalItems * 0.01).toFixed(2)} BOGX
+                  </span>
                   <span className="text-white/40">·</span>
                   <Vote className="w-3.5 h-3.5 text-white/80" />
                   <span className="text-base">{poll.totalVotes}</span>
@@ -169,7 +172,9 @@ function RankingCard({ poll, onOpenArticle, onOpenRankroll, hasVoted, votedCount
               return (
                 <span className="flex-shrink-0 px-3 py-1.5 bg-white/90 text-gray-700 border border-gray-200 font-display rounded-lg group-hover:bg-[#E36B11] group-hover:text-white group-hover:border-[#E36B11] transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap">
                   <span className="text-base">🪙</span>
-                  <span className="text-base font-medium">0/{(totalItems * 0.01).toFixed(2)} BOGX</span>
+                  <span className="text-base font-medium inline-flex items-center gap-1">
+                    {countLoading ? <LoadingDots /> : '0'}/{(totalItems * 0.01).toFixed(2)} BOGX
+                  </span>
                   <span className="text-gray-300 group-hover:text-white/40">·</span>
                   <Vote className="w-3.5 h-3.5 text-gray-400 group-hover:text-white/80" />
                   <span className="text-base">{poll.totalVotes}</span>
@@ -340,6 +345,7 @@ interface DesktopRankrollPageProps {
 
 // Local storage key for voted polls cache
 const VOTED_POLLS_KEY = 'bogx-voted-polls';
+const VOTE_COUNTS_KEY = 'bogx-poll-vote-counts';
 
 // Get voted polls from localStorage
 const getVotedPollsFromStorage = (): Set<string> => {
@@ -378,7 +384,12 @@ export default function DesktopRankrollPage({ onOpenArticle, onOpenRankroll }: D
   const [loading, setLoading] = useState(true);
   const [filterNotVoted, setFilterNotVoted] = useState(false);
   const [votedPolls, setVotedPolls] = useState<Set<string>>(() => getVotedPollsFromStorage());
-  const [voteCountByPoll, setVoteCountByPoll] = useState<Record<string, number>>({});
+  // Cached per-poll vote counts: the earned "0.03/0.10" shows instantly on revisit,
+  // the server answer then corrects it.
+  const [voteCountByPoll, setVoteCountByPoll] = useState<Record<string, number>>(() => {
+    if (typeof window === 'undefined') return {};
+    try { return JSON.parse(localStorage.getItem(VOTE_COUNTS_KEY) || '{}'); } catch { return {}; }
+  });
   const [votesLoading, setVotesLoading] = useState(true);
 
   const loadPolls = async () => {
@@ -399,10 +410,10 @@ export default function DesktopRankrollPage({ onOpenArticle, onOpenRankroll }: D
     loadPolls();
   }, []);
 
-  // Fetch voted polls from server and merge with localStorage
+  // Fetch the user's votes and merge with localStorage. Runs in PARALLEL with
+  // loadPolls (check-votes no longer needs the poll ids) - it used to wait for the
+  // poll list first, so the badges sat on "0.00" for two round trips.
   useEffect(() => {
-    if (polls.length === 0) return;
-    
     // If no user, just use localStorage and mark as loaded
     if (!user?.id) {
       setVotesLoading(false);
@@ -411,8 +422,7 @@ export default function DesktopRankrollPage({ onOpenArticle, onOpenRankroll }: D
     
     const fetchVotedPolls = async () => {
       try {
-        const pollIds = polls.map(p => p._id);
-        const res = await fetch(`/api/polls/check-votes?userId=${user.id}&pollIds=${pollIds.join(',')}`);
+        const res = await fetch(`/api/polls/check-votes?userId=${user.id}`);
         const data = await res.json();
         if (data.success && data.votedPollIds) {
           // Merge server votes with localStorage
@@ -424,6 +434,7 @@ export default function DesktopRankrollPage({ onOpenArticle, onOpenRankroll }: D
           // Store vote counts per poll
           if (data.voteCountByPoll) {
             setVoteCountByPoll(data.voteCountByPoll);
+            try { localStorage.setItem(VOTE_COUNTS_KEY, JSON.stringify(data.voteCountByPoll)); } catch { /* ignore */ }
           }
         }
       } catch (e) {
@@ -434,7 +445,7 @@ export default function DesktopRankrollPage({ onOpenArticle, onOpenRankroll }: D
     };
     
     fetchVotedPolls();
-  }, [user?.id, polls]);
+  }, [user?.id]);
 
   // Handle filter toggle
   const handleFilterToggle = () => {
@@ -519,6 +530,7 @@ export default function DesktopRankrollPage({ onOpenArticle, onOpenRankroll }: D
                     onOpenRankroll={onOpenRankroll}
                     hasVoted={votedPolls.has(poll._id)}
                     votedCount={voteCountByPoll[poll._id] || 0}
+                    countLoading={votesLoading && voteCountByPoll[poll._id] === undefined && !!user?.id}
                   />
                 ))}
               </div>

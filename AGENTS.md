@@ -120,6 +120,23 @@ Rules:
 - dispatch `bogx-updated` **after** the reward POST resolves - dispatching before it
   makes the refresh read the pre-credit balance
 
+### Coins and day/month/year must move together
+
+The scoreboard shows the balance next to the period ranks, so a change in one has to
+show up in the other right away. `useBogxCoins` dispatches `bogx-balance-changed`
+whenever the balance changes (except the first load), and `useLiveRankings` refreshes
+every **current** window (day, month AND year) on that event or `bogx-updated`: once
+after 150ms and once more after 2.8s, because optimistic coin updates land before the
+ledger write. Month and year used to wait for their 60s poll.
+
+Rank refreshes are refetches, not optimistic shifts: many `setCoins` calls are not
+ledger moves (battle wager escrow, refunds, `setCoins(() => dbCoins)`), so shifting
+the period net by the coin delta would show wrong numbers.
+
+`useLiveRankings` accepts a response only if it is for the current query and no newer
+response has been applied. Do not change that to "only the newest REQUEST wins" - with
+the 5s day poll, responses slower than 5s were all discarded and the widget froze.
+
 ## Video relevance (articles, history, cron)
 
 All YouTube searches for embedded videos go through `src/lib/youtubeSearch.ts`.
@@ -616,3 +633,28 @@ were created through routes that skip this rule (the almanac/editorial endpoints
 their own Article documents). So the rule is effectively dead code that fires only for
 articles created through that one endpoint. Either move it into the model as a pre-save
 hook or delete it; leaving it where it is guarantees the two paths keep disagreeing.
+
+## Full-screen overlays: render through ModalPortal
+
+A `fixed inset-0` overlay rendered inside page content is trapped in that
+content's stacking context. On desktop the sticky header and the right sidebar
+(z-50) then paint ON TOP of the backdrop, whatever z-index the overlay has
+(Invite friends modal, Welcome back, Game intro, player card...).
+
+Wrap every new full-screen modal in `<ModalPortal>` from
+`src/components/ModalPortal.tsx` (portals into `<body>`). Embedded/inline
+variants (`embedded` props) must NOT be portalled.
+
+## Rank arrows come from the server
+
+`buildPeriodRankings` returns `change` ('up' | 'down' | null) per entry and in
+`me`: the LAST movement. Each rank is reconstructed at a ladder of earlier moments
+(2 min, 5 min ... back to the period start, `TREND_LADDER_MIN`); the nearest one
+with a different rank decides. An overtake shows 'down' immediately and keeps it
+until the player moves again; never moved = 'up' (entered the board). Mobile
+`Header` and `DesktopRankWidget` render exactly that.
+
+They used to compare against "the last rank this browser saw" in localStorage,
+so desktop and phone showed opposite arrows for the same player - and mobile
+also drew an up-arrow when nothing had moved (`dir === null` was treated as up).
+Do not reintroduce a client-side comparison.

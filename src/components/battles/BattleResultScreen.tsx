@@ -743,7 +743,7 @@ export default function BattleResultScreen({
           >
             <button
               onClick={onBackToPool}
-              className={`flex-1 ${isMobile ? 'py-3 text-xs' : 'py-3 text-sm'} border border-warm bg-cream hover:bg-white text-gray-600 font-display tracking-widest rounded-xl flex items-center justify-center gap-2 transition-all`}
+              className={`fx-neon relative flex-1 ${isMobile ? 'py-3 text-xs' : 'py-3 text-sm'} border border-warm bg-cream hover:bg-white text-gray-600 font-display tracking-widest rounded-xl flex items-center justify-center gap-2 transition-all`}
             >
               <ChevronLeft className="w-4 h-4" />
               Back
@@ -753,7 +753,7 @@ export default function BattleResultScreen({
                 const target = rematchTargetFor(battle, isCreator);
                 if (target) onRematch(target);
               }}
-              className={`group flex-1 ${isMobile ? 'py-3 text-xs' : 'py-3 text-sm'} text-white font-display tracking-widest rounded-xl flex items-center justify-center relative transition-all hover:opacity-90 hover:scale-[1.01] active:scale-[0.99] bg-gray-700 hover:bg-gray-800`}
+              className={`fx-arcade group flex-1 ${isMobile ? 'py-3 text-xs' : 'py-3 text-sm'} text-white font-display tracking-widest rounded-xl flex items-center justify-center relative bg-gray-700 hover:bg-gray-800`}
             >
               Rematch
               <Swords className="w-4 h-4 absolute right-4 transition-transform group-hover:translate-x-1" />

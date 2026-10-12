@@ -1,50 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Bell, Crown, Radio, Tv, User, ArrowUp, ArrowDown, Lock } from "lucide-react";
+import { Bell, Crown, Radio, Tv, User, ArrowUp, ArrowDown, Lock, Info } from "lucide-react";
+import LoadingDots from "./LoadingDots";
+import { useAnimatedValue, useIntroCount, animateUnranked } from "@/hooks/useCountUp";
 import Image from "next/image";
 import { formatCurrency, getCurrencySymbol } from "@/utils/currency";
 import { type RankPeriod, rankUnrankedTip, rankUnrankedGuestTip, formatUnrankedValue } from "@/lib/rankPeriod";
-
-// Direction of a rank position compared to the last value we ever saw for it.
-// Returns null if the position hasn't changed (neutral).
-function useRankDirection(label: string, value: number): 'up' | 'down' | null {
-  const storageKey = `rank-dir-${label.toLowerCase()}`;
-  const [direction, setDirection] = useState<'up' | 'down' | null>(null);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    let stored: { rank: number } | null = null;
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (raw) stored = JSON.parse(raw);
-    } catch { /* ignore */ }
-
-    // Unranked (no points in this period yet) - no arrow
-    if (value <= 0) {
-      setDirection(null);
-      return;
-    }
-
-    // Lower rank number = better position.
-    let dir: 'up' | 'down' | null = null;
-    if (stored && stored.rank > 0) {
-      if (value < stored.rank) {
-        dir = 'up';
-      } else if (value > stored.rank) {
-        dir = 'down';
-      }
-    }
-
-    setDirection(dir);
-    try {
-      localStorage.setItem(storageKey, JSON.stringify({ rank: value }));
-    } catch { /* ignore */ }
-  }, [storageKey, value]);
-
-  return direction;
-}
+import ShineSweep from "./ShineSweep";
 
 // Flip-clock roll + "just placed" fade for a rank position. Ported from
 // DesktopRankWidget's RankBox so the mobile header stops switching its rank
@@ -104,6 +67,10 @@ interface HeaderProps {
   dailyRank?: number;
   monthlyRank?: number;
   yearlyRank?: number;
+  // Rank arrows, computed server-side (same on desktop) - null = no movement
+  dailyChange?: 'up' | 'down' | null;
+  monthlyChange?: 'up' | 'down' | null;
+  yearlyChange?: 'up' | 'down' | null;
   // Points for showing negative balance when unranked
   dailyPoints?: number;
   monthlyPoints?: number;
@@ -113,12 +80,13 @@ interface HeaderProps {
   onWagerClick?: () => void;
   // Loading state
   isLoadingRanks?: boolean;
+  isLoadingCoins?: boolean; // balance not loaded yet - show a placeholder instead of 0,00
   // Unranked-period tooltip
   isLoggedIn?: boolean;
   onShowLogin?: () => void;
 }
 
-export default function Header({ coins, userAvatar, userRank, hasPendingWager = false, rankingsOpen, onCoinsClick, onLogoClick, onNotificationClick, onProfileClick, onRadioClick, onTVClick, notificationOpen, profileOpen, radioOpen = false, tvOpen = false, notificationsEnabled, unreadCount = 0, coinAnimation, coinAnimationKey, dailyRank = 0, monthlyRank = 0, yearlyRank = 0, dailyPoints, monthlyPoints, yearlyPoints, pendingAmount = 0, onWagerClick, isLoadingRanks = false, isLoggedIn = true, onShowLogin }: HeaderProps) {
+export default function Header({ coins, userAvatar, userRank, hasPendingWager = false, rankingsOpen, onCoinsClick, onLogoClick, onNotificationClick, onProfileClick, onRadioClick, onTVClick, notificationOpen, profileOpen, radioOpen = false, tvOpen = false, notificationsEnabled, unreadCount = 0, coinAnimation, coinAnimationKey, dailyRank = 0, monthlyRank = 0, yearlyRank = 0, dailyChange = null, monthlyChange = null, yearlyChange = null, dailyPoints, monthlyPoints, yearlyPoints, pendingAmount = 0, onWagerClick, isLoadingRanks = false, isLoadingCoins = false, isLoggedIn = true, onShowLogin }: HeaderProps) {
   const [displayCoins, setDisplayCoins] = useState(coins);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isNegative, setIsNegative] = useState(false);
@@ -126,11 +94,14 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
   const [flyingAmount, setFlyingAmount] = useState<number | null>(null);
   const prevCoinsRef = useRef(coins);
   const lastAnimationRef = useRef<{ amount: number } | null>(null);
+  // Intro gimmick: counts up from 0 once the balance has loaded. Later changes
+  // keep their own animation (displayCoins).
+  const introCoins = useIntroCount(isLoadingCoins ? undefined : coins);
   
   // Rank direction arrows
-  const dailyDir = useRankDirection('day', dailyRank);
-  const monthlyDir = useRankDirection('month', monthlyRank);
-  const yearlyDir = useRankDirection('year', yearlyRank);
+  const dailyDir = dailyChange;
+  const monthlyDir = monthlyChange;
+  const yearlyDir = yearlyChange;
 
   // Roll/fade for the Day position shown in the widget.
   const { roll: dailyRoll, justPlaced: dailyJustPlaced } = useRankRoll(dailyRank);
@@ -142,13 +113,27 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
   const [wagerVisible, setWagerVisible] = useState(pendingAmount > 0);
   const [wagerAnim, setWagerAnim] = useState<'in' | 'out' | null>(null);
   const prevPendingRef = useRef(pendingAmount);
+  // Last non-zero amount, so the fade-out does not count down to 0,00
+  const [wagerDisplay, setWagerDisplay] = useState(pendingAmount);
+  useEffect(() => { if (pendingAmount > 0) setWagerDisplay(pendingAmount); }, [pendingAmount]);
 
   // Which unranked period was tapped - drives the explanation tooltip.
   // Touch has no mouseleave, so the tip closes itself after a few seconds.
   const [tipFor, setTipFor] = useState<RankPeriod | null>(null);
 
-  // Unranked: own net for the period ("-0,37" / "0,00"), "?" only when unknown
-  const formatUnranked = formatUnrankedValue;
+  // Unranked: own net for the period ("-0,37" / "0,00"), "?" only when unknown.
+  // Counts from the old to the new balance instead of jumping.
+  // Held back while the loading dots show, so the intro count is actually seen.
+  const animDaily = useAnimatedValue(isLoadingRanks ? undefined : dailyPoints);
+  const animMonthly = useAnimatedValue(isLoadingRanks ? undefined : monthlyPoints);
+  const animYearly = useAnimatedValue(isLoadingRanks ? undefined : yearlyPoints);
+  // Intro gimmick: ranks count up once they have loaded
+  const introDailyRank = useIntroCount(isLoadingRanks || dailyRank <= 0 ? undefined : dailyRank, 900);
+  const introMonthlyRank = useIntroCount(isLoadingRanks || monthlyRank <= 0 ? undefined : monthlyRank, 900);
+  const introYearlyRank = useIntroCount(isLoadingRanks || yearlyRank <= 0 ? undefined : yearlyRank, 900);
+  const showRank = (rank: number, intro: number | null) => intro === null ? rank : Math.max(1, Math.round(intro));
+  const formatUnranked = (points: number | undefined, animated: number | undefined) =>
+    formatUnrankedValue(animateUnranked(points, animated));
   useEffect(() => {
     if (!tipFor) return;
     const timer = setTimeout(() => setTipFor(null), 5000);
@@ -313,6 +298,8 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
           <div className={`absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full ${
             rankingsOpen ? 'bg-gradient-to-b from-white to-white/80' : 'bg-gradient-to-b from-[#E36B11] to-[#E5A55A]'
           }`} />
+          {/* Occasional subtle glint - gold on the cream card, white when it is orange */}
+          <ShineSweep rgb={rankingsOpen ? '255, 255, 255' : '229, 165, 90'} intensity={rankingsOpen ? 0.25 : 0.28} minDelayMs={9000} maxDelayMs={18000} firstDelayMs={2500} firstJitterMs={2000} />
           
           {/* Coins Section - clickable, with coin icon */}
           <button
@@ -336,6 +323,10 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
                   } : {}),
                 }}
               />
+              {isLoadingCoins ? (
+                // Balance not loaded yet - a placeholder, never a fake "0,00"
+                <span className="inline-flex items-center h-[22px] px-1"><LoadingDots className={rankingsOpen ? 'text-white' : 'text-[#E36B11]'} /></span>
+              ) : (
               <span 
                 className={`font-display font-bold tabular-nums leading-none transition-all ${
                   rankingsOpen ? 'text-white' :
@@ -343,8 +334,9 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
                 }`}
                 style={{ fontSize: '22px' }}
               >
-                {displayCoins.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {(introCoins ?? displayCoins).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
+              )}
             </div>
             <span className={`relative top-[3px] text-[10px] leading-[12px] font-normal font-display uppercase tracking-wide ${rankingsOpen ? 'text-white/70' : 'text-gray-500'}`}>Coins</span>
           </button>
@@ -358,13 +350,13 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
             <div className={`w-px h-8 mx-1 ${rankingsOpen ? 'bg-white/30' : 'bg-gray-300'}`} />
             <div className="flex flex-col items-center min-w-[32px]">
               {isLoadingRanks ? (
-                <div className="w-6 h-5 bg-gray-200 rounded animate-pulse" />
+                <div className="flex items-center h-5"><LoadingDots className={rankingsOpen ? 'text-white' : 'text-[#E36B11]'} /></div>
               ) : (
                 <div className="flex items-center gap-0.5">
                   {dailyRank > 0 && dailyDir === 'down' && (
                     <ArrowDown style={dailyArrowAnim} className={`w-3.5 h-3.5 shrink-0 animate-bounce-subtle-down ${rankingsOpen ? 'text-white' : 'text-[#E36B11]'}`} />
                   )}
-                  {dailyRank > 0 && (dailyDir === 'up' || dailyDir === null) && (
+                  {dailyRank > 0 && dailyDir === 'up' && (
                     <ArrowUp style={dailyArrowAnim} className={`w-3.5 h-3.5 shrink-0 animate-bounce-subtle-up ${rankingsOpen ? 'text-white' : 'text-green-500'}`} />
                   )}
                   {/* No arrow when unranked - neutral state */}
@@ -374,24 +366,49 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
                     style={dailyJustPlaced ? { animation: 'rankFadeIn 0.5s ease-out' } : dailyRoll ? { animation: `rankRoll${dailyRoll === 'up' ? 'Up' : 'Down'} 0.5s cubic-bezier(0.22, 1, 0.36, 1)` } : undefined}
                     className={`font-display font-bold tabular-nums leading-none ${rankingsOpen ? 'text-white text-[22px]' : dailyRank > 0 ? 'text-gray-800 text-[22px]' : 'text-[#E36B11] text-[13px] cursor-pointer active:scale-110'}`}
                   >
-                    {dailyRank > 0 ? dailyRank : formatUnranked(dailyPoints)}
+                    {dailyRank > 0 ? showRank(dailyRank, introDailyRank) : formatUnranked(dailyPoints, animDaily)}
                   </span>
                 </div>
               )}
-              <span className={`relative top-[3px] text-[10px] leading-[12px] font-normal font-display uppercase ${rankingsOpen ? 'text-white/70' : 'text-gray-500'}`}>Day</span>
+              <span className={`relative top-[3px] text-[10px] leading-[12px] font-normal font-display uppercase ${rankingsOpen ? 'text-white/70' : 'text-gray-500'}`}>Day{!isLoadingRanks && dailyRank <= 0 && <Info className={`absolute left-full top-1/2 -translate-y-1/2 ml-0.5 w-2.5 h-2.5 ${rankingsOpen ? 'text-white/70' : 'text-gray-400'}`} />}</span>
             </div>
             
+            {/* Open wager takes the place of Month + Year - the header has no room
+                for a fourth column, and the wager was otherwise not shown at all */}
+            {wagerVisible ? (
+              <>
+                <div className={`w-px h-8 mx-1 ${rankingsOpen ? 'bg-white/30' : 'bg-gray-300'}`} />
+                <span
+                  role="button"
+                  onClick={(e) => { e.stopPropagation(); onWagerClick?.(); }}
+                  style={
+                    pendingAmount === 0 ? { animation: 'wagerOut 0.45s ease-in forwards' }
+                    : wagerAnim === 'in' ? { animation: 'wagerIn 0.55s cubic-bezier(0.22, 1, 0.36, 1)' }
+                    : undefined
+                  }
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-lg min-w-[76px] justify-center ${rankingsOpen ? 'bg-white/15' : 'bg-[#D4A04A]/15 border border-[#D4A04A]/40'}`}
+                >
+                  <Lock className={`w-3.5 h-3.5 shrink-0 ${rankingsOpen ? 'text-white' : 'text-[#C4772A]'}`} />
+                  <span className="flex flex-col items-center">
+                    <span className={`font-display font-bold tabular-nums leading-none text-[18px] ${rankingsOpen ? 'text-white' : 'text-gray-800'}`}>
+                      {wagerDisplay.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                    <span className={`relative top-[3px] text-[10px] leading-[12px] font-normal font-display uppercase ${rankingsOpen ? 'text-white/70' : 'text-gray-500'}`}>Wager</span>
+                  </span>
+                </span>
+              </>
+            ) : (<>
             {/* Month */}
             <div className={`w-px h-8 mx-1 ${rankingsOpen ? 'bg-white/30' : 'bg-gray-300'}`} />
             <div className="flex flex-col items-center min-w-[32px]">
               {isLoadingRanks ? (
-                <div className="w-6 h-5 bg-gray-200 rounded animate-pulse" />
+                <div className="flex items-center h-5"><LoadingDots className={rankingsOpen ? 'text-white' : 'text-[#E36B11]'} /></div>
               ) : (
                 <div className="flex items-center gap-0.5">
                   {monthlyRank > 0 && monthlyDir === 'down' && (
                     <ArrowDown className={`w-3.5 h-3.5 shrink-0 animate-bounce-subtle-down ${rankingsOpen ? 'text-white' : 'text-[#E36B11]'}`} />
                   )}
-                  {monthlyRank > 0 && (monthlyDir === 'up' || monthlyDir === null) && (
+                  {monthlyRank > 0 && monthlyDir === 'up' && (
                     <ArrowUp className={`w-3.5 h-3.5 shrink-0 animate-bounce-subtle-up ${rankingsOpen ? 'text-white' : 'text-green-500'}`} />
                   )}
                   {/* No arrow when unranked - neutral state */}
@@ -399,24 +416,24 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
                     onClick={monthlyRank > 0 ? undefined : (e) => { e.stopPropagation(); setTipFor(prev => prev === 'month' ? null : 'month'); }}
                     className={`font-display font-bold tabular-nums leading-none ${rankingsOpen ? 'text-white text-[22px]' : monthlyRank > 0 ? 'text-gray-800 text-[22px]' : 'text-[#E36B11] text-[13px] cursor-pointer active:scale-110'}`}
                   >
-                    {monthlyRank > 0 ? monthlyRank : formatUnranked(monthlyPoints)}
+                    {monthlyRank > 0 ? showRank(monthlyRank, introMonthlyRank) : formatUnranked(monthlyPoints, animMonthly)}
                   </span>
                 </div>
               )}
-              <span className={`relative top-[3px] text-[10px] leading-[12px] font-normal font-display uppercase ${rankingsOpen ? 'text-white/70' : 'text-gray-500'}`}>Month</span>
+              <span className={`relative top-[3px] text-[10px] leading-[12px] font-normal font-display uppercase ${rankingsOpen ? 'text-white/70' : 'text-gray-500'}`}>Month{!isLoadingRanks && monthlyRank <= 0 && <Info className={`absolute left-full top-1/2 -translate-y-1/2 ml-0.5 w-2.5 h-2.5 ${rankingsOpen ? 'text-white/70' : 'text-gray-400'}`} />}</span>
             </div>
             
             {/* Year */}
             <div className={`w-px h-8 mx-1 ${rankingsOpen ? 'bg-white/30' : 'bg-gray-300'}`} />
             <div className="flex flex-col items-center min-w-[32px]">
               {isLoadingRanks ? (
-                <div className="w-6 h-5 bg-gray-200 rounded animate-pulse" />
+                <div className="flex items-center h-5"><LoadingDots className={rankingsOpen ? 'text-white' : 'text-[#E36B11]'} /></div>
               ) : (
                 <div className="flex items-center gap-0.5">
                   {yearlyRank > 0 && yearlyDir === 'down' && (
                     <ArrowDown className={`w-3.5 h-3.5 shrink-0 animate-bounce-subtle-down ${rankingsOpen ? 'text-white' : 'text-[#E36B11]'}`} />
                   )}
-                  {yearlyRank > 0 && (yearlyDir === 'up' || yearlyDir === null) && (
+                  {yearlyRank > 0 && yearlyDir === 'up' && (
                     <ArrowUp className={`w-3.5 h-3.5 shrink-0 animate-bounce-subtle-up ${rankingsOpen ? 'text-white' : 'text-green-500'}`} />
                   )}
                   {/* No arrow when unranked - neutral state */}
@@ -424,12 +441,13 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
                     onClick={yearlyRank > 0 ? undefined : (e) => { e.stopPropagation(); setTipFor(prev => prev === 'year' ? null : 'year'); }}
                     className={`font-display font-bold tabular-nums leading-none ${rankingsOpen ? 'text-white text-[22px]' : yearlyRank > 0 ? 'text-gray-800 text-[22px]' : 'text-[#E36B11] text-[13px] cursor-pointer active:scale-110'}`}
                   >
-                    {yearlyRank > 0 ? yearlyRank : formatUnranked(yearlyPoints)}
+                    {yearlyRank > 0 ? showRank(yearlyRank, introYearlyRank) : formatUnranked(yearlyPoints, animYearly)}
                   </span>
                 </div>
               )}
-              <span className={`relative top-[3px] text-[10px] leading-[12px] font-normal font-display uppercase ${rankingsOpen ? 'text-white/70' : 'text-gray-500'}`}>Year</span>
+              <span className={`relative top-[3px] text-[10px] leading-[12px] font-normal font-display uppercase ${rankingsOpen ? 'text-white/70' : 'text-gray-500'}`}>Year{!isLoadingRanks && yearlyRank <= 0 && <Info className={`absolute left-full top-1/2 -translate-y-1/2 ml-0.5 w-2.5 h-2.5 ${rankingsOpen ? 'text-white/70' : 'text-gray-400'}`} />}</span>
             </div>
+            </>)}
           </button>
           
           {/* Flying amount indicator */}

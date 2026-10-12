@@ -9,21 +9,22 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId');
     const pollIds = searchParams.get('pollIds');
 
-    if (!userId || !pollIds) {
+    if (!userId) {
       return NextResponse.json(
-        { success: false, error: 'userId and pollIds required' },
+        { success: false, error: 'userId required' },
         { status: 400 }
       );
     }
 
     await dbConnect();
 
-    const pollIdArray = pollIds.split(',').filter(Boolean);
+    // pollIds is optional: without it, all of the user's votes are returned, so the
+    // Rankroll list can ask in parallel with loading the polls instead of after it.
+    const pollIdArray = (pollIds || '').split(',').filter(Boolean);
     
-    // Find all votes by this user for the given polls
     // Votes are stored with oderId: `user_${userId}`
     const votes = await PollVote.find({
-      pollId: { $in: pollIdArray },
+      ...(pollIdArray.length ? { pollId: { $in: pollIdArray } } : {}),
       oderId: `user_${userId}`
     }).select('pollId').lean();
 

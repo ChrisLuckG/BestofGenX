@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { ArrowRight, type LucideIcon } from "lucide-react";
+import ShineSweep from "./ShineSweep";
 
 /**
  * Poster-style banner shared by Trivia and Media: big title anchored bottom-left,
@@ -30,13 +31,15 @@ export default function PosterBanner({ color, media, badge, topRight, title, acc
   return (
     <button
       onClick={onClick}
-      className="flex-1 relative overflow-hidden rounded-xl shadow-md text-left transition-transform active:scale-[0.98]"
+      className="hover-shine flex-1 relative overflow-hidden rounded-xl shadow-md text-left transition-transform active:scale-[0.98]"
       style={{ backgroundColor: color, minHeight: minHeight ?? 160 }}
     >
       {media.type === 'video'
         ? <video src={media.src} className={mediaClass} muted autoPlay loop playsInline />
         : <img src={media.src} alt="" className={mediaClass} />}
       <div className="absolute inset-0" style={{ background: `linear-gradient(to right, ${color} 0%, ${color}cc 45%, transparent 100%)` }} />
+      {/* Rare, soft glint - each banner on its own random clock */}
+      <ShineSweep intensity={0.16} minDelayMs={7000} maxDelayMs={15000} firstDelayMs={1500} firstJitterMs={3000} />
 
       <div className="absolute top-3 left-4 sm:top-4 sm:left-6 inline-flex items-center gap-1 bg-white/20 backdrop-blur-sm text-white text-[9px] sm:text-[11px] font-bold px-2 py-0.5 sm:px-3 sm:py-1 rounded-full uppercase tracking-wider">
         <BadgeIcon className="w-3 h-3 sm:w-4 sm:h-4" />

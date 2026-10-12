@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+import ModalPortal from "./ModalPortal";
 
 interface ImageZoomModalProps {
   images: string[];
@@ -123,6 +124,7 @@ export default function ImageZoomModal({
   };
 
   return (
+    <ModalPortal>
     <div 
       className="fixed inset-0 z-[100] bg-black flex flex-col"
       ref={containerRef}
@@ -228,5 +230,6 @@ export default function ImageZoomModal({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

@@ -1524,7 +1524,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
                   <button
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
-                    className="group relative flex-shrink-0 w-28 h-20 sm:w-auto sm:h-24 rounded-xl transition-all border-2 overflow-hidden"
+                    className="group hover-shine relative flex-shrink-0 w-28 h-20 sm:w-auto sm:h-24 rounded-xl transition-all border-2 overflow-hidden"
                     style={{
                       borderColor: isSelected ? catColor : 'transparent',
                       boxShadow: isSelected ? `0 0 0 3px ${catColor}33` : 'none',

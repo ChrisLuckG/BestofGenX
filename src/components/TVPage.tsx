@@ -112,7 +112,7 @@ function CategoryRow({ category, videos, showSeparator, onVideoClick }: {
             onClick={() => onVideoClick(video)}
             className="flex-shrink-0 w-40 cursor-pointer group"
           >
-            <div className="relative rounded-lg overflow-hidden bg-gray-200 shadow-md">
+            <div className="fx-crt relative rounded-lg overflow-hidden bg-gray-200 shadow-md">
               <img
                 src={video.thumbnail}
                 alt={video.title}
@@ -266,7 +266,7 @@ export default function TVPage({ onBack, initialVideoId }: TVPageProps = {}) {
           return (
             <div 
               onClick={() => openVideo(currentVideo)}
-              className="relative rounded-2xl overflow-hidden cursor-pointer group shadow-2xl"
+              className="fx-crt relative rounded-2xl overflow-hidden cursor-pointer group shadow-2xl"
             >
               {/* Backdrop stack: every slide is mounted and cross-fades, so switching
                   never flashes a blank frame while the next thumbnail loads. */}

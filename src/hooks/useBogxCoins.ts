@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useAuth } from "@/context/AuthContext";
 
 // ============================================================
 // CENTRAL BOGX COINS HOOK
@@ -23,8 +24,15 @@ import { useState, useEffect, useCallback, useRef } from "react";
 // added on top of an already-correct balance.
 const OPTIMISTIC_WINDOW_MS = 2500;
 
-export function useBogxCoins(userId?: string) {
+export function useBogxCoins(rawUserId?: string) {
+  const { authReady } = useAuth();
+  // "guest" is AuthContext's display placeholder for a guest who has played - not an account.
+  const userId = rawUserId === 'guest' ? undefined : rawUserId;
   const [coins, setCoinsState] = useState(0);
+  // Which account the current `coins` value belongs to. Until the first real value
+  // for THIS user has arrived, `loaded` is false and widgets show a loading state -
+  // the initial 0 is a placeholder, not a balance.
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
   const userIdRef = useRef(userId);
   userIdRef.current = userId;
   // When the last optimistic (local) change happened, and a handle for a sync that
@@ -73,7 +81,10 @@ export function useBogxCoins(userId?: string) {
       // Guest: load from localStorage
       const stored = localStorage.getItem('bogx_guest_coins');
       const guestCoins = stored !== null ? parseFloat(stored) : 0;
-      if (myRequestId === requestIdRef.current) setCoinsState(guestCoins);
+      if (myRequestId === requestIdRef.current) {
+        setCoinsState(guestCoins);
+        setLoadedFor('guest');
+      }
       return;
     }
     try {
@@ -88,6 +99,7 @@ export function useBogxCoins(userId?: string) {
         // setCoinsState, not setCoins: a server value is not an optimistic change
         // and must not extend the suppression window.
         setCoinsState(Math.round(bogx * 100) / 100);
+        setLoadedFor(id);
       }
     } catch {
       // Keep current value on network error
@@ -95,10 +107,11 @@ export function useBogxCoins(userId?: string) {
   }, []);
   syncRef.current = syncFromServer;
 
-  // Initial load + reload when user changes
+  // Initial load + reload when user changes. Wait for the saved session: before
+  // that an absent user is not a guest, and loading guest coins showed a fake 0,00.
   useEffect(() => {
-    syncFromServer();
-  }, [userId, syncFromServer]);
+    if (authReady) syncFromServer();
+  }, [userId, authReady, syncFromServer]);
 
   // Instant re-sync on BOGX changes + when returning to the tab
   useEffect(() => {
@@ -126,5 +139,20 @@ export function useBogxCoins(userId?: string) {
     if (deferredSyncRef.current) clearTimeout(deferredSyncRef.current);
   }, []);
 
-  return { coins, setCoins, syncFromServer };
+  const loaded = authReady && loadedFor === (userId || 'guest');
+
+  // Tell the rankings (useLiveRankings) that the balance moved, so day/month/year
+  // refresh together with the coin counter instead of on their next poll. Skipped
+  // until the first real value: the 0 -> balance jump on load is not a change.
+  const lastBroadcastRef = useRef<{ user: string; coins: number } | null>(null);
+  useEffect(() => {
+    if (!loaded || !userId) return;
+    const last = lastBroadcastRef.current;
+    lastBroadcastRef.current = { user: userId, coins };
+    if (last && last.user === userId && last.coins !== coins) {
+      window.dispatchEvent(new CustomEvent('bogx-balance-changed'));
+    }
+  }, [coins, loaded, userId]);
+
+  return { coins, setCoins, syncFromServer, loaded };
 }

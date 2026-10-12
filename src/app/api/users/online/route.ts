@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import User from '@/models/User';
-import Battle from '@/models/Battle';
+import { headToHead } from '@/lib/headToHead';
 
 // GET - Get users for invite/challenge
 // filter=all: all users sorted by activity
@@ -62,41 +62,8 @@ export async function GET(request: NextRequest) {
       rankMap.set(u._id.toString(), idx + 1);
     });
     
-    // Get H2H stats if excludeId is provided (the requesting user)
-    let h2hMap = new Map<string, { wins: number; losses: number }>();
-    if (excludeId) {
-      // Get battles between the requesting user and each player
-      const h2hBattles = await Battle.find({
-        status: 'completed',
-        $or: [
-          { creator: excludeId, opponent: { $in: allUserIds } },
-          { opponent: excludeId, creator: { $in: allUserIds } }
-        ]
-      })
-        .select('creator opponent winner')
-        .lean();
-      
-      // Calculate H2H for each opponent
-      for (const battle of h2hBattles) {
-        const opponentId = battle.creator.toString() === excludeId 
-          ? battle.opponent?.toString() 
-          : battle.creator.toString();
-        
-        if (!opponentId) continue;
-        
-        if (!h2hMap.has(opponentId)) {
-          h2hMap.set(opponentId, { wins: 0, losses: 0 });
-        }
-        
-        const h2h = h2hMap.get(opponentId)!;
-        if (battle.winner?.toString() === excludeId) {
-          h2h.wins++;
-        } else if (battle.winner) {
-          h2h.losses++;
-        }
-        // Draws don't count
-      }
-    }
+    // Your record vs each listed player (W/L/T + real last 5, newest first)
+    const h2hMap = excludeId ? await headToHead(excludeId, allUserIds) : new Map();
     
     // Determine online status for each user
     const now = Date.now();

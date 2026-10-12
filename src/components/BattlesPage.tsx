@@ -16,6 +16,7 @@ import { incrementGamePlayCount } from "@/utils/gameIntro";
 import AlertModal from "@/components/AlertModal";
 import { useAlert } from "@/hooks/useAlert";
 import InviteFlowModal from "@/components/battles/InviteFlowModal";
+import InvitePlayerCard, { H2HStrip } from "@/components/battles/InvitePlayerCard";
 import { type ChallengeTarget, rematchTargetFor } from "@/components/battles/types";
 import { formatCurrency, getCurrencySymbol } from "@/utils/currency";
 import { sounds } from "@/utils/sounds";
@@ -2050,7 +2051,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                     <button
                       key={t.id}
                       onClick={() => setCreateTopic(t.id)}
-                      className="group relative h-20 sm:h-24 rounded-xl transition-all border-2 overflow-hidden"
+                      className="group hover-shine relative h-20 sm:h-24 rounded-xl transition-all border-2 overflow-hidden"
                       style={{
                         borderColor: isSelected ? t.color : 'transparent',
                         boxShadow: isSelected ? `0 0 0 3px ${t.color}33` : 'none',
@@ -2363,7 +2364,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
               <div
                 key={battle._id}
                 onClick={() => { if (isMyBattle) { setSelectedOwnBattle(battle); } else { showBattleIntro(battle); } }}
-                className={`group p-3 border rounded-xl cursor-pointer transform transition-all duration-200 ease-out hover:scale-[1.01] hover:-translate-y-0.5 hover:shadow-lg ${
+                className={`group p-3 border rounded-xl cursor-pointer transition-all duration-200 ease-out hover:shadow-md ${
                   isMyBattle 
                     ? 'bg-gray-50' 
                     : 'border-warm bg-cream'
@@ -2374,7 +2375,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                 onMouseEnter={(e) => {
                   e.currentTarget.style.borderColor = topic.color;
                   e.currentTarget.style.boxShadow = `0 8px 20px -5px ${topic.color}20`;
-                  e.currentTarget.style.backgroundColor = `${topic.color}08`;
+                  e.currentTarget.style.backgroundColor = `${topic.color}12`;
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.borderColor = isMyBattle ? `${topic.color}40` : '#E5E0D8';
@@ -2411,37 +2412,36 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                   </div>
                 </div>
                 
-                {/* Middle Row: Rounds + Wager */}
-                <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-warm/50">
-                  <div className="flex items-center gap-1">
+                {/* Middle Row: Rounds + topic + Wager (topic used to take its own row) */}
+                <div className="flex items-center justify-between gap-2 mt-3 pt-2.5 border-t border-warm/50">
+                  <div className="flex-1 flex items-center gap-1.5 min-w-0">
+                    <span
+                      className="text-[10px] leading-none font-medium px-1.5 py-1 rounded flex items-center gap-1 text-white whitespace-nowrap"
+                      style={{ backgroundColor: topic.color }}
+                    >
+                      {topic.icon && <topic.icon className="w-2.5 h-2.5" />}
+                      {topic.label.charAt(0).toUpperCase() + topic.label.slice(1).toLowerCase()}
+                    </span>
+                    {isMyBattle && (
+                      <span className="text-[8px] leading-none font-bold tracking-wider bg-gray-100 text-gray-600 px-1.5 py-1 rounded">YOURS</span>
+                    )}
+                    {battle.isPrivate && <Lock className="w-3 h-3 text-gray-400 flex-shrink-0" />}
+                  </div>
+                  {/* Rounds centred between topic and wager */}
+                  <div className="flex-none flex items-center gap-1 px-3 border-x border-warm/70" title={`${battle.rounds} rounds`}>
                     <Users className="w-3.5 h-3.5" style={{ color: topic.color }} />
                     <span className="font-display text-gray-900 text-sm">{battle.rounds}</span>
-                    <span className="font-display text-gray-500 text-xs tracking-wide">Rounds</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex-1 flex items-center justify-end gap-1.5">
                     <span className="font-display text-base text-gray-900">{formatCurrency(toBOGX(battle.wager))}</span>
                     <img src="/images/bogxcoin.png" alt="BOGX" className="w-4 h-4" />
                     <ChevronRight className="w-4 h-4 text-gray-300 group-hover:translate-x-0.5 transition-transform duration-200" />
                   </div>
                 </div>
-                
-                {/* Topic Badge Row */}
-                <div className="flex items-center gap-2 mt-2.5">
-                  <span 
-                    className="text-[9px] font-bold tracking-wider uppercase px-2 py-1 rounded flex items-center gap-1 text-white"
-                    style={{ backgroundColor: topic.color }}
-                  >
-                    {topic.icon && <topic.icon className="w-2.5 h-2.5" />}
-                    {topic.label}
-                  </span>
-                  {isMyBattle && (
-                    <span className="text-[9px] font-bold tracking-wider bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                      YOURS
-                    </span>
-                  )}
-                  {battle.isPrivate && (
-                    <Lock className="w-3 h-3 text-gray-400" />
-                  )}
+
+                {/* Your H2H vs the creator - kept (invisible) on own battles so all cards line up */}
+                <div className={`mt-2.5 pt-2 border-t border-warm/50 ${isMyBattle ? 'invisible' : ''}`}>
+                  <H2HStrip h2h={displayUser.h2h} />
                 </div>
                 
                 {/* Date/Time Footer */}
@@ -2505,6 +2505,13 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                     <ChevronRight className="w-5 h-5 text-gray-300" />
                   </div>
                 </div>
+
+                {/* Your H2H vs the creator - same strip as on desktop, two lines on the phone */}
+                {!isMyBattle && (
+                  <div className="mt-3 pt-2.5 border-t border-warm/50">
+                    <H2HStrip h2h={displayUser.h2h} stacked />
+                  </div>
+                )}
                 
                 {isMyBattle && (
                   <div className="flex items-center gap-2 mt-3 pt-3 border-t" style={{ borderColor: `${topic.color}20` }}>
@@ -2994,9 +3001,9 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
             <div className="overflow-y-auto" style={{ scrollbarWidth: 'none', maxHeight: 'calc(100vh - 280px)' }}>
               {inviteLoadingOnline || inviteIsSearching ? (
                 // Skeleton loading placeholders
-                <div className={`${isDesktop ? 'grid grid-cols-4 gap-2.5' : 'bg-white border border-warm rounded-xl overflow-hidden shadow-sm divide-y divide-warm/30'}`}>
-                  {Array.from({ length: isDesktop ? 12 : 8 }).map((_, i) => (
-                    <div key={i} className={`animate-pulse ${isDesktop ? 'p-3 bg-cream border border-warm rounded-xl' : 'flex items-center gap-3 px-3 py-2.5'}`}>
+                <div className={`${isDesktop ? 'grid grid-cols-3 gap-2.5 p-1' : 'bg-white border border-warm rounded-xl overflow-hidden shadow-sm divide-y divide-warm/30'}`}>
+                  {Array.from({ length: isDesktop ? 9 : 8 }).map((_, i) => (
+                    <div key={i} className={`animate-pulse ${isDesktop ? 'p-3 h-[140px] bg-cream border-2 border-warm rounded-2xl' : 'flex items-center gap-3 px-3 py-2.5'}`}>
                       {isDesktop ? (
                         <>
                           <div className="flex items-center gap-2 mb-2">
@@ -3024,120 +3031,58 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                 <div className="p-4 text-center text-gray-500 text-sm">No players found</div>
               ) : isDesktop ? (
                 // Desktop: Card grid like battle pool
-                <div className="grid grid-cols-4 gap-2.5">
-                  {(inviteSearchQuery ? inviteSearchResults : inviteOnlinePlayers).map((player: any) => {
-                    const isOnline = player.isOnline;
-                    const totalBattles = (player.battlesWon || 0) + (player.battlesLost || 0);
-                    const winRate = totalBattles > 0 ? Math.round((player.battlesWon / totalBattles) * 100) : 0;
-                    const h2h = player.h2h;
-                    return (
-                      <button
-                        key={player._id}
-                        onClick={() => handleSelectPlayer(player)}
-                        className={`relative p-3 bg-cream border-2 rounded-xl transition-all duration-200 active:scale-[0.97] text-left group ${
-                          isOnline 
-                            ? 'border-warm hover:border-[#6B7280] hover:bg-white hover:shadow-xl hover:-translate-y-1' 
-                            : 'border-gray-200 opacity-50 hover:opacity-70'
-                        }`}
-                      >
-                        {/* Online indicator - subtle line top right corner */}
-                        {isOnline && (
-                          <div className="absolute top-0 right-0 w-6 h-1 bg-green-500 rounded-bl rounded-tr-xl" />
-                        )}
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-warm bg-white flex-shrink-0 group-hover:border-[#6B7280] transition-colors">
-                            {player.avatar ? (
-                              <img src={player.avatar} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm font-bold">
-                                {player.username?.[0]?.toUpperCase() || '?'}
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              {player.countryFlag && <CountryFlag flag={player.countryFlag} className="w-4 h-3 flex-shrink-0" />}
-                              <span className="font-display text-sm tracking-wide text-gray-900 truncate group-hover:text-[#6B7280] transition-colors">{player.username}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                              <span className="font-medium">#{player.rank || '—'}</span>
-                              <span className="flex items-center gap-0.5">
-                                <img src="/images/bogxcoin.png" alt="" className="w-3 h-3" />
-                                {(player.points ?? player.bogxCoins ?? 0).toFixed(2)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        {/* Stats row - always show */}
-                        <div className="flex items-center justify-between text-[10px] text-gray-500 border-t border-warm/50 pt-2 mt-1">
-                          {/* Battle stats */}
-                          <div className="flex items-center gap-2">
-                            <span className="flex items-center gap-0.5">
-                              <Swords className="w-3 h-3" />
-                              {totalBattles}
-                            </span>
-                            {totalBattles > 0 && (
-                              <span className={`font-medium ${winRate >= 50 ? 'text-green-600' : 'text-gray-500'}`}>
-                                {winRate}%
-                              </span>
-                            )}
-                          </div>
-                          {/* H2H - form circles like football */}
-                          {h2h && (h2h.wins > 0 || h2h.losses > 0) ? (() => {
-                            const results: ('W' | 'L')[] = [];
-                            for (let i = 0; i < h2h.wins; i++) results.push('W');
-                            for (let i = 0; i < h2h.losses; i++) results.push('L');
-                            const display = results.slice(0, 5);
-                            return (
-                              <div className="flex items-center gap-0.5">
-                                {display.map((r, i) => (
-                                  <div
-                                    key={i}
-                                    className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white ${
-                                      r === 'W' ? 'bg-green-500' : 'bg-red-500'
-                                    }`}
-                                  >
-                                    {r}
-                                  </div>
-                                ))}
-                              </div>
-                            );
-                          })() : (
-                            <span className="text-gray-400 italic">No H2H yet</span>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
+                <div className="grid grid-cols-3 gap-2.5 p-1">
+                  {(inviteSearchQuery ? inviteSearchResults : inviteOnlinePlayers).map((player: any) => (
+                    <InvitePlayerCard key={player._id} player={player} onSelect={() => handleSelectPlayer(player)} />
+                  ))}
                 </div>
               ) : (
-                // Mobile: List view
-                <div className="bg-white border border-warm rounded-xl overflow-hidden shadow-sm">
+                // Mobile: same card style as the QuizzBattle pool cards
+                <div className="space-y-3">
                   {(inviteSearchQuery ? inviteSearchResults : inviteOnlinePlayers).map((player: any) => (
                     <button
                       key={player._id}
                       onClick={() => handleSelectPlayer(player)}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 border-b border-warm/30 last:border-b-0 transition-colors hover:bg-[#6B7280]/5"
+                      className="w-full p-4 border-2 border-warm bg-cream rounded-2xl text-left transition-all hover:shadow-md active:scale-[0.99]"
                     >
-                      <div className="w-9 h-9 rounded-full overflow-hidden border border-warm bg-cream flex-shrink-0">
-                        {player.avatar ? (
-                          <img src={player.avatar} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm font-bold">
-                            {player.username?.[0]?.toUpperCase() || '?'}
+                      <div className="flex items-center gap-3">
+                        <div className="relative flex-shrink-0">
+                          <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-warm bg-white">
+                            {player.avatar ? (
+                              <img src={player.avatar} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-400 text-lg font-display">
+                                {player.username?.[0]?.toUpperCase() || '?'}
+                              </div>
+                            )}
                           </div>
-                        )}
+                          <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-cream ${player.isOnline ? 'bg-green-500' : 'bg-gray-300'}`} />
+                          {player.countryFlag && (
+                            <div className="absolute -bottom-1 -left-1">
+                              <CountryFlag flag={player.countryFlag} className="w-5 h-4 rounded-sm shadow-sm" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xl font-display text-gray-900 leading-tight tracking-wide truncate">{player.username}</div>
+                          <div className="text-[11px] text-gray-500 leading-tight flex items-center gap-2 mt-0.5">
+                            <span>Rank #{player.rank || '—'}</span>
+                            <span className="flex items-center gap-0.5">
+                              <img src="/images/bogxcoin.png" alt="" className="w-3 h-3" />
+                              {formatCurrency(player.points ?? player.bogxCoins ?? 0)}
+                            </span>
+                          </div>
+                          <div className="text-[10px] mt-1 flex items-center gap-1">
+                            <span className={`w-1.5 h-1.5 rounded-full ${player.isOnline ? 'bg-green-500' : 'bg-gray-300'}`} />
+                            <span className={player.isOnline ? 'text-green-600' : 'text-gray-400'}>{player.isOnline ? 'Online now' : 'Offline · plays later'}</span>
+                          </div>
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-gray-300 flex-shrink-0" />
                       </div>
-                      <div className="flex-1 flex items-center gap-2 text-left min-w-0">
-                        <span className="font-display text-[13px] tracking-wide text-gray-900 truncate">{player.username}</span>
-                        {player.countryFlag && <CountryFlag flag={player.countryFlag} className="w-4 h-3 flex-shrink-0" />}
-                        {player.isOnline && <span className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0" />}
-                        <span className="ml-auto flex items-center gap-1 font-display text-sm tracking-wide text-gray-700 flex-shrink-0">
-                          <img src="/images/bogxcoin.png" alt="" className="w-3.5 h-3.5" />
-                          {(player.points ?? player.bogxCoins ?? 0).toFixed(2)}
-                        </span>
+                      {/* Your H2H vs this player - same strip as the pool cards */}
+                      <div className="mt-3 pt-2.5 border-t border-warm/50">
+                        <H2HStrip h2h={player.h2h} stacked />
                       </div>
-                      <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
                     </button>
                   ))}
                 </div>
@@ -3205,7 +3150,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                   <button
                     key={t.id}
                     onClick={() => handleSelectTopic(t.id)}
-                    className="group relative h-20 sm:h-24 rounded-xl transition-all border-2 overflow-hidden"
+                    className="group hover-shine relative h-20 sm:h-24 rounded-xl transition-all border-2 overflow-hidden"
                     style={{
                       borderColor: isSelected ? t.color : 'transparent',
                       boxShadow: isSelected ? `0 0 0 3px ${t.color}33` : 'none',
@@ -4455,7 +4400,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
               <div className="flex items-center gap-3">
                 <button
                   onClick={backToPool}
-                  className="flex-1 py-3 border border-warm bg-cream hover:bg-white text-gray-600 font-display text-sm tracking-widest rounded-xl flex items-center justify-center gap-2 transition-all"
+                  className="fx-neon relative flex-1 py-3 border border-warm bg-cream hover:bg-white text-gray-600 font-display text-sm tracking-widest rounded-xl flex items-center justify-center gap-2 transition-all"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   Pool
@@ -4465,7 +4410,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                     const target = rematchTargetFor(currentBattle, isCreator);
                     if (target) startRematch(target);
                   }}
-                  className="group flex-1 py-3 text-white font-display text-sm tracking-widest rounded-xl flex items-center justify-center relative transition-all hover:opacity-90 hover:scale-[1.01] active:scale-[0.99]"
+                  className="fx-arcade group flex-1 py-3 text-white font-display text-sm tracking-widest rounded-xl flex items-center justify-center relative"
                   style={{ background: `linear-gradient(135deg, ${topic.color}dd 0%, ${topic.color} 100%)` }}
                 >
                   Rematch

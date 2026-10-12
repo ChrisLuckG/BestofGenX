@@ -475,6 +475,7 @@ export default function DesktopLoginPage({ onClose, onSuccess, initialView = 'lo
                   </div>
                 )}
               </div>
+              <p className="mt-4 text-xs text-gray-500">Heads-up: BOGX speaks English only, and there's no language switch after sign-up. Your country can be changed later in your profile.</p>
             </div>
           )}
 

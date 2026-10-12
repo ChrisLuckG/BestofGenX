@@ -9,6 +9,7 @@ import { RankingsSkeleton } from "./DesktopSkeletons";
 import { formatCurrency, autoConvertToBOGX } from "@/utils/currency";
 import { getUserLevel, getLevelProgress, getBogxToNextLevel, getNextLevelName, getProgressSegments, LEVELS } from "@/utils/levels";
 import { useLiveRankings, RankingPlayer as Player } from "@/hooks/useLiveRankings";
+import ModalPortal from "@/components/ModalPortal";
 
 
 interface DesktopRankingsPageProps {
@@ -751,6 +752,7 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
       
       {/* Player Card - Desktop inline */}
       {selectedPlayerId && (
+        <ModalPortal>
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={handlePlayerClose}>
           <div className="w-full max-w-md bg-cream rounded-2xl shadow-xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <PlayerCard
@@ -762,6 +764,7 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
             />
           </div>
         </div>
+        </ModalPortal>
       )}
     </div>
   );

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Check, Package, Mail, X, Truck, Loader2, AlertCircle } from "lucide-react";
 import { useCart } from "@/context/CartContext";
+import ModalPortal from "./ModalPortal";
 
 interface OrderData {
   oderId: string;
@@ -85,6 +86,7 @@ export default function CheckoutSuccessModal({ isOpen, onClose, sessionId }: Che
   if (!isOpen) return null;
 
   return (
+    <ModalPortal>
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       {/* Blurry Background */}
       <div 
@@ -239,5 +241,6 @@ export default function CheckoutSuccessModal({ isOpen, onClose, sessionId }: Che
         )}
       </div>
     </div>
+    </ModalPortal>
   );
 }

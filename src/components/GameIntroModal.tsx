@@ -2,6 +2,7 @@
 
 import { X, Check } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import ModalPortal from "./ModalPortal";
 
 export interface GameIntroRule {
   /** Optional icon shown next to the rule (defaults to a check) */
@@ -134,6 +135,7 @@ export default function GameIntroModal({
   }
 
   return (
+    <ModalPortal>
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={onClose} />
       
@@ -271,5 +273,6 @@ export default function GameIntroModal({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 }

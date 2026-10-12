@@ -309,7 +309,7 @@ export default function DesktopArticlesPage({ onOpenArticle, onShowLogin, onCoin
                   >
                     <div className="flex items-center gap-4">
                       {/* Thumbnail */}
-                      <div className="w-20 h-20 flex-shrink-0 overflow-hidden bg-skeleton cursor-pointer" onClick={() => handleArticleClick(article._id)}>
+                      <div className="fx-crt w-20 h-20 flex-shrink-0 overflow-hidden bg-skeleton cursor-pointer" onClick={() => handleArticleClick(article._id)}>
                         {article.coverImage ? (
                           isVideoUrl(article.coverImage) ? (
                             <video src={article.coverImage} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" style={{ objectPosition: `${article.thumbnailPosition?.x || 50}% ${article.thumbnailPosition?.y || 50}%` }} muted autoPlay loop playsInline />

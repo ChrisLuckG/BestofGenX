@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, useSyncExternalStore } from "react";
+import MobilePage from "@/app/mobile/page";
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
@@ -58,14 +59,28 @@ const navTabs = [
   { id: "articles" as NavTab, label: "Articles", icon: FileText },
 ];
 
-export default function DesktopPage() {
+// Responsive test: below this width the desktop route renders the mobile app
+// unchanged instead of squeezing the desktop layout.
+const NARROW_QUERY = '(max-width: 1023px)';
+const subscribeNarrow = (cb: () => void) => {
+  const mq = window.matchMedia(NARROW_QUERY);
+  mq.addEventListener('change', cb);
+  return () => mq.removeEventListener('change', cb);
+};
+
+export default function DesktopRoute() {
+  const isNarrow = useSyncExternalStore(subscribeNarrow, () => window.matchMedia(NARROW_QUERY).matches, () => false);
+  return isNarrow ? <MobilePage /> : <DesktopPage />;
+}
+
+function DesktopPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoggedIn } = useAuth();
   const [mounted, setMounted] = useState(false);
   
   // Central BOGX hook - same source of truth on Desktop AND Mobile
-  const { coins, setCoins } = useBogxCoins(user?.id);
+  const { coins, setCoins, loaded: coinsLoaded } = useBogxCoins(user?.id);
   // Always-current balance for animateCoins, which needs the starting value
   // without capturing a stale `coins` from the render it was created in.
   const coinsRef = useRef(coins);
@@ -249,9 +264,10 @@ export default function DesktopPage() {
   // The date MUST be stable: a fresh `new Date()` per render would change the
   // hook's dependencies every render and re-fetch in an endless loop.
   const widgetToday = useMemo(() => new Date(), []);
-  const { currentUserEntry: dailyUserEntry, myPoints: dailyMyPoints } = useLiveRankings({ period: 'day', selectedDate: widgetToday, userId: user?.id });
-  const { currentUserEntry: monthlyUserEntry, myPoints: monthlyMyPoints } = useLiveRankings({ period: 'month', selectedDate: widgetToday, userId: user?.id });
-  const { currentUserEntry: yearlyUserEntry, myPoints: yearlyMyPoints } = useLiveRankings({ period: 'year', selectedDate: widgetToday, userId: user?.id });
+  const { currentUserEntry: dailyUserEntry, myPoints: dailyMyPoints, loading: dailyLoading } = useLiveRankings({ period: 'day', selectedDate: widgetToday, userId: user?.id });
+  const { currentUserEntry: monthlyUserEntry, myPoints: monthlyMyPoints, loading: monthlyLoading } = useLiveRankings({ period: 'month', selectedDate: widgetToday, userId: user?.id });
+  const { currentUserEntry: yearlyUserEntry, myPoints: yearlyMyPoints, loading: yearlyLoading } = useLiveRankings({ period: 'year', selectedDate: widgetToday, userId: user?.id });
+  const isLoadingRanks = dailyLoading || monthlyLoading || yearlyLoading;
   
   const scoreRankPositions = {
     dailyRank: dailyUserEntry?.rank || 0,
@@ -879,7 +895,7 @@ export default function DesktopPage() {
                       className="relative flex flex-col items-center px-2.5 py-2.5 rounded-xl group hover:bg-[#E36B11]/5 transition-all"
                     >
                       <div className="relative">
-                        <Icon className={`w-6 h-6 transition-colors ${
+                        <Icon className={`fx-wiggle w-6 h-6 transition-colors ${
                           isActive ? 'text-[#E36B11]' : 'text-gray-900 group-hover:text-[#E36B11]'
                         }`} />
                         {showBattleBadge && (
@@ -888,7 +904,7 @@ export default function DesktopPage() {
                           </span>
                         )}
                       </div>
-                      <span className={`font-display text-[11px] tracking-widest uppercase leading-none mt-1.5 transition-colors ${
+                      <span className={`fx-rgb font-display text-[11px] tracking-widest uppercase leading-none mt-1.5 transition-colors ${
                         isActive ? 'text-[#E36B11]' : 'text-gray-900 group-hover:text-[#E36B11]'
                       }`}>
                         {tab.label}
@@ -925,6 +941,8 @@ export default function DesktopPage() {
                   countdownMs={countdownMs}
                   isLoggedIn={isLoggedIn}
                   onShowLogin={() => setShowLoginPage(true)}
+                  isLoadingCoins={!coinsLoaded}
+                  isLoadingRanks={isLoadingRanks}
                 />
               </div>
             </div>
@@ -1613,7 +1631,7 @@ export default function DesktopPage() {
 
       {/* Login Modal - fixed height based on tallest view (Signup wizard) */}
       {showLoginPage && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowLoginPage(false); }}>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/30 backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowLoginPage(false); }}>
           <div className="relative w-full max-w-md mx-4 bg-[#F5F0E8] rounded-2xl shadow-2xl overflow-hidden" style={{ height: '820px', maxHeight: '90vh' }}>
             <DesktopLoginPage onClose={() => setShowLoginPage(false)} onSuccess={() => setShowLoginPage(false)} isModal={true} />
           </div>
@@ -1658,6 +1676,7 @@ export default function DesktopPage() {
             setActiveTab('arcade');
           }}
           isDesktop={true}
+          userId={user?.id}
         />
       )}
 

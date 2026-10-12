@@ -22,6 +22,8 @@ import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 
 const WIKIDATA_ENDPOINT = 'https://query.wikidata.org/sparql';
+let MIN_SCORE = 70;
+const samples: string[] = [];
 
 // Categories to import (non-sports, since we have 97k sports already)
 const OCCUPATIONS = [
@@ -130,6 +132,7 @@ function calculateScore(person: {
 
 async function main() {
   const dry = process.argv.includes('--dry');
+  MIN_SCORE = parseInt(process.argv.find(a => a.startsWith('--min-score='))?.split('=')[1] || '70');
   const startYear = parseInt(process.argv.find(a => a.startsWith('--start='))?.split('=')[1] || '1980');
   const endYear = parseInt(process.argv.find(a => a.startsWith('--end='))?.split('=')[1] || '1965');
   
@@ -195,8 +198,8 @@ async function main() {
           
           const score = calculateScore(personData);
           
-          // Skip if score < 50
-          if (score < 50) {
+          // Skip below the threshold (default 70 = the admin "Score 70+" filter)
+          if (score < MIN_SCORE) {
             lowScore++;
             totalLowScore++;
             continue;
@@ -223,12 +226,14 @@ async function main() {
               totalErrors++;
             }
           } else {
+            if (added < 5) samples.push(`${firstname} ${lastname} (${countryBorn}) - ${description}`);
             added++;
             totalAdded++;
           }
         }
         
         console.log(`${results.length} found, ${added} added, ${skipped} exist, ${lowScore} low score`);
+        for (const s of samples.splice(0)) console.log(`      e.g. ${s}`);
         
         // Rate limit
         await new Promise(r => setTimeout(r, 2500));

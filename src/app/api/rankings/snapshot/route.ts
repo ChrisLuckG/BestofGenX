@@ -90,9 +90,28 @@ function rankingYearStartInstant(now: Date = new Date()): Date {
 // Build rankings from the GameResult collection (single source of truth) over a
 // [start, end) playedAt window. This guarantees consistency across day/month/year
 // (e.g. month always includes today) since they all sum the same events.
-async function buildPeriodRankings(startInstant: Date, endInstant?: Date, userId?: string | null) {
+//
+// `trend`: rank arrows show the LAST movement, the same on every device. Each
+// entry's rank is reconstructed at a ladder of earlier moments (2 min, 5 min ...
+// back to the period start); the nearest moment with a different rank decides:
+// overtaken -> 'down', and it stays 'down' until the player moves again. Never
+// moved but on the board now -> 'up' (they entered at some point).
+// The arrows used to come from each browser's localStorage, so desktop and
+// phone disagreed.
+const TREND_LADDER_MIN = [2, 5, 10, 20, 30, 60, 120, 240, 480, 720, 1440, 2880, 4320, 10080, 20160, 43200, 129600, 259200, 525600];
+
+async function buildPeriodRankings(startInstant: Date, endInstant?: Date, userId?: string | null, trend = false) {
   const playedAtMatch: any = { $gte: startInstant };
   if (endInstant) playedAtMatch.$lt = endInstant;
+  const useTrend = trend && !endInstant;
+  const nowMsT = Date.now();
+  const checkpoints = useTrend
+    ? TREND_LADDER_MIN.map(m => new Date(nowMsT - m * 60000)).filter(d => d > startInstant)
+    : [];
+  const recentSums: Record<string, any> = {};
+  checkpoints.forEach((cp, i) => {
+    recentSums[`r${i}`] = { $sum: { $cond: [{ $gte: ['$playedAt', cp] }, '$pointsChange', 0] } };
+  });
 
   const results = await GameResult.aggregate([
     { $match: { playedAt: playedAtMatch } },
@@ -101,6 +120,7 @@ async function buildPeriodRankings(startInstant: Date, endInstant?: Date, userId
         _id: '$userId',
         username: { $first: '$username' },
         periodPoints: { $sum: '$pointsChange' },
+        ...recentSums,
         gamesPlayed: { $sum: 1 },
         wins: { $sum: { $cond: ['$isCorrect', 1, 0] } },
         lastPlayedAt: { $max: '$playedAt' },
@@ -144,19 +164,52 @@ async function buildPeriodRankings(startInstant: Date, endInstant?: Date, userId
         isOnline,
         isBot,
         recentPoints: 0,
+        // net at each checkpoint = net now - what was earned after it
+        pastPoints: checkpoints.map((_, i) => Math.round((result.periodPoints - (result[`r${i}`] || 0)) * 100) / 100),
       };
     });
 
   rankings.sort((a, b) => b.points - a.points || b.totalPoints - a.totalPoints);
   const active = rankings.filter(r => r.points > 0);
 
+  // Rank of every player at each checkpoint (same ordering, same "> 0" rule)
+  const pastRanks: Map<string, number>[] = checkpoints.map((_, i) => {
+    const m = new Map<string, number>();
+    rankings
+      .filter(r => r.pastPoints[i] > 0)
+      .sort((a, b) => b.pastPoints[i] - a.pastPoints[i] || b.totalPoints - a.totalPoints)
+      .forEach((r, idx) => m.set(String(r._id), idx + 1));
+    return m;
+  });
+  const changeFor = (id: string, rank: number): 'up' | 'down' | null => {
+    if (!useTrend) return null;
+    for (const m of pastRanks) {
+      const before = m.get(id);
+      if (before === undefined) return 'up'; // was not on the board yet
+      if (before !== rank) return rank < before ? 'up' : 'down';
+    }
+    return 'up'; // unchanged as far back as the ladder goes: entered at period start
+  };
+
   // The requesting player's own net for this window, even when it is <= 0 and
   // they are therefore NOT on the leaderboard. Lets the widgets show "-0,37" /
   // "0,00" instead of a bare "?", so the player knows how far off a rank they are.
   const mine = userId ? rankings.find(r => r._id?.toString() === userId) : undefined;
-  const me = userId ? { points: mine?.points ?? 0, gamesPlayed: mine?.gamesPlayed ?? 0 } : null;
+  const myRank = userId ? active.findIndex(r => r._id?.toString() === userId) + 1 : 0;
+  const me = userId ? {
+    points: mine?.points ?? 0,
+    gamesPlayed: mine?.gamesPlayed ?? 0,
+    rank: myRank || null,
+    change: myRank ? changeFor(userId, myRank) : null,
+  } : null;
 
-  return { rankings: active.slice(0, 100).map((r, index) => ({ ...r, rank: index + 1 })), me };
+  return {
+    rankings: active.slice(0, 100).map((r, index) => {
+      const { pastPoints, ...rest } = r;
+      return { ...rest, rank: index + 1, change: changeFor(String(r._id), index + 1) };
+    }),
+    me,
+  };
 }
 
 const NO_CACHE_HEADERS = {
@@ -389,7 +442,7 @@ export async function GET(request: Request) {
       const nextY = m === 12 ? y + 1 : y;
       const end = isCurrent ? undefined : berlinInstant(nextY, nextM, 1, 10);
 
-      const { rankings, me } = await buildPeriodRankings(start, end, userId);
+      const { rankings, me } = await buildPeriodRankings(start, end, userId, isCurrent);
       return NextResponse.json(
         { rankings, me, isLive: isCurrent, period: 'month', month: targetMonth },
         { headers: NO_CACHE_HEADERS }
@@ -410,7 +463,7 @@ export async function GET(request: Request) {
       // Historical year ends at 10:00 Berlin on Jan 1st of the next year
       const end = isCurrent ? undefined : berlinInstant(y + 1, 1, 1, 10);
 
-      const { rankings, me } = await buildPeriodRankings(start, end, userId);
+      const { rankings, me } = await buildPeriodRankings(start, end, userId, isCurrent);
       return NextResponse.json(
         { rankings, me, isLive: isCurrent, period: 'year', year: targetYear },
         { headers: NO_CACHE_HEADERS }
@@ -443,7 +496,8 @@ export async function GET(request: Request) {
       }
       
       // No cache for live rankings - they need to update immediately
-      const { rankings: rankedResults, me } = await buildPeriodRankings(dayStart, endInstant, userId);
+      // No arrows when scrubbing the timeline
+      const { rankings: rankedResults, me } = await buildPeriodRankings(dayStart, endInstant, userId, !untilTimeParam);
       
       return NextResponse.json(
         { rankings: rankedResults, me, isLive: !untilTimeParam, date: today, untilTime: untilTimeParam ? parseFloat(untilTimeParam) : null },

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Play } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ExternalLink, Play, X } from "lucide-react";
+import ModalPortal from "./ModalPortal";
 
 interface RankingItemImageProps {
   image?: string;
@@ -36,8 +37,8 @@ function getYoutubeVideoId(url?: string): string | null {
  * Used by: DesktopRankrollPage (preview), DesktopRankingDetailPage (list), RankingPollCard (article).
  * Change the design HERE once and it applies everywhere.
  * 
- * If videoUrl is provided, clicking plays the video inline (like articles).
- * If only image has a YouTube thumbnail, it also plays inline.
+ * If videoUrl is provided (or the image is a YouTube thumbnail), clicking opens the
+ * video in a dark overlay - unless the caller handles playback via onPlay.
  */
 export default function RankingItemImage({ image, videoUrl, rank, title, size = "default", disableVideo = false, onPlay }: RankingItemImageProps) {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -55,31 +56,56 @@ export default function RankingItemImage({ image, videoUrl, rank, title, size = 
     else setIsPlaying(true);
   };
 
-  // If playing, show embedded video
-  if (isPlaying && youtubeId) {
-    return (
-      <div className={`relative ${sizeClasses} rounded-lg overflow-hidden flex-shrink-0 bg-black`}>
-        <iframe
-          src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&rel=0`}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-          className="absolute inset-0 w-full h-full"
-        />
-        {/* Rank Number overlay on video */}
-        <div
-          className={`absolute bottom-1 left-2 font-display font-bold leading-none pointer-events-none ${
-            size === "large" ? "text-5xl" : "text-2xl"
-          } ${rank === 1 ? "text-[#E36B11]" : "text-white"}`}
-          style={{ textShadow: "0 2px 4px rgba(0,0,0,0.5)" }}
-        >
-          {rank.toString().padStart(2, "0")}
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (!isPlaying) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setIsPlaying(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isPlaying]);
 
-  // Thumbnail view with play button
+  // Thumbnail view with play button. Playback opens a dark overlay like GenX TV -
+  // a video squeezed into the 176px thumbnail was unwatchable.
   return (
+    <>
+    {isPlaying && youtubeId && (
+      <ModalPortal>
+        <div className="fixed inset-0 bg-black/95 z-[9999] flex items-center justify-center p-4" onClick={(e) => { e.stopPropagation(); setIsPlaying(false); }}>
+          <div className="relative w-full max-w-5xl bg-black rounded-xl overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setIsPlaying(false)}
+              aria-label="Close"
+              className="absolute top-3 right-3 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <div className="aspect-video">
+              <iframe
+                src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&rel=0`}
+                title={title || ""}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="w-full h-full"
+              />
+            </div>
+            {title && (
+              <div className="p-4 bg-gray-900 flex items-center gap-3">
+                <span className="font-display text-3xl leading-none text-[#E36B11]">{rank.toString().padStart(2, "0")}</span>
+                <h3 className="flex-1 text-white font-display text-lg tracking-wide">{title}</h3>
+                <a
+                  href={`https://www.youtube.com/watch?v=${youtubeId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  YouTube
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      </ModalPortal>
+    )}
     <div 
       className={`relative ${sizeClasses} rounded-lg overflow-hidden flex-shrink-0 bg-gray-200 ${youtubeId ? 'cursor-pointer' : ''}`}
       onClick={youtubeId ? handlePlayClick : undefined}
@@ -109,5 +135,6 @@ export default function RankingItemImage({ image, videoUrl, rank, title, size = 
         </div>
       )}
     </div>
+    </>
   );
 }
