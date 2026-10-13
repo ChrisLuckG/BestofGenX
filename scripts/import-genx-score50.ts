@@ -19,6 +19,7 @@
 import mongoose from 'mongoose';
 import { Person } from '../src/models/Almanac';
 import dotenv from 'dotenv';
+import { resolveCommonsThumb } from '../src/lib/wikimediaImage';
 dotenv.config({ path: '.env.local' });
 
 const WIKIDATA_ENDPOINT = 'https://query.wikidata.org/sparql';
@@ -219,6 +220,8 @@ async function main() {
           
           if (!dry) {
             try {
+              // Special:FilePath is a rate-limited redirect to the original - store the CDN thumbnail
+              personData.image = await resolveCommonsThumb(personData.image);
               await Person.create(personData);
               added++;
               totalAdded++;

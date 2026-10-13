@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { 
   Plus, ChevronLeft, ChevronRight, ChevronDown, Swords, Check, X, Clock, HelpCircle, Trophy, Coins, Users,
   Dumbbell, Music, Film, Landmark, Shirt, Gamepad2, Tv, Palette, UtensilsCrossed, Play, Lock, LayoutGrid,
-  Target, Zap, RefreshCcw, Shield, Loader2, Search, ArrowRight, ArrowLeft, Globe, BarChart3, Bell, Info
+  Target, Zap, RefreshCcw, Shield, Loader2, Search, ArrowRight, ArrowLeft, Globe, BarChart3, Bell, Info, Shuffle
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -13,6 +13,7 @@ import LogoLoader from "@/components/LogoLoader";
 import BackButton from "@/components/BackButton";
 import LoadingDots from "@/components/LoadingDots";
 import CountUpNumber from "@/components/CountUpNumber";
+import BreakWinners from "@/components/BreakWinners";
 import PageHeader, { HeaderButton } from "@/components/PageHeader";
 import type { BattleLeaveGuard } from "@/hooks/useBattleLeaveGuard";
 import CountryFlag from "@/components/CountryFlag";
@@ -86,6 +87,9 @@ const TOPICS: { id: string; label: string; icon: LucideIcon; color: string }[] =
   { id: 'film', label: 'Movies', icon: Film, color: getTopicColor('film') }, // includes TV
   { id: 'games', label: 'Gaming', icon: Gamepad2, color: getTopicColor('games') },
   { id: 'politik', label: 'Politik', icon: Landmark, color: getTopicColor('politik') },
+  // Questions from every theme, like Mixed in Solo Trivia. Kept LAST: getTopicConfig
+  // falls back to TOPICS[0] for legacy topics (bots still create 'culture').
+  { id: 'mixed', label: 'Mixed', icon: Shuffle, color: getTopicColor('mixed') },
 ];
 
 const WAGERS = [
@@ -2235,6 +2239,11 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                   <p className="text-sm font-bold text-[#6B7280]">Back at 10:00 AM</p>
                   <p className="text-[10px] text-gray-500">New round, new chances to win!</p>
                 </div>
+              </div>
+
+              {/* Who won the day that just ended */}
+              <div className="mt-6 w-full max-w-sm bg-white/85 rounded-xl border border-[#6B7280]/15 shadow-sm px-4 pt-3 pb-4">
+                <BreakWinners variant="podium" />
               </div>
             </div>
           </div>

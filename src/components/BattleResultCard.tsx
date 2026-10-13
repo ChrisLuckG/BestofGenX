@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, X, Check, HelpCircle, Music, Dumbbell, Film, Gamepad2, Landmark } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Check, HelpCircle, Music, Dumbbell, Film, Gamepad2, Landmark, Shuffle } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { compareBattleResults } from "@/utils/battleWinner";
 import { formatCurrency } from "@/utils/currency";
@@ -48,6 +48,7 @@ const TOPICS: Record<string, { label: string; icon: LucideIcon }> = {
   games: { label: 'Gaming', icon: Gamepad2 },
   gaming: { label: 'Gaming', icon: Gamepad2 },
   politik: { label: 'Politik', icon: Landmark },
+  mixed: { label: 'Mixed', icon: Shuffle },
 };
 
 export default function BattleResultCard({

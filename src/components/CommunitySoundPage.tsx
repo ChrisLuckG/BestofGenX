@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { Music, Headphones, Play, ExternalLink, Check, ClipboardPaste, ChevronRight, ChevronLeft } from "lucide-react";
+import PageHeader, { HeaderButton } from "@/components/PageHeader";
 import BackButton from "@/components/BackButton";
 import MusicSongList from "@/components/games/MusicSongList";
 import { useAuth } from "@/context/AuthContext";
@@ -150,19 +151,9 @@ export default function CommunitySoundPage({ onBack, onOpenRadio, onShowLogin, i
   return (
     <div className="w-full h-full min-h-full flex flex-col overflow-hidden" style={{ backgroundColor: '#F5F0E8' }}>
       {/* Header - consistent with other pages */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
-        <div className="flex items-center gap-3">
-          {/* Desktop has its own persistent navigation, so an in-page back
-              button is redundant there. Mobile still needs it - it is the only
-              way out of this view. */}
-          {onBack && !isDesktop && <BackButton onClick={onBack} />}
-          <Music className="w-5 h-5 text-[#15803D]" />
-          <div>
-            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Community Sound</span>
-            <span className="text-[10px] text-gray-500 -mt-0.5 block">Your songs. Our playlist.</span>
-          </div>
-        </div>
-      </div>
+      {/* Desktop has its own persistent navigation, so an in-page back button is
+          redundant there. Mobile still needs it - it is the only way out of this view. */}
+      <PageHeader icon={Music} iconColor="#15803D" title="Community Sound" subtitle="Your songs. Our playlist." onBack={onBack && !isDesktop ? onBack : undefined} />
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
         {/* Hero banner - always show video background */}

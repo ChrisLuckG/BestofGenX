@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Bell, BellOff, Check, Trophy, Settings, Swords, Trash2, Target, Music, X, ThumbsUp, Newspaper, Brain, Vote, ChevronLeft } from "lucide-react";
+import PageHeader, { HeaderButton } from "@/components/PageHeader";
 import { WELCOME_NOTIFICATION_ID, WELCOME_GUEST_DISMISSED_KEY, WELCOME_GUEST_READ_KEY, WELCOME_TITLE, welcomeMessage } from "@/lib/welcomeNotification";
 import { sounds } from "@/utils/sounds";
 import { useAuth } from "@/context/AuthContext";
@@ -69,6 +70,9 @@ interface NotificationPageProps {
   compact?: boolean; // Compact mode for sidebar widget - shows only first 5 notifications
   onViewAll?: () => void; // Called when "View All" is clicked in compact mode
   onOpenSettings?: () => void; // Called when bell icon is clicked in compact mode to open notification settings
+  settingsOpen?: boolean; // Compact mode: the settings view is open somewhere - the bell shows as selected
+  onCloseSettings?: () => void; // Compact mode: bell clicked while selected - same as the settings back arrow
+  onSettingsOpened?: () => void; // Full page: settings view was opened in here (so the sidebar bell can show it)
   // Opens the "Battle Challenge!" confirm modal for this battle as soon as the
   // page mounts. Used for a deep link from a raw OS push notification, which has
   // no notification-list item to click through - it must land on the SAME
@@ -299,9 +303,10 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray;
 }
 
-export default function NotificationPage({ isOpen = true, onClose, onGoToProfile, onGoToBattle, onShowBattleResult, onRematch, onOpenArticle, onShowChallenge, autoEnable, onNewNotification, onPointsAwarded, autoOpenSettings, onSettingsClosed, onChallengeDeclined, compact = false, onViewAll, onOpenSettings, initialChallengeId, onInitialChallengeHandled, onShowSignup, onShowBogxers, onShowArcade, onShowRankroll, onShowWelcome, onCoinAnimation }: NotificationPageProps & { onNewNotification?: () => void }) {
+export default function NotificationPage({ isOpen = true, onClose, onGoToProfile, onGoToBattle, onShowBattleResult, onRematch, onOpenArticle, onShowChallenge, autoEnable, onNewNotification, onPointsAwarded, autoOpenSettings, onSettingsClosed, onChallengeDeclined, compact = false, onViewAll, onOpenSettings, settingsOpen = false, onCloseSettings, onSettingsOpened, initialChallengeId, onInitialChallengeHandled, onShowSignup, onShowBogxers, onShowArcade, onShowRankroll, onShowWelcome, onCoinAnimation }: NotificationPageProps & { onNewNotification?: () => void }) {
   const { user, isLoggedIn } = useAuth();
   const [showSettings, setShowSettings] = useState(false);
+  const openSettingsView = () => { setShowSettings(true); onSettingsOpened?.(); };
   
   // Reset showSettings when component mounts (unless autoOpenSettings is true)
   useEffect(() => {
@@ -950,11 +955,20 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
               </span>
             )}
           </div>
-          <button 
-            onClick={onOpenSettings} 
-            className={`p-1.5 rounded-full transition-colors ${pushEnabled ? 'bg-[#E36B11]/20' : 'hover:bg-[#E36B11]/10'}`}
+          {/* Selected while the settings view is open; clicking it again closes it, like the back arrow there */}
+          <button
+            onClick={settingsOpen ? onCloseSettings : onOpenSettings}
+            aria-pressed={settingsOpen}
+            title={settingsOpen ? 'Close notification settings' : 'Notification settings'}
+            className={`group p-1.5 rounded-full transition-all duration-200 ${
+              settingsOpen
+                ? 'bg-[#E36B11] shadow-[0_0_0_3px_rgba(227,107,17,0.2)]'
+                : pushEnabled ? 'bg-[#E36B11]/20 hover:bg-[#E36B11]/30' : 'hover:bg-[#E36B11]/10'
+            }`}
           >
-            <Bell className={`w-4 h-4 ${pushEnabled ? 'text-[#E36B11] fill-[#E36B11]' : 'text-[#E36B11]'}`} />
+            <Bell className={`w-4 h-4 transition-colors ${
+              settingsOpen ? 'text-white fill-white' : pushEnabled ? 'text-[#E36B11] fill-[#E36B11]' : 'text-[#E36B11]'
+            } group-hover:animate-[fxWiggle_0.5s_ease-in-out_1]`} />
           </button>
         </div>
         {/* Notifications list - max 5 visible, then scroll (hidden scrollbar) */}
@@ -1116,39 +1130,25 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
         </div>
       )}
       {/* Header - fixed */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm flex-shrink-0">
-        <div className="flex items-center gap-3">
-          {showSettings ? (
-            <BackButton onClick={() => { 
-              sounds.click(); 
+      <div className="flex-shrink-0">
+        {showSettings ? (
+          <PageHeader
+            icon={Settings}
+            title="SETTINGS"
+            subtitle="Customize your experience"
+            onBack={() => {
+              sounds.click();
               setShowSettings(false);
               if (onSettingsClosed) onSettingsClosed();
-            }} />
-          ) : (
-            <Bell className="w-5 h-5 text-[#E36B11]" />
-          )}
-          {showSettings ? (
-            <>
-              <Settings className="w-5 h-5 text-[#E36B11]" />
-              <div>
-                <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">SETTINGS</span>
-                <span className="text-[10px] text-gray-500 -mt-0.5 block">Customize your experience</span>
-              </div>
-            </>
-          ) : (
-            <div>
-              <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">NEWS</span>
-              <span className="text-[10px] text-gray-500 -mt-0.5 block">Updates & notifications</span>
-            </div>
-          )}
-        </div>
-        {!showSettings && (
-          <button 
-            onClick={() => { sounds.click(); setShowSettings(true); }}
-            className="p-2.5 bg-[#E36B11]/10 hover:bg-[#E36B11]/20 rounded-xl transition-colors"
-          >
-            <Settings className="w-5 h-5 text-[#E36B11]" />
-          </button>
+            }}
+          />
+        ) : (
+          <PageHeader
+            icon={Bell}
+            title="NEWS"
+            subtitle="Updates & notifications"
+            right={<HeaderButton iconOnly icon={Settings} label="Settings" onClick={() => { sounds.click(); openSettingsView(); }} />}
+          />
         )}
       </div>
 
@@ -1296,7 +1296,7 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
                 </div>
               </div>
               <button
-                onClick={() => setShowSettings(true)}
+                onClick={openSettingsView}
                 disabled={pushLoading}
                 className="w-full max-w-[300px] py-3 bg-[#E36B11] text-white font-bold rounded-lg flex items-center justify-center gap-2"
               >

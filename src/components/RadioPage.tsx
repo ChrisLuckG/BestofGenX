@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { Radio, Play, ExternalLink, Music, Check, ClipboardPaste } from "lucide-react";
+import PageHeader, { HeaderButton } from "@/components/PageHeader";
 import GenXLoader from "./GenXLoader";
 import { useAuth } from "@/context/AuthContext";
 import { RadioSkeleton } from "@/components/desktop/DesktopSkeletons";
@@ -79,21 +80,19 @@ export default function RadioPage({ isDesktop = false }: RadioPageProps) {
   return (
     <div className="w-full h-full min-h-full flex flex-col overflow-hidden" style={{ backgroundColor: '#F5F0E8' }}>
       {/* Header - consistent with other pages */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
-        <div className="flex items-center gap-3">
-          <Radio className="w-5 h-5 text-[#E36B11]" />
-          <div>
-            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Radio</span>
-            <span className="text-[10px] text-gray-500 -mt-0.5 block">The sound of GenX</span>
+      <PageHeader
+        icon={Radio}
+        title="Radio"
+        subtitle="The sound of GenX"
+        right={
+          <div className="flex items-center gap-2">
+            {/* Music category green (#15803D from lib/categories.ts), not a generic
+                green-500 - this sits on a music surface. */}
+            <span className="w-2 h-2 rounded-full bg-[#15803D] animate-pulse" />
+            <span className="text-[10px] font-bold text-[#15803D] tracking-wider">ON AIR</span>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Music category green (#15803D from lib/categories.ts), not a generic
-              green-500 - this sits on a music surface. */}
-          <span className="w-2 h-2 rounded-full bg-[#15803D] animate-pulse" />
-          <span className="text-[10px] font-bold text-[#15803D] tracking-wider">ON AIR</span>
-        </div>
-      </div>
+        }
+      />
       
       {/* Equalizer Banner */}
       <div className={`bg-gradient-to-b from-cream to-[#F5F0E8] ${isDesktop ? 'px-4 py-4' : 'px-3 py-3'}`}>

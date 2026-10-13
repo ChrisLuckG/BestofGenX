@@ -40,6 +40,7 @@ import CoinAnimation from "@/components/CoinAnimation";
 import DesktopRewardsPage from "@/components/desktop/DesktopRewardsPage";
 import DesktopContentWrapper from "@/components/desktop/DesktopContentWrapper";
 import { useBattleLeaveGuard } from "@/hooks/useBattleLeaveGuard";
+import BreakWinners from "@/components/BreakWinners";
 import DesktopBattlesPage from "@/components/desktop/DesktopBattlesPage";
 import BattleResultScreen from "@/components/battles/BattleResultScreen";
 import type { ChallengeTarget } from "@/components/battles/types";
@@ -740,6 +741,15 @@ function DesktopPage() {
     scrollViewToTop();
   };
 
+  // Closing the notification settings, from the settings' own back arrow OR from the
+  // selected bell in the News widget: both go back to where the user opened them from.
+  const closeNotificationSettings = () => {
+    setOpenNotificationSettings(false);
+    if (previousTabBeforeSettings) {
+      handleTabChange(previousTabBeforeSettings);
+      setPreviousTabBeforeSettings(null);
+    }
+  };
   // Where the user was before opening a notification detail view, so BACK can
   // restore the exact same view instead of falling back to the default tab.
   const notificationOriginRef = useRef<{ tab: NavTab; arcadeGame: string | null; articleId: string | null } | null>(null);
@@ -1056,12 +1066,12 @@ function DesktopPage() {
                 const timeLabels = isUnderOneHour ? ['MIN', 'SEC', 'MS'] : ['HRS', 'MIN', 'SEC'];
                 
                 const isScrubbing = scrubProgress !== null;
-                // Color scheme: orange for normal, amber for break, purple for scrubbing
-                const accentColor = isScrubbing ? 'text-purple-500' : isBreakTime ? 'text-amber-500' : 'text-[#E36B11]';
-                const accentBg = isScrubbing ? 'bg-purple-500' : isBreakTime ? 'bg-amber-500' : 'bg-[#E36B11]';
-                const accentGlow = isScrubbing ? 'shadow-[0_0_6px_rgba(168,85,247,0.7)]' : isBreakTime ? 'shadow-[0_0_6px_rgba(245,158,11,0.7)]' : 'shadow-[0_0_6px_rgba(227,107,17,0.7)]';
-                const accentPing = isScrubbing ? 'bg-purple-500/40' : isBreakTime ? 'bg-amber-500/40' : 'bg-[#E36B11]/40';
-                const accentPulse = isScrubbing ? 'bg-purple-500/25' : isBreakTime ? 'bg-amber-500/25' : 'bg-[#E36B11]/25';
+                // Color scheme: brand orange for live AND break (amber looked like a different brand), purple for scrubbing
+                const accentColor = isScrubbing ? 'text-purple-500' : 'text-[#E36B11]';
+                const accentBg = isScrubbing ? 'bg-purple-500' : 'bg-[#E36B11]';
+                const accentGlow = isScrubbing ? 'shadow-[0_0_6px_rgba(168,85,247,0.7)]' : 'shadow-[0_0_6px_rgba(227,107,17,0.7)]';
+                const accentPing = isScrubbing ? 'bg-purple-500/40' : 'bg-[#E36B11]/40';
+                const accentPulse = isScrubbing ? 'bg-purple-500/25' : 'bg-[#E36B11]/25';
                 
                 return (
                   /* pt-2.5 so the countdown clears the header rule instead of
@@ -1166,10 +1176,8 @@ function DesktopPage() {
                     
                     {/* Info cards */}
                     <div className="w-full space-y-2 text-center">
-                      <div className="rounded-lg p-3 border border-warm/60">
-                        <p className="font-display text-sm text-gray-900 uppercase tracking-wide mb-1">Rankings Reset</p>
-                        <p className="text-xs text-gray-500">Yesterday's winners are locked in. Today's leaderboard starts fresh at 10:00.</p>
-                      </div>
+                      <BreakWinners variant="list" />
+
                       <div className="rounded-lg p-3 border border-warm/60">
                         <p className="font-display text-sm text-gray-900 uppercase tracking-wide mb-1">Games Paused</p>
                         <p className="text-xs text-gray-500">Trivia and battles are unavailable during break. Back at 10:00!</p>
@@ -1429,7 +1437,7 @@ function DesktopPage() {
               {!staticPageSlug && !selectedPlayerId && activeTab === "shop" && <DesktopContentWrapper><ShopPage coins={coins} onCoinsUsed={(amount) => { setCoins(prev => prev - amount); setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount: -amount }); }} /></DesktopContentWrapper>}
               {!staticPageSlug && !selectedPlayerId && activeTab === "tv" && <DesktopContentWrapper><TVPage /></DesktopContentWrapper>}
               {!staticPageSlug && !selectedPlayerId && activeTab === "radio" && <DesktopContentWrapper transparent><CommunitySoundPage isDesktop={true} onBack={() => handleTabChange('feed')} onShowLogin={() => setShowLoginPage(true)} /></DesktopContentWrapper>}
-              {!staticPageSlug && !selectedPlayerId && activeTab === "notifications" && !showBattleResultId && <DesktopContentWrapper transparent><NotificationPage onRematch={startRematch} onGoToProfile={() => handleTabChange('profile')} onGoToBattle={(id) => { handleTabChange('arcade'); setArcadeGame('quizzbattle'); setPendingBattleId(id); }} onShowBattleResult={(id) => openNotificationView(() => setShowBattleResultId(id))} onShowChallenge={(battleId, notificationId) => openNotificationView(() => setShowChallenge({ battleId, notificationId }))} onOpenArticle={(id) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onPointsAwarded={(amount) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} onChallengeDeclined={() => setPendingChallengeCount(prev => Math.max(0, prev - 1))} autoOpenSettings={openNotificationSettings} onSettingsClosed={() => { setOpenNotificationSettings(false); if (previousTabBeforeSettings) { handleTabChange(previousTabBeforeSettings); setPreviousTabBeforeSettings(null); } }} onShowSignup={() => setShowLoginPage(true)} onShowBogxers={() => handleTabChange('feed')} /></DesktopContentWrapper>}
+              {!staticPageSlug && !selectedPlayerId && activeTab === "notifications" && !showBattleResultId && <DesktopContentWrapper transparent><NotificationPage onRematch={startRematch} onGoToProfile={() => handleTabChange('profile')} onGoToBattle={(id) => { handleTabChange('arcade'); setArcadeGame('quizzbattle'); setPendingBattleId(id); }} onShowBattleResult={(id) => openNotificationView(() => setShowBattleResultId(id))} onShowChallenge={(battleId, notificationId) => openNotificationView(() => setShowChallenge({ battleId, notificationId }))} onOpenArticle={(id) => { setOpenArticleId(id); contentRef.current?.scrollTo(0, 0); }} onPointsAwarded={(amount) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount }); }} onChallengeDeclined={() => setPendingChallengeCount(prev => Math.max(0, prev - 1))} autoOpenSettings={openNotificationSettings} onSettingsOpened={() => setOpenNotificationSettings(true)} onSettingsClosed={closeNotificationSettings} onShowSignup={() => setShowLoginPage(true)} onShowBogxers={() => handleTabChange('feed')} /></DesktopContentWrapper>}
               {!staticPageSlug && !selectedPlayerId && activeTab === "profile" && (isLoggedIn ? <DesktopContentWrapper><ProfilePage coins={coins} /></DesktopContentWrapper> : <DesktopLoginPage onClose={() => handleTabChange(previousTab || "feed")} onSuccess={() => {}} showBack={true} />)}
               {!staticPageSlug && activeTab === "rankings" && !selectedPlayerId && <DesktopRankingsPage currentUserScore={coins} onBack={() => handleTabChange('home')} onShowSignup={() => setShowLoginPage(true)} onShowRewards={() => handleTabChange('rewards')} selectedPlayerId={null} onPlayerClose={() => {}} />}
               {/* Player Profile - renders in content area, back returns to current tab */}
@@ -1461,6 +1469,8 @@ function DesktopPage() {
               compact={true} 
               onViewAll={() => { setShowBattleResultId(null); setShowChallenge(null); handleTabChange('notifications'); }}
               onOpenSettings={() => { setShowBattleResultId(null); setShowChallenge(null); setOpenNotificationSettings(true); setPreviousTabBeforeSettings(activeTab); handleTabChange('notifications'); }}
+              settingsOpen={activeTab === 'notifications' && openNotificationSettings}
+              onCloseSettings={closeNotificationSettings}
               onGoToBattle={(id) => { setShowBattleResultId(null); setShowChallenge(null); handleTabChange('arcade'); setArcadeGame('quizzbattle'); setPendingBattleId(id); }}
               onShowBattleResult={(id) => openNotificationView(() => { setShowChallenge(null); setShowWelcomePage(false); setShowBattleResultId(id); })}
               onShowChallenge={(battleId, notificationId) => openNotificationView(() => { setShowBattleResultId(null); setShowWelcomePage(false); setShowChallenge({ battleId, notificationId }); })}

@@ -105,7 +105,7 @@ const BattleSchema = new Schema<IBattle>({
   topic: { 
     type: String, 
     required: true,
-    enum: ['sport', 'music', 'film', 'culture', 'fashion', 'games', 'tv', 'art', 'food']
+    enum: ['sport', 'music', 'film', 'culture', 'fashion', 'games', 'tv', 'art', 'food', 'politik', 'mixed']
   },
   wager: { 
     type: Number, 

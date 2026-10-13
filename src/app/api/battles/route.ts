@@ -5,8 +5,8 @@ import User from '@/models/User';
 import Card from '@/models/Card';
 import OpenAI from 'openai';
 import { combinePrompts } from '@/lib/loadPrompt';
-import { getQuestionsForUser } from '@/lib/questionService';
-import { themeForTopic } from '@/lib/battleTopics';
+import { getQuestionsForUser, getMixedQuestionsForUser } from '@/lib/questionService';
+import { themeForTopic, isMixTheme, REAL_THEMES } from '@/lib/battleTopics';
 import { headToHead } from '@/lib/headToHead';
 
 // GET - List open battles
@@ -276,12 +276,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch candidate questions (now flat Question documents, not Cards)
-    const candidateQuestions = await getQuestionsForUser(creatorId, {
-      theme,
-      count: rounds * 3,
-      context: 'battle',
-      excludeIds: opponentExcludeIds,
-    });
+    // Mixed draws from every theme in turns; a single theme is one random pull
+    const candidateQuestions = isMixTheme(theme)
+      ? await getMixedQuestionsForUser(creatorId, { count: rounds * 3, context: 'battle', excludeIds: opponentExcludeIds })
+      : await getQuestionsForUser(creatorId, {
+          theme,
+          count: rounds * 3,
+          context: 'battle',
+          excludeIds: opponentExcludeIds,
+        });
 
     console.log(`Found ${candidateQuestions.length} candidate questions for theme "${theme}" (topic: ${topic})`);
 
@@ -321,16 +324,18 @@ export async function POST(request: NextRequest) {
         const openai = new OpenAI({ apiKey });
         const systemPrompt = combinePrompts(['core.txt', 'trivia.txt']);
 
-        console.log(`Generating ${questionsNeeded} NEW full quiz-sets (Easy+Medium+Hard) for theme: ${theme}`);
+        console.log(`Generating ${questionsNeeded} NEW full quiz-sets (Easy+Medium+Hard) for theme: ${theme}${isMixTheme(theme) ? ' (random real theme each)' : ''}`);
 
         // Generate one full quiz-set per missing question, in parallel for speed
         const generationPromises = Array.from({ length: questionsNeeded }, async (_, idx) => {
+          // Mixed: every generated question gets ONE real theme (never the word MIX)
+          const genTheme = isMixTheme(theme) ? REAL_THEMES[Math.floor(Math.random() * REAL_THEMES.length)] : theme;
           try {
             const completion = await openai.chat.completions.create({
               model: "gpt-4o-mini",
               messages: [
                 { role: "system", content: systemPrompt },
-                { role: "user", content: `Generate 3 quiz questions (Easy, Medium, Hard) STRICTLY about: ${theme}. The questions MUST be about ${theme === 'GAMES' ? 'video games, board games, or gaming' : theme === 'MUSIC' ? 'music, bands, songs, or musicians' : theme === 'SPORTS' ? 'sports, athletes, or sporting events' : theme === 'FILM' || theme === 'MOVIES' ? 'movies, films, actors, or directors' : theme === 'TV' ? 'TV shows, series, or TV personalities' : theme}. Do NOT mix categories! Respond with a valid JSON object.` }
+                { role: "user", content: `Generate 3 quiz questions (Easy, Medium, Hard) STRICTLY about: ${genTheme}. The questions MUST be about ${genTheme === 'GAMING' || genTheme === 'GAMES' ? 'video games, board games, or gaming' : genTheme === 'MUSIC' ? 'music, bands, songs, or musicians' : genTheme === 'SPORTS' ? 'sports, athletes, or sporting events' : genTheme === 'TV & MOVIES' || genTheme === 'FILM' || genTheme === 'MOVIES' ? 'movies, films, TV shows, actors, or directors' : genTheme === 'TV' ? 'TV shows, series, or TV personalities' : genTheme}. Do NOT mix categories! Respond with a valid JSON object.` }
               ],
               temperature: 1.0,
               response_format: { type: 'json_object' },
@@ -352,8 +357,8 @@ export async function POST(request: NextRequest) {
             // Save full card with all 3 difficulties
             const newCard = await Card.create({
               type: 'quiz',
-              theme: theme,
-              topic: quizData.topic || topic,
+              theme: genTheme,
+              topic: quizData.topic || (isMixTheme(theme) ? genTheme : topic),
               questions: [
                 {
                   question: quizData.easy.question,

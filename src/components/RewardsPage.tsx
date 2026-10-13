@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Gift, ChevronLeft, ChevronRight, Crown, Calendar, Trophy, Star, Shirt, Coffee, ShoppingBag } from "lucide-react";
+import PageHeader, { HeaderButton } from "@/components/PageHeader";
 import RewardDetailPage from "./RewardDetailPage";
 import PaymentModal from "./PaymentModal";
 import LogoLoader from "./LogoLoader";
@@ -164,19 +165,12 @@ export default function RewardsPage({ isOpen, coins, onClose, onRedeem, embedded
       >
         {/* Header - same style as Rankings */}
         {embedded ? (
-          <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm">
-            <button 
-              onClick={onClose}
-              className="flex items-center gap-2 text-gray-600"
-            >
-              <Trophy className="w-5 h-5" />
-              <span className="font-display text-lg tracking-wider">Ranking</span>
-            </button>
-            <div className="flex items-center gap-2">
-              <Gift className="w-5 h-5 text-[#E36B11]" />
-              <span className="font-display text-lg tracking-wider text-gray-900">Rewards</span>
-            </div>
-          </div>
+          <PageHeader
+            icon={Gift}
+            title="Rewards"
+            subtitle="Redeem your BOGX coins"
+            right={<HeaderButton icon={Trophy} label="Ranking" onClick={onClose} />}
+          />
         ) : (
           <div className="flex items-center justify-between p-3 border-b border-warm flex-shrink-0" style={{ backgroundColor: '#F5F0E8' }}>
             <button 

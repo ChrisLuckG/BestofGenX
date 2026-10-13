@@ -17,6 +17,7 @@
  */
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import { resolveCommonsThumb } from '../src/lib/wikimediaImage';
 dotenv.config({ path: '.env.local' });
 
 const ENDPOINT = 'https://query.wikidata.org/sparql';
@@ -151,7 +152,7 @@ async function main() {
         t.found++;
 
         const set: Partial<Doc> = {};
-        if (!d.image && match.image) set.image = match.image;
+        if (!d.image && match.image) set.image = dry ? match.image : await resolveCommonsThumb(match.image);
         if (!d.knownfor && match.desc) set.knownfor = match.desc;
         if (!d.description && match.desc) set.description = match.desc;
         if (!d.subcat && match.desc) set.subcat = match.desc;

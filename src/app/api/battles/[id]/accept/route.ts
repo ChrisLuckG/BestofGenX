@@ -149,7 +149,7 @@ export async function POST(
         console.error(`Accept: unknown topic "${battle.topic}" - keeping original questions`);
       } else {
         // Get all questions for this theme
-        const allQuestions = await Question.find({ active: true, theme: expectedTheme } as any).lean();
+        const allQuestions = await Question.find((expectedTheme === 'MIX' ? { active: true } : { active: true, theme: expectedTheme }) as any).lean();
         
         // Collect unseen questions
         const unseenQuestions: any[] = [];
@@ -163,6 +163,7 @@ export async function POST(
           if (correctIndex === -1) continue;
           
           unseenQuestions.push({
+            _theme: (q as any).theme,
             questionId: q._id.toString(),
             question: q.question,
             answers: q.options,
@@ -173,8 +174,17 @@ export async function POST(
         }
         
         // Shuffle and pick required number
-        const shuffled = unseenQuestions.sort(() => Math.random() - 0.5);
-        const newQuestions = shuffled.slice(0, battle.rounds);
+        let shuffled = unseenQuestions.sort(() => Math.random() - 0.5);
+        if (expectedTheme === 'MIX') {
+          // Mixed: take one per theme in turns instead of whatever the biggest theme has most of
+          const byTheme = new Map<string, any[]>();
+          for (const q of shuffled) byTheme.set(q._theme, [...(byTheme.get(q._theme) || []), q]);
+          const lists = Array.from(byTheme.values()).sort(() => Math.random() - 0.5);
+          const rr: any[] = [];
+          for (let i = 0; lists.some(l => l[i]); i++) for (const l of lists) if (l[i]) rr.push(l[i]);
+          shuffled = rr;
+        }
+        const newQuestions = shuffled.slice(0, battle.rounds).map(({ _theme, ...q }) => q);
         
         if (newQuestions.length >= battle.rounds) {
           battle.questions = newQuestions;

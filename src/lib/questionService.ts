@@ -1,3 +1,4 @@
+import { REAL_THEMES } from './battleTopics';
 import crypto from 'crypto';
 import Question from '@/models/Question';
 import UserQuestionHistory from '@/models/UserQuestionHistory';
@@ -110,6 +111,35 @@ export async function getQuestionsForUser(
   return result;
 }
 
+/**
+ * Mixed battles: questions from ALL themes, taken in turns (music, sport, movies...)
+ * instead of one random pull from the whole pool. The pool is lopsided - a plain
+ * random draw gave 17 movies, 11 gaming, 7 music, 5 sport and no politics out of 40.
+ * A theme with no questions is simply skipped.
+ */
+export async function getMixedQuestionsForUser(
+  userId: string,
+  options: { count?: number; excludeIds?: string[]; context?: 'game' | 'battle' } = {}
+): Promise<any[]> {
+  const { count = 10, ...rest } = options;
+  const themes = [...REAL_THEMES].sort(() => Math.random() - 0.5);
+  const perTheme = await Promise.all(
+    themes.map(theme => getQuestionsForUser(userId, { ...rest, theme, count: Math.ceil(count / themes.length) + 1 }))
+  );
+  const result: any[] = [];
+  for (let i = 0; result.length < count; i++) {
+    let added = false;
+    for (const list of perTheme) {
+      if (list[i]) {
+        result.push(list[i]);
+        added = true;
+        if (result.length >= count) break;
+      }
+    }
+    if (!added) break;
+  }
+  return result;
+}
 /**
  * Record that a user answered a question
  */

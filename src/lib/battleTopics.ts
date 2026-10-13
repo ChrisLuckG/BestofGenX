@@ -20,6 +20,11 @@
  * - POLITIK
  */
 export const TOPIC_TO_THEME: Record<string, string> = {
+  // Mixed: questions from ALL themes. 'MIX' is the value getQuestionsForUser already
+  // understands as "no theme filter"; routes that regenerate or generate questions
+  // must special-case it (see isMixTheme).
+  mixed: 'MIX',
+
   // Primary mappings
   sport: 'SPORTS',
   sports: 'SPORTS',
@@ -51,3 +56,8 @@ export const TOPIC_TO_THEME: Record<string, string> = {
 export function themeForTopic(topic: string): string | null {
   return TOPIC_TO_THEME[topic] ?? null;
 }
+
+/** The five real themes a Mixed battle draws from. */
+export const REAL_THEMES = ['MUSIC', 'SPORTS', 'TV & MOVIES', 'GAMING', 'POLITIK'] as const;
+
+export const isMixTheme = (theme: string | null | undefined) => theme === 'MIX';

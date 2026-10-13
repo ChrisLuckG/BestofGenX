@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { FileText, Search, ChevronRight, Check, Heart, MessageCircle, Eye, Clock, Loader2 } from "lucide-react";
+import PageHeader, { HeaderButton } from "@/components/PageHeader";
 import { FeedSkeleton } from "./DesktopSkeletons";
 import CardMoodReactions from "@/components/CardMoodReactions";
 import { useAuth } from "@/context/AuthContext";
@@ -213,26 +214,23 @@ export default function DesktopArticlesPage({ onOpenArticle, onShowLogin, onCoin
   return (
     <div className="h-full flex flex-col bg-[#F5F0E8] overflow-hidden">
       {/* Header with Search */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
-        <div className="flex items-center gap-3">
-          <FileText className="w-5 h-5 text-[#E36B11]" />
-          <div>
-            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Articles</span>
-            <span className="text-[10px] text-gray-500 -mt-0.5 block">News & stories from the GenX world</span>
+      <PageHeader
+        icon={FileText}
+        title="Articles"
+        subtitle="News & stories from the GenX world"
+        right={
+          <div className="relative w-48">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search..."
+              className="w-full h-9 pl-9 pr-3 bg-cream border border-warm rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#E36B11]"
+            />
           </div>
-        </div>
-        {/* Search in Header */}
-        <div className="relative w-48">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search..."
-            className="w-full pl-9 pr-3 py-1.5 bg-cream border border-warm rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#E36B11]"
-          />
-        </div>
-      </div>
+        }
+      />
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-2 py-3 space-y-4 bg-gradient-to-b from-transparent to-[#E36B11]/[0.03]" style={{ scrollbarWidth: "none" }}>

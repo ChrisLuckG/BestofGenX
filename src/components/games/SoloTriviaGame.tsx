@@ -1845,7 +1845,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
               )}
               {limitLoading
                 ? 'CHECKING GAMES LEFT'
-                : !selectedCategory ? 'SELECT CATEGORY' : canPlay ? 'START GAME' : 'TOMORROW'}
+                : !selectedCategory ? 'SELECT CATEGORY' : canPlay ? 'START GAME' : 'TOMORROW AGAIN'}
             </button>
             {error && (
               <p className="text-red-500 text-sm text-center px-4">{error}</p>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Search, FileText, Check, MessageCircle, Heart, Eye, Loader2 } from "lucide-react";
+import PageHeader, { HeaderButton } from "@/components/PageHeader";
 import { useAuth } from "@/context/AuthContext";
 import CardMoodReactions from "@/components/CardMoodReactions";
 import { isVideoUrl } from "@/utils/media";
@@ -202,26 +203,23 @@ export default function ArticlesListPage({ onOpenArticle, onShowLogin, initialCa
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-cream">
       {/* Header with Search */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm">
-        <div className="flex items-center gap-3">
-          <FileText className="w-5 h-5 text-[#E36B11]" />
-          <div>
-            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Articles</span>
-            <span className="text-[10px] text-gray-500 -mt-0.5 block">News & stories</span>
+      <PageHeader
+        icon={FileText}
+        title="Articles"
+        subtitle="News & stories"
+        right={
+          <div className="relative w-36">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search..."
+              className="w-full h-9 pl-8 pr-2 bg-cream border border-warm rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#E36B11]"
+            />
           </div>
-        </div>
-        {/* Search in header */}
-        <div className="relative w-36">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search..."
-            className="w-full pl-8 pr-2 py-1.5 bg-cream border border-warm rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#E36B11]"
-          />
-        </div>
-      </div>
+        }
+      />
 
       {/* Scrollable Content */}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>

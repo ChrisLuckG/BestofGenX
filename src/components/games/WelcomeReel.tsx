@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useRef, memo, useCallback } from "react";
 import { Clock, Share2, MoreHorizontal, MessageCircle, Check, Bookmark, Flag, ChevronLeft, ChevronRight, BookOpen, Music, Gamepad2, Trophy, Sparkles, Cross, Newspaper, Clapperboard, PartyPopper, Brain } from "lucide-react";
+import PageHeader, { HeaderButton } from "@/components/PageHeader";
+import CountryFilterMenu from "@/components/CountryFilterMenu";
 import PollCard from "@/components/PollCard";
 import QuizPollCard from "@/components/QuizPoll";
 import CardMoodReactions from "@/components/CardMoodReactions";
@@ -1320,6 +1322,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
   // Timeline/List view toggle
   const [viewMode, setViewMode] = useState<'feed' | 'timeline'>('feed');
   const [timelineFilter, setTimelineFilter] = useState<'all' | 'alive' | 'rip'>('all');
+  const [timelineCountries, setTimelineCountries] = useState<string[]>([]);
   
   // Map tab names to mainCategory values
   const categoryMap: Record<string, string | null> = {
@@ -1338,15 +1341,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
             `bg-[#E36B11]/5` wash the other section headers use - on mobile that
             faint tint read as a stray band across the top. Must stay in sync
             with the loaded header below, or the tint flashes while loading. */}
-        <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
-          <div className="flex items-center gap-3">
-            <FeedIcon className="w-5 h-5 text-[#E36B11]" />
-            <div>
-              <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Feed</span>
-              <span className="text-[10px] text-gray-500 -mt-0.5 block">Latest updates & content</span>
-            </div>
-          </div>
-        </div>
+        <PageHeader icon={FeedIcon} title="Feed" subtitle="Latest updates & content" />
         
         {/* Skeleton Cards Grid */}
         <div className="flex-1 overflow-hidden px-2 pt-3">
@@ -1464,36 +1459,19 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-cream">
       {/* Header - neutral cream, see the loading header above */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
-        <div className="flex items-center gap-3">
-          {/* Icon follows the CURRENT view, so it agrees with the title next to it */}
-          {viewMode === 'feed'
-            ? <FeedIcon className="w-5 h-5 text-[#E36B11]" />
-            : <TimelineIcon className="w-5 h-5 text-[#E36B11]" />}
-          <div>
-            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">{viewMode === 'feed' ? 'Feed' : 'Timeline'}</span>
-            <span className="text-[10px] text-gray-500 -mt-0.5 block">{viewMode === 'feed' ? 'Latest updates & content' : 'Browse by birth year'}</span>
-          </div>
-        </div>
-        {/* View Mode Toggle */}
-        <button
-          onClick={() => setViewMode(viewMode === 'feed' ? 'timeline' : 'feed')}
-          className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-[#E36B11]/30 bg-white/80 text-[#E36B11] hover:bg-[#E36B11] hover:text-white hover:border-[#E36B11] shadow-sm hover:shadow transition-all text-xs font-semibold"
-        >
-          {/* The button offers the OTHER view, so it carries that view's icon */}
-          {viewMode === 'feed' ? (
-            <>
-              <TimelineIcon />
-              Timeline
-            </>
-          ) : (
-            <>
-              <FeedIcon />
-              Feed
-            </>
-          )}
-        </button>
-      </div>
+      <PageHeader
+        icon={viewMode === 'feed' ? FeedIcon : TimelineIcon}
+        title={viewMode === 'feed' ? 'Feed' : 'Timeline'}
+        subtitle={viewMode === 'feed' ? 'Latest updates & content' : 'Browse by birth year'}
+        right={
+          // The button offers the OTHER view, so it carries that view's icon
+          <HeaderButton
+            icon={viewMode === 'feed' ? TimelineIcon : FeedIcon}
+            label={viewMode === 'feed' ? 'Timeline' : 'Feed'}
+            onClick={() => setViewMode(viewMode === 'feed' ? 'timeline' : 'feed')}
+          />
+        }
+      />
       
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
@@ -1523,10 +1501,32 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           // Check if person is deceased
           const isDeceased = (a: Article) => !!(a.personDeathday || a.category === 'rip');
           
+          // Countries that actually occur in the timeline, most people first.
+          // Grouped by the RESOLVED FLAG, not by the text: the data says "United States"
+          // for 20 people and "USA" for 15, and event articles carry values like
+          // "album-release" or "historical". Same flag = same country; no flag = not a
+          // country, so it is not offered.
+          const countryKey = (a: Article): string => (a.personCountry || a.personCountryCode ? articleFlagUrl(a, '24x18') : '');
+          const countryGroups = new Map<string, { names: Map<string, number>; n: number }>();
+          articles.forEach(a => {
+            if (a.status !== 'published' || !getBirthYear(a.personBirthday)) return;
+            const key = countryKey(a);
+            if (!key) return;
+            const g = countryGroups.get(key) || { names: new Map<string, number>(), n: 0 };
+            g.n++;
+            const label = a.personCountry || a.personCountryCode || '';
+            g.names.set(label, (g.names.get(label) || 0) + 1);
+            countryGroups.set(key, g);
+          });
+          const countryOptions = Array.from(countryGroups.entries())
+            .map(([key, g]) => ({ key, n: g.n, flag: key, label: Array.from(g.names.entries()).sort((x, y) => y[1] - x[1])[0][0] }))
+            .sort((x, y) => y.n - x.n || x.label.localeCompare(y.label));
+          const countryMatch = (a: Article) => timelineCountries.length === 0 || timelineCountries.includes(countryKey(a));
           // Get articles with birth years, apply filter, sorted by year
           const articlesWithYear = articles
             .filter(a => {
               if (a.status !== 'published' || !getBirthYear(a.personBirthday)) return false;
+              if (!countryMatch(a)) return false;
               if (timelineFilter === 'alive') return !isDeceased(a);
               if (timelineFilter === 'rip') return isDeceased(a);
               return true;
@@ -1544,14 +1544,14 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           const years = Object.keys(byYear).map(Number).sort((a, b) => a - b);
           
           // Count totals for filter badges
-          const allCount = articles.filter(a => a.status === 'published' && getBirthYear(a.personBirthday)).length;
-          const aliveCount = articles.filter(a => a.status === 'published' && getBirthYear(a.personBirthday) && !isDeceased(a)).length;
-          const ripCount = articles.filter(a => a.status === 'published' && getBirthYear(a.personBirthday) && isDeceased(a)).length;
+          const allCount = articles.filter(a => a.status === 'published' && getBirthYear(a.personBirthday) && countryMatch(a)).length;
+          const aliveCount = articles.filter(a => a.status === 'published' && getBirthYear(a.personBirthday) && countryMatch(a) && !isDeceased(a)).length;
+          const ripCount = articles.filter(a => a.status === 'published' && getBirthYear(a.personBirthday) && countryMatch(a) && isDeceased(a)).length;
           
           return (
             <div className="px-3 pb-4 pt-2">
               {/* Filter Buttons */}
-              <div className="flex gap-2 mb-3">
+              <div className="flex items-center gap-2 mb-3">
                 <button
                   onClick={() => setTimelineFilter('all')}
                   className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
@@ -1576,11 +1576,17 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                 >
                   † RIP ({ripCount})
                 </button>
-              </div>
-              
+
+                {/* Country filter: header-button trigger, flag grid with several countries at a glance */}
+                {countryOptions.length > 1 && (
+                  <CountryFilterMenu className="ml-auto" options={countryOptions} value={timelineCountries} onChange={setTimelineCountries} />
+                )}              </div>              
               {years.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <p className="text-sm">No articles found for this filter.</p>
+                  {(timelineCountries.length > 0 || timelineFilter !== 'all') && (
+                    <button onClick={() => { setTimelineCountries([]); setTimelineFilter('all'); }} className="mt-2 text-xs font-semibold text-[#E36B11] hover:underline">Reset filters</button>
+                  )}
                 </div>
               ) : (
                 years.map(year => (

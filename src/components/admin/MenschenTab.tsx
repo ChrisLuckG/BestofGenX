@@ -153,6 +153,15 @@ function formatDate(born?: string): string {
   return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`;
 }
 
+// A list shows dozens of portraits at once. Lazy loading keeps that from being a burst
+// the image host throttles, and a portrait that still fails falls back to the initial
+// instead of the browser's broken-image icon.
+function PersonThumb({ image, letter, letterClass }: { image?: string; letter: string; letterClass: string }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => { setFailed(false); }, [image]);
+  if (!image || failed) return <div className={`w-full h-full flex items-center justify-center ${letterClass}`}>{letter}</div>;
+  return <img src={image} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setFailed(true)} className="w-full h-full object-cover" />;
+}
 export default function MenschenTab({ userId }: MenschenTabProps) {
   // Data
   const [people, setPeople] = useState<Person[]>([]);
@@ -201,6 +210,8 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
   const [tvModalSaving, setTvModalSaving] = useState(false);
   const [tvModalVideoId, setTvModalVideoId] = useState<string | null>(null); // DB _id for editing
   const [tvModalPosition, setTvModalPosition] = useState<number | null>(null); // 1, 2, 3 or null
+  // Current holder of each hero position (any TV video), so the modal can say what a position replaces
+  const [tvHolders, setTvHolders] = useState<Record<number, { title: string; personId?: string }>>({});
   const [articleData, setArticleData] = useState({
     title: '',
     subtitle: '',
@@ -317,6 +328,9 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
             };
           });
           setPersonTvVideos(map);
+          const holders: Record<number, { title: string; personId?: string }> = {};
+          (data.videos || []).forEach((v: any) => { if (v.featuredPosition) holders[v.featuredPosition] = { title: v.title, personId: v.personRef?.toString() }; });
+          setTvHolders(holders);
         }
       })
       .catch(() => {});
@@ -683,10 +697,24 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
       const tvData = await tvRes.json();
       if (tvData.success) {
         const newDbId = tvData.video?._id || tvModalVideoId;
-        setPersonTvVideos(prev => ({
-          ...prev,
-          [tvModal._id]: { title, videoId, dbId: newDbId, position: tvModalPosition || undefined }
-        }));
+        // The server hands the position over; mirror that here so the badges of the
+        // previous holder disappear without a reload
+        setPersonTvVideos(prev => {
+          const next = { ...prev };
+          if (tvModalPosition) {
+            for (const k of Object.keys(next)) {
+              if (k !== tvModal._id && next[k].position === tvModalPosition) next[k] = { ...next[k], position: undefined };
+            }
+          }
+          next[tvModal._id] = { title, videoId, dbId: newDbId, position: tvModalPosition || undefined };
+          return next;
+        });
+        setTvHolders(prev => {
+          const next = { ...prev };
+          for (const k of Object.keys(next)) if (next[Number(k)].personId === tvModal._id) delete next[Number(k)];
+          if (tvModalPosition) next[tvModalPosition] = { title, personId: tvModal._id };
+          return next;
+        });
         setTvModal(null);
         setTvModalUrl('');
         setTvModalVideoId(null);
@@ -883,7 +911,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                             className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 flex-shrink-0 hover:ring-2 hover:ring-[#E36B11]" 
                             title="Set image"
                           >
-                            {person.image ? <img src={person.image} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[9px] text-gray-400">{person.firstname[0]}</div>}
+                            <PersonThumb image={person.image} letter={person.firstname[0]} letterClass="text-[9px] text-gray-400" />
                           </button>
                           <a 
                             href={wikipediaSearchUrl(person)} 
@@ -976,7 +1004,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                             className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0" 
                             title="Set image"
                           >
-                            {person.image ? <img src={person.image} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-base text-gray-300">{person.firstname[0]}</div>}
+                            <PersonThumb image={person.image} letter={person.firstname[0]} letterClass="text-base text-gray-300" />
                           </button>
                           
                           {/* Content */}
@@ -1123,10 +1151,13 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                     <button
                       key={pos}
                       onClick={() => setTvModalPosition(tvModalPosition === pos ? null : pos)}
+                      title={tvHolders[pos] && tvHolders[pos].personId !== tvModal?._id ? `Taken by "${tvHolders[pos].title}"` : 'Free'}
                       className={`w-10 h-10 rounded-lg border-2 font-bold text-sm transition-colors ${
                         tvModalPosition === pos 
                           ? 'border-[#E36B11] bg-[#E36B11] text-white' 
-                          : 'border-gray-300 text-gray-500 hover:border-gray-400'
+                          : tvHolders[pos] && tvHolders[pos].personId !== tvModal?._id
+                            ? 'border-[#E36B11]/40 text-[#E36B11] hover:border-[#E36B11]'
+                            : 'border-gray-300 text-gray-500 hover:border-gray-400'
                       }`}
                     >
                       {pos}
@@ -1134,6 +1165,11 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                   ))}
                   <span className="text-[10px] text-gray-400 self-center ml-2">Optional: Set 1, 2, or 3 for hero carousel</span>
                 </div>
+                {tvModalPosition && tvHolders[tvModalPosition] && tvHolders[tvModalPosition].personId !== tvModal?._id && (
+                  <p className="text-[11px] text-[#E36B11] mt-1.5">
+                    Replaces <strong>{tvHolders[tvModalPosition].title}</strong> on position {tvModalPosition}
+                  </p>
+                )}
               </div>
             </div>
 

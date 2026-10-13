@@ -5,6 +5,7 @@ import { X, TrendingDown, TrendingUp, ChevronRight, Gift, Trophy, Target, Zap, S
 import { LEVELS } from "@/utils/levels";
 import { getCategoryLabel, getTopicColor } from "@/lib/categories";
 import ModalPortal from "./ModalPortal";
+import CountUpNumber from "./CountUpNumber";
 import LoadingDots from "./LoadingDots";
 
 type InboxPerson = { username: string; avatar?: string; countryFlag?: string; isBot?: boolean } | null;
@@ -56,6 +57,79 @@ interface WelcomeBackModalProps {
   userId?: string; // desktop: loads the battle inbox (who challenged you, where it's your turn)
 }
 
+// Level progress for the welcome-back screen: ONE bar from the current level to the
+// next, filled with a gradient from this level's colour to the next one's. The five
+// level dots that used to sit below it said the same thing a second time.
+function LevelProgressBar({ loading, level, levelProgress, collected, toGo }: {
+  loading: boolean; level: number; levelProgress: number; collected: string; toGo: string;
+}) {
+  const color = LEVELS[level - 1]?.color || '#E36B11';
+  const next = level < LEVELS.length ? LEVELS[level] : null;
+  const nextColor = next?.color || color;
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    if (loading) { setOn(false); return; }
+    const t = setTimeout(() => setOn(true), 250);
+    return () => clearTimeout(t);
+  }, [loading]);
+  // A sliver is always visible once there is any progress, so 4% does not look empty
+  const width = on ? (levelProgress > 0 ? Math.max(levelProgress, 3) : 0) : 0;
+
+  return (
+    <div>
+      <div className="flex items-end justify-between mb-1.5 font-display uppercase tracking-wider leading-none">
+        {loading ? (
+          <>
+            <span className="h-3 w-28 rounded bg-gray-200 animate-pulse" />
+            <span className="h-3 w-8 rounded bg-gray-200 animate-pulse" />
+          </>
+        ) : next ? (
+          <>
+            <span className="text-xs text-gray-500">Next: <span className="text-sm" style={{ color: nextColor }}>{next.name}</span></span>
+            <span className="text-sm" style={{ color }}><CountUpNumber value={levelProgress} delayMs={250} durationMs={1200} />%</span>
+          </>
+        ) : (
+          <span className="text-sm" style={{ color }}>Top level reached</span>
+        )}
+      </div>
+      <div className="relative h-4 rounded-full bg-[#E5DDD0]/70 shadow-inner">
+        <div
+          className="absolute inset-y-0 left-0 rounded-full overflow-hidden transition-[width] ease-out"
+          style={{
+            width: `${width}%`,
+            transitionDuration: '1300ms',
+            background: `linear-gradient(90deg, ${color}, ${nextColor})`,
+            boxShadow: width > 0 ? `0 0 10px ${color}66` : 'none',
+          }}
+        >
+          {/* diagonal retro stripes */}
+          <div className="absolute inset-0" style={{ backgroundImage: 'repeating-linear-gradient(135deg, rgba(255,255,255,0.25) 0 6px, transparent 6px 12px)' }} />
+          {/* soft top highlight */}
+          <div className="absolute inset-x-0 top-0 h-1/2 bg-white/20" />
+        </div>
+        {/* 5% LED ticks over the whole track */}
+        <div
+          className="absolute inset-0 rounded-full pointer-events-none"
+          style={{ backgroundImage: 'repeating-linear-gradient(90deg, transparent 0, transparent calc(5% - 1px), rgba(245,240,232,0.9) calc(5% - 1px), rgba(245,240,232,0.9) 5%)' }}
+        />
+      </div>
+
+      <div className="flex items-center justify-between mt-2 text-[11px] text-gray-500">
+        {loading ? (
+          <span className="h-3 w-40 rounded bg-gray-100 animate-pulse" />
+        ) : (
+          <>
+            <span className="flex items-center gap-1.5">
+              <Star className="w-3.5 h-3.5" style={{ color }} />
+              {collected} BOGX collected
+            </span>
+            <span>{next ? `${toGo} BOGX to go` : 'Max level reached!'}</span>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 export default function WelcomeBackModal({
   isOpen,
   onClose,
@@ -308,86 +382,8 @@ export default function WelcomeBackModal({
                   </div>
                 </div>
 
-                {/* LED Segment Progress Bar */}
                 <div className="mt-5">
-                  <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-                    {loading ? (
-                      <>
-                        <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
-                        <div className="h-4 w-8 bg-gray-200 rounded animate-pulse" />
-                      </>
-                    ) : (
-                      <>
-                        <span className="flex items-center gap-1.5">
-                          <Star className="w-3.5 h-3.5" style={{ color: levelColor }} />
-                          {formatPoints(totalPoints)} BOGX gesammelt
-                        </span>
-                        <span className="font-bold" style={{ color: levelColor }}>{levelProgress}%</span>
-                      </>
-                    )}
-                  </div>
-                  {/* LED Segments */}
-                  <div className="flex gap-0.5">
-                    {Array.from({ length: 20 }).map((_, i) => (
-                      <div 
-                        key={i}
-                        className={`flex-1 h-3 rounded-sm transition-all duration-300 ${loading ? 'animate-pulse' : ''}`}
-                        style={{ 
-                          backgroundColor: loading ? '#E5E7EB' : (levelProgress >= (i + 1) * 5 ? levelColor : '#E5E7EB'),
-                          boxShadow: !loading && levelProgress >= (i + 1) * 5 ? `0 0 4px ${levelColor}` : 'none',
-                        }}
-                      />
-                    ))}
-                  </div>
-                  <div className="text-xs text-gray-400 mt-1.5">
-                    {loading ? (
-                      <div className="h-3 w-48 bg-gray-100 rounded animate-pulse" />
-                    ) : (
-                      nextLevelName ? `Noch ${formatPoints(pointsToNextLevel)} BOGX bis ${nextLevelName}` : 'Max Level erreicht!'
-                    )}
-                  </div>
-                </div>
-
-                {/* Level Timeline */}
-                <div className="mt-4 pt-4 border-t border-dashed border-gray-200">
-                  <div className="flex items-center justify-between relative">
-                    {/* Connection Line */}
-                    <div className="absolute top-3 left-4 right-4 h-0.5 bg-gray-200" />
-                    <div 
-                      className="absolute top-3 left-4 h-0.5 transition-all duration-500"
-                      style={{ 
-                        width: `${((level - 1) / (LEVELS.length - 1)) * 100}%`,
-                        backgroundColor: levelColor 
-                      }}
-                    />
-                    
-                    {/* Level Nodes - pulse animation while loading */}
-                    {LEVELS.map((l, i) => {
-                      const isActive = loading ? false : i < level;
-                      const isCurrent = loading ? false : i === level - 1;
-                      return (
-                        <div key={l.name} className="flex flex-col items-center z-10">
-                          <div 
-                            className={`w-6 h-6 rounded-full flex items-center justify-center border-2 transition-all ${
-                              loading ? 'animate-pulse' : ''
-                            } ${isCurrent ? 'shadow-lg' : ''}`}
-                            style={{ 
-                              backgroundColor: isActive ? l.color : '#E5E7EB',
-                              borderColor: isActive ? l.color : '#D1D5DB',
-                            }}
-                          >
-                            {isCurrent && <Star className="w-3 h-3 text-white" />}
-                          </div>
-                          <div 
-                            className={`mt-1 text-[8px] font-bold uppercase tracking-wide ${loading ? 'animate-pulse' : ''}`} 
-                            style={{ color: isActive ? l.color : '#9CA3AF' }}
-                          >
-                            {l.name.split(' ')[0]}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <LevelProgressBar loading={loading} level={level} levelProgress={levelProgress} collected={formatPoints(totalPoints)} toGo={formatPoints(pointsToNextLevel)} />
                 </div>
               </div>
 
@@ -508,83 +504,12 @@ export default function WelcomeBackModal({
                     </div>
                   </div>
                   
-                  {/* LED Segment Progress Bar - Full Width */}
-                  <div className="flex items-center gap-2 mt-2">
-                    <div className="flex-1 flex gap-0.5">
-                      {Array.from({ length: 20 }).map((_, i) => {
-                        const segmentProgress = (i + 1) * 5;
-                        const isActive = levelProgress >= segmentProgress;
-                        return (
-                          <div 
-                            key={i}
-                            className="flex-1 h-3 rounded-sm transition-all duration-300"
-                            style={{ 
-                              backgroundColor: isActive ? levelColor : '#E5E7EB',
-                              boxShadow: isActive ? `0 0 4px ${levelColor}` : 'none',
-                            }}
-                          />
-                        );
-                      })}
-                    </div>
-                    <span className="text-xs font-bold text-gray-600">{levelProgress}%</span>
-                  </div>
-                  
-                  {/* BOGX Info */}
-                  <div className="flex items-center gap-1.5 mt-1.5 text-[10px] text-gray-600">
-                    <Star className="w-3 h-3" style={{ color: levelColor }} />
-                    <span>{formatPoints(totalPoints)} BOGX gesammelt</span>
-                  </div>
-                  <div className="text-[10px] text-gray-500 mt-0.5">
-                    {nextLevelName ? `Noch ${formatPoints(pointsToNextLevel)} BOGX bis zum nächsten Rang` : 'Max Level erreicht!'}
+                  <div className="mt-3">
+                    <LevelProgressBar loading={false} level={level} levelProgress={levelProgress} collected={formatPoints(totalPoints)} toGo={formatPoints(pointsToNextLevel)} />
                   </div>
                 </div>
               </div>
               
-              {/* Level Timeline with LEDs */}
-              <div className="px-4 py-3 border-t border-dashed border-[#E36B11]/20 bg-white/30">
-                <div className="flex items-center justify-between relative">
-                  {/* Connection Line */}
-                  <div className="absolute top-3 left-4 right-4 h-0.5 bg-gray-300" />
-                  <div 
-                    className="absolute top-3 left-4 h-0.5 transition-all duration-500"
-                    style={{ 
-                      width: `${((level - 1) / (LEVELS.length - 1)) * 100}%`,
-                      backgroundColor: levelColor 
-                    }}
-                  />
-                  
-                  {/* Level Nodes */}
-                  {LEVELS.map((l, i) => {
-                    const isActive = i < level;
-                    const isCurrent = i === level - 1;
-                    return (
-                      <div key={l.name} className="flex flex-col items-center z-10">
-                        {/* LED Circle */}
-                        <div 
-                          className={`w-6 h-6 rounded-full flex items-center justify-center border-2 transition-all ${
-                            isCurrent ? 'shadow-lg' : ''
-                          }`}
-                          style={{ 
-                            backgroundColor: isActive ? l.color : '#E5E7EB',
-                            borderColor: isActive ? l.color : '#D1D5DB',
-                          }}
-                        >
-                          {isCurrent && <Star className="w-3 h-3 text-white" />}
-                        </div>
-                        {/* Label */}
-                        <div className="mt-1.5 text-center">
-                          <div 
-                            className="text-[8px] font-bold uppercase tracking-wide"
-                            style={{ color: isActive ? l.color : '#6B7280' }}
-                          >
-                            {l.name.split(' ')[0]}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
             </div>
 
         {/* Scrollable Content */}

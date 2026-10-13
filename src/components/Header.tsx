@@ -370,7 +370,7 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
                   </span>
                 </div>
               )}
-              <span className={`relative top-[3px] text-[10px] leading-[12px] font-normal font-display uppercase ${rankingsOpen ? 'text-white/70' : 'text-gray-500'}`}>Day{!isLoadingRanks && dailyRank <= 0 && <Info className={`absolute left-full top-1/2 -translate-y-1/2 ml-0.5 w-2.5 h-2.5 ${rankingsOpen ? 'text-white/70' : 'text-gray-400'}`} />}</span>
+              <span className={`relative top-[3px] text-[10px] leading-[12px] font-normal font-display uppercase ${rankingsOpen ? 'text-white/70' : 'text-gray-500'}`}>Day{!isLoadingRanks && isLoggedIn && dailyRank <= 0 && <Info className={`absolute left-full top-1/2 -translate-y-1/2 ml-0.5 w-2.5 h-2.5 ${rankingsOpen ? 'text-white/70' : 'text-gray-400'}`} />}</span>
             </div>
             
             {/* Open wager takes the place of Month + Year - the header has no room
@@ -420,7 +420,7 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
                   </span>
                 </div>
               )}
-              <span className={`relative top-[3px] text-[10px] leading-[12px] font-normal font-display uppercase ${rankingsOpen ? 'text-white/70' : 'text-gray-500'}`}>Month{!isLoadingRanks && monthlyRank <= 0 && <Info className={`absolute left-full top-1/2 -translate-y-1/2 ml-0.5 w-2.5 h-2.5 ${rankingsOpen ? 'text-white/70' : 'text-gray-400'}`} />}</span>
+              <span className={`relative top-[3px] text-[10px] leading-[12px] font-normal font-display uppercase ${rankingsOpen ? 'text-white/70' : 'text-gray-500'}`}>Month{!isLoadingRanks && isLoggedIn && monthlyRank <= 0 && <Info className={`absolute left-full top-1/2 -translate-y-1/2 ml-0.5 w-2.5 h-2.5 ${rankingsOpen ? 'text-white/70' : 'text-gray-400'}`} />}</span>
             </div>
             
             {/* Year */}
@@ -445,7 +445,7 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
                   </span>
                 </div>
               )}
-              <span className={`relative top-[3px] text-[10px] leading-[12px] font-normal font-display uppercase ${rankingsOpen ? 'text-white/70' : 'text-gray-500'}`}>Year{!isLoadingRanks && yearlyRank <= 0 && <Info className={`absolute left-full top-1/2 -translate-y-1/2 ml-0.5 w-2.5 h-2.5 ${rankingsOpen ? 'text-white/70' : 'text-gray-400'}`} />}</span>
+              <span className={`relative top-[3px] text-[10px] leading-[12px] font-normal font-display uppercase ${rankingsOpen ? 'text-white/70' : 'text-gray-500'}`}>Year{!isLoadingRanks && isLoggedIn && yearlyRank <= 0 && <Info className={`absolute left-full top-1/2 -translate-y-1/2 ml-0.5 w-2.5 h-2.5 ${rankingsOpen ? 'text-white/70' : 'text-gray-400'}`} />}</span>
             </div>
             </>)}
           </button>

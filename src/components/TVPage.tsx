@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Play, Tv, Search, Clock, Globe, Film, ChevronLeft, ChevronRight, X, ExternalLink } from "lucide-react";
+import PageHeader, { HeaderButton } from "@/components/PageHeader";
 import CountryFlag from "@/components/CountryFlag";
 import BackButton from "@/components/BackButton";
 import { TVSkeleton } from "@/components/desktop/DesktopSkeletons";
@@ -234,16 +235,7 @@ export default function TVPage({ onBack, initialVideoId }: TVPageProps = {}) {
   return (
     <div className="h-full min-h-full bg-cream overflow-y-auto">
       {/* Header - always visible */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
-        <div className="flex items-center gap-3">
-          {onBack && <BackButton onClick={onBack} />}
-          <Tv className="w-5 h-5 text-[#E36B11]" />
-          <div>
-            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">TV</span>
-            <span className="text-[10px] text-gray-500 -mt-0.5 block">Movies, shows & more</span>
-          </div>
-        </div>
-      </div>
+      <PageHeader icon={Tv} title="TV" subtitle="Movies, shows & more" onBack={onBack} />
 
       {/* Content */}
       {loading ? (

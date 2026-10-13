@@ -1,8 +1,11 @@
 "use client";
 
-import type { LucideIcon } from "lucide-react";
+import type { ComponentType } from "react";
 import type { ReactNode } from "react";
 import BackButton from "./BackButton";
+
+// Lucide icons and the app's own SVG components (Feed, Timeline) both fit this
+export type IconType = ComponentType<{ className?: string }>;
 
 // THE page header. Every section (Trivia, QuizzBattle, Rankroll ...) renders this,
 // so switching between them never moves anything:
@@ -14,7 +17,7 @@ import BackButton from "./BackButton";
 export default function PageHeader({
   icon: Icon, iconColor = "#E36B11", title, subtitle, onBack, right, sticky = false, className = "",
 }: {
-  icon: LucideIcon;
+  icon: IconType;
   iconColor?: string;
   title: string;
   subtitle?: string;
@@ -28,7 +31,7 @@ export default function PageHeader({
     <div className={`px-4 pt-4 pb-3 border-b border-warm bg-cream ${sticky ? "sticky top-0 z-10" : ""} ${className}`}>
       <div className="relative flex items-center gap-3 h-8">
         {onBack && <BackButton onClick={onBack} className="-ml-1" />}
-        <Icon className="w-5 h-5 flex-shrink-0" style={{ color: iconColor }} />
+        <span className="flex-shrink-0 inline-flex" style={{ color: iconColor }}><Icon className="w-5 h-5" /></span>
         <div className="min-w-0">
           <span className="font-display text-lg tracking-wider text-gray-900 block leading-none truncate">{title}</span>
           {subtitle && <span className="text-[10px] text-gray-500 -mt-0.5 block truncate">{subtitle}</span>}
@@ -45,9 +48,9 @@ export default function PageHeader({
 const HEADER_CONTROL = "relative inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-lg whitespace-nowrap text-[11px] font-semibold uppercase tracking-wider transition-colors";
 
 export function HeaderButton({
-  icon: Icon, label, onClick, color = "#E36B11", active = false, disabled = false, loading = false, badge, neon = false, title,
+  icon: Icon, label, onClick, color = "#E36B11", active = false, disabled = false, loading = false, badge, neon = true, iconOnly = false, title,
 }: {
-  icon?: LucideIcon;
+  icon?: IconType;
   label: string;
   onClick?: () => void;
   /** Hex colour of the button */
@@ -58,8 +61,10 @@ export function HeaderButton({
   loading?: boolean;
   /** Small red count in the corner (hidden at 0) */
   badge?: number;
-  /** Arcade glow + wiggle, as on the Trivia page */
+  /** Arcade glow on hover + wiggling icon (the Trivia "Open Battles" effect). On by default, so every header button feels alike. */
   neon?: boolean;
+  /** Square icon-only button (narrow columns); the label becomes the tooltip and aria-label */
+  iconOnly?: boolean;
   title?: string;
 }) {
   const off = disabled || loading;
@@ -68,7 +73,8 @@ export function HeaderButton({
       type="button"
       onClick={onClick}
       disabled={off}
-      title={title}
+      title={title ?? (iconOnly ? label : undefined)}
+      aria-label={iconOnly ? label : undefined}
       style={{
         ...(off
           ? {}
@@ -77,12 +83,12 @@ export function HeaderButton({
             : { backgroundColor: `${color}1A`, borderColor: `${color}55`, color }),
         ...(neon ? { ["--fx-glow" as string]: `${color}BF` } : {}),
       }}
-      className={`${HEADER_CONTROL} border ${neon ? "fx-neon group" : ""} ${
+      className={`${HEADER_CONTROL} ${iconOnly ? "!px-0 w-9" : ""} border ${neon ? "fx-neon group" : ""} ${
         off ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed" : "hover:brightness-95"
       } ${active && !off ? "shadow-sm" : ""}`}
     >
       {Icon && <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${neon ? "fx-wiggle" : ""} ${loading ? "animate-pulse" : ""}`} />}
-      <span>{label}</span>
+      {!iconOnly && <span>{label}</span>}
       {!!badge && badge > 0 && (
         <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 bg-red-500 rounded-full flex items-center justify-center text-white text-[9px] font-black shadow animate-pulse">
           {badge > 9 ? "9+" : badge}
@@ -97,6 +103,48 @@ export function HeaderChip({ children, color = "#E36B11" }: { children: ReactNod
   return (
     <div className={`${HEADER_CONTROL} text-white shadow-sm`} style={{ backgroundColor: color }}>
       {children}
+    </div>
+  );
+}
+
+/**
+ * A dropdown that looks exactly like a HeaderButton (same 36px height, shape, type,
+ * tint, hover glow). Idle = tinted outline, "active" (something other than the default
+ * picked) = filled. Native <select> underneath, so it works with touch and keyboard.
+ */
+export function HeaderSelect({
+  icon: Icon, value, onChange, options, active = false, color = "#E36B11", label, className = "",
+}: {
+  icon?: IconType;
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+  /** Filled look, e.g. when a filter is set */
+  active?: boolean;
+  color?: string;
+  /** Accessible name */
+  label: string;
+  className?: string;
+}) {
+  const fg = active ? "#fff" : color;
+  return (
+    <div
+      className={`group fx-neon relative inline-flex items-center h-9 rounded-lg ${className}`}
+      style={{ ["--fx-glow" as string]: `${color}BF` }}
+    >
+      {Icon && <span className="pointer-events-none absolute left-3 inline-flex fx-wiggle" style={{ color: fg }}><Icon className="w-3.5 h-3.5" /></span>}
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={label}
+        style={active
+          ? { backgroundColor: color, borderColor: color, color: "#fff" }
+          : { backgroundColor: `${color}1A`, borderColor: `${color}55`, color }}
+        className={`appearance-none cursor-pointer h-9 w-full ${Icon ? "pl-8" : "pl-3.5"} pr-8 rounded-lg border text-[11px] font-semibold uppercase tracking-wider truncate transition-colors hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-[#E36B11]/50 ${active ? "shadow-sm" : ""}`}
+      >
+        {options.map(o => <option key={o.value} value={o.value} className="bg-white text-gray-900 normal-case tracking-normal font-normal">{o.label}</option>)}
+      </select>
+      <svg className="pointer-events-none absolute right-2.5 w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke={fg} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
     </div>
   );
 }

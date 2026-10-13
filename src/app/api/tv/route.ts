@@ -2,6 +2,18 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import TVVideo from '@/models/TVVideo';
 
+// Hero positions 1-3 are unique: setting one takes it away from whoever held it.
+// This used to be done only by the TV admin tab in the browser, so every other caller
+// (the Menschen tab's "Add to GenX TV") left two videos on the same position - and
+// POST did not store the position at all.
+const normalizePosition = (v: unknown): number | null => ([1, 2, 3].includes(Number(v)) ? Number(v) : null);
+async function freePosition(position: number, exceptId?: string) {
+  await TVVideo.updateMany(
+    { featuredPosition: position, ...(exceptId ? { _id: { $ne: exceptId } } : {}) },
+    { $set: { featuredPosition: null, featured: false } },
+  );
+}
+
 // GET - Fetch all videos.
 // Person videos are NOT injected here: picking a slot in the Menschen tab creates a
 // real TVVideo row (see /api/almanac/set-tv-featured), so injecting them again
@@ -34,6 +46,8 @@ export async function POST(request: Request) {
   try {
     await dbConnect();
     const data = await request.json();
+    const position = normalizePosition(data.featuredPosition);
+    if (position) await freePosition(position);
     
     const video = await TVVideo.create({
       title: data.title,
@@ -44,7 +58,8 @@ export async function POST(request: Request) {
       category: data.category || 'Music Videos',
       duration: data.duration || '',
       language: data.language || 'en',
-      featured: data.featured || false,
+      featured: position ? true : (data.featured || false),
+      featuredPosition: position,
       active: true,
       personRef: data.personRef || null,
     });
@@ -60,6 +75,8 @@ export async function PUT(request: Request) {
   try {
     await dbConnect();
     const data = await request.json();
+    const position = normalizePosition(data.featuredPosition);
+    if (position) await freePosition(position, data._id);
     
     const video = await TVVideo.findByIdAndUpdate(
       data._id,
@@ -72,8 +89,8 @@ export async function PUT(request: Request) {
         category: data.category,
         duration: data.duration,
         language: data.language || 'en',
-        featured: data.featured,
-        featuredPosition: data.featuredPosition,
+        featured: position ? true : data.featured,
+        featuredPosition: position,
         active: data.active !== undefined ? data.active : true,
         personRef: data.personRef || null,
       },

@@ -8,7 +8,7 @@ import User from '@/models/User';
 // Net BOGX per battle mirrors saveBattleGameResult (src/lib/battleLedger.ts):
 // +wager on a win, -wager on a loss, 0 on a tie - the escrowed stake is not a loss.
 const TOPIC_LABELS: Record<string, string> = {
-  music: 'Music', sport: 'Sport', film: 'Movies', games: 'Gaming', politik: 'Politik',
+  music: 'Music', sport: 'Sport', film: 'Movies', games: 'Gaming', politik: 'Politik', mixed: 'Mixed',
   culture: 'Culture', fashion: 'Fashion', tv: 'TV', art: 'Art', food: 'Food',
 };
 const round2 = (n: number) => Math.round(n * 100) / 100;

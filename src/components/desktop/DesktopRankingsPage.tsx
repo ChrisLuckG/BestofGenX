@@ -1,4 +1,5 @@
 "use client";
+import PageHeader, { HeaderButton } from "@/components/PageHeader";
 
 import { useState, useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight, ChevronDown, Trophy, Star, Gift, Zap, Target, TrendingUp, Clock, Sparkles, Flame, Crown, Award } from "lucide-react";
@@ -211,24 +212,12 @@ export default function DesktopRankingsPage({ currentUserScore, onBack, onShowSi
   return (
     <div className="w-full h-full flex flex-col overflow-y-auto bg-[#F5F0E8]" style={{ scrollbarWidth: "none" }}>
       {/* Header - Desktop warm style */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
-        <div className="flex items-center gap-3">
-          <Trophy className="w-5 h-5 text-[#E36B11]" />
-          <div>
-            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Rankings</span>
-            <span className="text-[10px] text-gray-500 -mt-0.5 block">See who's on top today</span>
-          </div>
-        </div>
-        {onShowRewards && (
-          <button 
-            onClick={onShowRewards}
-            className="flex items-center gap-2 text-gray-600 hover:text-[#E36B11] transition-colors"
-          >
-            <Gift className="w-5 h-5" />
-            <span className="font-display text-sm tracking-wider">Rewards</span>
-          </button>
-        )}
-      </div>
+      <PageHeader
+        icon={Trophy}
+        title="Rankings"
+        subtitle="See who's on top today"
+        right={onShowRewards ? <HeaderButton icon={Gift} label="Rewards" onClick={onShowRewards} /> : undefined}
+      />
 
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto bg-gradient-to-b from-transparent to-[#E36B11]/[0.03]" style={{ scrollbarWidth: 'none' }}>

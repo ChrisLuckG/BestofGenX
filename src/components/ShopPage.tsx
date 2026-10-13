@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { ShoppingBag, Shirt, Coffee, Package, ShoppingCart, ChevronRight, Star } from "lucide-react";
+import PageHeader, { HeaderButton } from "@/components/PageHeader";
 import ProductDetailInline from "@/components/ProductDetailInline";
 import CartPage from "@/components/CartPage";
 import LogoLoader from "@/components/LogoLoader";
@@ -96,27 +97,12 @@ export default function ShopPage({ coins = 0, onCoinsUsed }: ShopPageProps) {
   return (
     <div className="w-full h-full min-h-full flex flex-col overflow-hidden bg-cream">
       {/* Header - exactly like Rankings */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
-        <div className="flex items-center gap-3">
-          <ShoppingBag className="w-5 h-5 text-[#E36B11]" />
-          <div>
-            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Shop</span>
-            <span className="text-[10px] text-gray-500 -mt-0.5 block">GenX merch & collectibles</span>
-          </div>
-        </div>
-        <button 
-          onClick={() => setShowCart(true)}
-          className="relative flex items-center gap-2 px-3 py-2 bg-[#E36B11] rounded-lg text-white text-xs font-semibold tracking-wider hover:bg-[#c06a2a] transition-colors"
-        >
-          <ShoppingCart className="w-4 h-4" />
-          CART
-          {totalItems > 0 && (
-            <span className="w-5 h-5 bg-white rounded-full text-[#E36B11] text-xs font-bold flex items-center justify-center">
-              {totalItems}
-            </span>
-          )}
-        </button>
-      </div>
+      <PageHeader
+        icon={ShoppingBag}
+        title="Shop"
+        subtitle="GenX merch & collectibles"
+        right={<HeaderButton icon={ShoppingCart} label="Cart" active badge={totalItems} onClick={() => setShowCart(true)} />}
+      />
       
       {/* Scrollable Content */}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>

@@ -40,7 +40,7 @@ interface DesktopRankWidgetProps {
   isLoadingRanks?: boolean; // Ranks not loaded yet - placeholder instead of "?"
 }
 
-function RankPosition({ value, label, isActive, change, onHoverChange, points, loading = false }: { value: number; label: string; isActive?: boolean; change?: 'up' | 'down' | null; onHoverChange?: (hovering: boolean) => void; points?: number; loading?: boolean }) {
+function RankPosition({ value, label, isActive, change, onHoverChange, points, loading = false, showInfo = true }: { value: number; label: string; isActive?: boolean; change?: 'up' | 'down' | null; onHoverChange?: (hovering: boolean) => void; points?: number; loading?: boolean; showInfo?: boolean }) {
   const hasRank = value > 0;
   
   // Unranked: own net for the period ("-0,37" / "0,00"), "?" only when unknown
@@ -144,7 +144,7 @@ function RankPosition({ value, label, isActive, change, onHoverChange, points, l
           {label}
           {/* Unranked: small ⓘ after the label - hovering it explains why there
               is no rank. Absolute, so the label stays centred under the value. */}
-          {!hasRank && !loading && (
+          {!hasRank && !loading && showInfo && (
             <Info className={`absolute left-full top-1/2 -translate-y-1/2 ml-0.5 w-2.5 h-2.5 cursor-help ${isActive ? 'text-white/70' : 'text-gray-400 group-hover/main:text-white/70'}`} />
           )}
         </span>
@@ -496,43 +496,46 @@ export default function DesktopRankWidget({
         
         {/* Rank Positions Section - or Break Timer during reset */}
         <div className={`relative flex items-center gap-3 px-3 py-2 transition-colors ${active ? 'border-white/20' : 'border-[#E36B11]/10 group-hover/main:border-white/20'}`}>
-          {isBreakTime && breakCountdown ? (
-            // Show countdown timer during break
-            (() => {
+          {/* The rank positions are ALWAYS rendered - during the break they only turn
+              invisible. The timer sits in the same grid cell, so the widget keeps
+              exactly the width and height it has the rest of the day (it used to
+              shrink to the width of the smaller timer). */}
+          <div className="relative grid">
+            <div className={`col-start-1 row-start-1 flex items-center gap-3 ${isBreakTime && breakCountdown ? 'invisible' : ''}`} aria-hidden={isBreakTime && !!breakCountdown}>
+              <RankPosition value={dailyRank} label="Day" isActive={active} change={dailyChange} onHoverChange={(h) => setTipFor(h ? 'day' : null)} points={dailyPoints} loading={isLoadingRanks} showInfo={isLoggedIn} />
+              <div className={`w-px h-8 ${active ? 'bg-white/20' : 'bg-gray-300 group-hover/main:bg-white/20'}`} />
+              <RankPosition value={monthlyRank} label="Month" isActive={active} change={monthlyChange} onHoverChange={(h) => setTipFor(h ? 'month' : null)} points={monthlyPoints} loading={isLoadingRanks} showInfo={isLoggedIn} />
+              <div className={`w-px h-8 ${active ? 'bg-white/20' : 'bg-gray-300 group-hover/main:bg-white/20'}`} />
+              <RankPosition value={yearlyRank} label="Year" isActive={active} change={yearlyChange} onHoverChange={(h) => setTipFor(h ? 'year' : null)} points={yearlyPoints} loading={isLoadingRanks} showInfo={isLoggedIn} />
+            </div>
+            {isBreakTime && breakCountdown && (() => {
               const parts = breakCountdown.split(':');
               const [h, m, s] = parts.map(v => parseInt(v, 10) || 0);
               const isUnderOneHour = h === 0;
               // When under 1 hour: show MIN:SEC:MS, otherwise HRS:MIN:SEC
-              const displayParts = isUnderOneHour 
+              const displayParts = isUnderOneHour
                 ? [m.toString().padStart(2, '0'), s.toString().padStart(2, '0'), (99 - countdownMs).toString().padStart(2, '0')]
                 : parts;
               const labels = isUnderOneHour ? ['Min', 'Sec', 'Ms'] : ['Hrs', 'Min', 'Sec'];
               return (
-                <>
-                  <div className={`flex items-center gap-1.5 transition-colors ${active ? 'text-white/60' : 'text-amber-500 group-hover/main:text-white/60'}`}>
-                    <span className="text-[10px] font-display uppercase">Next Game In</span>
-                  </div>
-                  <div className="flex items-center gap-1">
+                <div className="col-start-1 row-start-1 flex items-center justify-center gap-3">
+                  {/* Same type as the rank columns: value in an 18px box, label in the
+                      9px Day/Month/Year style - so the timer column is exactly as tall
+                      as the rank column it replaces. */}
+                  <span className={`font-display text-[9px] leading-[1.15] uppercase text-left transition-colors ${active ? 'text-white/60' : 'text-gray-600 group-hover/main:text-white/60'}`}>Next<br />game in</span>
+                  <div className="flex items-center gap-2.5">
                     {displayParts.map((part, i) => (
-                      <div key={i} className="flex flex-col items-center">
-                        <span className={`font-display text-lg font-bold leading-none transition-colors ${active ? 'text-white' : 'text-amber-500 group-hover/main:text-white'}`}>{part}</span>
-                        <span className={`text-[8px] uppercase transition-colors ${active ? 'text-white/50' : 'text-gray-600 group-hover/main:text-white/50'}`}>{labels[i]}</span>
+                      <div key={i} className="flex flex-col items-center justify-center">
+                        <span className="block h-[18px] text-center">
+                          <span className={`inline-block align-top font-display text-xl tabular-nums leading-none transition-colors ${active ? 'text-white' : 'text-[#E36B11] group-hover/main:text-white'}`}>{part}</span>
+                        </span>
+                        <span className={`text-[9px] font-display uppercase transition-colors ${active ? 'text-white/60' : 'text-gray-600 group-hover/main:text-white/60'}`}>{labels[i]}</span>
                       </div>
                     ))}
                   </div>
-                </>
-              );
-            })()
-          ) : (
-            // Normal rank positions with separators
-            <>
-              <RankPosition value={dailyRank} label="Day" isActive={active} change={dailyChange} onHoverChange={(h) => setTipFor(h ? 'day' : null)} points={dailyPoints} loading={isLoadingRanks} />
-              <div className={`w-px h-8 ${active ? 'bg-white/20' : 'bg-gray-300 group-hover/main:bg-white/20'}`} />
-              <RankPosition value={monthlyRank} label="Month" isActive={active} change={monthlyChange} onHoverChange={(h) => setTipFor(h ? 'month' : null)} points={monthlyPoints} loading={isLoadingRanks} />
-              <div className={`w-px h-8 ${active ? 'bg-white/20' : 'bg-gray-300 group-hover/main:bg-white/20'}`} />
-              <RankPosition value={yearlyRank} label="Year" isActive={active} change={yearlyChange} onHoverChange={(h) => setTipFor(h ? 'year' : null)} points={yearlyPoints} loading={isLoadingRanks} />
-            </>
-          )}
+                </div>              );
+            })()}
+          </div>
         </div>
       </div>
       
