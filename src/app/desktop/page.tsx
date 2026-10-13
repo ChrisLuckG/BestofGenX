@@ -39,6 +39,7 @@ import BogxInvadersGame from "@/components/games/BogxInvadersGame";
 import CoinAnimation from "@/components/CoinAnimation";
 import DesktopRewardsPage from "@/components/desktop/DesktopRewardsPage";
 import DesktopContentWrapper from "@/components/desktop/DesktopContentWrapper";
+import { useBattleLeaveGuard } from "@/hooks/useBattleLeaveGuard";
 import DesktopBattlesPage from "@/components/desktop/DesktopBattlesPage";
 import BattleResultScreen from "@/components/battles/BattleResultScreen";
 import type { ChallengeTarget } from "@/components/battles/types";
@@ -161,6 +162,7 @@ function DesktopPage() {
   }, []);
   const [userRank, setUserRank] = useState<number | null>(null);
   const [isBattleActive, setIsBattleActive] = useState(false);
+  const { setGuard: setBattleLeaveGuard, intercept, modal: battleLeaveModal } = useBattleLeaveGuard();
   // Pending wager indicator - global source of truth (same on mobile & desktop)
   const { hasPendingWager, pendingAmount } = usePendingWager(user?.id);
   const [showCheckoutSuccess, setShowCheckoutSuccess] = useState(false);
@@ -720,6 +722,7 @@ function DesktopPage() {
   ]);
 
   const handleTabChange = (tab: NavTab) => {
+    if (intercept(() => handleTabChange(tab))) return;
     if (isBattleActive) return;
     setPreviousTab(activeTab);
     setActiveTab(tab);
@@ -1397,7 +1400,7 @@ function DesktopPage() {
               }} />}
               {!staticPageSlug && !selectedPlayerId && activeTab === "arcade" && (
                 arcadeGame === 'quizzbattle' ? (
-                  <DesktopBattlesPage coins={coins} setCoins={setCoins} onCoinAnimation={(amount, variant) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount, variant }); }} onShowLogin={() => setShowLoginPage(true)} onBattleActiveChange={setIsBattleActive} pendingBattleId={pendingBattleId} onPendingBattleHandled={() => setPendingBattleId(null)} onBack={() => setArcadeGame(null)} challengeTarget={challengeTarget} onChallengeTargetHandled={() => setChallengeTarget(null)} />
+                  <DesktopBattlesPage coins={coins} setCoins={setCoins} onCoinAnimation={(amount, variant) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount, variant }); }} onShowLogin={() => setShowLoginPage(true)} onBattleActiveChange={setIsBattleActive} onLeaveGuardChange={setBattleLeaveGuard} pendingBattleId={pendingBattleId} onPendingBattleHandled={() => setPendingBattleId(null)} onBack={() => setArcadeGame(null)} challengeTarget={challengeTarget} onChallengeTargetHandled={() => setChallengeTarget(null)} />
                 ) : arcadeGame === 'genxmen' ? (
                   <GenXManGame onBack={() => setArcadeGame(null)} onScoreUpdate={() => {}} />
                 ) : arcadeGame === 'trivia' ? (
@@ -1642,6 +1645,8 @@ function DesktopPage() {
       {coinAnimation.show && <CoinAnimation key={coinAnimKey} amount={coinAnimation.amount} variant={coinAnimation.variant} isDesktop={true} onComplete={() => setCoinAnimation({ show: false, amount: 0 })} />}
 
 
+
+      {battleLeaveModal}
 
       {/* Welcome Back Modal */}
       {showWelcomeBack && (

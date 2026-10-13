@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
+import { useSession, signOut } from "next-auth/react";
 
 // 90s/00s style guest names
 const guestNames = [
@@ -59,6 +60,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [guestWins, setGuestWins] = useState(0);
   const [guestName] = useState(generateGuestName());
   const [authReady, setAuthReady] = useState(false);
+  const { data: session, status: sessionStatus } = useSession();
+  // Set on logout until NextAuth has really dropped its session, so the bridge
+  // below cannot log the player straight back in with the old Google session.
+  const suppressGoogleBridge = useRef(false);
 
   // Load from localStorage on mount, then refresh from API
   useEffect(() => {
@@ -117,6 +122,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthReady(true);
   }, []);
 
+  // "Sign in with Google": NextAuth finishes the OAuth round trip and holds the
+  // session, but this app runs on its own saved user (sporttock_user). When a Google
+  // session exists and nobody is signed in locally, adopt it as the app user.
+  useEffect(() => {
+    if (sessionStatus === 'unauthenticated') suppressGoogleBridge.current = false;
+    if (!authReady || user || sessionStatus !== 'authenticated' || suppressGoogleBridge.current) return;
+    const id = session?.user?.id;
+    if (!id) return;
+    let cancelled = false;
+    fetch(`/api/user/points?userId=${id}`)
+      .then(res => res.json())
+      .then(data => {
+        if (cancelled || !data.success) return;
+        setUser({
+          id,
+          username: data.username ?? session?.user?.username ?? 'Player',
+          email: session?.user?.email ?? undefined,
+          avatar: data.avatar,
+          country: data.country,
+          countryFlag: data.countryFlag,
+          isGuest: false,
+          isAdmin: data.isAdmin ?? false,
+          isAuthor: data.isAuthor ?? false,
+          gamesPlayed: data.gamesPlayed ?? 0,
+          wins: data.wins ?? 0,
+          coins: data.points ?? 0,
+          bogxCoins: data.bogxCoins ?? 0,
+          authorEarnings: data.authorEarnings ?? 0,
+        });
+        setGuestGamesPlayed(0);
+        // Same bookkeeping as a password login
+        localStorage.removeItem('bogx_guest_coins');
+        localStorage.removeItem('bogx_guest_read');
+        sessionStorage.setItem('bogx_just_logged_in', '1');
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [authReady, user, sessionStatus, session?.user?.id]);
   // Save to localStorage when user changes
   useEffect(() => {
     if (user) {
@@ -240,8 +283,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem('bogx_just_logged_in');
     }
+    suppressGoogleBridge.current = true;
     setUser(null);
     localStorage.removeItem("sporttock_user");
+    // End a Google session too (no-op for password logins)
+    signOut({ redirect: false }).catch(() => {});
   };
 
   const incrementGuestGames = () => {

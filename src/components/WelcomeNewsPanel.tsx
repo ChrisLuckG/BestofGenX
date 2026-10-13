@@ -569,7 +569,7 @@ export default function WelcomeNewsPanel({
   const noodles = gridUsers.find((u) => u.username.toLowerCase() === 'noodles');
 
   return (
-    <div className="px-4 py-4 space-y-5 overflow-x-hidden">
+    <div className="px-2 py-4 space-y-5 overflow-x-hidden">
       {/* The top action leads INTO the community rather than back out of the page -
           a plain "Back" was the weakest possible thing to offer someone who just
           read the manifesto. Falls back to a real back link on any host that has

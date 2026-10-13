@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import User from '@/models/User';
 import Battle from '@/models/Battle';
+import { headToHead } from '@/lib/headToHead';
 
 // GET - Compact player info for the QuizzBattle scoreboard: overall rank, wallet
 // balance and the real quizzbattle record for up to 4 users at once.
@@ -68,7 +69,7 @@ export async function GET(request: NextRequest) {
 
     // Head-to-head, but only for an actual pairing. "60W 103L overall" says nothing
     // about the matchup on screen - "you lead 3:1 against this player" does.
-    let h2h: { wins: Record<string, number>; ties: number; total: number } | null = null;
+    let h2h: { wins: Record<string, number>; ties: number; total: number; record?: unknown } | null = null;
     if (ids.length === 2) {
       const [a, b] = ids;
       const direct = await Battle.find({
@@ -86,7 +87,9 @@ export async function GET(request: NextRequest) {
         if (!winner) { ties += 1; continue; }
         if (wins[winner] !== undefined) wins[winner] += 1;
       }
-      h2h = { wins, ties, total: direct.length };
+      // record: ids[0]'s W/L/T and last 5 vs ids[1] (newest first) - same shape as the invite cards
+      const record = (await headToHead(a, [b])).get(b) || { wins: 0, losses: 0, ties: 0, last5: [] };
+      h2h = { wins, ties, total: direct.length, record };
     }
 
     return NextResponse.json({ success: true, players, h2h });

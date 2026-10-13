@@ -1,4 +1,5 @@
 "use client";
+import PageHeader, { HeaderButton } from "@/components/PageHeader";
 
 import { useState, useEffect } from "react";
 import { Vote, ChevronRight, Clock, Check, Filter } from "lucide-react";
@@ -473,32 +474,17 @@ export default function DesktopRankrollPage({ onOpenArticle, onOpenRankroll }: D
   return (
     <div className="h-full flex flex-col bg-[#F5F0E8] overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
-        <div className="flex items-center gap-3">
-          <Vote className="w-5 h-5 text-[#E36B11]" />
-          <div>
-            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Rankroll</span>
-            <span className="text-[10px] text-gray-500 -mt-0.5 block">Vote & rank your favorites</span>
-          </div>
-        </div>
-        <button
-          onClick={handleFilterToggle}
-          disabled={votesLoading}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-            votesLoading
-              ? 'bg-gray-100 text-gray-400 cursor-wait'
-              : filterNotVoted 
-                ? 'bg-[#E36B11] text-white' 
-                : 'bg-[#E36B11]/10 text-[#E36B11] hover:bg-[#E36B11]/20'
-          }`}
-        >
-          <Filter className={`w-3.5 h-3.5 ${votesLoading ? 'animate-pulse' : ''}`} />
-          {votesLoading ? 'Loading...' : 'Not Voted'}
-        </button>
-      </div>
+      <PageHeader
+        icon={Vote}
+        title="Rankroll"
+        subtitle="Vote & rank your favorites"
+        right={
+          <HeaderButton icon={Filter} label={votesLoading ? "Loading..." : "Not Voted"} active={filterNotVoted} loading={votesLoading} onClick={handleFilterToggle} />
+        }
+      />
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 bg-gradient-to-b from-transparent to-[#E36B11]/[0.03]" style={{ scrollbarWidth: "none" }}>
+      <div className="flex-1 overflow-y-auto px-2 py-3 space-y-4 bg-gradient-to-b from-transparent to-[#E36B11]/[0.03]" style={{ scrollbarWidth: "none" }}>
 
         {loading ? (
           <PollsSkeleton />

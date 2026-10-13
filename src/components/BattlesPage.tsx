@@ -11,6 +11,10 @@ import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import LogoLoader from "@/components/LogoLoader";
 import BackButton from "@/components/BackButton";
+import LoadingDots from "@/components/LoadingDots";
+import CountUpNumber from "@/components/CountUpNumber";
+import PageHeader, { HeaderButton } from "@/components/PageHeader";
+import type { BattleLeaveGuard } from "@/hooks/useBattleLeaveGuard";
 import CountryFlag from "@/components/CountryFlag";
 import { incrementGamePlayCount } from "@/utils/gameIntro";
 import AlertModal from "@/components/AlertModal";
@@ -128,6 +132,7 @@ interface BattlePageProps {
   onBattleViewed?: () => void; // Callback when battle has been viewed
   onShowLogin?: () => void; // Callback to show login page
   onBattleActiveChange?: (isActive: boolean) => void; // Notify parent when battle is active
+  onLeaveGuardChange?: (guard: BattleLeaveGuard | null) => void; // Set while the get-ready screen holds a wager
   pendingBattleId?: string | null; // Battle ID to accept from notification
   onPendingBattleHandled?: () => void; // Callback when pending battle has been handled
   onBack?: () => void; // Callback to go back to Arcade
@@ -151,7 +156,7 @@ const isGameOnBreak = () => {
   return hour === 9 && minute >= 55;
 };
 
-export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattleId, onBattleViewed, onShowLogin, onBattleActiveChange, pendingBattleId, onPendingBattleHandled, onBack, embedded = false, isDesktop = false, onGoToTrivia, onGoToArticles, skipSetup = false, challengeTarget, onChallengeTargetHandled }: BattlePageProps) {
+export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattleId, onBattleViewed, onShowLogin, onBattleActiveChange, onLeaveGuardChange, pendingBattleId, onPendingBattleHandled, onBack, embedded = false, isDesktop = false, onGoToTrivia, onGoToArticles, skipSetup = false, challengeTarget, onChallengeTargetHandled }: BattlePageProps) {
   const { user, isLoggedIn } = useAuth();
   
   // Check if game is on break (9:55-10:00)
@@ -1627,7 +1632,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     const potAmount = toBOGX(currentBattle.wager) * 2;
 
     return (
-      <div className="flex flex-col h-full bg-cream p-2 sm:p-4">
+      <div className="flex flex-col h-full bg-cream p-2">
         {/* Main Card - same frame as the quiz screen */}
         <div className="flex-1 border border-warm bg-cream rounded-2xl flex flex-col p-4 sm:p-6 shadow-lg animate-[cardIn_0.4s_ease-out] min-h-0">
 
@@ -1773,30 +1778,17 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   const renderSetupScreen = () => (
     <div className="flex flex-col h-full min-h-full flex-1" style={{ backgroundColor: '#F5F0E8' }}>
       {/* Header - exact copy from ArcadePage */}
-      <div className="px-4 pt-4 pb-3 border-b border-warm bg-cream">
-        <div className="flex items-center gap-3">
-          {onBack && <BackButton onClick={onBack} />}
-          <div>
-            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">QuizzBattle</span>
-            <span className="text-[10px] text-gray-500 -mt-0.5 block">Challenge players, win their wager.</span>
-          </div>
-          {/* Open battles button - purple, opens modal like ArcadePage */}
-          <button
-            onClick={() => user?.id ? setShowOpenBattles(true) : onShowLogin?.()}
-            className="battle-header-btn ml-auto relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#6B7280]/40 bg-[#6B7280]/10 hover:bg-[#6B7280]/20 transition-colors"
-          >
-            <Swords className="w-4 h-4 text-[#6B7280]" />
-            <span className="text-xs font-bold text-[#6B7280]">Open Battles</span>
-            {liveBattleCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 bg-red-500 rounded-full flex items-center justify-center text-white text-[9px] font-black shadow animate-pulse">
-                {liveBattleCount > 9 ? '9+' : liveBattleCount}
-              </span>
-            )}
-          </button>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-4 py-4" style={{ scrollbarWidth: 'none' }}>
+      <PageHeader
+        icon={Swords}
+        iconColor="#6B7280"
+        title="QuizzBattle"
+        subtitle="Challenge players, win their wager."
+        onBack={onBack}
+        right={
+          <HeaderButton icon={Swords} label="Open Battles" color="#6B7280" badge={liveBattleCount} onClick={() => user?.id ? setShowOpenBattles(true) : onShowLogin?.()} />
+        }
+      />
+      <div className="flex-1 overflow-y-auto px-2 py-4" style={{ scrollbarWidth: 'none' }}>
         {/* Hero Banner - in rounded box */}
         <div 
           className="relative overflow-hidden bg-cover bg-center rounded-2xl"
@@ -1871,76 +1863,66 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   const renderPoolScreen = () => (
     <div className="relative flex flex-col h-full min-h-full overflow-hidden" style={{ backgroundColor: '#F5F0E8' }}>
       {/* Header - same style as Solo Trivia */}
-      <div className="px-4 pt-4 pb-3 border-b border-warm bg-cream">
-        <div className="relative flex items-center gap-3">
-          {onBack && <BackButton onClick={onBack} />}
-          <div>
-            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">QUIZZBATTLE</span>
-            <span className="text-[10px] text-gray-500 -mt-0.5 block">Challenge others, win coins.</span>
-          </div>
-          {/* Right side buttons - absolute so their height never grows the header */}
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-          <button
-            onClick={() => {
-              if (isOnBreak) {
-                showAlert('info', 'Battles are disabled during the break (9:55-10:00).');
-                return;
-              }
-              if (!isLoggedIn) {
-                showAlert('login', 'Please login to invite friends!', {
-                  buttonText: 'LOGIN',
-                  onButtonClick: onShowLogin
-                });
-                return;
-              }
-              // Navigate to invite screen instead of modal
-              setSelectedInviteUser(null);
-              setInviteSearchQuery('');
-              setInviteSearchResults([]);
-              setScreen('invite');
-            }}
-            disabled={isOnBreak}
-            className={`flex items-center gap-1.5 px-3 py-3 border rounded-lg text-[10px] font-semibold tracking-wider transition-colors ${
-              isOnBreak
-                ? 'border-warm text-gray-300 cursor-not-allowed'
-                : 'border-gray-300 text-gray-600 hover:border-[#6B7280] hover:text-[#6B7280]'
-            }`}
-          >
-            <Swords className="w-3.5 h-3.5" />
-            <span>INVITE</span>
-          </button>
-          <button
-            onClick={() => {
-              if (isOnBreak) {
-                showAlert('info', 'Battles are disabled during the break (9:55-10:00).');
-                return;
-              }
-              if (!isLoggedIn) {
-                showAlert('login', 'Please login to create battles!', {
-                  buttonText: 'LOGIN',
-                  onButtonClick: onShowLogin
-                });
-                return;
-              }
-              // Pre-select the current topic filter when opening create panel
-              if (!showCreate && topicFilter !== 'all') {
-                setCreateTopic(topicFilter);
-              }
-              setShowCreate(!showCreate);
-            }}
-            disabled={isOnBreak}
-            className={`flex items-center gap-1.5 px-3 py-3 rounded-lg text-[10px] font-semibold tracking-wider transition-colors text-white hover:opacity-90 ${
-              isOnBreak ? 'bg-skeleton-light text-gray-600 cursor-not-allowed' : ''
-            }`}
-            style={!isOnBreak ? { backgroundColor: topicFilter !== 'all' ? TOPICS.find(t => t.id === topicFilter)?.color || '#6B7280' : '#6B7280' } : {}}
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>CREATE</span>
-          </button>
-          </div>
-        </div>
-      </div>
-
+      <PageHeader
+        icon={Swords}
+        iconColor="#6B7280"
+        title="QuizzBattle"
+        subtitle="Challenge others, win coins."
+        onBack={onBack}
+        right={
+          <>
+            <HeaderButton
+              icon={Swords}
+              label="Invite"
+              color="#6B7280"
+              disabled={isOnBreak}
+              onClick={() => {
+                if (isOnBreak) {
+                  showAlert('info', 'Battles are disabled during the break (9:55-10:00).');
+                  return;
+                }
+                if (!isLoggedIn) {
+                  showAlert('login', 'Please login to invite friends!', {
+                    buttonText: 'LOGIN',
+                    onButtonClick: onShowLogin
+                  });
+                  return;
+                }
+                // Navigate to invite screen instead of modal
+                setSelectedInviteUser(null);
+                setInviteSearchQuery('');
+                setInviteSearchResults([]);
+                setScreen('invite');
+              }}
+            />
+            <HeaderButton
+              icon={Plus}
+              label="Create"
+              active
+              disabled={isOnBreak}
+              color={topicFilter !== 'all' ? TOPICS.find(t => t.id === topicFilter)?.color || '#6B7280' : '#6B7280'}
+              onClick={() => {
+                if (isOnBreak) {
+                  showAlert('info', 'Battles are disabled during the break (9:55-10:00).');
+                  return;
+                }
+                if (!isLoggedIn) {
+                  showAlert('login', 'Please login to create battles!', {
+                    buttonText: 'LOGIN',
+                    onButtonClick: onShowLogin
+                  });
+                  return;
+                }
+                // Pre-select the current topic filter when opening create panel
+                if (!showCreate && topicFilter !== 'all') {
+                  setCreateTopic(topicFilter);
+                }
+                setShowCreate(!showCreate);
+              }}
+            />
+          </>
+        }
+      />
       {/* Topic Filter */}
       <div className="flex items-center gap-1 px-2 py-3 border-b border-warm">
         {/* Scrollable Topics */}
@@ -2024,7 +2006,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
           {/* Header - adapts to selected topic color */}
           <div className="sticky top-0 z-10 px-4 pt-4 pb-3 border-b border-warm bg-cream transition-colors">
             <div className="flex items-center gap-3">
-              <button onClick={() => setShowCreate(false)} className="p-1 hover:bg-black/5 rounded transition-colors">
+              <button onClick={() => setShowCreate(false)} className="-ml-1 p-1 hover:bg-black/5 rounded transition-colors">
                 <ChevronLeft className="w-5 h-5" style={{ color: topicColor }} />
               </button>
               <TopicIcon className="w-5 h-5" style={{ color: topicColor }} />
@@ -2196,7 +2178,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
 
 
       {/* Battle List */}
-      <div className={`flex-1 overflow-y-auto overflow-x-hidden p-3 ${isDesktop ? 'grid grid-cols-4 gap-2.5 auto-rows-max' : 'space-y-2'}`} style={{ scrollbarWidth: 'none' }}>
+      <div className={`flex-1 overflow-y-auto overflow-x-hidden p-2 ${isDesktop ? 'grid grid-cols-4 gap-2.5 auto-rows-max' : 'space-y-2'}`} style={{ scrollbarWidth: 'none' }}>
         {loading ? (
           // Skeleton Loading
           <>
@@ -2441,7 +2423,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
 
                 {/* Your H2H vs the creator - kept (invisible) on own battles so all cards line up */}
                 <div className={`mt-2.5 pt-2 border-t border-warm/50 ${isMyBattle ? 'invisible' : ''}`}>
-                  <H2HStrip h2h={displayUser.h2h} />
+                  <H2HStrip h2h={displayUser.h2h} narrow />
                 </div>
                 
                 {/* Date/Time Footer */}
@@ -2676,7 +2658,30 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     return () => { cancelled = true; };
   }, [selectedInviteUser?._id, user?.id, inviteStep]);
 
-  const handleSelectPlayer = (player: any) => {
+  // Your record against the opponent, shown on the setup ("get ready") screen
+  const [prepH2H, setPrepH2H] = useState<{ wins: number; losses: number; ties: number; last5: ('W' | 'L' | 'T')[] } | null>(null);
+  const prepOpponentId: string | undefined = currentBattle
+    ? String(((isCreator ? (currentBattle.opponent || (currentBattle as any).challengedUser) : currentBattle.creator) as any)?._id || '') || undefined
+    : undefined;
+  useEffect(() => {
+    if (screen !== 'preparing' || !prepOpponentId || !user?.id) return;
+    let cancelled = false;
+    setPrepH2H(null);
+    fetch(`/api/users/battle-info?ids=${user.id},${prepOpponentId}`)
+      .then(res => res.json())
+      .then(data => { if (!cancelled && data.success) setPrepH2H(data.h2h?.record ?? { wins: 0, losses: 0, ties: 0, last5: [] }); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [screen, prepOpponentId, user?.id]);
+
+  // Tell the app shell while the get-ready screen holds a wager, so navigating away
+  // asks first instead of silently leaving a locked wager in Open Battles.
+  useEffect(() => {
+    if (!onLeaveGuardChange) return;
+    const holding = screen === 'preparing' && !hasStartedBattle && !!currentBattle && !givingUp;
+    onLeaveGuardChange(holding ? { wager: toBOGX(currentBattle!.wager), leave: leavePreparing } : null);
+    return () => onLeaveGuardChange(null);
+  }, [screen, hasStartedBattle, currentBattle?._id, givingUp, user?.id]);  const handleSelectPlayer = (player: any) => {
     setSelectedInviteUser(player);
     setPendingTopic(null);
     setInviteStep(2);
@@ -2830,7 +2835,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
           the header bar itself is no longer tinted. */}
       <div className="px-4 pt-4 pb-3 border-b border-warm bg-cream">
         <div className="flex items-center gap-3">
-          <button onClick={handleInviteBack} className="p-1 rounded transition-colors hover:bg-black/5">
+          <button onClick={handleInviteBack} className="-ml-1 p-1 rounded transition-colors hover:bg-black/5">
             <ChevronLeft className="w-5 h-5 transition-colors" style={{ color: headerColor }} />
           </button>
           <Swords className="w-5 h-5 transition-colors" style={{ color: headerColor }} />
@@ -2857,7 +2862,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         </div>
       </div>
       
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+      <div className="flex-1 overflow-y-auto px-2 py-4">
         {/* Step 1: Select Player */}
         {inviteStep === 1 && (
           <>
@@ -3425,15 +3430,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     return (
       <div className="flex flex-col h-full bg-cream">
         {/* Header - same style as Pool Screen */}
-        <div className="px-4 pt-4 pb-3 border-b border-warm bg-cream">
-          <div className="flex items-center gap-3">
-            <BackButton onClick={backToPool} />
-            <div>
-              <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">QuizzBattle</span>
-              <span className="text-[10px] text-gray-500 -mt-0.5 block">Challenge players, win their wager.</span>
-            </div>
-          </div>
-        </div>
+        <PageHeader icon={Swords} iconColor="#6B7280" title="QuizzBattle" subtitle="Challenge players, win their wager." onBack={backToPool} />
+
 
         {/* Battle Background Image - same as Setup Screen */}
         <div 
@@ -3578,7 +3576,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
             <button
               onClick={leavePreparing}
               disabled={givingUp}
-              className="p-1 rounded transition-colors disabled:opacity-50 hover:bg-black/5"
+              className="-ml-1 p-1 rounded transition-colors disabled:opacity-50 hover:bg-black/5"
             >
               {givingUp ? (
                 <Loader2 className="w-5 h-5 animate-spin" style={{ color: topic.color }} />
@@ -3614,10 +3612,19 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
               to label the topic and the round count, which the banner now
               carries as pills (topicLabel/rounds). */}
 
+          {/* Your record against this opponent, directly under the scoreboard. Shown
+              from the first moment (dots while it loads) so the layout never jumps. */}
+          <div style={{ animationDelay: '120ms' }} className="w-full max-w-sm sm:max-w-none bg-cream border border-warm rounded-xl p-3 sm:p-4 mb-3 min-h-[92px] sm:min-h-[104px] flex flex-col justify-center animate-[cardIn_0.45s_ease-out_backwards]">
+            {prepH2H ? (
+              <H2HStrip large h2h={prepH2H} />
+            ) : (
+              <div className="flex items-center justify-center"><LoadingDots /></div>
+            )}
+          </div>
           {/* Wager -> Prize. The arrow between the two halves is the point of
               this card: the second number is not a separate fact, it is what
               the first one turns into if you win. */}
-          <div className="w-full max-w-sm sm:max-w-none bg-cream border border-warm rounded-xl p-3 sm:p-4 mb-3">
+          <div style={{ animationDelay: '260ms' }} className="w-full max-w-sm sm:max-w-none bg-cream border border-warm rounded-xl p-3 sm:p-4 mb-3 animate-[cardIn_0.45s_ease-out_backwards]">
             <div className="flex items-center">
               {/* Your Wager */}
               <div className="flex-1 min-w-0 flex flex-col items-center justify-center py-1">
@@ -3626,7 +3633,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                   <span className="font-display text-[10px] sm:text-xs text-gray-500 tracking-wider">Your Wager</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="font-display text-xl sm:text-3xl text-gray-800 tabular-nums">{formatCurrency(toBOGX(currentBattle.wager))}</span>
+                  <CountUpNumber value={toBOGX(currentBattle.wager)} format={formatCurrency} delayMs={420} durationMs={900} className="font-display text-xl sm:text-3xl text-gray-800 tabular-nums" />
                   <img src="/images/bogxcoin.png" alt="" className="w-4 h-4 sm:w-6 sm:h-6" />
                 </div>
               </div>
@@ -3645,7 +3652,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                   <span className="font-display text-[10px] sm:text-xs tracking-wider" style={{ color: topic.color }}>Winner Takes</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="font-display text-xl sm:text-3xl tabular-nums" style={{ color: topic.color }}>{formatCurrency(toBOGX(currentBattle.wager * 2))}</span>
+                  <CountUpNumber value={toBOGX(currentBattle.wager * 2)} format={formatCurrency} delayMs={700} durationMs={1000} className="font-display text-xl sm:text-3xl tabular-nums" />
                   <img src="/images/bogxcoin.png" alt="" className="w-4 h-4 sm:w-6 sm:h-6" />
                 </div>
               </div>
@@ -3654,7 +3661,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
 
           {/* Spells out where the second number comes from - without it "winner
               takes 1,00" on a 0,50 wager looks like free money. */}
-          <div className="w-full max-w-sm sm:max-w-none bg-black/[0.035] border border-warm rounded-xl px-3 py-2.5 mb-4 flex items-center justify-center gap-2">
+          <div style={{ animationDelay: '400ms' }} className="w-full max-w-sm sm:max-w-none bg-black/[0.035] border border-warm rounded-xl px-3 py-2.5 mb-4 flex items-center justify-center gap-2 animate-[cardIn_0.45s_ease-out_backwards]">
             <Info className="w-3.5 h-3.5 text-gray-400 shrink-0" />
             <span className="font-display text-[11px] sm:text-xs tracking-wide text-gray-500">Winner receives the full pot (both wagers).</span>
           </div>
@@ -3674,7 +3681,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     const isGo = countdown === 0;
     
     return (
-      <div className="flex flex-col h-full bg-cream p-2 sm:p-4">
+      <div className="flex flex-col h-full bg-cream p-2">
         {/* Main Card - fills available height */}
         <div className="flex-1 border border-warm bg-cream rounded-2xl flex flex-col p-4 sm:p-6 shadow-lg animate-[cardIn_0.4s_ease-out] min-h-0">
           
@@ -3886,7 +3893,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         : '#DC2626';
     
     return (
-      <div className="flex flex-col h-full bg-cream p-2 sm:p-4">
+      <div className="flex flex-col h-full bg-cream p-2">
         {/* Main Card - fills available height */}
         <div className="flex-1 border border-warm bg-cream rounded-2xl flex flex-col p-4 sm:p-6 shadow-lg animate-[cardIn_0.4s_ease-out] min-h-0">
           
@@ -4123,7 +4130,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
     // resultColor/resultBandBg pair died with the solid colour band.
     
     return (
-      <div className="flex flex-col h-full bg-cream p-2 sm:p-4">
+      <div className="flex flex-col h-full bg-cream p-2">
         {/* Main Card - fills available height */}
         <div className="flex-1 border border-warm bg-cream rounded-2xl flex flex-col p-4 sm:p-6 shadow-lg animate-[cardIn_0.4s_ease-out] min-h-0 overflow-y-auto">
           
@@ -4449,7 +4456,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-cream overflow-hidden relative">
+    <div data-battle-zone className="w-full h-full flex flex-col bg-cream overflow-hidden relative">
       {renderScreen()}
 
       

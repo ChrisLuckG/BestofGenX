@@ -235,7 +235,7 @@ export default function DesktopArticlesPage({ onOpenArticle, onShowLogin, onCoin
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 bg-gradient-to-b from-transparent to-[#E36B11]/[0.03]" style={{ scrollbarWidth: "none" }}>
+      <div className="flex-1 overflow-y-auto px-2 py-3 space-y-4 bg-gradient-to-b from-transparent to-[#E36B11]/[0.03]" style={{ scrollbarWidth: "none" }}>
         {loading ? (
           <FeedSkeleton />
         ) : articles.length === 0 ? (

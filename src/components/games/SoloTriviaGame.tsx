@@ -850,7 +850,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
         <div className="flex flex-col h-full min-h-full bg-cream items-center">
           {/* Centered container with max width */}
           <div className="w-full max-w-4xl flex flex-col flex-1">
-          <div className="flex-1 m-2 sm:m-4 border border-warm bg-cream rounded-2xl flex flex-col p-4 sm:p-6 shadow-lg min-h-0 overflow-y-auto animate-[cardIn_0.4s_ease-out]">
+          <div className="flex-1 m-2 border border-warm bg-cream rounded-2xl flex flex-col p-4 sm:p-6 shadow-lg min-h-0 overflow-y-auto animate-[cardIn_0.4s_ease-out]">
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
               <button 
@@ -930,7 +930,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
         <div className="w-full max-w-4xl flex flex-col flex-1">
         {/* overflow-y-auto so a short viewport scrolls instead of clipping the
             buttons - the wrapper now pins a definite height. */}
-        <div className="flex-1 m-2 sm:m-4 border border-warm bg-cream rounded-2xl flex flex-col p-4 sm:p-6 shadow-lg min-h-0 overflow-y-auto animate-[cardIn_0.4s_ease-out]">
+        <div className="flex-1 m-2 border border-warm bg-cream rounded-2xl flex flex-col p-4 sm:p-6 shadow-lg min-h-0 overflow-y-auto animate-[cardIn_0.4s_ease-out]">
           
           {/* Header with Back button, Category (centered) and RESULT title */}
           <div className="flex items-center justify-between mb-4 animate-[fadeIn_0.3s_ease-out]">
@@ -1097,7 +1097,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
         {/* Centered container with max width */}
         <div className="w-full max-w-4xl flex flex-col flex-1">
         {/* Main Card - fills available height */}
-        <div className="flex-1 m-2 sm:m-4 border border-warm bg-cream rounded-2xl flex flex-col p-4 sm:p-6 shadow-lg min-h-0">
+        <div className="flex-1 m-2 border border-warm bg-cream rounded-2xl flex flex-col p-4 sm:p-6 shadow-lg min-h-0">
           
           {/* Status Bar - Same structure as BattleQuizScreen */}
           <div className="flex items-stretch border border-warm rounded-xl bg-cream overflow-hidden mb-4 sm:mb-5">
@@ -1501,7 +1501,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
             shrink below its content, grows past the viewport and the parent
             clips it instead of scrolling - the setup screen was cut off on
             mobile once the category grid and the stake panel got taller. */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4" style={{ scrollbarWidth: 'none' }}>
+        <div className="flex-1 min-h-0 overflow-y-auto px-2 py-4" style={{ scrollbarWidth: 'none' }}>
           {/* Step 1: Choose Category - 4x4 Grid */}
           <div>
             <div className="flex items-center gap-2 mb-3">
@@ -1885,7 +1885,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
         {/* Centered container with max width */}
         <div className="w-full max-w-4xl flex flex-col flex-1">
         {/* Main Card - fills available height */}
-        <div className="flex-1 m-2 sm:m-4 border border-warm bg-cream rounded-2xl flex flex-col p-4 sm:p-6 shadow-lg min-h-0">
+        <div className="flex-1 m-2 border border-warm bg-cream rounded-2xl flex flex-col p-4 sm:p-6 shadow-lg min-h-0">
           
           {/* Status Bar - Same structure as BattleQuizScreen */}
           <div className="flex items-stretch border border-warm rounded-xl bg-cream overflow-hidden mb-4 sm:mb-5">

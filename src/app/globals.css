@@ -1097,6 +1097,15 @@ body {
   to { opacity: 1; transform: translateX(0); }
 }
 
+/* "Ready" call-to-action: a soft ring that radiates from the START button until pressed */
+@keyframes readyPulse {
+  0%   { box-shadow: 0 0 0 0 var(--pulse), 0 10px 15px -3px rgba(0,0,0,0.1); }
+  70%  { box-shadow: 0 0 0 12px transparent, 0 10px 15px -3px rgba(0,0,0,0.1); }
+  100% { box-shadow: 0 0 0 0 transparent, 0 10px 15px -3px rgba(0,0,0,0.1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [style*="readyPulse"] { animation: none !important; }
+}
 /* Challenge sent: subtle notification travelling from you to your opponent */
 @keyframes challengeFly {
   0%   { left: 8%;  opacity: 0; transform: translateY(50%) scale(0.7); }

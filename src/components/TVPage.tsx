@@ -247,11 +247,11 @@ export default function TVPage({ onBack, initialVideoId }: TVPageProps = {}) {
 
       {/* Content */}
       {loading ? (
-        <div className="p-4">
+        <div className="px-2 py-4">
           <TVSkeleton />
         </div>
       ) : (
-      <div className="p-4 space-y-6">
+      <div className="px-2 py-4 space-y-6">
         {/* Featured Videos - Hero Carousel (Position 1, 2, 3) */}
         {(() => {
           const featuredVideos = videos

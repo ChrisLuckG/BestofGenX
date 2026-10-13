@@ -9,6 +9,7 @@ interface DesktopBattlesPageProps {
   onCoinAnimation?: (amount: number, variant?: 'gain' | 'loss' | 'hold') => void;
   onShowLogin?: () => void;
   onBattleActiveChange?: (isActive: boolean) => void;
+  onLeaveGuardChange?: (guard: import("@/hooks/useBattleLeaveGuard").BattleLeaveGuard | null) => void;
   pendingBattleId?: string | null;
   onPendingBattleHandled?: () => void;
   onBack?: () => void;

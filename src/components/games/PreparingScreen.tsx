@@ -215,10 +215,10 @@ export default function PreparingScreen({
     /* min-h-0 + overflow-y-auto: without min-h-0 a flex item will not shrink
        below its content, so on a short phone the start button fell outside the
        parent and nothing scrolled. */
-    <div className="preparing-screen flex flex-col items-center pt-4 md:pt-8 px-4 flex-1 min-h-0 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+    <div className="preparing-screen flex flex-col items-center pt-2 px-2 flex-1 min-h-0 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
       {/* Status Card with Icon and Text - compact to match setup screen */}
       <div
-        className={`relative overflow-hidden w-full rounded-xl p-4 md:p-6 mb-3 transition-all duration-300 shadow-lg ${
+        className={`relative overflow-hidden w-full rounded-xl p-4 md:p-6 mb-3 transition-all duration-300 shadow-lg animate-[cardIn_0.4s_ease-out_backwards] ${
           backgroundImage ? '' : 'bg-cream border border-warm'
         }`}
       >
@@ -483,7 +483,7 @@ export default function PreparingScreen({
 
       {/* Buttons - Cancel (if provided) + Start */}
       {!hideStartButton && (
-        <div className="w-full max-w-sm md:max-w-none flex gap-3">
+        <div style={{ animationDelay: '520ms' }} className="w-full max-w-sm md:max-w-none flex gap-3 animate-[cardIn_0.45s_ease-out_backwards]">
           {onCancel && (
             <button
               onClick={onCancel}
@@ -499,7 +499,7 @@ export default function PreparingScreen({
             className={`${isComplete ? 'hover-shine' : ''} relative overflow-hidden flex-1 py-3.5 md:py-4 rounded-xl font-display text-base md:text-lg tracking-wider transition-all shadow-lg flex items-center justify-center gap-2 border ${
               isComplete ? 'text-white hover:scale-[1.01] active:scale-[0.99] border-transparent' : 'text-gray-400 cursor-not-allowed bg-cream border-warm'
             }`}
-            style={{ background: isComplete ? topicColor : undefined }}
+            style={{ background: isComplete ? topicColor : undefined, ['--pulse' as string]: `${topicColor}66`, animation: isComplete ? 'readyPulse 2.2s ease-out infinite' : undefined }}
           >
             <ShineSweep active={isComplete} intensity={0.4} minDelayMs={3000} maxDelayMs={6500} firstDelayMs={700} />
             {isComplete ? (

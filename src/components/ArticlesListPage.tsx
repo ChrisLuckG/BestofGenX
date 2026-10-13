@@ -271,7 +271,7 @@ export default function ArticlesListPage({ onOpenArticle, onShowLogin, initialCa
         </div>
 
         {/* Articles List */}
-        <div className="px-4 pb-4 space-y-2">
+        <div className="px-2 pb-4 space-y-2">
         {loading ? (
           // Skeleton Loading
           <>

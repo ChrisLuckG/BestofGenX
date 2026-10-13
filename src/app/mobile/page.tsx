@@ -1,4 +1,5 @@
 "use client";
+import PageHeader, { HeaderChip } from "@/components/PageHeader";
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Bell, Vote, X, Trophy, Swords, TrendingUp } from "lucide-react";
@@ -31,6 +32,7 @@ import ArticlesListPage from "@/components/ArticlesListPage";
 import CoinAnimation from "@/components/CoinAnimation";
 import LandingPage from "@/components/games/WelcomeReel";
 import WelcomeBonusCard from "@/components/games/WelcomeBonusCard";
+import { useBattleLeaveGuard } from "@/hooks/useBattleLeaveGuard";
 import BonusAdCard from "@/components/games/BonusAdCard";
 import JustForFunModal from "@/components/JustForFunModal";
 import LoginPage from "@/components/LoginPage";
@@ -325,6 +327,7 @@ export default function MobilePage() {
   const [checkoutSessionId, setCheckoutSessionId] = useState<string | null>(null); // Stripe session ID
   const [currentGameNumber, setCurrentGameNumber] = useState<number | undefined>(undefined); // Current game number
   const [isBattleActive, setIsBattleActive] = useState(false); // Block tab switching during active battle
+  const { setGuard: setBattleLeaveGuard, intercept: interceptBattleLeave, modal: battleLeaveModal } = useBattleLeaveGuard();
     
   const searchParams = useSearchParams();
 
@@ -1874,6 +1877,8 @@ export default function MobilePage() {
       />
       </div>
 
+      {battleLeaveModal}
+
       {/* Coin Animation */}
       {coinAnimation.show && (
         <CoinAnimation 
@@ -1943,21 +1948,19 @@ export default function MobilePage() {
       {openRankrollData && (
         <div className="absolute inset-x-0 bottom-0 top-16 z-[60] bg-cream overflow-y-auto">
           {/* Header - sticky like other pages, solid background to prevent overlap */}
-          <div className="sticky top-0 z-10 flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-[#F5F0E8]">
-            <div className="flex items-center gap-3">
-              <BackButton onClick={() => { setOpenRankrollData(null); setRankrollRefreshKey(k => k + 1); }} />
-              <div>
-                <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Rankroll</span>
-                <span className="text-[10px] text-gray-500 -mt-0.5 block">Vote & rank your favorites</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#E36B11] rounded-lg shadow-sm">
-              <span className="text-sm">🪙</span>
-              <span className="text-xs font-bold text-white">
-                {(rankrollVotedCount * 0.01).toFixed(2)} of {(rankrollTotalItems * 0.01).toFixed(2)} BOGX
-              </span>
-            </div>
-          </div>
+          <PageHeader
+            sticky
+            icon={Vote}
+            title="Rankroll"
+            subtitle="Vote & rank your favorites"
+            onBack={() => { setOpenRankrollData(null); setRankrollRefreshKey(k => k + 1); }}
+            right={
+              <HeaderChip>
+                <span>🪙</span>
+                <span>{(rankrollVotedCount * 0.01).toFixed(2)} of {(rankrollTotalItems * 0.01).toFixed(2)} BOGX</span>
+              </HeaderChip>
+            }
+          />
           {/* Content - Title inside same container as ranking items */}
           <div className="p-4 pb-20">
             <div className="rounded-2xl border border-warm overflow-hidden">
@@ -2252,7 +2255,7 @@ export default function MobilePage() {
         
         {/* Battles Tab (accessed from Arcade -> QuizzBattle) */}
         <div className={`absolute inset-0 transition-opacity duration-150 ${activeTab === "battles" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"}`}>
-          {activeTab === "battles" && <BattlesPage coins={coins} setCoins={setCoins} onCoinAnimation={(amount, variant) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount, variant }); }} onShowLogin={() => setShowLoginPage(true)} onBattleActiveChange={setIsBattleActive} pendingBattleId={pendingBattleId} onPendingBattleHandled={() => setPendingBattleId(null)} onGoToTrivia={() => { setActiveTab('arcade'); setArcadeGame('trivia'); }} onGoToArticles={() => setActiveTab('articles')} skipSetup={true} />}
+          {activeTab === "battles" && <BattlesPage coins={coins} setCoins={setCoins} onCoinAnimation={(amount, variant) => { setCoinAnimKey(k => k + 1); setCoinAnimation({ show: true, amount, variant }); }} onShowLogin={() => setShowLoginPage(true)} onBattleActiveChange={setIsBattleActive} onLeaveGuardChange={setBattleLeaveGuard} pendingBattleId={pendingBattleId} onPendingBattleHandled={() => setPendingBattleId(null)} onGoToTrivia={() => { setActiveTab('arcade'); setArcadeGame('trivia'); }} onGoToArticles={() => setActiveTab('articles')} skipSetup={true} />}
         </div>
         
         {/* Notifications Tab */}
@@ -2315,7 +2318,9 @@ export default function MobilePage() {
       <div className={`flex-shrink-0 relative z-50 overflow-hidden transition-all duration-500 ease-in-out ${gameFullscreen ? 'max-h-0 opacity-0' : 'max-h-24 opacity-100'}`}>
         <BottomNav 
           activeTab={activeTab} 
-          onTabChange={(tab) => {
+          onTabChange={function guardedTabChange(tab: NavTab) {
+            // Get-ready screen holds a wager: ask before leaving (re-runs this after confirming)
+            if (interceptBattleLeave(() => guardedTabChange(tab))) return;
             // Close all overlays first
             closeAllOverlays();
             setShowRankingsOverlay(false);

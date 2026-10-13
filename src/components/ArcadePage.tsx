@@ -1,4 +1,5 @@
 "use client";
+import PageHeader, { HeaderButton } from "@/components/PageHeader";
 
 import { useState, useEffect } from "react";
 import { Users, User, Swords, Brain } from "lucide-react";
@@ -80,33 +81,14 @@ export default function ArcadePage({ onSelectGame, onShowRankings, onShowBattles
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-cream">
       {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-warm bg-cream">
-        <div className="relative flex items-center gap-3">
-          <Brain className="w-5 h-5 text-[#E36B11]" />
-          <div>
-            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Trivia</span>
-            <span className="text-[10px] text-gray-500 -mt-0.5 block">Test your GenX knowledge!</span>
-          </div>
-          {/* Open battles button - absolute so height never grows the header */}
-          <button
-            onClick={() => setShowOpenBattles(v => !v)}
-            style={{ ['--fx-glow' as string]: 'rgba(168, 85, 247, 0.75)' }}
-            className={`fx-neon group absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1.5 px-3 py-3 rounded-lg border transition-colors text-[10px] tracking-wider ${
-              showOpenBattles
-                ? 'border-[#A855F7] bg-[#A855F7] font-bold shadow-sm'
-                : 'border-[#A855F7]/40 bg-[#A855F7]/10 hover:bg-[#A855F7]/20 font-semibold'
-            }`}
-          >
-            <Swords className={`fx-wiggle w-3.5 h-3.5 ${showOpenBattles ? 'text-white' : 'text-[#A855F7]'}`} />
-            <span className={showOpenBattles ? 'text-white' : 'text-[#A855F7]'}>OPEN BATTLES</span>
-            {liveBattleCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 bg-red-500 rounded-full flex items-center justify-center text-white text-[9px] font-black shadow animate-pulse">
-                {liveBattleCount > 9 ? '9+' : liveBattleCount}
-              </span>
-            )}
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        icon={Brain}
+        title="Trivia"
+        subtitle="Test your GenX knowledge!"
+        right={
+          <HeaderButton neon icon={Swords} label="Open Battles" color="#A855F7" active={showOpenBattles} badge={liveBattleCount} onClick={() => setShowOpenBattles(v => !v)} />
+        }
+      />
 
       {/* Open Battles Popup - rendered even without a userId, exactly like desktop:
           the modal itself carries the "Login to see your battles" state. Gating it
@@ -123,7 +105,7 @@ export default function ArcadePage({ onSelectGame, onShowRankings, onShowBattles
       />
 
       {/* Two poster banners - like the Media page, no scrolling needed */}
-      <div className="flex-1 flex flex-col px-4 py-4 gap-4">
+      <div className="flex-1 flex flex-col px-2 py-4 gap-4">
         <PosterBanner
           color="#A855F7"
           media={{ type: 'image', src: '/images/Hintergund/battle-bats.png', lineArt: true }}

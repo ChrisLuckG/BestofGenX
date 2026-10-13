@@ -1,4 +1,5 @@
 "use client";
+import PageHeader from "@/components/PageHeader";
 
 import { Clapperboard, Headphones, Tv } from "lucide-react";
 import PosterBanner from "./PosterBanner";
@@ -12,17 +13,10 @@ export default function MediaPage({ onOpenRadio, onOpenTV }: MediaPageProps) {
   return (
     <div className="w-full h-full flex flex-col overflow-hidden bg-cream">
       {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-warm bg-cream">
-        <div className="flex items-center gap-3">
-          <Clapperboard className="w-5 h-5 text-[#E36B11]" />
-          <div>
-            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">MEDIA</span>
-            <span className="text-[10px] text-gray-500 -mt-0.5 block">Radio &amp; TV, no ads, no algorithm</span>
-          </div>
-        </div>
-      </div>
+      <PageHeader icon={Clapperboard} title="Media" subtitle="Radio & TV, no ads, no algorithm" />
 
-      <div className="flex-1 flex flex-col px-4 py-4 gap-4">
+
+      <div className="flex-1 flex flex-col px-2 py-4 gap-4">
 
         <PosterBanner
           color="#15803D"

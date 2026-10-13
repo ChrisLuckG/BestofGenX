@@ -1,6 +1,8 @@
 "use client";
+import PageHeader, { HeaderChip } from "@/components/PageHeader";
 
 import { useState, useEffect } from "react";
+import { Vote } from "lucide-react";
 import BackButton from "@/components/BackButton";
 import { useAuth } from "@/context/AuthContext";
 import RankrollArticleLink from "@/components/RankrollArticleLink";
@@ -241,23 +243,19 @@ export default function DesktopRankingDetailPage({ poll, onBack, onOpenArticle, 
   return (
     <div className="h-full flex flex-col bg-[#F5F0E8] overflow-hidden">
       {/* Header - sticky like other pages */}
-      <div className="sticky top-0 z-10 flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream">
-        <div className="flex items-center gap-3">
-          <BackButton onClick={onBack} />
-          <div>
-            <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">Rankroll</span>
-            <span className="text-[10px] text-gray-500 -mt-0.5 block">Vote & rank your favorites</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#E36B11] rounded-lg shadow-sm">
-            <span className="text-sm">🪙</span>
-            <span className="text-xs font-bold text-white">
-              {(Object.keys(userVotes).length * 0.01).toFixed(2)} of {((poll.items?.length || 0) * 0.01).toFixed(2)} BOGX
-            </span>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        sticky
+        icon={Vote}
+        title="Rankroll"
+        subtitle="Vote & rank your favorites"
+        onBack={onBack}
+        right={
+          <HeaderChip>
+            <span>🪙</span>
+            <span>{(Object.keys(userVotes).length * 0.01).toFixed(2)} of {((poll.items?.length || 0) * 0.01).toFixed(2)} BOGX</span>
+          </HeaderChip>
+        }
+      />
 
       {/* Title + Subtitle/Description with Image */}
       <div className="px-4 py-3 border-b border-warm">
