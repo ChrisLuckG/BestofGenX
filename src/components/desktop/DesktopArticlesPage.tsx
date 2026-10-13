@@ -336,7 +336,7 @@ export default function DesktopArticlesPage({ onOpenArticle, onShowLogin, onCoin
                             {CATEGORY_LABELS[article.category] || article.category}
                           </span>
                         </div>
-                        <h4 className="font-display text-xl tracking-wide text-gray-900 group-hover:text-[#E36B11] transition-colors line-clamp-2 uppercase">{article.title}</h4>
+                        <h4 className="font-display text-xl tracking-wide text-gray-900 origin-left transition-transform duration-300 ease-out group-hover:scale-[1.04] line-clamp-2 uppercase">{article.title}</h4>
                         <div className="text-xs text-gray-400 mt-1 truncate">
                           {article.authorName || 'BOGX Team'} · {formatDate(article.createdAt)}
                         </div>

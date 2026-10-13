@@ -196,7 +196,7 @@ const SliderCard = ({
         {/* Hover colour follows the theme: orange on a coloured container reads as
             "same colour on same colour", so those cards highlight in cream
             (#F5F0E8, the app's stand-in for white) instead. */}
-        <h3 className={`font-display text-[20px] tracking-wide leading-tight line-clamp-2 transition-colors text-gray-900 ${hasColorTheme ? 'group-hover:text-[#F5F0E8]' : 'group-hover:text-[#E36B11]'}`}>{article.title}</h3>
+        <h3 className={`font-display text-[20px] tracking-wide leading-tight line-clamp-2 transition-[color,transform] duration-300 ease-out origin-left group-hover:scale-[1.04] text-gray-900 ${hasColorTheme ? 'group-hover:text-[#F5F0E8]' : ''}`}>{article.title}</h3>
         {/* Likes & Comments */}
         <div className="flex items-center gap-2 mt-1 text-[8px] text-gray-500" onClick={(e) => e.stopPropagation()}>
           <CardMoodReactions articleId={article._id} userId={userId} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="xs" useExternalData initialReactions={reactionData?.reactions} initialUserReaction={reactionData?.userReaction} initialRewarded={reactionData?.rewarded} onReactionChange={onReactionChange} />
@@ -840,7 +840,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         )}
         {/* Title */}
         <div className="flex items-start gap-2">
-          <h2 className={`font-display text-[28px] lg:text-[32px] tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} group-hover:text-[#E36B11] leading-tight mb-1.5 line-clamp-2 transition-colors flex-1`}>{article.title}</h2>
+          <h2 className={`font-display text-[28px] lg:text-[32px] tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} leading-tight mb-1.5 line-clamp-2 origin-left transition-transform duration-300 ease-out group-hover:scale-[1.04] flex-1`}>{article.title}</h2>
         </div>
         <div className={`flex items-center justify-between gap-2 text-[11px] ${article.category === 'rip' ? 'text-gray-600' : 'text-white/70'}`}>
           <div className="flex items-center gap-2 min-w-0">
@@ -940,7 +940,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         )}
         {/* Title at bottom with read badge */}
         <div className="absolute bottom-3 left-3 right-3 z-10">
-          <h2 className="font-display text-[22px] lg:text-[26px] tracking-wide text-white group-hover:text-[#E36B11] leading-tight line-clamp-2 drop-shadow-lg transition-colors">
+          <h2 className="font-display text-[22px] lg:text-[26px] tracking-wide text-white leading-tight line-clamp-2 drop-shadow-lg origin-left transition-transform duration-300 ease-out group-hover:scale-[1.04]">
             {article.title}
           </h2>
         </div>
@@ -1069,7 +1069,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       {/* Content - fixed at bottom: Title with read badge */}
       <div className="absolute bottom-0 left-0 right-0 z-10 p-3">
         <div className="flex items-start gap-1.5">
-          <h3 className={`font-display text-[19px] lg:text-xl tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} group-hover:text-[#E36B11] leading-tight mb-1 line-clamp-2 transition-colors flex-1`}>{article.title}</h3>
+          <h3 className={`font-display text-[19px] lg:text-xl tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} leading-tight mb-1 line-clamp-2 origin-left transition-transform duration-300 ease-out group-hover:scale-[1.04] flex-1`}>{article.title}</h3>
         </div>
         <div className="flex items-center justify-between gap-2 text-[10px] text-white/70">
           <div className="flex items-center gap-2 min-w-0">
@@ -1157,7 +1157,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
               {formatArticleDate(article.createdAt) && (
                 <div className="text-[13px] text-white/90 mb-1 font-semibold drop-shadow-lg">{formatArticleDate(article.createdAt)}</div>
               )}
-              <h3 className={`font-display text-lg lg:text-3xl tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} group-hover:text-[#E36B11] leading-tight line-clamp-3 drop-shadow-lg transition-colors`}>
+              <h3 className={`font-display text-lg lg:text-3xl tracking-wide ${article.category === 'rip' ? 'text-gray-900' : 'text-white'} leading-tight line-clamp-3 drop-shadow-lg origin-left transition-transform duration-300 ease-out group-hover:scale-[1.04]`}>
                 {article.title}
               </h3>
             </div>
@@ -1276,7 +1276,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           </span>
           <span className="text-gray-500 text-[10px]">• {article.createdAt ? new Date(article.createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}</span>
         </div>
-        <h3 className={`font-display tracking-wide text-gray-900 group-hover:text-[var(--hover-color)] leading-tight line-clamp-1 transition-colors ${isDesktop ? 'text-[20px]' : 'text-[20px]'}`}>{article.title}</h3>
+        <h3 className={`font-display tracking-wide text-gray-900 leading-tight line-clamp-1 origin-left transition-transform duration-300 ease-out group-hover:scale-[1.04] ${isDesktop ? 'text-[20px]' : 'text-[20px]'}`}>{article.title}</h3>
         <div className="flex items-center gap-3 text-[10px] text-gray-500 mt-0.5" onClick={(e) => e.stopPropagation()}>
           <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="xs" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} initialRewarded={reactionsMap[article._id]?.rewarded} onReactionChange={handleReactionChange} />
           <span className="flex items-center gap-0.5">
@@ -1614,7 +1614,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                           </div>
                           {/* Name */}
                           <div className="flex-1 min-w-0">
-                            <div className={`font-display text-base tracking-wide truncate group-hover:text-[#E36B11] transition-colors ${article.deceased ? 'text-gray-600' : 'text-gray-900'}`}>
+                            <div className={`font-display text-base tracking-wide truncate origin-left transition-transform duration-300 ease-out group-hover:scale-[1.04] ${article.deceased ? 'text-gray-600' : 'text-gray-900'}`}>
                               {article.personName || article.title}
                               {article.deceased && <span className="ml-1 text-gray-400">†</span>}
                             </div>

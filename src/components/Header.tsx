@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import RankTooltip from "./RankTooltip";
 import { Bell, Crown, Radio, Tv, User, ArrowUp, ArrowDown, Lock, Info } from "lucide-react";
 import LoadingDots from "./LoadingDots";
 import { useAnimatedValue, useIntroCount, animateUnranked } from "@/hooks/useCountUp";
@@ -273,7 +274,7 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
     <div className="absolute top-0 left-0 right-0 z-50 bg-cream border-b border-warm">
       <div className="relative flex items-center justify-between px-4 h-[72px]">
         {/* Left - GenX Logo - fixed size, never shrink */}
-        <button onClick={onLogoClick} className="flex items-center hover:scale-105 transition-all -ml-1 shrink-0">
+        <button onClick={onLogoClick} className="fx-logo flex items-center -ml-1 shrink-0" style={{ ['--fx-logo-src' as string]: 'url(/images/genxlogo1.png)' }}>
           <Image 
             src="/images/genxlogo1.png" 
             alt="Best of GenX" 
@@ -485,19 +486,20 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
 
         {/* Explanation for an unranked period */}
         {tipFor && (
-          <div className="absolute top-full right-2 mt-1 w-[240px] p-3 bg-[#FFF8E7] border border-[#E36B11]/30 rounded-lg shadow-xl z-[100]">
-            <p className="text-[11px] text-gray-700 leading-relaxed">
-              <strong className="text-[#E36B11]">Tip:</strong> {isLoggedIn ? (
-                rankUnrankedTip(tipFor)
-              ) : (
-                <><span onClick={(e) => { e.stopPropagation(); setTipFor(null); onShowLogin?.(); }} className="text-[#E36B11] underline cursor-pointer">Log in</span>{rankUnrankedGuestTip(tipFor)}</>
-              )}
-            </p>
-          </div>
+          <RankTooltip
+            compact
+            period={tipFor}
+            isLoggedIn={isLoggedIn}
+            onLogin={() => { setTipFor(null); onShowLogin?.(); }}
+            className="absolute top-full right-2 mt-1.5 w-[250px] z-[100]"
+          />
         )}
 
         {/* Keyframes for animations - same as Desktop */}
-        <style>{`
+        <style>{`n          @keyframes rankTipIn {
+            from { opacity: 0; transform: translateY(-6px) scale(0.94); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+          }
           @keyframes scoreWin {
             0% { transform: scale(1); }
             25% { transform: scale(1.06); }

@@ -1124,7 +1124,7 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
                   {/* Content */}
                   <div className="flex-1 min-w-0">
                     <CategoryBadge category={relatedArticle.category} size="sm" className="mb-1" />
-                    <h4 className="font-display text-base text-gray-900 group-hover:text-[#E36B11] leading-tight line-clamp-2 transition-colors">
+                    <h4 className="font-display text-base text-gray-900 leading-tight line-clamp-2 origin-left transition-transform duration-300 ease-out group-hover:scale-[1.04]">
                       {relatedArticle.title}
                     </h4>
                     {/* Meta: Date, Reactions, Comments */}

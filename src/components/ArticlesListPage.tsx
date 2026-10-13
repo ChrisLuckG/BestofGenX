@@ -338,7 +338,7 @@ export default function ArticlesListPage({ onOpenArticle, onShowLogin, initialCa
                   </span>
                   
                   {/* Title */}
-                  <h3 className="font-display text-base tracking-wide leading-tight mb-1 line-clamp-2 group-hover:text-[#E36B11] transition-colors uppercase text-gray-900">
+                  <h3 className="font-display text-base tracking-wide leading-tight mb-1 line-clamp-2 origin-left transition-transform duration-300 ease-out group-hover:scale-[1.04] uppercase text-gray-900">
                     {article.title}
                   </h3>
 

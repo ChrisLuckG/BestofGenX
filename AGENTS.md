@@ -658,3 +658,20 @@ They used to compare against "the last rank this browser saw" in localStorage,
 so desktop and phone showed opposite arrows for the same player - and mobile
 also drew an up-arrow when nothing had moved (`dir === null` was treated as up).
 Do not reintroduce a client-side comparison.
+
+## UI: every hoverable thing does something on hover
+
+Owner preference (stated more than once): if an element can be hovered, it must react -
+no dead buttons, links or cards. Use the existing building blocks instead of one-offs
+(all in `globals.css`, all switched off for `prefers-reduced-motion`, hover-only ones sit
+behind `(hover: hover)`):
+
+- buttons in headers: `HeaderButton` / `HeaderChip` / `HeaderSelect` (`PageHeader.tsx`)
+- nav icons `fx-wiggle`, nav labels `fx-rgb` (chroma split), the BOGX logo `fx-logo`
+- primary buttons `fx-arcade` / `hover-shine`, outline buttons `fx-neon`
+- text links: `fx-link` (same as the tabs: chroma flicker on the label, icon wiggles) + `fx-arrow` on the arrow icon (steps forward). A drawn-in underline was tried and rejected as boring
+- cards: small lift (`hover:-translate-y-0.5 hover:shadow-md`) and the icon scales or tilts
+
+Two things the owner explicitly did NOT want: the scoreboard lifting on hover with a hard
+orange drop shadow underneath, and tooltips that are a second orange block (the scoreboard
+is the orange thing; tooltips stay light, see `RankTooltip.tsx`).

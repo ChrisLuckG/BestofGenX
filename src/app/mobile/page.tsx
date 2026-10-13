@@ -46,6 +46,7 @@ import NoFundsModal from "@/components/NoFundsModal";
 import PushNotifications from "@/components/PushNotifications";
 import SummaryCard from "@/components/games/SummaryCard";
 import CheckoutSuccessModal from "@/components/CheckoutSuccessModal";
+import DonationThanks from "@/components/DonationThanks";
 import OpenBattlesModal from "@/components/OpenBattlesModal";
 
 import StaticPageInline from "@/components/StaticPageInline";
@@ -1962,7 +1963,7 @@ export default function MobilePage() {
             }
           />
           {/* Content - Title inside same container as ranking items */}
-          <div className="p-4 pb-20">
+          <div className="px-2 pt-3 pb-20">
             <div className="rounded-2xl border border-warm overflow-hidden">
               {/* Title header */}
               <div className="px-4 py-3 border-b border-warm">
@@ -2492,6 +2493,7 @@ export default function MobilePage() {
       />
 
       {/* Checkout Success Modal */}
+      <DonationThanks />
       <CheckoutSuccessModal
         isOpen={showCheckoutSuccess}
         onClose={() => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowUp, ArrowDown, Lock, Info } from "lucide-react";
+import RankTooltip from "@/components/RankTooltip";
 import { useEffect, useRef, useState } from "react";
 import { type RankPeriod, rankUnrankedTip, rankUnrankedGuestTip, formatUnrankedValue } from "@/lib/rankPeriod";
 import ShineSweep from "@/components/ShineSweep";
@@ -40,7 +41,7 @@ interface DesktopRankWidgetProps {
   isLoadingRanks?: boolean; // Ranks not loaded yet - placeholder instead of "?"
 }
 
-function RankPosition({ value, label, isActive, change, onHoverChange, points, loading = false, showInfo = true }: { value: number; label: string; isActive?: boolean; change?: 'up' | 'down' | null; onHoverChange?: (hovering: boolean) => void; points?: number; loading?: boolean; showInfo?: boolean }) {
+function RankPosition({ value, label, isActive, change, onHoverChange, points, loading = false, showInfo = true, hoverDelay = 0 }: { value: number; label: string; isActive?: boolean; change?: 'up' | 'down' | null; onHoverChange?: (hovering: boolean) => void; points?: number; loading?: boolean; showInfo?: boolean; hoverDelay?: number }) {
   const hasRank = value > 0;
   
   // Unranked: own net for the period ("-0,37" / "0,00"), "?" only when unknown
@@ -90,7 +91,8 @@ function RankPosition({ value, label, isActive, change, onHoverChange, points, l
 
   return (
     <div 
-      className="relative flex items-center gap-0.5 group/rank"
+      className="relative flex items-center gap-0.5 group/rank transition-transform duration-300 ease-out group-hover/main:-translate-y-0.5 group-hover/main:scale-110 motion-reduce:transform-none"
+      style={{ transitionDelay: `${hoverDelay}ms` }}
       onMouseEnter={() => !hasRank && onHoverChange?.(true)}
       onMouseLeave={() => !hasRank && onHoverChange?.(false)}
     >
@@ -140,7 +142,7 @@ function RankPosition({ value, label, isActive, change, onHoverChange, points, l
             background (#FFFDF9 -> #FDF8F0) - gray-600 gives the label enough
             contrast to actually read as a label instead of disappearing next to
             the bold number above it. */}
-        <span className={`relative text-[9px] font-display uppercase transition-colors ${isActive ? 'text-white/60' : 'text-gray-600 group-hover/main:text-white/60'}`}>
+        <span className={`fx-rgb relative text-[9px] font-display uppercase transition-colors ${isActive ? 'text-white/60' : 'text-gray-600 group-hover/main:text-white/60'}`}>
           {label}
           {/* Unranked: small ⓘ after the label - hovering it explains why there
               is no rank. Absolute, so the label stays centred under the value. */}
@@ -192,6 +194,13 @@ export default function DesktopRankWidget({
   const [coinAnim, setCoinAnim] = useState<'up' | 'down' | null>(null);
   // Which unranked period is being hovered - drives the explanation tooltip.
   const [tipFor, setTipFor] = useState<RankPeriod | null>(null);
+  // Closing is delayed a little so the pointer can reach the tooltip itself
+  const tipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hoverTip = (period: RankPeriod, hovering: boolean) => {
+    if (tipTimer.current) clearTimeout(tipTimer.current);
+    if (hovering) setTipFor(period);
+    else tipTimer.current = setTimeout(() => setTipFor(null), 220);
+  };
   const [coinDelta, setCoinDelta] = useState(0);
   const [wagerAnim, setWagerAnim] = useState<'in' | 'out' | null>(null);
   const [wagerVisible, setWagerVisible] = useState(pendingAmount > 0);
@@ -307,7 +316,7 @@ export default function DesktopRankWidget({
   
   return (
     <div 
-      className={`rank-widget relative flex cursor-pointer transition-transform ${active ? 'scale-[0.98]' : ''}`}
+      className={`rank-widget relative flex cursor-pointer transition-transform duration-300 ease-out ${active ? 'scale-[0.98]' : ''}`}
       style={coinAnim ? { 
         animation: coinAnim === 'up' ? 'scoreWin 1.4s ease-out' : 'scoreLoss 1.4s ease-out',
         willChange: 'transform',
@@ -342,6 +351,14 @@ export default function DesktopRankWidget({
       />
 
       <style>{`
+        @keyframes rankStripeSlide {
+          from { background-position: 0 0; }
+          to   { background-position: 28px 0; }
+        }
+        @keyframes rankTipIn {
+          from { opacity: 0; transform: translateY(-6px) scale(0.94); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
         @keyframes scoreWin {
           0% { transform: scale(1); }
           25% { transform: scale(1.06); }
@@ -433,21 +450,21 @@ export default function DesktopRankWidget({
           out of that leaderboard entirely, so a month can read "?" while the day
           and the year both show a rank. */}
       {tipFor && (
-        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-72 p-3 bg-[#FFF8E7] border border-[#E36B11]/30 rounded-lg shadow-xl z-[100]">
-          <p className="text-xs text-gray-700 leading-relaxed">
-            <strong className="text-[#E36B11]">Tip:</strong> {isLoggedIn ? (
-              rankUnrankedTip(tipFor)
-            ) : (
-              <><button onClick={onShowLogin} className="text-[#E36B11] underline hover:no-underline">Log in</button>{rankUnrankedGuestTip(tipFor)}</>
-            )}
-          </p>
+        // pt-2.5 is an invisible bridge: the pointer can travel from the "?" down to the
+        // card (and its LOG IN button) without the tooltip closing on the way
+        <div
+          className="absolute top-full right-0 w-80 pt-2.5 z-[100]"
+          onMouseEnter={() => { if (tipTimer.current) clearTimeout(tipTimer.current); }}
+          onMouseLeave={() => hoverTip(tipFor, false)}
+        >
+          <RankTooltip period={tipFor} isLoggedIn={isLoggedIn} onLogin={onShowLogin} />
         </div>
       )}
 
       {/* Main container - Coins & Rankings with own hover group */}
       <div 
         onClick={onClick}
-        className={`group/main relative flex items-stretch gap-0 rounded-lg border shadow-sm transition-all duration-200 overflow-hidden ${
+        className={`group group/main hover-shine relative flex items-stretch gap-0 rounded-lg border shadow-sm transition-all duration-300 overflow-hidden ${
           active 
             ? 'bg-gradient-to-b from-[#E36B11] to-[#C4772A] border-[#E36B11]' 
             : 'bg-gradient-to-b from-[#FFFDF9] to-[#FDF8F0] border-[#E36B11]/30 hover:from-[#E36B11] hover:to-[#C4772A] hover:border-[#E36B11]'
@@ -456,6 +473,16 @@ export default function DesktopRankWidget({
         
         {/* Occasional subtle glint - gold on the cream card, white when it is orange */}
         <ShineSweep rgb={active ? '255, 255, 255' : '229, 165, 90'} intensity={active ? 0.25 : 0.28} minDelayMs={9000} maxDelayMs={18000} firstDelayMs={2500} firstJitterMs={2000} />
+
+        {/* Retro print stripes drifting over the orange while hovered */}
+        <div
+          className="pointer-events-none absolute inset-0 opacity-0 group-hover/main:opacity-100 transition-opacity duration-300 motion-reduce:hidden"
+          style={{
+            backgroundImage: 'repeating-linear-gradient(135deg, rgba(255,255,255,0.10) 0 6px, transparent 6px 14px)',
+            backgroundSize: '28px 28px',
+            animation: 'rankStripeSlide 1.4s linear infinite',
+          }}
+        />
 
         {/* Left accent */}
         <div className={`absolute left-0 top-1 bottom-1 w-0.5 rounded-full transition-all ${
@@ -467,7 +494,7 @@ export default function DesktopRankWidget({
           <img 
             src="/images/bogxcoin.png" 
             alt="" 
-            className={`relative w-10 h-10 -my-2 shrink-0 transition-all ${!active ? 'group-hover/main:brightness-0 group-hover/main:invert' : ''}`}
+            className={`relative w-10 h-10 -my-2 shrink-0 transition-all group-hover/main:animate-[coinSpinWin_0.9s_ease-out_1] group-hover/main:drop-shadow-[0_0_8px_rgba(255,255,255,0.75)] ${!active ? 'group-hover/main:brightness-0 group-hover/main:invert' : ''}`}
             style={coinAnim
               ? { animation: coinAnim === 'up' ? 'coinSpinWin 1.1s ease-out' : 'coinSpinLoss 0.9s ease-in-out' }
               : undefined}
@@ -482,7 +509,7 @@ export default function DesktopRankWidget({
             {isLoadingCoins ? (
               <span className="inline-flex items-center h-[18px] px-1"><LoadingDots className={active ? 'text-white' : 'text-[#E36B11] group-hover/main:text-white'} /></span>
             ) : (
-            <span className={`text-lg font-display tabular-nums leading-none transition-all duration-300 ${
+            <span className={`text-lg font-display tabular-nums leading-none origin-left transition-all duration-300 group-hover/main:scale-110 ${
               coinAnim === 'up' ? (active ? 'text-white' : 'text-green-600 group-hover/main:text-white') : 
               coinAnim === 'down' ? (active ? 'text-white' : 'text-red-500 group-hover/main:text-white') : 
               active ? 'text-white' : 'text-[#E36B11] group-hover/main:text-white'
@@ -490,7 +517,7 @@ export default function DesktopRankWidget({
               {(introCoins ?? coins).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
             )}
-            <span className={`text-[9px] font-display uppercase transition-colors ${active ? 'text-white/60' : 'text-gray-600 group-hover/main:text-white/60'}`}>Coins</span>
+            <span className={`fx-rgb text-[9px] font-display uppercase transition-colors ${active ? 'text-white/60' : 'text-gray-600 group-hover/main:text-white/60'}`}>Coins</span>
           </div>
         </div>
         
@@ -502,11 +529,11 @@ export default function DesktopRankWidget({
               shrink to the width of the smaller timer). */}
           <div className="relative grid">
             <div className={`col-start-1 row-start-1 flex items-center gap-3 ${isBreakTime && breakCountdown ? 'invisible' : ''}`} aria-hidden={isBreakTime && !!breakCountdown}>
-              <RankPosition value={dailyRank} label="Day" isActive={active} change={dailyChange} onHoverChange={(h) => setTipFor(h ? 'day' : null)} points={dailyPoints} loading={isLoadingRanks} showInfo={isLoggedIn} />
+              <RankPosition value={dailyRank} label="Day" hoverDelay={0} isActive={active} change={dailyChange} onHoverChange={(h) => hoverTip('day', h)} points={dailyPoints} loading={isLoadingRanks} showInfo={isLoggedIn} />
               <div className={`w-px h-8 ${active ? 'bg-white/20' : 'bg-gray-300 group-hover/main:bg-white/20'}`} />
-              <RankPosition value={monthlyRank} label="Month" isActive={active} change={monthlyChange} onHoverChange={(h) => setTipFor(h ? 'month' : null)} points={monthlyPoints} loading={isLoadingRanks} showInfo={isLoggedIn} />
+              <RankPosition value={monthlyRank} label="Month" hoverDelay={70} isActive={active} change={monthlyChange} onHoverChange={(h) => hoverTip('month', h)} points={monthlyPoints} loading={isLoadingRanks} showInfo={isLoggedIn} />
               <div className={`w-px h-8 ${active ? 'bg-white/20' : 'bg-gray-300 group-hover/main:bg-white/20'}`} />
-              <RankPosition value={yearlyRank} label="Year" isActive={active} change={yearlyChange} onHoverChange={(h) => setTipFor(h ? 'year' : null)} points={yearlyPoints} loading={isLoadingRanks} showInfo={isLoggedIn} />
+              <RankPosition value={yearlyRank} label="Year" hoverDelay={140} isActive={active} change={yearlyChange} onHoverChange={(h) => hoverTip('year', h)} points={yearlyPoints} loading={isLoadingRanks} showInfo={isLoggedIn} />
             </div>
             {isBreakTime && breakCountdown && (() => {
               const parts = breakCountdown.split(':');

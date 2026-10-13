@@ -87,6 +87,14 @@ const EASTERCORN_IMAGES = Array.from(
   (_, i) => `/images/Eastercorn/eastercorn-${String(i + 1).padStart(2, '0')}.png`
 );
 
+/**
+ * Vertical focus (object-position y, %) per portrait. The photos are tall and the
+ * carousel is a wide crop; the default 50% sliced the heads off in several of them
+ * (the hallway shot, the standing one, the group on the sofa). Measured by rendering
+ * each one at candidate values; index = file number - 1.
+ */
+const EASTERCORN_FOCUS_Y = [38, 3, 35, 32, 40, 20, 40, 30, 8, 8, 38];
+
 /** Reward for correct bonus answer - same scale as other mini-games. */
 const BONUS_REWARD = 0.05;
 
@@ -242,11 +250,60 @@ function SectionCard({
   );
 }
 
+// Eastercorn portrait carousel. Rendered twice by the letter: on top of the story on
+// desktop, between the first paragraphs on mobile (CSS decides which one shows).
+function PortraitCarousel({ idx, setIdx }: { idx: number; setIdx: React.Dispatch<React.SetStateAction<number>> }) {
+  return (
+<div className="relative aspect-[4/3] lg:aspect-auto lg:h-[300px] rounded-xl overflow-hidden bg-[#EFE7DB]">
+    <img
+      key={idx}
+      src={EASTERCORN_IMAGES[idx]}
+      alt="Eastercorn"
+      className="w-full h-full object-cover animate-[fadeIn_0.4s_ease-out]"
+      style={{ objectPosition: `50% ${EASTERCORN_FOCUS_Y[idx] ?? 50}%` }}
+      onError={(e) => {
+        (e.target as HTMLImageElement).style.display = 'none';
+      }}
+    />
+    {/* Arrows */}
+    <button
+      onClick={() => setIdx((i) => (i - 1 + EASTERCORN_IMAGES.length) % EASTERCORN_IMAGES.length)}
+      aria-label="Previous photo"
+      className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors"
+    >
+      <ChevronLeft className="w-5 h-5" />
+    </button>
+    <button
+      onClick={() => setIdx((i) => (i + 1) % EASTERCORN_IMAGES.length)}
+      aria-label="Next photo"
+      className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors"
+    >
+      <ChevronRight className="w-5 h-5" />
+    </button>
+    {/* Dots */}
+    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+      {EASTERCORN_IMAGES.map((_, i) => (
+        <button
+          key={i}
+          onClick={() => setIdx(i)}
+          aria-label={`Photo ${i + 1}`}
+          className={`h-2 rounded-full transition-all ${
+            i === idx ? 'w-5 bg-white' : 'w-2 bg-white/50 hover:bg-white/80'
+          }`}
+        />
+      ))}
+    </div>
+  </div>
+  );
+}
 // Eastercorn / Noodles story. Mobile keeps its slide-in panel below the header
-// (unchanged). On desktop that panel landed see-through on top of the feed, so
-// from lg up it is a centred window over a dark backdrop instead.
-function StoryPanel({ open, onClose, title, children }: {
-  open: boolean; onClose: () => void; title: React.ReactNode; children: React.ReactNode;
+// (unchanged). From lg up it is the same idea at desktop scale: a side panel that
+// slides in from the right edge (not full width) over a dimmed page, and slides
+// back out when closed - so it feels like the mobile panel instead of a pop-up.
+function StoryPanel({ open, onClose, title, eyebrow, wide = false, children }: {
+  open: boolean; onClose: () => void; title: React.ReactNode; eyebrow?: string;
+  /** Long story: a somewhat wider panel (still one column, a readable line length) */
+  wide?: boolean; children: React.ReactNode;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -254,6 +311,21 @@ function StoryPanel({ open, onClose, title, children }: {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
+
+  // Desktop panel stays mounted for the length of the slide-out, otherwise closing
+  // would just make it vanish.
+  const [mounted, setMounted] = useState(false);
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+      const f = requestAnimationFrame(() => requestAnimationFrame(() => setShown(true)));
+      return () => cancelAnimationFrame(f);
+    }
+    setShown(false);
+    const t = setTimeout(() => setMounted(false), 320);
+    return () => clearTimeout(t);
+  }, [open]);
 
   return (
     <>
@@ -274,32 +346,44 @@ function StoryPanel({ open, onClose, title, children }: {
         </div>
       </div>
 
-      {open && (
+      {mounted && (
         <ModalPortal>
-          <div
-            className="hidden lg:flex fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm items-center justify-center p-6"
-            onClick={onClose}
-          >
+          <div className="hidden lg:block fixed inset-0 z-[200]">
+            {/* dimmed page behind; click closes */}
             <div
+              className={`absolute inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity duration-300 ${shown ? 'opacity-100' : 'opacity-0'}`}
+              onClick={onClose}
+            />
+            {/* side panel from the right edge */}
+            <aside
               role="dialog"
               aria-modal="true"
-              className="bg-cream rounded-2xl shadow-2xl border border-warm w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
+              className={`absolute right-0 top-0 bottom-0 ${wide ? 'w-[min(46rem,92vw)]' : 'w-[min(36rem,92vw)]'} bg-cream border-l border-warm shadow-[-18px_0_50px_rgba(0,0,0,0.30)] flex flex-col transition-transform duration-300 ease-out motion-reduce:transition-none ${
+                shown ? 'translate-x-0' : 'translate-x-full'
+              }`}
+              style={{ willChange: 'transform' }}
             >
-              <div className="px-6 py-4 flex items-center border-b border-warm">
-                <h3 className="font-display text-2xl tracking-wide text-gray-900">{title}</h3>
-                <button
-                  onClick={onClose}
-                  aria-label="Close"
-                  className="ml-auto w-9 h-9 rounded-full hover:bg-[#E36B11]/10 flex items-center justify-center text-gray-600 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+              {/* Header in the brand gradient with the print texture, like the hero and the branded dialogs */}
+              <div className="relative overflow-hidden flex-shrink-0 px-7 py-5" style={{ background: GOLD_GRADIENT }}>
+                <div className="pointer-events-none absolute inset-0" style={{ backgroundImage: PRINT_TEXTURE }} />
+                <div className="relative flex items-center gap-4">
+                  <button
+                    onClick={onClose}
+                    aria-label="Close"
+                    className="-ml-1 w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors flex-shrink-0"
+                  >
+                    <ArrowLeft className="w-5 h-5 text-white" />
+                  </button>
+                  <div className="min-w-0">
+                    {eyebrow && <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/75 mb-1">{eyebrow}</p>}
+                    <h3 className="font-display text-4xl leading-none tracking-wide text-white drop-shadow-sm">{title}</h3>
+                  </div>
+                  <span className="ml-auto font-display text-2xl tracking-wide text-white/60 flex-shrink-0">BOGX</span>
+                </div>
               </div>
-              <div className="flex-1 overflow-y-auto p-6">{children}</div>
-            </div>
-          </div>
-        </ModalPortal>
+              <div className="flex-1 overflow-y-auto p-6" style={{ scrollbarWidth: 'none' }}>{children}</div>
+            </aside>
+          </div>        </ModalPortal>
       )}
     </>
   );
@@ -327,6 +411,30 @@ export default function WelcomeNewsPanel({
   const [bots, setBots] = useState(DEFAULT_BOTS);
   const [gridUsers, setGridUsers] = useState<GridUser[]>([]);
   const [tip, setTip] = useState(5);
+  const [donating, setDonating] = useState(false);
+  const [donateError, setDonateError] = useState('');
+  const [donSummary, setDonSummary] = useState<{ supporters: number; totalEur: number; paypal: boolean } | null>(null);
+  useEffect(() => {
+    fetch('/api/donate/summary', { cache: 'no-store' }).then(r => r.json()).then(d => { if (d.success) setDonSummary(d); }).catch(() => {});
+  }, []);
+  // Stripe Checkout in the same tab; the server validates the amount (1-500 EUR)
+  const startDonation = async () => {
+    setDonateError('');
+    setDonating(true);
+    try {
+      const res = await fetch('/api/donate/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: tip, userId: user?.id, returnPath: window.location.pathname.startsWith('/desktop') ? '/desktop' : '/mobile' }),
+      });
+      const data = await res.json();
+      if (data.success && data.url) { window.location.href = data.url; return; }
+      setDonateError(data.error || 'Could not start the payment. Please try again.');
+    } catch {
+      setDonateError('Could not start the payment. Please try again.');
+    }
+    setDonating(false);
+  };
   const [showBank, setShowBank] = useState(false);
   const [letterOpen, setLetterOpen] = useState(false);
   const [letterImgIdx, setLetterImgIdx] = useState(0);
@@ -416,7 +524,7 @@ export default function WelcomeNewsPanel({
   }, [letterOpen]);
 
   // War chest gag counter: counts up into the green like donations are
-  // coming in, then plunges into the red - because right now this hobby
+  // coming in, then immediately plunges into the red - because right now this hobby
   // only has running costs (~€300/month for servers, APIs, coffee).
   // Starts only once the figure is scrolled into view.
   useEffect(() => {
@@ -440,7 +548,6 @@ export default function WelcomeNewsPanel({
     const PEAK = 247;
     const FLOOR = -300;
     let cancelled = false;
-    let timer: ReturnType<typeof setTimeout>;
 
     const tween = (to: number, durMs: number, done: () => void) => {
       const from = warChestRef.current;
@@ -457,14 +564,13 @@ export default function WelcomeNewsPanel({
       requestAnimationFrame(frame);
     };
 
-    tween(PEAK, 2200, () => {
-      timer = setTimeout(() => {
-        tween(FLOOR, 1600, () => {});
-      }, 1500);
+    // Up into the green and straight back down - no hold at the peak, or the number
+    // sits there looking like real income before it plunges.
+    tween(PEAK, 1100, () => {
+      tween(FLOOR, 1300, () => {});
     });
     return () => {
       cancelled = true;
-      clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [warChestVisible]);
@@ -577,15 +683,15 @@ export default function WelcomeNewsPanel({
       {onShowBogxers ? (
         <button
           onClick={onShowBogxers}
-          className="flex items-center gap-1.5 text-[#E36B11] font-display text-sm tracking-wide group"
+          className="flex items-center gap-1.5 pl-3 text-[#E36B11] font-display text-sm tracking-wide group fx-link"
         >
           Show me the BOGXers
-          <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+          <ArrowRight className="fx-arrow w-4 h-4" />
         </button>
       ) : onBack ? (
         <button
           onClick={onBack}
-          className="flex items-center gap-1 text-[#E36B11] font-display text-sm tracking-wide"
+          className="flex items-center gap-1 pl-3 text-[#E36B11] font-display text-sm tracking-wide fx-link"
         >
           <ChevronLeft className="w-4 h-4" />
           Back
@@ -671,11 +777,11 @@ export default function WelcomeNewsPanel({
           <div className="flex flex-wrap items-center gap-4 pt-1">
             <button
               onClick={onShowBogxers}
-              className="inline-flex items-center gap-2 text-[#E36B11] font-display text-lg tracking-wider transition-opacity hover:opacity-70"
+              className="inline-flex items-center gap-2 text-[#E36B11] font-display text-lg tracking-wider fx-link"
             >
               <Cake className="w-5 h-5" />
               See who was born today
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="fx-arrow w-4 h-4" />
             </button>
           </div>
         </div>
@@ -792,9 +898,9 @@ export default function WelcomeNewsPanel({
                     {p.articleId && onShowBogxers && (
                       <button
                         onClick={onShowBogxers}
-                        className="text-xs text-[#E36B11] font-semibold hover:underline mt-1.5 inline-flex items-center gap-1"
+                        className="text-xs text-[#E36B11] font-semibold fx-link mt-1.5 inline-flex items-center gap-1"
                       >
-                        Read the story <ArrowRight className="w-3 h-3" />
+                        Read the story <ArrowRight className="fx-arrow w-3 h-3" />
                       </button>
                     )}
                   </div>
@@ -891,11 +997,11 @@ export default function WelcomeNewsPanel({
                     onShowBogxers && (
                       <button
                         onClick={onShowBogxers}
-                        className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white font-display text-lg tracking-wider shadow-md transition-transform active:scale-[0.99]"
+                        className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white font-display text-lg tracking-wider shadow-md hover-shine transition-all hover:-translate-y-0.5 hover:shadow-lg active:scale-[0.99]"
                         style={{ background: GOLD_GRADIENT }}
                       >
                         You&rsquo;re one of us - see the board
-                        <ArrowRight className="w-4 h-4" />
+                        <ArrowRight className="fx-arrow w-4 h-4" />
                       </button>
                     )
                   ) : (
@@ -903,11 +1009,11 @@ export default function WelcomeNewsPanel({
                       <>
                         <button
                           onClick={onShowSignup}
-                          className="inline-flex items-center gap-2 text-[#E36B11] font-display text-lg tracking-wider transition-opacity hover:opacity-70"
+                          className="inline-flex items-center gap-2 text-[#E36B11] font-display text-lg tracking-wider fx-link"
                         >
                           <Bot className="w-5 h-5" />
                           Keep my coin - kick a bot
-                          <ArrowRight className="w-4 h-4" />
+                          <ArrowRight className="fx-arrow w-4 h-4" />
                         </button>
                       </>
                     )
@@ -952,11 +1058,11 @@ export default function WelcomeNewsPanel({
             {(isLoggedIn ? onShowBogxers : onShowSignup) && (
               <button
                 onClick={isLoggedIn ? onShowBogxers : onShowSignup}
-                className="hidden md:inline-flex items-center gap-2 text-[#E36B11] font-display text-lg tracking-wider transition-opacity hover:opacity-70"
+                className="hidden md:inline-flex items-center gap-2 text-[#E36B11] font-display text-lg tracking-wider fx-link"
               >
                 <Bot className="w-5 h-5" />
                 Join and kick a bot
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="fx-arrow w-4 h-4" />
               </button>
             )}
           </div>
@@ -1093,11 +1199,11 @@ export default function WelcomeNewsPanel({
         {(isLoggedIn ? onShowBogxers : onShowSignup) && (
           <button
             onClick={isLoggedIn ? onShowBogxers : onShowSignup}
-            className="md:hidden mt-5 inline-flex items-center gap-2 text-[#E36B11] font-display text-lg tracking-wider transition-opacity hover:opacity-70"
+            className="md:hidden mt-5 inline-flex items-center gap-2 text-[#E36B11] font-display text-lg tracking-wider fx-link"
           >
             <Bot className="w-5 h-5" />
             Join and kick a bot
-            <ArrowRight className="w-4 h-4" />
+            <ArrowRight className="fx-arrow w-4 h-4" />
           </button>
         )}
       </SectionCard>
@@ -1124,9 +1230,9 @@ export default function WelcomeNewsPanel({
             </p>
             <button
               onClick={onShowBogxers}
-              className="text-xs text-[#E36B11] font-semibold hover:underline mt-1 inline-flex items-center gap-1"
+              className="text-xs text-[#E36B11] font-semibold fx-link mt-1 inline-flex items-center gap-1"
             >
-              Show me the BOGXers <ArrowRight className="w-3 h-3" />
+              Show me the BOGXers <ArrowRight className="fx-arrow w-3 h-3" />
             </button>
           </div>
           <div className="group relative overflow-hidden border border-[#E36B11]/15 rounded-xl p-4 bg-white/50 flex flex-col items-start gap-1 transition-all duration-200 hover:border-[#E36B11]/40 hover:bg-white hover:shadow-md hover:-translate-y-0.5">
@@ -1137,9 +1243,9 @@ export default function WelcomeNewsPanel({
             </p>
             <button
               onClick={() => scrollTo(finalRef)}
-              className="text-xs text-[#E36B11] font-semibold hover:underline mt-1 inline-flex items-center gap-1"
+              className="text-xs text-[#E36B11] font-semibold fx-link mt-1 inline-flex items-center gap-1"
             >
-              Invite a friend <ArrowRight className="w-3 h-3" />
+              Invite a friend <ArrowRight className="fx-arrow w-3 h-3" />
             </button>
           </div>
           <div className="group relative overflow-hidden border border-[#E36B11]/15 rounded-xl p-4 bg-white/50 flex flex-col items-start gap-1 transition-all duration-200 hover:border-[#E36B11]/40 hover:bg-white hover:shadow-md hover:-translate-y-0.5">
@@ -1150,9 +1256,9 @@ export default function WelcomeNewsPanel({
             </p>
             <a
               href="mailto:contact@bestofgenx.com"
-              className="text-xs text-[#E36B11] font-semibold hover:underline mt-1 inline-flex items-center gap-1"
+              className="text-xs text-[#E36B11] font-semibold fx-link mt-1 inline-flex items-center gap-1"
             >
-              Write to me <ArrowRight className="w-3 h-3" />
+              Write to me <ArrowRight className="fx-arrow w-3 h-3" />
             </a>
           </div>
         </div>
@@ -1184,7 +1290,7 @@ export default function WelcomeNewsPanel({
                 €{tip}
               </div>
               <button
-                onClick={() => setTip((t) => t + 1)}
+                onClick={() => setTip((t) => Math.min(500, t + 1))}
                 aria-label="One euro more"
                 className="w-12 h-12 rounded-lg bg-[#FDF3E8] text-[#E36B11] flex items-center justify-center hover:bg-[#FBE6CF] transition-colors"
               >
@@ -1208,30 +1314,21 @@ export default function WelcomeNewsPanel({
                   <CreditCard className="w-5 h-5 text-gray-400" />
                   PayPal
                 </a>
+              ) : donSummary?.paypal ? (
+                <button onClick={startDonation} disabled={donating} className="flex items-center justify-center gap-2.5 min-h-[56px] px-4 rounded-xl border-[1.5px] border-[#E6DED5] bg-white text-gray-700 font-bold text-sm hover:border-[#E36B11]/40 transition-colors disabled:opacity-60">
+                  <CreditCard className="w-5 h-5 text-gray-400" />
+                  PayPal
+                </button>
               ) : (
                 <span className="flex items-center justify-center gap-2.5 min-h-[56px] px-4 rounded-xl border-[1.5px] border-[#E6DED5] bg-white text-gray-400 font-bold text-sm cursor-default">
                   <CreditCard className="w-5 h-5" />
                   PayPal - coming soon
                 </span>
               )}
-              {CARD_CHECKOUT_URL ? (
-                <a
-                  href={CARD_CHECKOUT_URL}
-                  target="_blank"
-                  rel="noopener"
-                  className="flex items-center justify-center gap-2.5 min-h-[56px] px-4 rounded-xl border-[1.5px] border-[#E6DED5] bg-white text-gray-700 font-bold text-sm hover:border-[#E36B11]/40 transition-colors"
-                >
-                  <CreditCard className="w-5 h-5 text-gray-400" />
-                  Credit card
-                </a>
-              ) : (
-                <span
-                  className="flex items-center justify-center gap-2.5 min-h-[56px] px-4 rounded-xl border-[1.5px] border-[#E6DED5] bg-white text-gray-400 font-bold text-sm cursor-default"
-                >
-                  <CreditCard className="w-5 h-5" />
-                  Credit card - coming soon
-                </span>
-              )}
+              <button onClick={startDonation} disabled={donating} className="flex items-center justify-center gap-2.5 min-h-[56px] px-4 rounded-xl border-[1.5px] border-[#E6DED5] bg-white text-gray-700 font-bold text-sm hover:border-[#E36B11]/40 transition-colors disabled:opacity-60">
+                <CreditCard className="w-5 h-5 text-gray-400" />
+                {donating ? 'Opening payment…' : 'Credit card'}
+              </button>
               <button
                 onClick={() => setShowBank((v) => !v)}
                 className="flex items-center justify-center gap-2.5 min-h-[56px] px-4 rounded-xl border-[1.5px] border-[#E6DED5] bg-white text-gray-700 font-bold text-sm hover:border-[#E36B11]/40 transition-colors"
@@ -1271,8 +1368,9 @@ export default function WelcomeNewsPanel({
 
             <div className="flex items-start gap-2 mt-3 text-xs text-gray-600">
               <Lock className="w-4 h-4 flex-shrink-0 mt-px" />
-              <span>Secure payment. Your €{tip} is filled in for you.</span>
+              <span>Secure payment through Stripe. Your €{tip} is filled in for you.</span>
             </div>
+            {donateError && <p className="mt-2 text-xs font-semibold text-[#B3261E]">{donateError}</p>}
           </div>
 
           <div className="border-t border-[#E36B11]/20 pt-5 flex flex-wrap gap-9">
@@ -1287,11 +1385,14 @@ export default function WelcomeNewsPanel({
               >
                 {warChest < 0 ? `-€${Math.abs(warChest)}` : `€${warChest}`}
               </span>
+              {/* Under the figure; the line is always there (just invisible until the plunge),
+                  so nothing below it jumps when it fades in */}
+              <span className={`font-body text-sm md:text-base font-semibold text-[#B3261E] block mt-1.5 transition-opacity duration-500 ${warChest < 0 ? 'opacity-100' : 'opacity-0'}`}>a month</span>
               <span className="text-[10px] text-gray-600 italic">
                 {warChest < 0 ? 'hobby costs: servers, APIs, coffee' : ''}
               </span>
             </div>
-            <BigFigure kicker="SUPPORTERS">{SUPPORTERS}</BigFigure>
+            <BigFigure kicker="SUPPORTERS">{donSummary ? donSummary.supporters : SUPPORTERS}</BigFigure>
           </div>
         </div>
       </SectionCard>
@@ -1307,10 +1408,10 @@ export default function WelcomeNewsPanel({
           {/* Eastercorn - opens the letter */}
           <button
             onClick={() => setLetterOpen(true)}
-            className="border-2 border-[#E36B11] rounded-xl p-4 bg-white/50 flex flex-col items-start gap-1.5 text-left hover:bg-white/80 transition-colors"
+            className="group border-2 border-[#E36B11] rounded-xl p-4 bg-white/50 flex flex-col items-start gap-1.5 text-left hover:bg-white/80 hover:-translate-y-0.5 hover:shadow-md transition-all"
           >
             <span
-              className="w-[52px] h-[52px] rounded-full block"
+              className="w-[52px] h-[52px] rounded-full block transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6"
               style={{ background: GOLD_GRADIENT }}
             />
             <span className="font-display text-base tracking-wide text-gray-900 flex items-center gap-1.5">
@@ -1324,7 +1425,7 @@ export default function WelcomeNewsPanel({
               The one in the unicorn mask. Face reveal coming when enough of you are here.
             </span>
             <span className="text-xs text-[#E36B11] font-semibold inline-flex items-center gap-1">
-              Read my story <ArrowRight className="w-3 h-3" />
+              Read my story <ArrowRight className="fx-arrow w-3 h-3" />
             </span>
           </button>
 
@@ -1360,7 +1461,7 @@ export default function WelcomeNewsPanel({
               The very first human to join — and already writing stories for the archive.
             </p>
             <span className="text-xs text-[#E36B11] font-semibold inline-flex items-center gap-1">
-              Meet Noodles <ArrowRight className="w-3 h-3" />
+              Meet Noodles <ArrowRight className="fx-arrow w-3 h-3" />
             </span>
           </button>
 
@@ -1380,7 +1481,7 @@ export default function WelcomeNewsPanel({
               Writers, quiz makers, people with stories. Get in touch.
             </span>
             <span className="text-xs text-[#E36B11] font-semibold inline-flex items-center gap-1">
-              The honest pitch <ArrowRight className="w-3 h-3" />
+              The honest pitch <ArrowRight className="fx-arrow w-3 h-3" />
             </span>
           </button>
         </div>
@@ -1434,7 +1535,7 @@ export default function WelcomeNewsPanel({
           >
             <Cake className="w-5 h-5 transition-transform group-hover:scale-110" />
             Today&rsquo;s birthdays
-            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+            <ArrowRight className="fx-arrow w-4 h-4" />
           </button>
           {onShowArcade && (
             <button
@@ -1443,7 +1544,7 @@ export default function WelcomeNewsPanel({
             >
               <Gamepad2 className="w-5 h-5 transition-transform group-hover:scale-110" />
               Play trivia
-              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+              <ArrowRight className="fx-arrow w-4 h-4" />
             </button>
           )}
           {onShowRankroll && (
@@ -1453,15 +1554,17 @@ export default function WelcomeNewsPanel({
             >
               <Vote className="w-5 h-5 transition-transform group-hover:scale-110" />
               Vote the Rankroll
-              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+              <ArrowRight className="fx-arrow w-4 h-4" />
             </button>
           )}
         </div>
       </div>
 
       {/* ── EASTERCORN LETTER - Slide-in Panel ────────────────────── */}
-      <StoryPanel open={letterOpen} onClose={() => setLetterOpen(false)} title={<>Hi, I&rsquo;m Eastercorn</>}>
-              <div className="prose-body space-y-4">
+      <StoryPanel open={letterOpen} onClose={() => setLetterOpen(false)} eyebrow="Founder · Human (probably)" wide title={<>Hi, I&rsquo;m Eastercorn</>}>
+              {/* Desktop: the pictures sit on top, outside the text (and outside its paragraph spacing) */}
+              <div className="hidden lg:block mb-5"><PortraitCarousel idx={letterImgIdx} setIdx={setLetterImgIdx} /></div>
+              <div className="prose-body space-y-4 lg:text-[14px] lg:leading-[1.7]">
                 {/* Intro text */}
                 <p>
                   There&rsquo;s no company behind BogX. No investors. No marketing team. No
@@ -1476,46 +1579,7 @@ export default function WelcomeNewsPanel({
                   Until then, call me Eastercorn.
                 </p>
 
-                {/* Portrait carousel - full width on mobile */}
-                <div className="relative aspect-[4/3] rounded-xl overflow-hidden bg-[#EFE7DB]">
-                  <img
-                    key={letterImgIdx}
-                    src={EASTERCORN_IMAGES[letterImgIdx]}
-                    alt="Eastercorn"
-                    className="w-full h-full object-cover animate-[fadeIn_0.4s_ease-out]"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
-                  {/* Arrows */}
-                  <button
-                    onClick={() => setLetterImgIdx((i) => (i - 1 + EASTERCORN_IMAGES.length) % EASTERCORN_IMAGES.length)}
-                    aria-label="Previous photo"
-                    className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => setLetterImgIdx((i) => (i + 1) % EASTERCORN_IMAGES.length)}
-                    aria-label="Next photo"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors"
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
-                  {/* Dots */}
-                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-                    {EASTERCORN_IMAGES.map((_, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setLetterImgIdx(i)}
-                        aria-label={`Photo ${i + 1}`}
-                        className={`h-2 rounded-full transition-all ${
-                          i === letterImgIdx ? 'w-5 bg-white' : 'w-2 bg-white/50 hover:bg-white/80'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </div>
+                <div className="lg:hidden"><PortraitCarousel idx={letterImgIdx} setIdx={setLetterImgIdx} /></div>
 
                 {/* Rest of the text */}
                 <p>
@@ -1566,7 +1630,7 @@ export default function WelcomeNewsPanel({
       </StoryPanel>
 
       {/* ── NOODLES INTRO - Slide-in Panel ────────────────────────── */}
-      <StoryPanel open={noodlesOpen} onClose={() => setNoodlesOpen(false)} title={<>Hi, I&rsquo;m Noodles</>}>
+      <StoryPanel open={noodlesOpen} onClose={() => setNoodlesOpen(false)} eyebrow="First Bogxer · Author" title={<>Hi, I&rsquo;m Noodles</>}>
             <div className="flex flex-col gap-4">
               {/* Portrait */}
               <div className="w-32 aspect-[4/5] rounded-xl overflow-hidden bg-[#EFE7DB] flex items-center justify-center float-left mr-4 mb-2">

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import dbConnect from '@/lib/mongoose';
 import Order, { generateOrderId } from '@/models/Order';
+import { isDonationSession, recordDonationSession } from '@/lib/donations';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -92,6 +93,12 @@ export async function POST(request: NextRequest) {
     // Handle checkout.session.completed
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session;
+
+      // War chest donations are handled on their own - they are not orders
+      if (isDonationSession(session)) {
+        await recordDonationSession(session);
+        return NextResponse.json({ received: true, donation: true });
+      }
       
       await dbConnect();
 

@@ -194,7 +194,7 @@ export default function RankingListCard({ poll, onOpenArticle, onOpenRankroll, o
           
           {/* Bottom: Title + Stats */}
           <div>
-            <h3 className="font-display text-2xl md:text-3xl text-white group-hover:text-[#E36B11] transition-colors line-clamp-2 leading-tight uppercase">
+            <h3 className="font-display text-2xl md:text-3xl text-white origin-left transition-transform duration-300 ease-out group-hover:scale-[1.04] line-clamp-2 leading-tight uppercase">
               {poll.title}
             </h3>
           </div>

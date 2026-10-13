@@ -426,8 +426,55 @@ body {
   .group:hover .fx-wiggle, .fx-wiggle:hover,
   .fx-neon:hover::after, .fx-crt:hover::before { animation: none !important; }
   .fx-arcade:hover { transform: none; }
+  .fx-logo:hover { transform: none !important; }
+  .fx-logo:hover img { animation: none !important; }
+  .fx-logo::after { display: none; }
 }
 
+/* BOGX logo hover: the logo pops and tilts, flickers in the VHS chroma split (same as
+   the nav labels) and a light glint runs across the letterforms - the glint is masked by
+   the logo itself (--fx-logo-src), so it never lights up the empty space around it. */
+.fx-logo { position: relative; transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.fx-logo::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(105deg, transparent 44%, rgba(255, 255, 255, 0.7) 50%, transparent 56%) 150% 0 / 250% 100% no-repeat;
+  -webkit-mask: var(--fx-logo-src) center / contain no-repeat;
+  mask: var(--fx-logo-src) center / contain no-repeat;
+}
+@keyframes fxLogoGlitch {
+  0%   { filter: drop-shadow(-3px 0 rgba(255, 0, 90, 0.8)) drop-shadow(3px 0 rgba(0, 210, 255, 0.8)); transform: translateX(1px); }
+  30%  { filter: drop-shadow(3px 0 rgba(255, 0, 90, 0.8)) drop-shadow(-3px 0 rgba(0, 210, 255, 0.8)); transform: translateX(-1px); }
+  60%  { filter: drop-shadow(-1px 0 rgba(255, 0, 90, 0.6)) drop-shadow(1px 0 rgba(0, 210, 255, 0.6)); transform: translateX(0.5px); }
+  100% { filter: none; transform: none; }
+}
+@keyframes fxLogoGlint {
+  from { background-position: 150% 0; }
+  to   { background-position: -50% 0; }
+}
+@media (hover: hover) {
+  .fx-logo:hover { transform: scale(1.08) rotate(-2.5deg); }
+  .fx-logo:hover img { animation: fxLogoGlitch 0.45s linear 1; }
+  .fx-logo:hover::after { opacity: 1; animation: fxLogoGlint 0.8s ease-out 0.12s 1 forwards; }
+}
+
+/* Text links behave like the nav tabs: the label flickers in the VHS chroma split, an
+   icon in front wiggles, an arrow behind steps forward. (An underline that draws in was
+   tried first and judged boring.) */
+.fx-arrow { transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@media (hover: hover) {
+  .fx-link:hover { animation: fxRgb 0.42s linear 1; }
+  .fx-link:hover > svg:not(.fx-arrow) { animation: fxWiggle 0.5s ease-in-out 1; }
+  :is(button, a):hover .fx-arrow, .group:hover .fx-arrow { transform: translateX(4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-link:hover, .fx-link:hover > svg { animation: none !important; }
+  .fx-arrow { transition: none; }
+  :is(button, a):hover .fx-arrow, .group:hover .fx-arrow { transform: none; }
+}
 /* "LOADING..." dots blinking one after another */
 @keyframes loadingDot {
   0%, 80%, 100% { opacity: 0.15; transform: translateY(0); }

@@ -22,7 +22,10 @@ interface BrandedConfirmModalProps {
   /** Extra content between message and buttons (e.g. a stats chip) */
   children?: ReactNode;
   confirmText: string;
-  cancelText: string;
+  /** Second button under the main one. Omit it for a plain OK-style alert. */
+  cancelText?: string;
+  /** Runs when the second button is used (defaults to just closing) */
+  onCancel?: () => void;
   accent?: "orange" | "red";
   loading?: boolean;
 }
@@ -33,41 +36,42 @@ const BAND = {
 } as const;
 
 export default function BrandedConfirmModal({
-  isOpen, onClose, onConfirm, eyebrow, title, message, icon: Icon, children, confirmText, cancelText, accent = "orange", loading = false,
+  isOpen, onClose, onConfirm, eyebrow, title, message, icon: Icon, children, confirmText, cancelText, onCancel, accent = "orange", loading = false,
 }: BrandedConfirmModalProps) {
   if (!isOpen) return null;
   return (
     <ModalPortal>
       <div className="fixed inset-0 z-[9999] flex items-center justify-center p-5">
         <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={loading ? undefined : onClose} />
-        <div role="dialog" aria-modal="true" className="relative w-full max-w-md bg-cream rounded-3xl shadow-2xl overflow-hidden border border-warm animate-[cardIn_0.3s_ease-out]">
-          {/* Brand band */}
-          <div className={`relative overflow-hidden bg-gradient-to-br ${BAND[accent]} px-7 pt-6 pb-7`}>
+        {/* Same split as the Login / Logout / Not-enough-coins cards: brand panel on the
+            left (on top on a phone), content next to it */}
+        <div role="dialog" aria-modal="true" className="relative w-full max-w-sm md:max-w-2xl max-h-[92vh] overflow-y-auto bg-cream rounded-3xl shadow-2xl border border-warm flex flex-col md:flex-row animate-[cardIn_0.3s_ease-out]" style={{ scrollbarWidth: 'none' }}>
+          <button
+            onClick={onClose}
+            disabled={loading}
+            aria-label="Close"
+            className="absolute top-3 right-3 z-20 w-8 h-8 rounded-full flex items-center justify-center transition-colors disabled:opacity-50 bg-white/20 hover:bg-white/30 text-white md:bg-white/80 md:hover:bg-white md:text-gray-500 md:shadow-sm"
+          >
+            <X className="w-4 h-4" />
+          </button>
+
+          {/* Brand panel */}
+          <div className={`relative overflow-hidden flex-shrink-0 md:w-[260px] bg-gradient-to-br ${BAND[accent]} px-6 pt-5 pb-6 md:p-8 flex flex-col`}>
             {Icon && (
-              <div className="absolute inset-0 flex items-center justify-end pr-4 opacity-[0.1] pointer-events-none">
-                <Icon className="w-40 h-40 text-white" />
+              <div className="absolute -right-8 -bottom-8 md:-right-14 md:-bottom-4 opacity-[0.12] pointer-events-none">
+                <Icon className="w-40 h-40 md:w-56 md:h-56 text-white" />
               </div>
             )}
-            <div className="relative z-10 flex items-center justify-between mb-5">
-              <span className="font-display text-2xl text-white tracking-wide">BOGX</span>
-              <button
-                onClick={onClose}
-                disabled={loading}
-                aria-label="Close"
-                className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors disabled:opacity-50"
-              >
-                <X className="w-4 h-4 text-white" />
-              </button>
-            </div>
-            <div className="relative z-10">
+            <span className="relative z-10 font-display text-2xl text-white tracking-wide mb-4 md:mb-10">BOGX</span>
+            <div className="relative z-10 md:mt-auto">
               {eyebrow && <p className="text-white/70 text-xs uppercase tracking-wider mb-1">{eyebrow}</p>}
-              <h2 className="font-display text-4xl text-white leading-tight">{title}</h2>
+              <h2 className="font-display text-3xl md:text-4xl text-white leading-tight">{title}</h2>
             </div>
           </div>
 
-          {/* Body */}
-          <div className="px-7 pt-5 pb-6">
-            {message && <p className="text-gray-700 text-sm leading-relaxed">{message}</p>}
+          {/* Content */}
+          <div className="flex-1 min-w-0 px-6 pt-5 pb-6 md:p-8 flex flex-col justify-center">
+            {message && <p className="text-gray-700 text-sm md:text-base leading-relaxed">{message}</p>}
             {children && <div className="mt-4">{children}</div>}
 
             <button
@@ -77,13 +81,15 @@ export default function BrandedConfirmModal({
             >
               {loading ? "PLEASE WAIT…" : confirmText}
             </button>
-            <button
-              onClick={onClose}
-              disabled={loading}
-              className="mt-2 w-full py-2.5 rounded-xl text-gray-500 hover:text-gray-800 hover:bg-black/5 font-display text-base tracking-wider transition-colors disabled:opacity-50"
-            >
-              {cancelText}
-            </button>
+            {cancelText && (
+              <button
+                onClick={onCancel ?? onClose}
+                disabled={loading}
+                className="mt-2 w-full py-2.5 rounded-xl text-gray-500 hover:text-gray-800 hover:bg-black/5 font-display text-base tracking-wider transition-colors disabled:opacity-50"
+              >
+                {cancelText}
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -139,7 +139,7 @@ function RankingCard({ poll, onOpenArticle, onOpenRankroll, hasVoted, votedCount
         <div className="flex items-center justify-between gap-3 px-4 py-3 bg-[#E36B11]/10 border-b border-[#E36B11]/20">
           {/* Left: Title */}
           <div className="flex-1 min-w-0">
-            <h4 className="font-display text-lg text-gray-900 group-hover:text-[#E36B11] transition-colors duration-200 uppercase leading-tight line-clamp-2">
+            <h4 className="font-display text-lg text-gray-900 origin-left transition-transform duration-300 ease-out group-hover:scale-[1.04] uppercase leading-tight line-clamp-2">
               {poll.title}
             </h4>
           </div>
@@ -282,7 +282,7 @@ function SimplePollCard({ poll, onClick, hasVoted = false }: { poll: Poll; onCli
           <div className="flex items-center gap-2">
             <Vote className="w-5 h-5 text-[#E36B11]" />
             <div>
-              <h4 className="font-display text-lg text-gray-900 group-hover:text-[#E36B11] transition-colors uppercase leading-tight">
+              <h4 className="font-display text-lg text-gray-900 origin-left transition-transform duration-300 ease-out group-hover:scale-[1.04] uppercase leading-tight">
                 {poll.title}
               </h4>
                           </div>

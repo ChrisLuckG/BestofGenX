@@ -138,7 +138,7 @@ function CategoryRow({ category, videos, showSeparator, onVideoClick }: {
               </span>
             </div>
             {/* Title OUTSIDE/below the video */}
-            <h4 className="mt-1.5 font-display text-gray-900 text-sm uppercase tracking-wide line-clamp-2 leading-tight group-hover:text-[#E36B11] transition-colors">
+            <h4 className="mt-1.5 font-display text-gray-900 text-sm uppercase tracking-wide line-clamp-2 leading-tight origin-left transition-transform duration-300 ease-out group-hover:scale-[1.04]">
               {video.title}
             </h4>
           </div>

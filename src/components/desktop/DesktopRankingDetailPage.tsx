@@ -220,7 +220,7 @@ export default function DesktopRankingDetailPage({ poll, onBack, onOpenArticle, 
           </div>
         </div>
         {/* Items Skeleton */}
-        <div className="flex-1 p-4 space-y-3">
+        <div className="flex-1 px-2 py-3 space-y-3">
           {[1, 2, 3, 4, 5].map(i => (
             <div key={i} className="flex items-center gap-3 p-3 bg-cream rounded-xl border border-warm">
               <div className="w-8 h-8 rounded-full bg-skeleton" />

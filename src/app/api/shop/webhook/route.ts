@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { Resend } from 'resend';
+import { isDonationSession, recordDonationSession } from '@/lib/donations';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -112,6 +113,13 @@ export async function POST(request: Request) {
   // Handle successful payment
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
+
+    // A war chest donation is not a shop order: no shipping address, no Printful, no
+    // order e-mail. Record it and stop here (a 400 would make Stripe retry for days).
+    if (isDonationSession(session)) {
+      await recordDonationSession(session);
+      return NextResponse.json({ received: true, donation: true });
+    }
     
     // CRITICAL: Check if this is a TEST payment - do NOT send to Printful!
     const isTestMode = process.env.STRIPE_SECRET_KEY?.startsWith('sk_test');

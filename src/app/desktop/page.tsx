@@ -49,6 +49,7 @@ import OpenBattlesModal from "@/components/OpenBattlesModal";
 import CommunitySoundPage from "@/components/CommunitySoundPage";
 import WelcomeBackModal, { WelcomeBackRankChange } from "@/components/WelcomeBackModal";
 import CheckoutSuccessModal from "@/components/CheckoutSuccessModal";
+import DonationThanks from "@/components/DonationThanks";
 import StaticPageInline from "@/components/StaticPageInline";
 import PlayerCard from "@/components/PlayerCard";
 import { useLiveRankings } from "@/hooks/useLiveRankings";
@@ -887,7 +888,7 @@ function DesktopPage() {
           <div className="h-[72px] flex items-center px-6">
             {/* LEFT – Logo (same width as left sidebar ~240px) */}
             <div className="w-60 flex-shrink-0 flex items-center">
-              <button onClick={() => handleTabChange('feed')} className="flex-shrink-0 hover:opacity-80 transition-opacity">
+              <button onClick={() => handleTabChange('feed')} className="fx-logo flex-shrink-0" style={{ ['--fx-logo-src' as string]: 'url(/images/genxlogo1.png)' }}>
                 <Image src="/images/genxlogo1.png" alt="Best of GenX" width={120} height={48} className="h-12 w-auto" />
               </button>
             </div>
@@ -966,7 +967,7 @@ function DesktopPage() {
                 onClick={() => isLoggedIn ? handleTabChange('profile') : setShowLoginPage(true)}
                 className={`flex flex-col items-center px-2.5 py-2.5 rounded-xl transition-all group ${activeTab === 'profile' ? 'bg-[#E36B11]/10' : 'hover:bg-[#E36B11]/5'}`}
               >
-                <div className={`w-6 h-6 rounded-full overflow-hidden border-2 transition-colors ${activeTab === 'profile' ? 'border-[#E36B11]' : 'border-gray-300 group-hover:border-[#E36B11]'}`}>
+                <div className={`fx-wiggle w-6 h-6 rounded-full overflow-hidden border-2 transition-colors ${activeTab === 'profile' ? 'border-[#E36B11]' : 'border-gray-300 group-hover:border-[#E36B11]'}`}>
                   {user?.avatar ? (
                     <img src={user.avatar} alt="" className="w-full h-full object-cover" />
                   ) : (
@@ -975,7 +976,7 @@ function DesktopPage() {
                     </div>
                   )}
                 </div>
-                <span className={`font-display text-[11px] tracking-widest leading-none mt-1.5 transition-colors ${activeTab === 'profile' ? 'text-[#E36B11]' : 'text-gray-900 group-hover:text-[#E36B11]'}`}>PROFILE</span>
+                <span className={`fx-rgb font-display text-[11px] tracking-widest leading-none mt-1.5 transition-colors ${activeTab === 'profile' ? 'text-[#E36B11]' : 'text-gray-900 group-hover:text-[#E36B11]'}`}>PROFILE</span>
               </button>
             </div>
           </div>
@@ -1696,6 +1697,7 @@ function DesktopPage() {
       )}
 
       {/* Checkout Success Modal */}
+      <DonationThanks />
       <CheckoutSuccessModal
         isOpen={showCheckoutSuccess}
         onClose={() => setShowCheckoutSuccess(false)}
