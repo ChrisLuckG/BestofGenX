@@ -1,7 +1,8 @@
 "use client";
 
-import { ChevronLeft } from "lucide-react";
-import { ReactNode } from "react";
+import { FileText } from "lucide-react";
+import { ReactNode, isValidElement } from "react";
+import PageHeader from "./PageHeader";
 import { sounds } from "@/utils/sounds";
 
 interface PageTemplateProps {
@@ -19,26 +20,13 @@ export default function PageTemplate({ title, icon, onBack, children, rightActio
     <div className="w-full h-full flex flex-col overflow-hidden bg-cream">
       {/* Header - Fixed */}
       {!hideHeader && (
-      <div className="flex items-center justify-between px-3 pt-4 pb-3 border-b border-warm flex-shrink-0 sticky top-0 z-50 bg-cream">
-        {onBack ? (
-          <button 
-            onClick={() => { sounds.click(); onBack(); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#E36B11] rounded-lg text-white text-sm font-semibold hover:bg-[#c06a2a] transition-colors"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            Back
-          </button>
-        ) : (
-          <div className="w-16" />
-        )}
-        <div className="flex items-center gap-2">
-          {icon}
-          <h1 className="text-lg font-bold text-gray-900">{title}</h1>
-        </div>
-        <div className="w-16 flex justify-end">
-          {rightAction}
-        </div>
-      </div>
+        <PageHeader
+          className="flex-shrink-0"
+          icon={isValidElement(icon) ? icon : FileText}
+          title={title}
+          onBack={onBack ? () => { sounds.click(); onBack(); } : undefined}
+          right={rightAction}
+        />
       )}
 
       {/* Content */}

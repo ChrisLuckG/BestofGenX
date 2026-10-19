@@ -83,6 +83,7 @@ export async function POST(request: NextRequest) {
           admin.pushSubscription
             ? sendPushNotification(admin.pushSubscription, {
                 title: '🎵 New Song Request',
+                category: 'songRequests',
                 body: `${requesterName} suggested "${band} - ${song}" for ${playlist}`,
                 tag: `song-request-${saved._id}`,
                 url: '/admin',
@@ -255,9 +256,10 @@ export async function PATCH(request: NextRequest) {
           if (user.pushSubscription) {
             await sendPushNotification(user.pushSubscription, {
               title: notifTitle,
+              category: 'songRequests',
               body: notifMessage,
               tag: `song-request-${id}`,
-              url: '/mobile',
+              url: '/?tab=radio', // the song requests live in the radio (lib/appLinks.ts)
             });
           }
         } catch (pushError) {

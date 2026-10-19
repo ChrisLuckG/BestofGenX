@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { X, CreditCard, Check, ShieldCheck } from "lucide-react";
+import { CreditCard, Check, ShieldCheck } from "lucide-react";
 import LogoLoader from "./LogoLoader";
-import ModalPortal from "./ModalPortal";
+import BrandedModal from "./BrandedModal";
 
 interface PaymentPackage {
   points: number;
@@ -44,37 +44,14 @@ export default function PaymentModal({ isOpen, package_, onClose, onSuccess }: P
   };
 
   return (
-    <ModalPortal>
-    <div className="fixed inset-0 z-[100] flex items-center justify-center">
-      {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={() => step === 'confirm' && onClose()}
-      />
-      
-      {/* Modal */}
-      <div className="relative w-[90%] max-w-sm bg-cream rounded-2xl shadow-xl overflow-hidden">
-        
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-warm">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-[#E36B11] rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-xs">P</span>
-            </div>
-            <h2 className="text-lg font-bold text-gray-900">Buy BOGX</h2>
-          </div>
-          {step === 'confirm' && (
-            <button 
-              onClick={onClose}
-              className="p-1.5 bg-cream rounded-full hover:bg-gray-200 transition-colors"
-            >
-              <X className="w-4 h-4 text-gray-500" />
-            </button>
-          )}
-        </div>
-
-        {/* Content */}
-        <div className="p-4">
+    <BrandedModal
+      isOpen
+      onClose={onClose}
+      locked={step !== 'confirm'}
+      eyebrow={step === 'success' ? 'Done' : 'Top up'}
+      title={step === 'success' ? 'Payment successful!' : 'Buy BOGX'}
+      icon={step === 'success' ? Check : CreditCard}
+    >
           
           {step === 'confirm' && (
             <>
@@ -201,10 +178,6 @@ export default function PaymentModal({ isOpen, package_, onClose, onSuccess }: P
               <p className="text-[#E36B11] text-xl font-black mt-2">+{package_.points.toLocaleString()} BOGX</p>
             </div>
           )}
-          
-        </div>
-      </div>
-    </div>
-    </ModalPortal>
+    </BrandedModal>
   );
 }

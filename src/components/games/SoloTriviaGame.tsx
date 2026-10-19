@@ -1471,7 +1471,7 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
                 readable BEFORE scrolling through category and stake - at the
                 bottom it was only found after the decision was already made. */}
             <div
-              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap"
+              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-medium whitespace-nowrap"
               style={canPlay || limitLoading ? { backgroundColor: `${accentColor}15`, color: accentColor } : { backgroundColor: '#fee2e2', color: '#dc2626' }}
               aria-busy={limitLoading}
             >
@@ -1550,15 +1550,15 @@ export default function SoloTriviaGame({ onBack, onCoinsChange, onCoinAnimation,
                         <Check className="w-3 h-3 sm:w-4 sm:h-4" strokeWidth={3} style={{ color: catColor }} />
                       </span>
                     )}
-                    {/* Icon next to the label */}
-                    <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1.5">
-                      <Icon className="w-4 h-4 sm:w-6 sm:h-6 text-white/90 drop-shadow" />
-                      <span 
-                        className={`font-display uppercase tracking-wider text-white drop-shadow-lg transition-all duration-300 group-hover:translate-x-1 ${
-                          isSelected ? 'text-sm sm:text-xl font-bold' : 'text-xs sm:text-base'
-                        }`}
-                      >{displayName}</span>
-                    </div>
+                    {/* Icon + label only when selected - the artwork already
+                        carries the category name, so an unselected card would
+                        show the same word twice */}
+                    {isSelected && (
+                      <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1.5">
+                        <Icon className="w-4 h-4 sm:w-6 sm:h-6 text-white/90 drop-shadow" />
+                        <span className="font-display uppercase tracking-wider text-white drop-shadow-lg text-sm sm:text-xl font-bold">{displayName}</span>
+                      </div>
+                    )}
                   </button>
                 );
               })}

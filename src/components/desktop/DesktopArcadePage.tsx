@@ -104,9 +104,10 @@ export default function DesktopArcadePage({ onSelectGame, userId, battleAlertCou
           {/* QuizzBattle Banner */}
           <PosterBanner
             color="#A855F7"
-            media={{ type: 'image', src: '/images/Hintergund/battle-bats.png', lineArt: true }}
+            media={{ type: 'image', src: '/images/categories/battle.png' }}
             badge={{ icon: Users, label: 'Multiplayer' }}
-            title="QUIZZBATTLE"
+            title="QUIZZ"
+            accent="BATTLE"
             tagline="Pick a fight. Winner takes the pot."
             info={liveBattleCount > 0 ? `${liveBattleCount} battles waiting for you` : `Wager 0.25 – 5.00 BOGX · tie = money back`}
             cta="PLAY"
@@ -128,9 +129,10 @@ export default function DesktopArcadePage({ onSelectGame, userId, battleAlertCou
           {/* Solo Trivia Banner */}
           <PosterBanner
             color="#E36B11"
-            media={{ type: 'image', src: '/images/Hintergund/solo-hamster.png', lineArt: true }}
+            media={{ type: 'image', src: '/images/categories/solo.png' }}
             badge={{ icon: User, label: 'Single Player' }}
-            title="SOLO TRIVIA"
+            title="SOLO"
+            accent="TRIVIA"
             tagline="Beat the clock. The faster you answer, the more you win."
             info={
               userId && dailyTriviaCount !== null

@@ -298,8 +298,10 @@ function DesktopPage() {
     setMounted(true);
     loadAllData();
     
-    // Show welcome page on first visit
-    if (isFirstVisit()) {
+    // Show welcome page on first visit - unless the visitor came through a link to something (a push, a
+    // shared article): that thing opens, and the welcome page waits for their next plain visit
+    const deepLink = /[?&](article|tab|battle)=/.test(window.location.search);
+    if (isFirstVisit() && !deepLink) {
       setShowWelcomePage(true);
       markWelcomeSeen();
     }
@@ -320,11 +322,22 @@ function DesktopPage() {
       window.history.replaceState({}, '', '/desktop');
     }
     
-    // Restore article from URL on page load/refresh
+    // Restore article from URL on page load/refresh - also how a push about an article opens it in the app
     const articleId = searchParams.get('article');
     if (articleId && !openArticleId) {
+      setShowWelcomePage(false);
       setOpenArticleId(articleId);
     }
+
+    // The other push targets (lib/appLinks.ts). A battle challenge waits in the notifications, where it
+    // is confirmed before playing - never accepted straight from the link.
+    const tab = searchParams.get('tab');
+    if (searchParams.get('battle') || tab === 'notifications') setActiveTab('notifications');
+    else if (tab === 'battles') { setActiveTab('arcade'); setArcadeGame('quizzbattle'); }
+    else if (tab === 'arcade') setActiveTab('arcade');
+    else if (tab === 'rankings') setActiveTab('rankings');
+    else if (tab === 'radio') setActiveTab('radio');
+    else if (tab === 'tv') setActiveTab('tv');
   }, [searchParams]);
 
   // Coins loading + syncing handled by useBogxCoins hook
@@ -658,16 +671,11 @@ function DesktopPage() {
       .finally(() => setRankingsLoading(false));
     
     // TV Videos
-    fetch('/api/tv?limit=3')
+    // The widget's own waterfall: newest article video on top (lib/personTvVideo.ts, /api/tv?widget=true)
+    fetch('/api/tv?widget=true')
       .then(res => res.json())
       .then(data => {
-        if (data.success) {
-          const allVideos = data.videos || [];
-          const featured = allVideos
-            .filter((v: any) => v.featuredPosition)
-            .sort((a: any, b: any) => a.featuredPosition - b.featuredPosition);
-          setTvVideos(featured);
-        }
+        if (data.success) setTvVideos(data.videos || []);
       })
       .catch(() => {})
       .finally(() => setTvLoading(false));
@@ -1549,16 +1557,9 @@ function DesktopPage() {
                         {video.category && (
                           <span className="font-display text-[10px] text-[#E36B11] tracking-wider uppercase drop-shadow-lg">{video.category}</span>
                         )}
-                        {/* Title + Flag */}
+                        {/* Title (GenX TV is English-only, no language flag) */}
                         <div className="flex items-center gap-1.5 mt-0.5">
                           <p className="font-display text-sm text-white tracking-wide line-clamp-1 leading-tight drop-shadow-lg">{video.title}</p>
-                          {video.language && (
-                            <img 
-                              src={`https://flagcdn.com/24x18/${video.language === 'de' ? 'de' : 'gb'}.png`}
-                              alt=""
-                              className="w-4 h-3 rounded-[2px] flex-shrink-0"
-                            />
-                          )}
                         </div>
                       </div>
                       {video.duration && <span className="absolute top-2 right-2 text-[10px] font-bold bg-black/80 text-white px-1.5 py-0.5 rounded">{video.duration}</span>}

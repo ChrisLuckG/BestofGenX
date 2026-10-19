@@ -73,7 +73,7 @@ export async function POST(
             title: '🤝 Battle Tie!',
             message: `You and ${opponentUser.username} tied! Wager returned.`,
             avatar: opponentUser.avatar,
-            data: { battleId: battle._id.toString(), url: '/battles' }
+            data: { battleId: battle._id.toString(), url: '/?tab=battles' }
           });
         } else if (creatorWon) {
           await User.findByIdAndUpdate(battle.creator, { $inc: { bogxCoins: wager * 2, wins: 1, gamesPlayed: 1, battlesWon: 1 } });
@@ -86,7 +86,7 @@ export async function POST(
             title: 'You Won!',
             message: `You beat ${opponentUser.username}! +${(wager * 2).toFixed(2)} BOGX`,
             avatar: opponentUser.avatar,
-            data: { battleId: battle._id.toString(), url: '/battles' }
+            data: { battleId: battle._id.toString(), url: '/?tab=battles' }
           });
         } else {
           await User.findByIdAndUpdate(battle.opponent, { $inc: { bogxCoins: wager * 2, wins: 1, gamesPlayed: 1, battlesWon: 1 } });
@@ -99,20 +99,21 @@ export async function POST(
             title: '😔 Battle Lost',
             message: `${opponentUser.username} won this round. Try again!`,
             avatar: opponentUser.avatar,
-            data: { battleId: battle._id.toString(), url: '/battles' }
+            data: { battleId: battle._id.toString(), url: '/?tab=battles' }
           });
         }
 
         if (creator?.pushSubscription && creator?.notifyBattleResult !== false) {
           sendPushNotification(creator.pushSubscription, {
             title: isTie ? 'Battle Tie!' : (creatorWon ? 'You Won the Battle!' : 'You Lost the Battle'),
+            category: 'battleResult',
             body: isTie
               ? `You and ${opponentUser.username} tied! Wager returned.`
               : creatorWon
                 ? `You beat ${opponentUser.username}! +${wager.toFixed(2)} BOGX earned.`
                 : `${opponentUser.username} beat you. -${wager.toFixed(2)} BOGX lost.`,
             tag: `battle-result-${battle._id}`,
-            url: '/notifications',
+            url: '/?tab=notifications',
             type: 'challenge'
           }).catch(console.error);
         }
@@ -147,7 +148,7 @@ export async function POST(
               title: '⚔️ Battle Challenge!',
               message: `${creatorName} challenges you to a ${battle.topic.toUpperCase()} battle for ${battle.wager.toFixed(2)} BOGX!`,
               avatar: creator?.avatar,
-              data: { battleId: battle._id.toString(), url: '/battles' }
+              data: { battleId: battle._id.toString(), url: '/?tab=battles' }
             });
             console.log(`Challenge in-app notification created for ${challengedUser?.username}`);
           
@@ -155,10 +156,11 @@ export async function POST(
             if (challengedUser?.pushSubscription) {
               await sendPushNotification(challengedUser.pushSubscription, {
                 title: '⚔️ Battle Challenge!',
+                category: 'battleRequest',
                 body: `${creatorName} challenges you to a ${battle.topic.toUpperCase()} battle for ${battle.wager.toFixed(2)} BOGX!`,
                 tag: `battle-challenge-${battle._id}`,
                 // Deep-link straight to the battle so the opponent can start it immediately
-                url: `/mobile?battle=${battle._id.toString()}`,
+                url: `/?battle=${battle._id.toString()}`,
                 icon: 'https://bestofgenx.com/images/genxlogo1.png',
                 badge: 'https://bestofgenx.com/images/bogxcoin.png',
                 type: 'challenge'
@@ -256,19 +258,21 @@ export async function POST(
         if (isTie) {
           sendPushNotification(creator.pushSubscription, {
             title: '🤝 Battle Ended in a Tie!',
+            category: 'battleResult',
             body: `Your battle with ${opponent?.username} was a tie! Wager returned.`,
             tag: `battle-result-${battle._id}`,
-            url: '/notifications',
+            url: '/?tab=notifications',
             type: 'challenge'
           }).catch(console.error);
         } else {
           sendPushNotification(creator.pushSubscription, {
             title: creatorWon ? 'You Won the Battle!' : 'You Lost the Battle',
+            category: 'battleResult',
             body: creatorWon 
               ? `You beat ${opponent?.username}! +${wager.toFixed(2)} BOGX earned.`
               : `${opponent?.username} beat you. -${wager.toFixed(2)} BOGX lost.`,
             tag: `battle-result-${battle._id}`,
-            url: '/notifications',
+            url: '/?tab=notifications',
             type: 'challenge'
           }).catch(console.error);
         }

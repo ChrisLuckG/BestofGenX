@@ -283,7 +283,7 @@ ${arcadeCtaBlock}`;
       mainCategory: 'articles',
       coverImage,
       thumbnailUrl: coverImage,
-      authorName: 'BOGX Bot',
+      authorName: 'BOGX Team', // the house name for Daily Champions and History; person articles are Eastercorn's (lib/houseAuthor.ts)
       tags: [`daily-winners-${yesterdayString}`, 'daily-winners', 'rankings', 'champions'],
       status: 'published',
       publishedAt: new Date(),

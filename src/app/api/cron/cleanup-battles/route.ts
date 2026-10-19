@@ -44,9 +44,10 @@ export async function GET(request: NextRequest) {
         try {
           await sendPushNotification(creator.pushSubscription, {
             title: '⏰ Battle Expired',
+            category: 'battleUpdates',
             body: `Your ${battle.topic.toUpperCase()} battle expired after 48h. ${battle.wager} coins refunded.`,
             tag: `battle-expired-${battle._id}`,
-            url: '/mobile?tab=notifications',
+            url: '/?tab=notifications',
             type: 'general'
           });
           notifiedCount++;

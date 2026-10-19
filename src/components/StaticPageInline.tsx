@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { Loader2, Building2, Shield, FileText, Mail, Info } from "lucide-react";
+import PageHeader, { type IconType } from "@/components/PageHeader";
 
 // Known static page slugs that should be handled inline
 const STATIC_SLUGS = ['impressum', 'datenschutz', 'agb', 'kontakt', 'about'];
@@ -37,6 +38,15 @@ const DEFAULTS: Record<string, { title: string; content: string }> = {
     title: 'About Us',
     content: `<h2 class="text-xl font-bold text-gray-900 mb-4">About Best of GenX</h2><p class="mb-4 text-sm">The home of Generation X culture.</p>`,
   },
+};
+
+// Icon and subtitle for the shared page header (the title comes from the page itself)
+const HEADER: Record<string, { icon: IconType; subtitle: string }> = {
+  impressum: { icon: Building2, subtitle: 'Who runs Best of GenX' },
+  datenschutz: { icon: Shield, subtitle: 'How we handle your data' },
+  agb: { icon: FileText, subtitle: 'The rules for using Best of GenX' },
+  kontakt: { icon: Mail, subtitle: 'Questions, feedback & partnerships' },
+  about: { icon: Info, subtitle: 'The home of Generation X culture' },
 };
 
 export default function StaticPageInline({ slug, defaultTitle, onClose, onNavigate }: StaticPageInlineProps) {
@@ -83,16 +93,7 @@ export default function StaticPageInline({ slug, defaultTitle, onClose, onNaviga
 
   return (
     <div className="h-full flex flex-col bg-cream">
-      {/* Header with back button */}
-      <div className="sticky top-0 z-10 bg-cream border-b border-warm px-4 py-3 flex items-center gap-3">
-        <button
-          onClick={onClose}
-          className="p-2 -ml-2 rounded-full hover:bg-[#E36B11]/10 transition-colors flex-shrink-0"
-        >
-          <ArrowLeft className="w-5 h-5 text-gray-700" />
-        </button>
-        <h1 className="font-display text-lg tracking-wide text-gray-900 uppercase">{title}</h1>
-      </div>
+      <PageHeader icon={HEADER[slug]?.icon ?? FileText} title={title} subtitle={HEADER[slug]?.subtitle} onBack={onClose} sticky />
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">

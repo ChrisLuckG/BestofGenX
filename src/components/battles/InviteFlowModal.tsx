@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createPortal } from "react-dom";
 import { Search, Swords, X, ArrowRight, Wifi, Globe, BarChart3, Trophy, Check, Hash, Mail, Dumbbell, Music, Film, Landmark, Shirt, Gamepad2, Tv, Palette, UtensilsCrossed } from "lucide-react";
+import BrandedModal from "../BrandedModal";
 import type { LucideIcon } from "lucide-react";
 import LogoLoader from "../LogoLoader";
 import BackButton from "../BackButton";
@@ -226,39 +226,20 @@ export default function InviteFlowModal({
     }
   };
 
+  // The branded modal like every other dialog (colour band left, content right) - see BrandedModal
   const modal = (
-    <>
-      {/* Backdrop – separate element so it truly covers sidebar */}
-      <div
-        style={{ position: 'fixed', inset: 0, zIndex: 99998, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}
-        onClick={() => { if (step !== 'success') onClose(); }}
-      />
-      {/* Modal */}
-      <div style={{ position: 'fixed', inset: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', pointerEvents: 'none' }}>
-      <div className="relative bg-cream border border-warm rounded-2xl w-full max-w-[340px] lg:max-w-[720px] max-h-[90vh] overflow-hidden flex flex-col shadow-xl" style={{ pointerEvents: 'auto' }}>
-        
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-warm">
-          {step !== 'search' && step !== 'success' ? (
-            <BackButton onClick={handleBack} label={true} />
-          ) : (
-            <div />
+    <BrandedModal
+      isOpen
+      onClose={onClose}
+      locked={step === 'success'}
+      size="lg"
+      eyebrow="Challenge a player"
+      title={step === 'search' ? 'Invite' : step === 'config' ? 'Setup battle' : step === 'confirm' ? 'Confirm' : 'Challenge sent'}
+      icon={Swords}
+    >
+          {step !== 'search' && step !== 'success' && (
+            <div className="-mt-1 mb-3"><BackButton onClick={handleBack} label={true} /></div>
           )}
-          <span className="font-display text-lg tracking-wider text-gray-900 flex items-center gap-2">
-            {step === 'search' && <Swords className="w-5 h-5 text-[#E36B11]" />}
-            {step === 'search' ? 'INVITE' : step === 'config' ? 'SETUP BATTLE' : step === 'confirm' ? 'CONFIRM' : 'CHALLENGE SENT'}
-          </span>
-          {step !== 'success' ? (
-            <button onClick={onClose} aria-label="Close" className="w-9 h-9 rounded-full flex items-center justify-center bg-black/5 border border-warm text-gray-700 hover:bg-black/10 hover:text-[#E36B11] transition-colors">
-              <X className="w-5 h-5" />
-            </button>
-          ) : (
-            <div className="w-9 h-9" />
-          )}
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 lg:p-6">
           
           {/* Step 1: Search User */}
           {step === 'search' && (
@@ -702,12 +683,8 @@ export default function InviteFlowModal({
               )}
             </div>
           )}
-        </div>
-      </div>
-      </div>
-    </>
+    </BrandedModal>
   );
 
-  if (typeof document === 'undefined') return null;
-  return createPortal(modal, document.body);
+  return modal;
 }

@@ -33,6 +33,8 @@ export interface IUser extends Document {
   notifyBattleResults?: boolean;
   notifyBattleAccepted?: boolean;
   notifyRanking?: boolean;
+  /** Push switches by category (lib/pushCategories.ts). Only an explicit false blocks; missing = on. */
+  pushPrefs?: Record<string, boolean>;
   pushSubscription?: {
     endpoint: string;
     keys: {
@@ -121,6 +123,11 @@ const UserSchema = new Schema<IUser>(
     notifyRanking: {
       type: Boolean,
       default: true, // On by default
+    },
+    // Push switches per category (lib/pushCategories.ts), e.g. { battleResult: false }. No default: a
+    // missing key means ON. Written through the raw collection (see /api/user/notifications).
+    pushPrefs: {
+      type: Schema.Types.Mixed,
     },
     points: {
       type: Number,

@@ -113,9 +113,10 @@ export async function POST(
         try {
           await sendPushNotification((otherPlayer as any).pushSubscription, {
             title: '⚠️ Battle Cancelled',
+            category: 'battleUpdates',
             body: `${(canceller as any)?.username || 'Opponent'} backed out before playing. Your ${battle.wager} wager was refunded.`,
             tag: `battle-cancelled-${battle._id}`,
-            url: '/mobile?tab=arcade',
+            url: '/?tab=arcade',
             type: 'challenge'
           });
         } catch (pushError) {
@@ -176,7 +177,7 @@ export async function POST(
       title: '🏆 Opponent Gave Up!',
       message: `${loser?.username || 'Your opponent'} gave up! +${battle.wager.toFixed(2)} BOGX earned.`,
       avatar: loser?.avatar,
-      data: { battleId: battle._id.toString(), url: '/battles' }
+      data: { battleId: battle._id.toString(), url: '/?tab=battles' }
     });
     if (loserId) {
       await Notification.create({
@@ -185,7 +186,7 @@ export async function POST(
         title: '🏳️ Battle Forfeited',
         message: `You gave up. ${winner?.username || 'Your opponent'} takes the pot. -${battle.wager.toFixed(2)} BOGX lost.`,
         avatar: winner?.avatar,
-        data: { battleId: battle._id.toString(), url: '/battles' }
+        data: { battleId: battle._id.toString(), url: '/?tab=battles' }
       });
     }
 
@@ -194,11 +195,12 @@ export async function POST(
       try {
         await sendPushNotification(winner.pushSubscription, {
           title: 'Battle Won!',
+          category: 'battleResult',
           // Net gain, not the pot: the winner staked one wager themselves, so quoting
           // the full pot here contradicted the in-app message and the coin counter.
           body: `${loser?.username || 'Opponent'} gave up! +${battle.wager.toFixed(2)} BOGX earned.`,
           tag: `battle-forfeit-${battle._id}`,
-          url: '/mobile?tab=arcade',
+          url: '/?tab=arcade',
           type: 'challenge'
         });
       } catch (pushError) {

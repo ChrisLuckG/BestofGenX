@@ -4,8 +4,10 @@ import { X, Lightbulb, BookOpen, Play, ChevronRight } from "lucide-react";
 import { formatCurrency } from "@/utils/currency";
 import CountUpNumber from "./CountUpNumber";
 
-// "Not enough coins" in the Login / Logout family: an orange brand panel with the BOGX
-// wordmark and the big faint coin, cream content next to it (below it on a phone).
+// "Not enough coins" in the Login / Logout family: a purple battle-brand panel with
+// the BOGX wordmark over the fight artwork, cream content next to it (below it on a
+// phone). Purple because every caller is a battle context - accepting, creating or
+// joining a QuizzBattle without enough BOGX.
 // One card for AlertModal (type "coins") and NoFundsModal, which used to carry two
 // hand-built copies of the same content.
 export default function NotEnoughCoinsCard({
@@ -47,19 +49,27 @@ export default function NotEnoughCoinsCard({
         <X className="w-4 h-4" />
       </button>
 
-      {/* Brand panel */}
-      <div className="relative overflow-hidden flex-shrink-0 md:w-[280px] bg-gradient-to-br from-[#E36B11] via-[#D4621A] to-[#B85515] px-6 pt-5 pb-6 md:p-8 flex flex-col">
+      {/* Brand panel - the poster artwork already carries the "NOT ENOUGH COINS"
+          headline, so the panel shows the WHOLE image (object-contain) over a
+          blurred copy of itself that fills the letterbox, instead of text over
+          a crop */}
+      {/* aspect-ratio on a stretched flex item collapses to 0 width (verified),
+          so the panel keeps a fixed width and object-contain shows the whole
+          poster - the blurred copy behind fills the top/bottom letterbox */}
+      <div className="relative overflow-hidden flex-shrink-0 w-full h-52 md:w-[280px] md:h-auto bg-gradient-to-br from-[#A855F7] via-[#9333EA] to-[#7E22CE]">
         <img
-          src="/images/bogxcoin.png"
+          src="/images/categories/coins.png"
           alt=""
-          className="pointer-events-none absolute -right-10 -bottom-10 md:-right-16 md:-bottom-6 w-44 h-44 md:w-64 md:h-64 opacity-[0.14]"
+          aria-hidden
+          className="pointer-events-none absolute inset-0 w-full h-full object-cover scale-125 blur-lg opacity-80"
         />
-        <span className="relative z-10 font-display text-2xl text-white tracking-wide mb-4 md:mb-8">BOGX</span>
-        <div className="relative z-10 flex-1">
-          <p className="text-white/70 text-xs uppercase tracking-wider mb-1">Hold on</p>
-          <h2 className="font-display text-3xl md:text-4xl leading-tight text-white">{title || 'NOT ENOUGH COINS'}</h2>
-          <p className="text-white/85 text-sm mt-2 md:mt-4 leading-relaxed">{message}</p>
-        </div>
+        {/* absolute on purpose: a non-absolute img would feed its intrinsic
+            1448px height back into the panel and break the aspect-ratio sizing */}
+        <img
+          src="/images/categories/coins.png"
+          alt="Not enough coins"
+          className="pointer-events-none absolute inset-0 w-full h-full object-contain"
+        />
       </div>
 
       {/* Content */}
@@ -74,7 +84,7 @@ export default function NotEnoughCoinsCard({
           </div>
           <div className="flex-1 py-3 md:py-4 text-center">
             <div className="text-[10px] md:text-xs text-gray-500 uppercase tracking-wider">Missing</div>
-            <div className="text-2xl md:text-3xl text-[#E36B11] leading-tight">
+            <div className="text-2xl md:text-3xl text-[#A855F7] leading-tight">
               <CountUpNumber value={missing} format={formatCurrency} delayMs={300} /> <span className="text-xs md:text-sm text-gray-500">BOGX</span>
             </div>
           </div>
@@ -82,8 +92,8 @@ export default function NotEnoughCoinsCard({
 
         {/* Ways to earn */}
         <div className="flex items-center gap-3 mt-4 mb-2.5">
-          <div className="w-9 h-9 bg-[#E36B11]/10 rounded-lg flex items-center justify-center flex-shrink-0">
-            <Lightbulb className="w-5 h-5 text-[#E36B11]" />
+          <div className="w-9 h-9 bg-[#A855F7]/10 rounded-lg flex items-center justify-center flex-shrink-0">
+            <Lightbulb className="w-5 h-5 text-[#A855F7]" />
           </div>
           <div>
             <p className="text-gray-900 text-base leading-tight">Earn coins and join the action!</p>
@@ -97,14 +107,14 @@ export default function NotEnoughCoinsCard({
               key={o.key}
               onClick={o.onClick}
               style={{ animation: `cardIn 0.35s ease-out ${200 + i * 90}ms backwards` }}
-              className="group w-full p-2.5 md:p-3 bg-white rounded-xl border border-warm flex items-center gap-3 text-left transition-all hover:border-[#E36B11]/50 hover:shadow-sm"
+              className="group w-full p-2.5 md:p-3 bg-white rounded-xl border border-warm flex items-center gap-3 text-left transition-all hover:border-[#A855F7]/50 hover:shadow-sm"
             >
               <div className="w-10 h-10 bg-cream rounded-lg flex items-center justify-center border border-warm flex-shrink-0">{o.icon}</div>
               <div className="flex-1 min-w-0">
                 <p className="text-gray-900 text-base leading-tight">{o.title}</p>
                 <p className="text-xs text-gray-500 truncate">{o.sub}</p>
               </div>
-              <div className="flex items-center gap-1 text-[#E36B11] text-base whitespace-nowrap">
+              <div className="flex items-center gap-1 text-[#A855F7] text-base whitespace-nowrap">
                 {o.reward} {coin('w-4 h-4')}
                 <ChevronRight className="w-4 h-4 text-gray-400 transition-transform group-hover:translate-x-0.5" />
               </div>
@@ -116,9 +126,9 @@ export default function NotEnoughCoinsCard({
         <div className="mt-5 space-y-1.5">
           <button
             onClick={onEarn}
-            className="hover-shine relative overflow-hidden w-full py-3.5 rounded-xl bg-gradient-to-br from-[#E36B11] via-[#D4621A] to-[#B85515] text-white text-lg tracking-wider shadow-lg transition-all hover:brightness-110 active:scale-[0.99]"
+            className="hover-shine relative overflow-hidden w-full py-3.5 rounded-xl bg-gradient-to-br from-[#A855F7] via-[#9333EA] to-[#7E22CE] text-white text-lg tracking-wider shadow-lg transition-all hover:brightness-110 active:scale-[0.99] flex items-center justify-center gap-2"
           >
-            EARN BOGX
+            {coin('w-5 h-5')} EARN BOGX
           </button>
           <button
             onClick={onClose}

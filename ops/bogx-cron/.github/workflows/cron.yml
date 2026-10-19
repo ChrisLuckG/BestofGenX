@@ -1,0 +1,73 @@
+# Calls Daily Auto and the "new article" push on the live site every 5 minutes.
+#
+# This file does NOT run from the project repository. It is copied into its own small PUBLIC
+# repository (bogx-cron): Vercel's Hobby plan has no crons below once a day, and a PRIVATE project
+# repository would only get 2000 free Actions minutes a month (this needs ~17000). In a public
+# repository the minutes are free and unlimited.
+#
+# Needs one repository secret there: CRON_SECRET (Settings > Secrets and variables > Actions), the
+# SAME value as the CRON_SECRET environment variable of the Vercel project. Without it the routes answer
+# 401/503, the run fails, and GitHub sends an e-mail.
+#
+# - GitHub may start a run minutes late, rarely it skips one. Harmless: both routes are idempotent.
+# - The log shows only the HTTP status. This repository and its logs are public, and the answers
+#   contain titles of articles that are still drafts.
+# - GitHub switches scheduled workflows OFF after 60 days without activity in the repository; the
+#   weekly "keepalive" job below makes an empty commit so that never happens.
+name: Cron
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+
+env:
+  APP_URL: https://www.bestofgenx.com
+
+jobs:
+  daily-auto:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    # A tick can take minutes (cover image, rankroll). Never two at once.
+    concurrency:
+      group: daily-auto
+      cancel-in-progress: false
+    steps:
+      - name: Daily Auto tick
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 290 -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/daily-auto")
+          echo "daily-auto -> HTTP $code"
+          [ "$code" -ge 200 ] && [ "$code" -lt 300 ]
+
+  article-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    concurrency:
+      group: article-push
+      cancel-in-progress: false
+    steps:
+      - name: New-article push
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 120 -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/article-push")
+          echo "article-push -> HTTP $code"
+          [ "$code" -ge 200 ] && [ "$code" -lt 300 ]
+
+  keepalive:
+    if: github.event.schedule == '17 3 * * 1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Empty commit, so GitHub sees activity
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git commit --allow-empty -m "keepalive"
+          git push

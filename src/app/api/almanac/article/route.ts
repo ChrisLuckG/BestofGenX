@@ -1,11 +1,18 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
-import { searchYouTubeVideo } from "@/lib/youtubeSearch";
+import { YouTubeQuotaError } from "@/lib/youtubeSearch";
+import { buildYoutubeIframe, findSectionVideo, pendingMarker } from "@/lib/articleVideos";
 import { countryNameToCode } from "@/lib/countryFlags";
 import { styleInstructionFor, isAuthorVoice, buildOccasionBlock } from "@/lib/authorStylePrompts";
 import { fetchWikipediaSource, buildSourceBlock, BANNED_HEADINGS_RULE, VIDEO_PROSE_RULES } from "@/lib/wikipediaSource";
+import { articleCategoryFor } from "@/lib/personCategory";
 
 const WIKIDATA_ENDPOINT = 'https://query.wikidata.org/sparql';
+
+// Articles are always long. A caller-supplied `options.length` is ignored on purpose:
+// the admin used to offer short (~150) and medium (~300) and the medium result was
+// "nothing"; there is no shorter option any more, in the UI or here.
+const ARTICLE_LENGTH = 'long (~800 words)';
 
 // Fetch country from Wikidata if missing
 async function fetchCountryFromWikidata(name: string, birthYear?: string): Promise<{ country?: string; countryCode?: string } | null> {
@@ -52,48 +59,6 @@ async function fetchCountryFromWikidata(name: string, birthYear?: string): Promi
   }
 }
 
-
-// Build YouTube iframe HTML
-function buildYoutubeIframe(videoId: string): string {
-  return `<div class="youtube-embed" style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;margin:16px 0;border-radius:12px;">
-<iframe src="https://www.youtube.com/embed/${videoId}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;border-radius:12px;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-</div>`;
-}
-
-// Find YouTube video with STRICT relevance check, excluding already used videos
-// The person's name MUST appear in the video title to avoid completely wrong videos
-async function findYoutubeVideoId(
-  query: string, 
-  context: string, 
-  excludeIds?: Set<string>,
-  personName?: string
-): Promise<string | null> {
-  try {
-    const hit = await searchYouTubeVideo({ 
-      query, 
-      context, 
-      minRelevance: 0.5, // Increased from 0.3 - require 50% match
-      maxResults: 8,
-      excludeVideoIds: excludeIds,
-    });
-    
-    // Extra check: if we have a person name, verify it appears in the video title
-    if (hit && personName) {
-      const nameParts = personName.toLowerCase().split(' ').filter(p => p.length > 2);
-      const titleLower = hit.title.toLowerCase();
-      const nameInTitle = nameParts.some(part => titleLower.includes(part));
-      if (!nameInTitle) {
-        console.log('[Almanac] Rejecting video - person name not in title:', hit.title, 'vs', personName);
-        return null;
-      }
-    }
-    
-    return hit?.videoId || null;
-  } catch (e) {
-    console.error('[Almanac] YouTube search error:', e);
-    return null;
-  }
-}
 
 type ArticleSection = {
   heading: string | null;
@@ -192,6 +157,9 @@ async function convertSectionsToContent(
   const contentParts: string[] = [];
   const usedVideoIds = new Set<string>(); // Track used videos to avoid duplicates
   
+  // Once YouTube refuses (daily quota used up), every further section gets a marker instead of a search;
+  // the Daily Auto tick fills it in later (lib/articleVideos.ts)
+  let quotaGone = false;
   for (const section of sections) {
     // Add heading if present
     if (section.heading) {
@@ -203,13 +171,19 @@ async function convertSectionsToContent(
     
     // Search for YouTube video if search term provided
     if (section.youtubeSearch) {
+      const ctx = [section.heading || '', section.text || ''].join(' ');
+      if (quotaGone) { contentParts.push(pendingMarker({ q: section.youtubeSearch, ctx, person: personName })); continue; }
       console.log('[Almanac] Searching YouTube for:', section.youtubeSearch, '| excluding:', usedVideoIds.size, 'videos');
-      const youtubeId = await findYoutubeVideoId(
-        section.youtubeSearch,
-        [section.heading || '', section.text || ''].join(' '),
-        usedVideoIds,
-        personName // Pass person name for strict validation
-      );
+      let youtubeId: string | null = null;
+      try {
+        youtubeId = await findSectionVideo(section.youtubeSearch, ctx, usedVideoIds, personName);
+      } catch (e) {
+        if (!(e instanceof YouTubeQuotaError)) throw e;
+        console.log('[Almanac] YouTube quota used up - marking the section, the video is filled in later');
+        quotaGone = true;
+        contentParts.push(pendingMarker({ q: section.youtubeSearch, ctx, person: personName }));
+        continue;
+      }
       if (youtubeId) {
         console.log('[Almanac] Adding video:', youtubeId);
         usedVideoIds.add(youtubeId); // Track this video
@@ -282,7 +256,7 @@ IMPORTANT: Return a JSON object with this EXACT structure:
 {
   "title": "Catchy article title",
   "subtitle": "Engaging subtitle",
-  "category": "music|sports|movies-tv|tech|culture|genx-icons",
+  "category": "music|sports|movies-tv|gaming|lifestyle|news|rip",
   "tags": ["tag1", "tag2", "tag3"],
   "sections": [
     {"heading": null, "year": null, "month": null, "text": "<p>Opening paragraph. No video is mentioned in the prose, ever.</p>", "youtubeSearch": null},
@@ -292,7 +266,10 @@ IMPORTANT: Return a JSON object with this EXACT structure:
 }
 
 RULES:
-- Write 3-5 sections with engaging content
+- This is a LONG article, about 800 words in total: write 6 sections - an intro of
+  80-100 words and every other section 130-170 words - with engaging content.
+  Length never justifies a fact the SOURCE does not contain: when the source material
+  is thin, write fewer and shorter sections instead of padding or inventing.
 - First section has NO heading (null) and "year": null - it's the intro. Open with the
   most surprising fact from the source, NOT the birth date.
 - ⛔ "year" IS REQUIRED on every other section: the year that section centres on. The
@@ -332,7 +309,7 @@ ${VIDEO_PROSE_RULES}
       ? `Write an article about "${subjectName}" (${itemCategory}).
 Details: ${person.knownfor || 'a GenX cultural icon'}.
 Language: ${options.language || 'English'}
-Length: ${options.length || 'medium'}
+Length: ${ARTICLE_LENGTH}
 ${options.topic ? `Focus: ${options.topic}` : ''}
 ${options.extra ? `Extra instructions: ${options.extra}` : ''}`
       : `Write an article about ${subjectName}.
@@ -344,7 +321,7 @@ ${person.died ? `Died: ${person.died}` : 'Still alive'}
 ${sourceBlock}
 ${occasionBlock}
 Language: ${options.language || 'English'}
-Length: ${options.length || 'medium'}
+Length: ${ARTICLE_LENGTH}
 ${options.topic ? `Focus: ${options.topic}` : ''}
 ${options.extra ? `Extra instructions: ${options.extra}` : ''}`;
 
@@ -367,28 +344,9 @@ ${options.extra ? `Extra instructions: ${options.extra}` : ''}`;
     try {
       const data = JSON.parse(response);
       
-      // Map AI category to valid Article category
-      const CATEGORY_MAP: Record<string, string> = {
-        'movies': 'movies-tv',
-        'tv': 'movies-tv',
-        'movies-tv': 'movies-tv',
-        'music': 'music',
-        'gaming': 'gaming',
-        'sports': 'sports',
-        'tech': 'tech',
-        'culture': 'culture',
-        'news': 'news',
-        'lifestyle': 'lifestyle',
-        'genx-icons': 'genx-icons',
-        'icons': 'genx-icons',
-        'people': 'genx-icons',
-        'person': 'genx-icons',
-        'rip': 'rip',
-        'obituary': 'rip',
-        'memorial': 'rip',
-        'tribute': 'rip',
-      };
-      const mappedCategory = CATEGORY_MAP[data.category?.toLowerCase()] || 'genx-icons';
+      // Always a canonical slug the category dropdown knows: from the person's own data
+      // first, the model's suggestion only when that is silent (lib/personCategory.ts).
+      const mappedCategory = articleCategoryFor(person, data.category);
       
       // Convert sections to HTML content with YouTube videos
       let finalContent = '';

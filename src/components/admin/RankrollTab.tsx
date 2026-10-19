@@ -29,9 +29,11 @@ interface RankrollTabProps {
   // Almanac person this ranking belongs to (set when started from the Menschen tab).
   // Stored on the poll so the "already has a rankroll" marker survives a reload.
   initialPersonRef?: string | null;
+  /** Cover for the new ranking (the person's picture when started from Menschen) */
+  initialNewImage?: string | null;
 }
 
-export default function RankrollTab({ initialEditPollId, onProposalHandled, hideListView, initialNewTitle, initialNewDescription, initialNewItems, initialNewCategory, initialPersonRef }: RankrollTabProps = {}) {
+export default function RankrollTab({ initialEditPollId, onProposalHandled, hideListView, initialNewTitle, initialNewDescription, initialNewItems, initialNewCategory, initialPersonRef, initialNewImage }: RankrollTabProps = {}) {
   const [polls, setPolls] = useState<any[]>([]);
   const [pollsLoading, setPollsLoading] = useState(false);
   const [editingPoll, setEditingPoll] = useState<any | null>(null);
@@ -270,7 +272,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
       title: initialNewTitle,
       subtitle: initialNewDescription || '',
       description: '',
-      image: '',
+      image: initialNewImage || '',
       type: 'ranking',
       items,
       category: 'ranking', // Must be: general, personality, opinion, prediction, ranking
@@ -376,7 +378,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
           content: '', // Empty content, will be linked to rankroll
           category: editingPoll.category || 'culture',
           tags: [],
-          coverImage: editingPoll.items?.[0]?.image || '',
+          coverImage: editingPoll.image || editingPoll.items?.[0]?.image || '',
         };
         
         const articleRes = await fetch('/api/articles', {
@@ -389,7 +391,7 @@ export default function RankrollTab({ initialEditPollId, onProposalHandled, hide
             content: articlePayload.content,
             category: articlePayload.category || 'culture',
             tags: articlePayload.tags || [],
-            coverImage: articlePayload.coverImage || editingPoll.items?.[0]?.image || '',
+            coverImage: articlePayload.coverImage || editingPoll.image || editingPoll.items?.[0]?.image || '',
             status: 'published',
             contentType: 'rankroll', // Mark as rankroll article
             personRef: editingPoll.personRef || undefined,

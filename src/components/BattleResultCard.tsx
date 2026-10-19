@@ -300,7 +300,7 @@ export default function BattleResultCard({
           {isTie ? "Great battle!" : won ? 'Congratulations!' : 'Better luck next time!'}
         </p>
         <div 
-          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-base font-bold"
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-base font-bold"
           style={{ 
             backgroundColor: isTie ? '#fef3c7' : won ? '#dcfce7' : '#fee2e2',
             color: isTie ? '#d97706' : won ? '#16a34a' : '#dc2626'

@@ -4,7 +4,7 @@ import { X, Upload, ChevronUp, ChevronDown, Palette, Plus } from "lucide-react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
-import { resolveContainer } from "@/lib/containerFill";
+import { resolveContainer, articleSortDate } from "@/lib/containerFill";
 import { useCategories, ensureCategory } from "@/hooks/useCategories";
 
 const ImagePickerModal = dynamic(() => import("./ImagePickerModal"), { ssr: false });
@@ -297,7 +297,7 @@ function FixedBannerBlock({
   const latestArticle = autoCategory
     ? [...articles]
         .filter(a => a.status === 'published' && a.category?.toLowerCase() === autoCategory)
-        .sort((a, b) => new Date((b as any).createdAt || 0).getTime() - new Date((a as any).createdAt || 0).getTime())[0]
+        .sort((a, b) => articleSortDate(b as any) - articleSortDate(a as any))[0]
     : undefined;
 
   // Banner image: always use the dedicated bannerImage field, never the article's coverImage

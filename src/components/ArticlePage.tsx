@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { ArrowLeft, Clock, Eye, Share2, TrendingUp, Facebook, Linkedin, MessageCircle, Mail, Link2, Check, FileText, Music, Gamepad2, Trophy, Tv, ShoppingBag, Vote } from "lucide-react";
+import PageHeader, { HeaderButton } from "@/components/PageHeader";
 import EmojiReactions from "./EmojiReactions";
+import VolumeKnob from "./VolumeKnob";
 import CardMoodReactions from "./CardMoodReactions";
 import CategoryBadge from "./CategoryBadge";
 import { useBackButton } from "@/hooks/useBackButton";
@@ -118,9 +120,12 @@ function processArticleHtml(raw: string): string {
     </div>`
   );
 
-  // 2. Unwrap any existing video-embed wrappers to re-wrap consistently
+  // 2. Unwrap any existing video wrapper to re-wrap consistently. BOTH names: the editor writes
+  // "video-embed", the article generator used to write "youtube-embed" (padding-bottom:56.25%). An
+  // unknown wrapper stayed behind empty once its iframe was moved into the video card - a
+  // video-sized hole in the article (16:00 Daily Auto article, 18.10.2026).
   html = html.replace(
-    /<div[^>]*class="[^"]*video-embed[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
+    /<div[^>]*class="[^"]*(?:video-embed|youtube-embed)[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
     '$1'
   );
 
@@ -805,33 +810,15 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
 
   return (
     <div ref={containerRef} className="h-full bg-black text-gray-900 overflow-y-auto overflow-x-hidden relative">
-      {/* Desktop Header - same style as Feed/Articles/Arcade */}
+      {/* Desktop: the shared page header. (Mobile has the floating Back/Share bar over the hero instead.) */}
       {isDesktop && (
-        <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-warm bg-cream bg-cream">
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={onBack} 
-              className="p-2 hover:bg-[#E36B11]/10 rounded-lg transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5 text-gray-900" />
-            </button>
-            <HeaderIcon className="w-5 h-5 text-[#E36B11]" />
-            <div>
-              <span className="font-display text-lg tracking-wider text-gray-900 block leading-none">
-                {MAIN_CATEGORY_LABELS[mainCategory] || 'Articles'}
-              </span>
-              <span className="text-[10px] text-gray-500 -mt-0.5 block">
-                {MAIN_CATEGORY_SUBTITLES[mainCategory] || 'Stories & insights'}
-              </span>
-            </div>
-          </div>
-          <button 
-            onClick={handleShare} 
-            className="p-2 hover:bg-[#E36B11]/10 rounded-lg transition-colors"
-          >
-            <Share2 className="w-5 h-5 text-gray-700" />
-          </button>
-        </div>
+        <PageHeader
+          icon={HeaderIcon}
+          title={MAIN_CATEGORY_LABELS[mainCategory] || 'Articles'}
+          subtitle={MAIN_CATEGORY_SUBTITLES[mainCategory] || 'Stories & insights'}
+          onBack={onBack}
+          right={<HeaderButton icon={Share2} label="Share" iconOnly onClick={handleShare} />}
+        />
       )}
 
       {/* Mobile Sticky Top Bar - Back, Share - stays visible while scrolling. -mb collapses its layout space so the hero starts flush at the top. */}
@@ -923,7 +910,7 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
             )}
             {article.trending && (
               <span
-                className="inline-flex items-center gap-1 px-3 py-1 text-[10px] uppercase font-bold rounded-full"
+                className="inline-flex items-center gap-1 px-3 py-1 text-[10px] uppercase font-bold rounded-sm"
                 style={{
                   background: 'rgba(0,0,0,0.5)',
                   border: '1px solid rgba(255,255,255,0.2)',
@@ -1056,17 +1043,32 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
           </div>
         )}
 
-        {/* Emoji Reactions - at end of article */}
-        <div className="mt-8 mb-6 flex flex-col items-center">
-          <p className="text-sm text-gray-500 mb-3">How did this article make you feel?</p>
-          <EmojiReactions
-            articleId={article._id}
-            userId={user?.id}
-            isLoggedIn={isLoggedIn}
-            onShowLogin={onShowLogin}
-            onCoinAnimation={onCoinAnimation}
-            showAll
-          />
+        {/* End of the article: a person article asks how loud you turn the PERSON up ("Goes to 11",
+            one vote per person over all their articles); every other article keeps the mood emojis */}
+        <div className={`mt-8 mb-6 flex flex-col ${isDesktop && (article as any).personRef ? 'items-stretch' : 'items-center'}`}>
+          {(article as any).personRef ? (
+            <VolumeKnob
+              wide={isDesktop}
+              personId={String((article as any).personRef)}
+              personName={(article as any).personName}
+              userId={user?.id}
+              isLoggedIn={isLoggedIn}
+              onShowLogin={onShowLogin}
+              onCoinAnimation={onCoinAnimation}
+            />
+          ) : (
+            <>
+              <p className="text-sm text-gray-500 mb-3">How did this article make you feel?</p>
+              <EmojiReactions
+                articleId={article._id}
+                userId={user?.id}
+                isLoggedIn={isLoggedIn}
+                onShowLogin={onShowLogin}
+                onCoinAnimation={onCoinAnimation}
+                showAll
+              />
+            </>
+          )}
         </div>
 
         {/* Linked Poll/Quiz/Ranking */}
@@ -1141,6 +1143,7 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
                       {/* Reactions */}
                       <CardMoodReactions 
                         articleId={relatedArticle._id} 
+                        personRef={(relatedArticle as any).personRef} 
                         userId={user?.id} 
                         isLoggedIn={isLoggedIn} 
                         onShowLogin={onShowLogin}

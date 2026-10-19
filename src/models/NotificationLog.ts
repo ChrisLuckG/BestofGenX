@@ -8,6 +8,8 @@ export interface INotificationLog extends Document {
   type: string;
   source: string; // Which route/function sent it
   tag?: string;
+  /** Which settings switch governs the message (lib/pushCategories.ts) */
+  category?: string;
   url?: string;
   success: boolean;
   error?: string;
@@ -23,6 +25,7 @@ const NotificationLogSchema = new Schema<INotificationLog>(
     type: { type: String, default: 'general' },
     source: { type: String, required: true }, // e.g. 'battle-challenge', 'game-reminder', 'cron-cleanup'
     tag: { type: String },
+    category: { type: String },
     url: { type: String },
     success: { type: Boolean, default: true },
     error: { type: String },

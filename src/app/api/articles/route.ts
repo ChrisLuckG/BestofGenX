@@ -7,8 +7,12 @@ import Comment from '@/models/Comment';
 import Reaction from '@/models/Reaction';
 import { Person } from '@/models/Almanac';
 import { markMenschCovered } from '@/lib/menschenDb';
+import { ensurePersonTvVideo, markArticleTv, type TvResult } from '@/lib/personTvVideo';
+
+// A person article also looks for its GenX TV video (two or three YouTube calls) before answering
+export const maxDuration = 60;
 import { getAutoFillSlugs } from '@/lib/categories';
-import { countryNameToCode } from '@/lib/countryFlags';
+import { countryCodeFor } from '@/lib/countryFlags';
 import mongoose from 'mongoose';
 
 // Build a map of category-slug -> FIXED-block bannerImage from the saved template, so that
@@ -278,7 +282,8 @@ export async function POST(request: NextRequest) {
     const imagePosY = typeof body.imagePosY === 'number' ? body.imagePosY : 50;
 
     const personCountryRaw = body.personCountry;
-    const personCountryCode = countryNameToCode(personCountryRaw);
+    // The birth city decides the flag for a state that split up ("Czechoslovakia" + Prague -> CZ)
+    const personCountryCode = countryCodeFor(personCountryRaw, body.personCityBorn);
     
     // Extract person data for Menschen database
     const { personName, personBirthday, personDeathday, personCauseOfDeath, isRIP } = body;
@@ -429,7 +434,17 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({ success: true, article, menschCreated });
+    // Every person article brings a long documentary (or interview) for GenX TV, on top of the banner
+    // (lib/personTvVideo.ts). Rankroll articles do not - the person's article already did. Never fails the save.
+    let tvVideo: TvResult | undefined;
+    if (body.personRef && (article.contentType || 'article') === 'article') {
+      tvVideo = await ensurePersonTvVideo(String(body.personRef));
+      // 'added' / 'none' / 'pending' - a pending one is retried by the Daily Auto tick (quota back)
+      await markArticleTv(String(article._id), tvVideo).catch(e => console.error('[GenX TV] mark failed', e));
+      console.log('[GenX TV]', String(body.personRef), tvVideo.added ? `${tvVideo.reused ? 'existing video moved to top' : 'added'}: ${tvVideo.title}` : `no video: ${tvVideo.reason}`);
+    }
+
+    return NextResponse.json({ success: true, article, menschCreated, tvVideo });
   } catch (error: unknown) {
     console.error('Failed to create article:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';

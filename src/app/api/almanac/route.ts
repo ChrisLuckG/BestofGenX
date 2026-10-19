@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import { Person, AlmanacItem } from '@/models/Almanac';
+import { syncPersonImage } from '@/lib/personImage';
+import { monthMatcher, parseDateShape } from '@/lib/dateShapes';
 
 // Fields the Menschen list actually renders - exactly the `Person` interface in
 // MenschenTab.tsx. Person documents carry ~35 fields (description, shortBio,
@@ -104,14 +106,14 @@ export async function GET(request: NextRequest) {
         query.died = { $exists: true, $ne: null, $gt: '' };
       }
       // Filter by birth month (1-12)
+      // Both date shapes ("1969-10-18" and "18.10.1969") - the old pattern "-10-" matched only the first
+      // one, so a month view showed about a third of the people (lib/dateShapes.ts)
       if (birthMonth) {
-        const mm = String(parseInt(birthMonth)).padStart(2, '0');
-        query.born = { ...(query.born || {}), $regex: `-${mm}-` };
+        query.born = { ...(query.born || {}), $regex: monthMatcher(parseInt(birthMonth)) };
       }
       // Filter by death month (1-12) - for deceased filter
       if (deathMonth) {
-        const mm = String(parseInt(deathMonth)).padStart(2, '0');
-        query.died = { ...(query.died || {}), $regex: `-${mm}-` };
+        query.died = { ...(query.died || {}), $regex: monthMatcher(parseInt(deathMonth)) };
       }
       
       // `limit` is opt-in: without it the behaviour is unchanged. The client
@@ -135,12 +137,16 @@ export async function GET(request: NextRequest) {
       const currentDay = today.getDate();
       
       const sortedPeople = people.sort((a: any, b: any) => {
-        if (!a.born && !b.born) return 0;
-        if (!a.born) return 1;
-        if (!b.born) return -1;
+        // parseDateShape: "1969-10-18" AND "18.10.1969". new Date("18.10.1969") is an Invalid Date, and a
+        // NaN comparator leaves the order undefined; a person without a usable date goes last
+        const pa = parseDateShape(a.born);
+        const pb = parseDateShape(b.born);
+        if (!pa && !pb) return 0;
+        if (!pa) return 1;
+        if (!pb) return -1;
         
-        const dateA = new Date(a.born);
-        const dateB = new Date(b.born);
+        const dateA = new Date(pa.year, pa.month - 1, pa.day);
+        const dateB = new Date(pb.year, pb.month - 1, pb.day);
         
         // Calculate days until next birthday
         const getDaysUntilBirthday = (birthDate: Date) => {
@@ -261,8 +267,14 @@ export async function PUT(request: NextRequest) {
     const { type, id, ...data } = body;
     
     if (type === 'people') {
+      // Only a CHANGED picture is pushed on: an unrelated edit that merely re-sends the
+      // current image must not overwrite a cover someone set on the article by hand.
+      const imageChanged = typeof data.image === 'string' && data.image
+        ? data.image !== (await Person.findById(id).select('image').lean<{ image?: string }>())?.image
+        : false;
       const person = await Person.findByIdAndUpdate(id, data, { new: true });
-      return NextResponse.json({ success: true, data: person });
+      const synced = person && imageChanged ? await syncPersonImage(id, data.image) : undefined;
+      return NextResponse.json({ success: true, data: person, synced });
     }
     
     // Other categories

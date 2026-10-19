@@ -175,7 +175,7 @@ export default function RewardDetailPage({ isOpen, reward, coins, onClose, onRed
           
           {/* Category Badge */}
           <div className="absolute top-4 right-4">
-            <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+            <span className={`px-3 py-1 rounded-sm text-xs font-bold ${
               reward.category === 'premium' 
                 ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' 
                 : reward.category === 'starter'
@@ -188,7 +188,7 @@ export default function RewardDetailPage({ isOpen, reward, coins, onClose, onRed
           
           {/* Partner Badge */}
           <div className="absolute bottom-4 left-4">
-            <span className="px-3 py-1 bg-black/60 backdrop-blur-sm rounded-full text-sm font-medium text-white border border-white/20">
+            <span className="px-3 py-1 bg-black/60 backdrop-blur-sm rounded-sm text-sm font-medium text-white border border-white/20">
               {reward.partner}
             </span>
           </div>

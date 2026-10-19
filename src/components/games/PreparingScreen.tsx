@@ -184,7 +184,7 @@ export default function PreparingScreen({
         {/* Marks which side is you - the names alone do not say it. */}
         {isYou && (
           <span
-            className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-white font-display text-[9px] md:text-[11px] tracking-wider whitespace-nowrap"
+            className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-sm text-white font-display text-[9px] md:text-[11px] tracking-wider whitespace-nowrap"
             style={{ backgroundColor: backgroundImage ? 'rgba(255,255,255,0.3)' : topicColor }}
           >
             YOU

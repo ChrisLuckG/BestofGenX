@@ -72,6 +72,7 @@ export async function POST(
           try {
             await sendPushNotification(commentAuthor.pushSubscription, {
               title: '👍 Someone liked your comment!',
+              category: 'commentLike',
               body: `${liker?.username || 'Someone'} liked your comment`,
               icon: '/images/genxlogo1.png',
               badge: '/images/genxlogo1.png',

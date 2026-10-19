@@ -18,8 +18,6 @@ const PUSH_NOTIFICATIONS = [
   // Bot Battles
   { source: 'bot-challenge', title: '⚔️ Battle Challenge!', trigger: 'Cron: Bot fordert dich heraus', file: 'cron/bot-challenge-users' },
   // Games
-  { source: 'game-start', title: '🎮 Neues Spiel gestartet!', trigger: 'Cron: Neues Trivia-Spiel beginnt', file: 'cron/game-start' },
-  { source: 'game-reminder', title: '⏰ Spiel endet bald!', trigger: 'Cron: Erinnerung vor Spielende', file: 'cron/game-reminder' },
   { source: 'game-ending', title: '🏁 Spiel beendet!', trigger: 'Cron: Spiel ist zu Ende', file: 'cron/game-ending' },
   // Predictions
   { source: 'prediction-new', title: 'New Predictions Available!', trigger: 'Cron: Neue Predictions generiert', file: 'cron/generate-predictions' },

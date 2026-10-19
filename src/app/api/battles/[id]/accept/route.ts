@@ -206,9 +206,10 @@ export async function POST(
     if (creator?.pushSubscription && creator?.notifyBattleAccepted !== false) {
       sendPushNotification(creator.pushSubscription, {
         title: '⚔️ Battle Accepted!',
+        category: 'battleUpdates',
         body: `${opponent.username} is playing your challenge right now! 🎮`,
         tag: `battle-accepted-${battle._id}`,
-        url: '/battles',
+        url: '/?tab=battles',
         type: 'challenge'
       }).catch(console.error);
     }

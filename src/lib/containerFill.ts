@@ -11,7 +11,9 @@ export interface FillArticle {
   category?: string;
   status?: string;
   featured?: boolean;  // Star = manually allowed into the Top Area
+  tags?: string[];
   createdAt?: string;
+  publishedAt?: string;
   scheduledAt?: string;
   contentType?: string;
   order?: number;  // Manual sort order (lower = higher); drives the Top Area order
@@ -34,17 +36,36 @@ interface ContainerBlockLike {
   autoFillLimit?: number;
 }
 
-// Single ordering rule for EVERY area, identical to the admin Post Manager list:
-// manual drag order (`order`, lower = higher) wins, then newest first by
-// scheduledAt (falling back to createdAt).
-const articleDate = (a: FillArticle) =>
-  new Date(a.scheduledAt || a.createdAt || 0).getTime();
+/**
+ * The moment an article counts as "new" for ordering: an editor-set scheduledAt wins,
+ * then the GO-LIVE time (publishedAt), then createdAt as the last resort (drafts).
+ *
+ * publishedAt matters because an article can be created long before it goes live -
+ * Daily Auto writes its drafts 1-2 hours ahead and publishes them at the slot start.
+ * Ordered by createdAt, such an article sorted BELOW a manual one created in between,
+ * so the newest article was not on top. Used by every ordering and date display (live
+ * feed, layout editor, Post Manager) so they cannot disagree.
+ */
+export const articleSortDate = (a: { scheduledAt?: string; publishedAt?: string; createdAt?: string }) =>
+  new Date(a.scheduledAt || a.publishedAt || a.createdAt || 0).getTime();
 
+// Single ordering rule for EVERY area, identical to the admin Post Manager list:
+// manual drag order (`order`, lower = higher) wins, then newest first (articleSortDate).
 export const byFeedOrder = (a: FillArticle, b: FillArticle) => {
   const ao = a.order ?? 0, bo = b.order ?? 0;
   if (ao !== bo) return ao - bo;
-  return articleDate(b) - articleDate(a);
+  return articleSortDate(b) - articleSortDate(a);
 };
+
+/**
+ * History and the Trivia Winner (Daily Champions) article take part in the Top Area
+ * waterfall: while they are among the newest they sit in the Top Area, and once pushed
+ * out they fall into their own section - exactly like every other article. Their whole
+ * categories (history; gaming, where Daily Champions is filed) are otherwise kept out of
+ * the Top Area, so this exempts just these two kinds rather than all of gaming/tech.
+ */
+export const joinsTopWaterfall = (a: { category?: string; tags?: string[] }) =>
+  (a.category || '').toLowerCase() === 'history' || (a.tags || []).includes('daily-winners');
 
 // Date-based banner areas whose WHOLE category belongs to their FIXED banner box and is
 // therefore excluded from the global Top Area (mirrors WelcomeReel).
@@ -97,10 +118,11 @@ export function resolveContainer(
   const isFillable = (a: FillArticle) => a.status === 'published' && !NON_FILLABLE_TYPES.has(a.contentType || 'article');
 
   // Top container = global newest (any category) EXCEPT date-based banner categories
-  // (Arcade gaming/tech, History) which belong only to their banner box. Others = own category.
-  // A starred (featured) article is a manual pick and may always enter the Top Area.
+  // (Arcade gaming/tech, History) which belong only to their banner box - apart from the
+  // History and Trivia Winner articles, which join the waterfall (joinsTopWaterfall).
+  // Others = own category. A starred (featured) article may always enter the Top Area.
   const allowedInTop = (a: FillArticle) =>
-    a.featured === true || !bannerCategories.has((a.category || '').toLowerCase());
+    a.featured === true || joinsTopWaterfall(a) || !bannerCategories.has((a.category || '').toLowerCase());
 
   const autoPool = globalScope
     ? [...articles].filter(a => isFillable(a) && allowedInTop(a)).sort(byFeedOrder)

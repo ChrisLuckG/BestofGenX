@@ -12,8 +12,13 @@ import { redirect } from 'next/navigation';
 // nothing redirects back here any more.
 // ============================================================
 
-export default function Home() {
+// The query is passed on: push notifications and shared links point at "/?article=..." (lib/appLinks.ts)
+// and the device decides which app opens it. Dropping it here lost every deep link.
+export default function Home({ searchParams }: { searchParams: Record<string, string | string[] | undefined> }) {
   const userAgent = headers().get('user-agent') || '';
   const isMobile = /mobile|android|iphone/i.test(userAgent);
-  redirect(isMobile ? '/mobile' : '/desktop');
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(searchParams || {})) for (const one of Array.isArray(v) ? v : v != null ? [v] : []) qs.append(k, one);
+  const query = qs.toString();
+  redirect((isMobile ? '/mobile' : '/desktop') + (query ? `?${query}` : ''));
 }

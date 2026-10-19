@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
             icon: '/images/genxlogo1.png',
             badge: '/images/genxlogo1.png',
             tag: 'test-push',
-            url: '/mobile?tab=notifications'
+            url: '/?tab=notifications'
           },
           userId,
           'test-push'

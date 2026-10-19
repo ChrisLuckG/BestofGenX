@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ArrowLeft, Calendar, FileText, Eye, Heart, Instagram, Facebook, Linkedin, Globe } from "lucide-react";
+import { PenLine, Calendar, FileText, Eye, Heart, Instagram, Facebook, Linkedin, Globe } from "lucide-react";
+import PageHeader from "./PageHeader";
 import { useBackButton } from "@/hooks/useBackButton";
 import GenXLoader from "./GenXLoader";
 
@@ -104,19 +105,7 @@ export default function AuthorPage({ authorName, onBack, onOpenArticle }: Author
 
   return (
     <div className="absolute inset-0 bg-cream overflow-y-auto" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 80px)', scrollbarWidth: 'none' }}>
-      {/* Header */}
-      <div className="sticky top-0 z-20 bg-cream/95 backdrop-blur border-b border-warm/30">
-        <div className="px-4 py-3 flex items-center gap-3">
-          <button
-            onClick={onBack}
-            className="w-9 h-9 flex items-center justify-center rounded-full bg-[#E36B11] text-white hover:bg-[#c06a2a] transition-colors"
-            aria-label="Back"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <h1 className="text-sm font-bold text-gray-800 uppercase tracking-wide">Author Profile</h1>
-        </div>
-      </div>
+      <PageHeader icon={PenLine} title="Author Profile" subtitle="Articles by this author" onBack={onBack} sticky />
 
       {/* Author Hero */}
       <div

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Loader2, X, Radio, FileText, Music } from "lucide-react";
+import { buildRadioPrompt, radioSpotifyLinks } from "@/lib/radioArticle";
 
 /**
  * Minimal "Community Radio" article flow, extracted from the Newsroom Conference
@@ -97,37 +98,8 @@ export default function RadioModal({ onClose, onCreated }: RadioModalProps) {
     const reporter = reporters.find(r => r.id === reporterId);
     setGenerating(true);
 
-    const songList = songs
-      .map(
-        r =>
-          `- "${r.song}" by ${r.band} (requested by @${r.username} for ${r.playlist})${
-            r.link ? ` [SPOTIFY: ${r.link}]` : ""
-          }`
-      )
-      .join("\n");
-
-    const prompt = `Write a "Community Radio" article celebrating the songs our readers requested this month.
-
-SONG REQUESTS FROM OUR COMMUNITY:
-${songList}
-
-Write an engaging article that:
-1. Thanks our community for their great taste in music
-2. Groups songs by genre/mood/era if possible
-3. Tells a short story or fun fact about 3-5 of the most interesting songs
-4. Mentions the usernames who requested them (they'll love seeing their name!)
-5. Encourages more song requests
-
-IMPORTANT FORMATTING:
-- For each section, use "spotifyEmbed" instead of "youtubeSearch"
-- Use the SPOTIFY links provided above (the [SPOTIFY: ...] URLs)
-- DO NOT search for YouTube videos - this is a MUSIC article with Spotify embeds only
-
-Tone: Warm, appreciative, music-nerd enthusiastic. Like a DJ thanking callers.
-Category: music
-Length: 800-1200 words
-
-IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the SONGS listed above.`;
+    // The brief is shared with Daily Auto (lib/radioArticle.ts)
+    const prompt = buildRadioPrompt(songs);
 
     try {
       const res = await fetch("/api/editorial/chat", {
@@ -139,12 +111,7 @@ IMPORTANT: Generate a full article, NOT a birthday proposal. This is about the S
           articleMode: true,
           // Music piece: no YouTube search, Spotify embeds instead.
           skipYoutube: true,
-          spotifyLinks: songs.map(s => ({
-            song: s.song,
-            band: s.band,
-            link: s.link,
-            coverImage: s.coverImage,
-          })),
+          spotifyLinks: radioSpotifyLinks(songs),
           // autoPublish deliberately omitted - the article lands as a draft.
         }),
       });

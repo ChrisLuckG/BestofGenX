@@ -56,9 +56,10 @@ export async function POST(
       try {
         await sendPushNotification(creator.pushSubscription, {
           title: '😔 Challenge Declined',
+          category: 'battleUpdates',
           body: `${decliner?.username || 'Your opponent'} declined your ${battle.topic.toUpperCase()} battle. ${battle.wager} coins refunded.`,
           tag: `battle-declined-${battle._id}`,
-          url: '/mobile?tab=notifications',
+          url: '/?tab=notifications',
           type: 'challenge'
         });
       } catch (pushError) {

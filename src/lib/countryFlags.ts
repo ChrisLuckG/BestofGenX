@@ -269,7 +269,110 @@ export const COUNTRY_TO_CODE: Record<string, string> = {
   'Angola': 'AO',
   'Lesotho': 'LS',
   'Eswatini': 'SZ', 'Swaziland': 'SZ',
+
+  // Official long forms and Wikidata's historical states that have ONE successor. The people
+  // import stores Wikidata's label for the country at birth, so 1,756 people were "Kingdom of
+  // the Netherlands" and 102 "German Democratic Republic" - none of them got a flag.
+  // States that split into several (Czechoslovakia, Soviet Union, Yugoslavia) are NOT here:
+  // their flag depends on the birth city, see countryCodeFor().
+  'Kingdom of the Netherlands': 'NL', 'Kingdom of Denmark': 'DK',
+  "People's Republic of China": 'CN', 'British Hong Kong': 'HK', 'The Gambia': 'GM',
+  'German Democratic Republic': 'DE', 'East Germany': 'DE', 'West Germany': 'DE', 'DDR': 'DE',
+  'Federal Republic of Germany': 'DE',
+  'Pahlavi Iran': 'IR', 'Zaire': 'CD', 'Rattanakosin Kingdom': 'TH',
+  'Cook Islands': 'CK', 'Guernsey': 'GG', 'Isle of Man': 'IM', 'Western Sahara': 'EH',
+  'Kingdom of Hungary': 'HU', "Hungarian People's Republic": 'HU', "Polish People's Republic": 'PL',
+  'Byelorussian Soviet Socialist Republic': 'BY', 'Ukrainian Soviet Socialist Republic': 'UA',
+  'Georgian SSR': 'GE', 'Moldavian Soviet Socialist Republic': 'MD',
+  'Yemen Arab Republic': 'YE', 'Occupied Palestinian territories': 'PS', 'Kingdom of England': 'gb-eng',
 };
+
+/**
+ * States that split into several countries. The flag is the CURRENT country of the birth
+ * city (Robert Pelikán, Prague 1979 -> CZ), so only a known city gives one: a bare
+ * "Czechoslovakia" could be either flag, and a wrong flag is worse than none.
+ */
+const SPLIT_STATES: Record<string, Record<string, string[]>> = {
+  czechoslovakia: {
+    SK: ['bratislava', 'košice', 'prešov', 'handlová', 'piešťany', 'hlohovec', 'šaľa', 'dunajská streda',
+      'námestovo', 'poprad', 'trenčín', 'bánovce nad bebravou', 'ružomberok', 'detva', 'zvolen',
+      'liptovský mikuláš', 'trnava', 'nová dubnica', 'myjava', 'bojnice', 'ilava', 'nitra', 'žilina',
+      'banská bystrica', 'martin', 'prievidza', 'michalovce', 'komárno', 'levice', 'humenné', 'bardejov'],
+    CZ: ['prague', 'prag', 'praha', 'most', 'zlín', 'olomouc', 'brno', 'plzeň', 'české budějovice', 'liberec',
+      'jihlava', 'hradec králové', 'tábor', 'karlovy vary', 'ostrava', 'uherské hradiště', 'ivančice',
+      'třebíč', 'čeladná', 'hodonín', 'chomutov', 'ústí nad labem', 'vítkovice', 'jaroměř', 'chrudim',
+      'vsetín', 'podbořany', 'pacov', 'mladá boleslav', 'přerov', 'příbram', 'pelhřimov', 'opava', 'frýdek',
+      'frýdek-místek', 'žďár nad sázavou', 'ústí nad orlicí', 'cheb', 'frýdlant', 'prostějov', 'nymburk',
+      'sokolov', 'třinec', 'havlíčkův brod', 'litoměřice', 'červený kostelec', 'havířov', 'horní slavkov',
+      'roudnice nad labem', 'brandýs nad labem-stará boleslav', 'slaný', 'jablonec nad nisou',
+      'jablonec nad nisou district', 'karviná', 'mostiště', 'pardubice', 'kladno', 'teplice', 'děčín',
+      'zlin', 'plzen', 'pilsen'],
+  },
+  'soviet union': {
+    UA: ['kyiv', 'kiev', 'kharkiv', 'kryvyi rih', 'mariupol', 'odesa', 'odessa', 'donetsk', 'kherson', 'brovary',
+      'lutuhyne', 'selydove', 'smila', 'bilozerka', 'starokostiantyniv', 'kropyvnytskyi', 'lysychovo', 'cherkasy',
+      'zaporizhzhia', 'marinka', 'ivano-frankivsk', 'kakhovka', 'luhansk', 'rakoshyno', 'makiivka', 'mospyne',
+      'dnipro', 'kremenchuk', 'lviv', 'ukraine', 'ukrainian soviet socialist republic', 'sevastopol', 'simferopol'],
+    BY: ['minsk', 'gomel', 'vitebsk', 'brest', 'hrodna', 'polatsak', 'hresk', 'mogilev'],
+    AM: ['yerevan', 'gyumri', 'vanadzor', 'sevan', 'armavir'],
+    GE: ['tbilisi', 'kutaisi', 'rustavi', 'adigeni', 'gurjaani', 'batumi'],
+    AZ: ['baku', 'sumgait', 'aşağı tala', 'ganja'],
+    MD: ['chișinău', 'chisinau', 'tiraspol', 'bendery', 'bălți'],
+    KZ: ['oskemen', 'semey', 'atyrau', 'pavlodar', 'almaty', 'saryagash district', 'pavlogradka', 'karaganda', 'shymkent'],
+    KG: ['bishkek', 'kirghiz soviet socialist republic', 'osh'],
+    TJ: ['dushanbe', 'buston', 'bokhtar', 'tajik soviet socialist republic'],
+    UZ: ['tashkent', 'bulungur', 'andijan', 'fergana', 'samarkand'],
+    TM: ['mary', 'ashgabat'],
+    LV: ['riga', 'jelgava', 'krāslava'],
+    LT: ['kaunas', 'telšiai', 'vilnius', 'rokiškis'],
+    EE: ['narva', 'tallinn', 'rakvere', 'tartu'],
+    RU: ['moscow', 'kazan', 'chelyabinsk', 'saint petersburg', 'leningrad', 'yekaterinburg', 'sverdlovsk',
+      'nizhny novgorod', 'saratov', 'perm', 'kirovo-chepetsk', 'novosibirsk', 'naberezhnye chelny', 'yaroslavl',
+      'ufa', 'bryansk', 'tula', 'omsk', 'izhevsk', 'volgograd', 'krasnodar', 'krasnodar krai', 'elista', 'yurga',
+      'voskresensk', 'saransk', 'zelenograd', 'vladimir', 'klintsy', 'kimry', 'novokuznetsk', 'grozny',
+      'zlatoust', 'nizhny tagil', 'oryol', 'smolensk', 'barnaul', 'irkutsk', 'podolsk', 'astrakhan',
+      'nizhnevartovsk', 'surgut', 'yoshkar-ola', 'polevskoy', 'klimovsk', 'zheleznogorsk', 'biysk', 'balashikha',
+      'kaspiysk', 'turukhansk', 'makhachkala', 'tyumen', 'tver', 'pskov', 'severomorsk', 'alakurtti', 'vyksa',
+      'rostov-on-don', 'usolye-sibirskoye', 'slavsk', 'syktyvkar', 'sarov', 'komsomolsk-on-amur', 'asha',
+      'samara', 'voronezh', 'krasnoyarsk', 'vladivostok', 'murmansk', 'kaliningrad', 'sochi', 'tolyatti'],
+  },
+  yugoslavia: {
+    RS: ['belgrade', 'pančevo', 'niš', 'vranje', 'sopot', 'zemun', 'sombor', 'novi sad', 'prigrevica', 'užice',
+      'kikinda', 'sivac', 'kraljevo', 'vrbas', 'kruševac', 'senta', 'serbia', 'subotica', 'kragujevac'],
+    XK: ['pristina', 'gjakova', 'kosovo polje', 'prizren', 'obiliq', 'peja', 'mitrovica'],
+    BA: ['tuzla', 'mostar', 'sarajevo', 'foča', 'banja luka', 'trebinje', 'lukavac', 'stolac', 'doboj', 'brčko',
+      'zenica', 'lisičići', 'bihać'],
+    ME: ['podgorica', 'titograd', 'cetinje', 'nikšić', 'bar'],
+    HR: ['zagreb', 'split', 'dubrovnik', 'senj', 'croatia', 'đurđevac', 'pula', 'rijeka', 'osijek', 'zadar'],
+    SI: ['koper', 'ljubljana', 'maribor', 'celje', 'kranj'],
+    MK: ['skopje', 'tetovo', 'bitola', 'ohrid'],
+  },
+};
+/** The other labels Wikidata uses for the same split states */
+const SPLIT_STATE_ALIASES: Record<string, string> = {
+  'socialist federal republic of yugoslavia': 'yugoslavia', 'federal republic of yugoslavia': 'yugoslavia',
+  'serbia and montenegro': 'yugoslavia', sfrj: 'yugoslavia', ussr: 'soviet union', 'czechoslovak socialist republic': 'czechoslovakia',
+};
+const SPLIT_STATE_CITY: Record<string, Record<string, string>> = Object.fromEntries(
+  Object.entries(SPLIT_STATES).map(([state, byCode]) => [
+    state,
+    Object.fromEntries(Object.entries(byCode).flatMap(([code, cities]) => cities.map(c => [c, code]))),
+  ])
+);
+
+/**
+ * Country code from the country name, and for a split state (Czechoslovakia, Soviet Union,
+ * Yugoslavia) from the birth city. '' when neither tells it.
+ */
+export function countryCodeFor(country?: string | null, city?: string | null): string {
+  const direct = countryNameToCode(country);
+  if (direct) return direct;
+  const key = (country || '').trim().toLowerCase();
+  const state = SPLIT_STATES[key] ? key : SPLIT_STATE_ALIASES[key];
+  if (!state || !city) return '';
+  return SPLIT_STATE_CITY[state][city.trim().toLowerCase().replace(/\s+district$/, '')]
+    || SPLIT_STATE_CITY[state][city.trim().toLowerCase()] || '';
+}
 
 // Legacy/incorrect codes that were persisted before the mapping was fixed.
 // 'NI' is Nicaragua in ISO 3166-1, but was used for Northern Ireland.

@@ -103,16 +103,17 @@ export async function POST(request: NextRequest) {
           title: '⚔️ Battle Challenge!',
           message: `${bot.username} challenges you to a ${topic.toUpperCase()} battle for ${WAGER.toFixed(2)} BOGX!`,
           avatar: bot.avatar,
-          data: { battleId: battle._id.toString(), url: '/battles' }
+          data: { battleId: battle._id.toString(), url: '/?tab=battles' }
         });
 
         // Push notification
         if (user.pushSubscription) {
           await sendPushNotification(user.pushSubscription, {
             title: '⚔️ Battle Challenge!',
+            category: 'battleRequest',
             body: `${bot.username} challenges you to a ${topic.toUpperCase()} battle for ${WAGER.toFixed(2)} BOGX!`,
             tag: `battle-challenge-${battle._id}`,
-            url: `/mobile?battle=${battle._id.toString()}`,
+            url: `/?battle=${battle._id.toString()}`,
             type: 'challenge'
           }, user._id.toString());
         }

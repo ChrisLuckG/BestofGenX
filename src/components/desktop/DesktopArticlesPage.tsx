@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { FileText, Search, ChevronRight, Check, Heart, MessageCircle, Eye, Clock, Loader2 } from "lucide-react";
+import { FileText, Search, ChevronRight, Check, Heart, MessageCircle, Eye, Clock, Loader2, Volume2 } from "lucide-react";
+import { usePersonVolumes, compareLoudness } from "../CardVolumeBadge";
 import PageHeader, { HeaderButton } from "@/components/PageHeader";
 import { FeedSkeleton } from "./DesktopSkeletons";
 import CardMoodReactions from "@/components/CardMoodReactions";
@@ -27,6 +28,7 @@ interface Article {
   trending?: boolean;
   views?: number;
   likes?: number;
+  personRef?: string;
   comments?: number;
   createdAt?: string;
   personCountry?: string;
@@ -191,9 +193,12 @@ export default function DesktopArticlesPage({ onOpenArticle, onShowLogin, onCoin
     return true;
   });
 
+  // Goes-to-11 levels of the people in the list (one batched request), for the "Loudest" sort
+  const volumes = usePersonVolumes(articles.map(x => x.personRef));
   const sortedArticles = [...filteredArticles].sort((a, b) => {
     if (filter === 'top-commented') return (b.comments || 0) - (a.comments || 0);
-    if (filter === 'most-liked') return (b.likes || 0) - (a.likes || 0);
+    // "Loudest": person articles by the person's Goes-to-11 level, then everything else by likes
+    if (filter === 'most-liked') return compareLoudness(a.personRef ? volumes.get(String(a.personRef)) : undefined, b.personRef ? volumes.get(String(b.personRef)) : undefined) || (b.likes || 0) - (a.likes || 0);
     if (filter === 'newest') return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
     if (filter === 'oldest') return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
     return 0;
@@ -208,7 +213,7 @@ export default function DesktopArticlesPage({ onOpenArticle, onShowLogin, onCoin
     { key: 'oldest', label: 'Oldest' },
     { key: 'unread', label: 'Unread' },
     { key: 'top-commented', label: 'Top Commented', icon: MessageCircle },
-    { key: 'most-liked', label: 'Most Liked', icon: Heart },
+    { key: 'most-liked', label: 'Loudest', icon: Volume2 },
   ];
 
   return (
@@ -291,7 +296,7 @@ export default function DesktopArticlesPage({ onOpenArticle, onShowLogin, onCoin
                 <Check className="w-8 h-8 text-green-500 mx-auto mb-2" />
                 <p className="text-gray-700 text-sm font-medium">You're all caught up!</p>
                 <p className="text-gray-400 text-xs mt-1">
-                  {filter === 'unread' ? 'No unread articles' : `No articles with ${filter === 'top-commented' ? 'comments' : 'likes'}`}
+                  {filter === 'unread' ? 'No unread articles' : `No articles with ${filter === 'top-commented' ? 'comments' : 'votes yet'}`}
                 </p>
               </div>
             )}
@@ -342,7 +347,7 @@ export default function DesktopArticlesPage({ onOpenArticle, onShowLogin, onCoin
                         </div>
                         {/* Reactions on separate line */}
                         <div className="mt-1" onClick={(e) => e.stopPropagation()}>
-                          <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="xs" />
+                          <CardMoodReactions articleId={article._id} personRef={(article as any).personRef} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="xs" />
                         </div>
                       </div>
                       {/* Coin Badge only */}

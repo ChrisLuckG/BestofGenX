@@ -57,7 +57,7 @@ export default function LandingPage() {
         
         {/* Dev Mode Badge */}
         <div className="absolute top-6 left-1/2 -translate-x-1/2">
-          <div className="flex items-center gap-2 px-4 py-2 bg-[#E36B11] rounded-full text-white text-sm font-display tracking-wider shadow-lg">
+          <div className="flex items-center gap-2 px-4 py-2 bg-[#E36B11] rounded-sm text-white text-sm font-display tracking-wider shadow-lg">
             <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
             Development Mode – Release Coming Soon!
           </div>

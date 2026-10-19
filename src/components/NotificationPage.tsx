@@ -2,8 +2,33 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Bell, BellOff, Check, Trophy, Settings, Swords, Trash2, Target, Music, X, ThumbsUp, Newspaper, Brain, Vote, ChevronLeft } from "lucide-react";
+import { Bell, BellOff, Check, Trophy, Settings, Swords, Trash2, Target, Music, X, ThumbsUp, Newspaper, Brain, Vote, ChevronLeft, Mail, Flag, RefreshCw, BarChart3 } from "lucide-react";
+import { PUSH_CATEGORIES, resolvePushPrefs, type PushCategory } from "@/lib/pushCategories";
+
+// One icon per push category (the list itself - labels, descriptions, messages - is lib/pushCategories.ts).
+// Deliberately plain, not the game icons (swords, trophy) the rest of the app uses.
+const PUSH_ICONS: Record<PushCategory, typeof Bell> = {
+  battleRequest: Mail,
+  battleResult: Flag,
+  battleUpdates: RefreshCw,
+  commentLike: ThumbsUp,
+  dailyResults: BarChart3,
+  songRequests: Music,
+  newArticle: Newspaper,
+};
+
+interface RecentPush { id: string; title: string; body: string; categoryLabel: string | null; status: 'sent' | 'blocked' | 'failed'; at: string }
+
+// Browser-only copies of the old switches. The server never saw them, so they blocked nothing; they are
+// carried over to the server once (see the effect that loads the switches)
+const LEGACY_PUSH_KEYS: Record<string, PushCategory> = {
+  notify_battle_request: 'battleRequest',
+  notify_battle_result: 'battleResult',
+  notify_comment_like: 'commentLike',
+};
 import PageHeader, { HeaderButton } from "@/components/PageHeader";
+import BrandedModal, { ModalActions } from "@/components/BrandedModal";
+import BrandedConfirmModal from "@/components/BrandedConfirmModal";
 import { WELCOME_NOTIFICATION_ID, WELCOME_GUEST_DISMISSED_KEY, WELCOME_GUEST_READ_KEY, WELCOME_TITLE, welcomeMessage } from "@/lib/welcomeNotification";
 import { sounds } from "@/utils/sounds";
 import { useAuth } from "@/context/AuthContext";
@@ -418,10 +443,11 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
   const [pushRewardClaimed, setPushRewardClaimed] = useState(false);
   const [showRewardAnimation, setShowRewardAnimation] = useState(false);
   
-  // Individual notification toggles (all default to true when push is enabled)
-  const [notifyBattleRequest, setNotifyBattleRequest] = useState(true);
-  const [notifyBattleResult, setNotifyBattleResult] = useState(true);
-  const [notifyCommentLike, setNotifyCommentLike] = useState(true);
+  // The push switches, one per category (lib/pushCategories.ts). They live on the SERVER: the senders
+  // - crons and battle routes - decide with them. Everything is on until someone switches it off.
+  const [pushPrefs, setPushPrefs] = useState<Record<PushCategory, boolean>>(() => resolvePushPrefs(null));
+  // What was actually sent to this user lately (settings view)
+  const [recentPush, setRecentPush] = useState<RecentPush[]>([]);
   
   // Push notification explanation modal (only shown when user clicks enable)
   const [showPushModal, setShowPushModal] = useState(false);
@@ -732,42 +758,72 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
       }
     };
     
-    checkPushStatus().then(isPushGranted => {
-      // Load notification preferences if push is enabled
-      if (isPushGranted) {
-        const savedBattleRequest = localStorage.getItem('notify_battle_request');
-        setNotifyBattleRequest(savedBattleRequest === null ? true : savedBattleRequest === 'true');
-        
-        const savedBattleResult = localStorage.getItem('notify_battle_result');
-        setNotifyBattleResult(savedBattleResult === null ? true : savedBattleResult === 'true');
-        
-        const savedCommentLike = localStorage.getItem('notify_comment_like');
-        setNotifyCommentLike(savedCommentLike === null ? true : savedCommentLike === 'true');
-      }
-    });
+    checkPushStatus();
     
     // Check if push reward was already claimed
     const rewardClaimed = localStorage.getItem('push_reward_claimed');
     setPushRewardClaimed(rewardClaimed === 'true');
   }, [isLoggedIn]);
 
-  // Toggle individual notification types
-  const toggleBattleRequest = () => {
-    const newValue = !notifyBattleRequest;
-    setNotifyBattleRequest(newValue);
-    localStorage.setItem('notify_battle_request', String(newValue));
-  };
+  // Load the switches from the server. Choices made earlier in THIS browser (localStorage) are carried
+  // over once, so nobody has to switch off again what they already switched off; the browser copies
+  // are dropped only after the server has them.
+  useEffect(() => {
+    if (!isLoggedIn || !user?.id) return;
+    let active = true;
+    (async () => {
+      try {
+        const d = await (await fetch(`/api/user/notifications?userId=${user.id}`)).json();
+        if (!active || !d.success) return;
+        let prefs: Record<PushCategory, boolean> = d.push;
+        const carry: Partial<Record<PushCategory, boolean>> = {};
+        for (const [lsKey, category] of Object.entries(LEGACY_PUSH_KEYS)) {
+          if (localStorage.getItem(lsKey) === 'false' && prefs[category] !== false) carry[category] = false;
+        }
+        let saved = true;
+        if (Object.keys(carry).length) {
+          const r = await (await fetch('/api/user/notifications', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.id, push: carry }),
+          })).json();
+          saved = !!r.success;
+          if (saved) prefs = { ...prefs, ...carry };
+        }
+        if (saved) Object.keys(LEGACY_PUSH_KEYS).forEach(k => localStorage.removeItem(k));
+        if (active) setPushPrefs(prefs);
+      } catch { /* the defaults (everything on) stay on screen */ }
+    })();
+    return () => { active = false; };
+  }, [isLoggedIn, user?.id]);
 
-  const toggleBattleResult = () => {
-    const newValue = !notifyBattleResult;
-    setNotifyBattleResult(newValue);
-    localStorage.setItem('notify_battle_result', String(newValue));
-  };
+  // What was sent to this user lately, loaded when the settings open
+  useEffect(() => {
+    if (!showSettings || !isLoggedIn || !user?.id) return;
+    let active = true;
+    fetch(`/api/user/notifications?userId=${user.id}&log=1`)
+      .then(r => r.json())
+      .then(d => { if (active && d.success) setRecentPush(d.recent || []); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [showSettings, isLoggedIn, user?.id]);
 
-  const toggleCommentLike = () => {
-    const newValue = !notifyCommentLike;
-    setNotifyCommentLike(newValue);
-    localStorage.setItem('notify_comment_like', String(newValue));
+  // One switch = one push category, saved on the server. It goes back if saving fails, so it never
+  // shows a position the senders do not know about.
+  const togglePref = async (key: PushCategory) => {
+    if (!user?.id) return;
+    const newValue = !pushPrefs[key];
+    setPushPrefs(prev => ({ ...prev, [key]: newValue }));
+    try {
+      const data = await (await fetch('/api/user/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, push: { [key]: newValue } }),
+      })).json();
+      if (!data.success) throw new Error(data.error || 'Failed');
+    } catch {
+      setPushPrefs(prev => ({ ...prev, [key]: !newValue }));
+    }
   };
 
   // Toggle push notifications
@@ -1075,43 +1131,22 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
         
         {/* Battle Challenge Modal - same as full version */}
         {selectedChallenge && (
-          <div 
-            className="fixed inset-0 z-[200] flex items-center justify-center p-4"
-            onClick={() => setSelectedChallenge(null)}
-          >
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-            <div 
-              className="relative bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="text-center mb-4">
-                <Swords className="w-10 h-10 text-[#E36B11] mx-auto mb-2" />
-                <h3 className="font-bold text-gray-900 text-lg">Battle Challenge!</h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  <strong>{selectedChallenge.challengerUsername}</strong> challenges you to a {selectedChallenge.topic.toUpperCase()} battle for <strong>{selectedChallenge.wager.toFixed(2)} BOGX</strong>
-                </p>
-              </div>
-              <div className="space-y-2">
-                <button
-                  onClick={() => {
-                    const battleId = selectedChallenge.id;
-                    setSelectedChallenge(null);
-                    if (onGoToBattle) onGoToBattle(battleId);
-                  }}
-                  className="w-full py-2.5 bg-[#E36B11] text-white font-semibold rounded-lg hover:bg-[#C4772A] transition-colors"
-                >
-                  Accept & Play Now!
-                </button>
-                <button
-                  onClick={handleDeclineChallenge}
-                  disabled={decliningChallenge}
-                  className="w-full py-2.5 text-red-500 hover:text-red-600 font-semibold text-sm transition-colors disabled:opacity-50"
-                >
-                  {decliningChallenge ? 'Declining...' : 'Decline Challenge'}
-                </button>
-              </div>
-            </div>
-          </div>
+          <BrandedConfirmModal
+            isOpen
+            onClose={() => setSelectedChallenge(null)}
+            onConfirm={() => {
+              const battleId = selectedChallenge.id;
+              setSelectedChallenge(null);
+              if (onGoToBattle) onGoToBattle(battleId);
+            }}
+            eyebrow="You've been challenged"
+            title="Battle challenge!"
+            icon={Swords}
+            message={<><strong>{selectedChallenge.challengerUsername}</strong> challenges you to a {selectedChallenge.topic.toUpperCase()} battle for <strong>{selectedChallenge.wager.toFixed(2)} BOGX</strong></>}
+            confirmText="ACCEPT & PLAY NOW"
+            cancelText={decliningChallenge ? 'Declining...' : 'Decline challenge'}
+            onCancel={handleDeclineChallenge}
+          />
         )}
       </div>
     );
@@ -1294,6 +1329,15 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
                     <p className="text-xs text-gray-500">When someone likes your comment</p>
                   </div>
                 </div>
+                <div className="flex items-center gap-3 p-3 bg-cream rounded-xl border border-warm">
+                  <div className="w-10 h-10 bg-[#E36B11]/10 rounded-xl flex items-center justify-center">
+                    <Newspaper className="w-5 h-5 text-[#E36B11]" />
+                  </div>
+                  <div>
+                    <span className="text-sm font-semibold text-gray-900">New Article</span>
+                    <p className="text-xs text-gray-500">When a new article is published</p>
+                  </div>
+                </div>
               </div>
               <button
                 onClick={openSettingsView}
@@ -1346,6 +1390,15 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
                   <div>
                     <span className="text-sm font-semibold text-gray-900">Comment Like</span>
                     <p className="text-xs text-gray-500">When someone likes your comment</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-green-200">
+                  <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+                    <Newspaper className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <span className="text-sm font-semibold text-gray-900">New Article</span>
+                    <p className="text-xs text-gray-500">When a new article is published</p>
                   </div>
                 </div>
               </div>
@@ -1450,66 +1503,59 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
       <div className="px-4 py-3 space-y-3">
         <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Choose what to receive:</p>
         
-        {/* Battle Request Toggle */}
-        <button 
-          onClick={toggleBattleRequest}
-          disabled={!pushEnabled || !isLoggedIn}
-          className={`w-full flex items-center justify-between py-3 px-4 bg-cream rounded-xl transition-colors ${!pushEnabled || !isLoggedIn ? 'opacity-40' : 'hover:bg-cream'}`}
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#E36B11]/20 flex items-center justify-center">
-              <Swords className="w-4 h-4 text-[#E36B11]" />
-            </div>
-            <div className="text-left">
-              <span className="text-sm font-medium text-gray-900 block">Battle Request</span>
-              <span className="text-xs text-gray-500">When someone invites you</span>
-            </div>
-          </div>
-          <div className={`w-11 h-6 rounded-full transition-colors ${notifyBattleRequest && pushEnabled ? 'bg-green-500' : 'bg-gray-300'} relative`}>
-            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${notifyBattleRequest && pushEnabled ? 'right-1' : 'left-1'}`} />
-          </div>
-        </button>
-
-        {/* Battle Result Toggle */}
-        <button 
-          onClick={toggleBattleResult}
-          disabled={!pushEnabled || !isLoggedIn}
-          className={`w-full flex items-center justify-between py-3 px-4 bg-cream rounded-xl transition-colors ${!pushEnabled || !isLoggedIn ? 'opacity-40' : 'hover:bg-cream'}`}
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#E36B11]/20 flex items-center justify-center">
-              <Trophy className="w-4 h-4 text-[#E36B11]" />
-            </div>
-            <div className="text-left">
-              <span className="text-sm font-medium text-gray-900 block">Battle Result</span>
-              <span className="text-xs text-gray-500">When a battle is finished</span>
-            </div>
-          </div>
-          <div className={`w-11 h-6 rounded-full transition-colors ${notifyBattleResult && pushEnabled ? 'bg-green-500' : 'bg-gray-300'} relative`}>
-            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${notifyBattleResult && pushEnabled ? 'right-1' : 'left-1'}`} />
-          </div>
-        </button>
-
-        {/* Comment Like Toggle */}
-        <button 
-          onClick={toggleCommentLike}
-          disabled={!pushEnabled || !isLoggedIn}
-          className={`w-full flex items-center justify-between py-3 px-4 bg-cream rounded-xl transition-colors ${!pushEnabled || !isLoggedIn ? 'opacity-40' : 'hover:bg-cream'}`}
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#E36B11]/20 flex items-center justify-center">
-              <ThumbsUp className="w-4 h-4 text-[#E36B11]" />
-            </div>
-            <div className="text-left">
-              <span className="text-sm font-medium text-gray-900 block">Comment Like</span>
-              <span className="text-xs text-gray-500">When someone likes your comment</span>
-            </div>
-          </div>
-          <div className={`w-11 h-6 rounded-full transition-colors ${notifyCommentLike && pushEnabled ? 'bg-green-500' : 'bg-gray-300'} relative`}>
-            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${notifyCommentLike && pushEnabled ? 'right-1' : 'left-1'}`} />
-          </div>
-        </button>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {PUSH_CATEGORIES.map(cat => {
+            const Icon = PUSH_ICONS[cat.key];
+            const on = pushPrefs[cat.key] && pushEnabled;
+            const locked = !pushEnabled || !isLoggedIn;
+            return (
+              <button
+                key={cat.key}
+                onClick={() => togglePref(cat.key)}
+                disabled={locked}
+                aria-pressed={on}
+                className={`flex flex-col text-left p-4 bg-white border border-warm rounded-xl transition-colors ${locked ? 'opacity-50' : 'hover:border-gray-300'}`}
+              >
+                <div className="flex items-start justify-between">
+                  <Icon className="w-5 h-5 text-gray-500" strokeWidth={1.75} />
+                  <div className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ${on ? 'bg-green-500' : 'bg-gray-300'} relative`}>
+                    <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${on ? 'right-0.5' : 'left-0.5'}`} />
+                  </div>
+                </div>
+                <span className="mt-3 text-sm font-semibold text-gray-900">{cat.label}</span>
+                <span className="mt-0.5 text-xs text-gray-500">{cat.description}</span>
+                {/* The messages behind the switch - nothing in here is a surprise */}
+                <span className="mt-2.5 pt-2.5 border-t border-warm/70 text-[11px] leading-snug text-gray-400">{cat.messages.join(' \u00b7 ')}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
+
+      {/* What was actually sent to you - including what your switches stopped */}
+      {isLoggedIn && (
+        <div className="px-4 pb-6">
+          <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-2">Recent messages</p>
+          {recentPush.length === 0 ? (
+            <p className="text-xs text-gray-400">Nothing has been sent to you yet.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {recentPush.slice(0, 10).map(m => (
+                <div key={m.id} className="flex items-start gap-3 py-2 px-3 bg-cream rounded-lg">
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs font-medium text-gray-900 block truncate">{m.title}</span>
+                    <span className="text-[11px] text-gray-500 block truncate">{m.body}</span>
+                    <span className="text-[10px] text-gray-400">{m.categoryLabel ?? 'Other'} · {timeAgo(m.at)}</span>
+                  </div>
+                  <span className={`flex-shrink-0 mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium ${m.status === 'sent' ? 'bg-green-50 text-green-700' : m.status === 'blocked' ? 'bg-gray-100 text-gray-500' : 'bg-red-50 text-red-600'}`}>
+                    {m.status === 'sent' ? 'Sent' : m.status === 'blocked' ? 'Blocked by you' : 'Failed'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       </div>
       )}
@@ -1525,35 +1571,13 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
         <>
       {/* Challenge Modal wrapper */}
       {selectedChallenge && (
-        <div 
-          className="fixed inset-0 z-[200] flex items-center justify-center p-4"
-          onClick={() => setSelectedChallenge(null)}
+        <BrandedModal
+          isOpen
+          onClose={() => setSelectedChallenge(null)}
+          eyebrow="You've been challenged"
+          title="Battle challenge!"
+          icon={Swords}
         >
-          {/* Blurry background - light theme */}
-          <div className="absolute inset-0 bg-cream/90 backdrop-blur-md" />
-          
-          {/* Challenge Details Card */}
-          {selectedChallenge && (
-            <div 
-              className="relative z-10 w-full max-w-sm mx-4"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="bg-[#F5F0E8] border-2 border-[#E5DDD0] rounded-2xl shadow-2xl overflow-hidden">
-                {/* Header */}
-                <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5DDD0]">
-                  <div className="flex items-center gap-2">
-                    <Swords className="w-5 h-5 text-[#E36B11]" />
-                    <h3 className="font-bold text-gray-900 text-lg">Battle Challenge!</h3>
-                  </div>
-                  <button 
-                    onClick={() => setSelectedChallenge(null)}
-                    className="w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-gray-600 transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="p-5">
                   {/* Challenger Info */}
                   <div className="flex items-center gap-4 mb-5 p-4 bg-white rounded-xl border border-[#E5DDD0]">
                     {selectedChallenge.challengerAvatar ? (
@@ -1589,141 +1613,69 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
                     </div>
                   </div>
                   
-                  {/* Action Buttons */}
-                  <div className="space-y-2">
-                    <button
-                      onClick={() => {
+                  
+          <ModalActions
+            confirmText="ACCEPT & PLAY NOW"
+            confirmIcon={Swords}
+            onConfirm={() => {
                         const battleId = selectedChallenge.id;
                         setSelectedChallenge(null);
                         if (onGoToBattle) {
                           onGoToBattle(battleId);
                         } else {
-                          window.location.href = `/mobile?tab=battles&battle=${battleId}`;
+                          window.location.href = `/?tab=battles&battle=${battleId}`; // device redirect keeps the params (lib/appLinks.ts)
                         }
-                      }}
-                      className="w-full py-3 bg-[#E36B11] hover:bg-[#c47830] text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-colors"
-                    >
-                      <Swords className="w-5 h-5" />
-                      Accept & Play Now!
-                    </button>
-                    <button
-                      onClick={handleDeclineChallenge}
-                      disabled={decliningChallenge}
-                      className="w-full py-2.5 text-red-500 hover:text-red-600 font-semibold text-sm transition-colors disabled:opacity-50"
-                    >
-                      {decliningChallenge ? 'Declining...' : 'Decline Challenge'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+            }}
+            cancelText={decliningChallenge ? 'Declining...' : 'Decline challenge'}
+            onCancel={handleDeclineChallenge}
+          />
+        </BrandedModal>
       )}
         </>,
         document.body
       )}
 
-      {/* Push Notification Explanation Modal - Bottom Sheet */}
-      {showPushModal && (
-        <div 
-          className="fixed inset-0 z-50 flex items-end justify-center"
-          onClick={() => setShowPushModal(false)}
-        >
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-          
-          {/* Bottom Sheet */}
-          <div 
-            className="relative w-full max-w-lg bg-gradient-to-b from-zinc-900 to-black border-t border-[#E36B11]/30 rounded-t-3xl p-6 pb-10 animate-slide-up"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              animation: 'slideUp 0.3s ease-out',
-            }}
-          >
-            {/* Handle */}
-            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1 bg-gray-300 rounded-full" />
-            
-            {/* Icon */}
-            <div className="flex justify-center mb-6 mt-4">
-              <div className="w-20 h-20 rounded-full bg-[#E36B11]/20 flex items-center justify-center">
-                <Bell className="w-10 h-10 text-[#E36B11]" />
+      {/* Push notification explanation - the branded modal like every other */}
+      <BrandedModal isOpen={showPushModal} onClose={() => setShowPushModal(false)} eyebrow="Stay in the game" title="Enable notifications?" icon={Bell}>
+          <p className="text-gray-700 text-sm md:text-base mb-3">Get notified when:</p>
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 bg-white border border-warm rounded-xl p-3">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#16a34a1a' }}>
+                <Swords className="w-5 h-5" style={{ color: '#16a34a' }} />
+              </div>
+              <div>
+                <p className="text-gray-900 font-medium text-sm">Battle Results</p>
+                <p className="text-gray-500 text-xs">Know instantly when you win or lose</p>
               </div>
             </div>
-            
-            {/* Title */}
-            <h2 className="text-2xl font-bold text-white text-center mb-3">
-              Enable Notifications?
-            </h2>
-            
-            {/* Description */}
-            <p className="text-white/60 text-center mb-6 leading-relaxed">
-              Stay in the game! Get notified when:
-            </p>
-            
-            {/* Benefits List */}
-            <div className="space-y-3 mb-8">
-              <div className="flex items-center gap-3 bg-cream rounded-lg p-3">
-                <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
-                  <Swords className="w-5 h-5 text-green-400" />
-                </div>
-                <div>
-                  <p className="text-white font-medium text-sm">Battle Results</p>
-                  <p className="text-white/40 text-xs">Know instantly when you win or lose</p>
-                </div>
+            <div className="flex items-center gap-3 bg-white border border-warm rounded-xl p-3">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#0284c71a' }}>
+                <Swords className="w-5 h-5" style={{ color: '#0284c7' }} />
               </div>
-              
-              <div className="flex items-center gap-3 bg-cream rounded-lg p-3">
-                <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
-                  <Swords className="w-5 h-5 text-blue-400" />
-                </div>
-                <div>
-                  <p className="text-white font-medium text-sm">Challenge Accepted</p>
-                  <p className="text-white/40 text-xs">Someone accepted your battle challenge</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-3 bg-cream rounded-lg p-3">
-                <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center flex-shrink-0">
-                  <Trophy className="w-5 h-5 text-purple-400" />
-                </div>
-                <div>
-                  <p className="text-white font-medium text-sm">Don't Miss Out</p>
-                  <p className="text-white/40 text-xs">Time-sensitive battles & bonus rewards</p>
-                </div>
+              <div>
+                <p className="text-gray-900 font-medium text-sm">Challenge Accepted</p>
+                <p className="text-gray-500 text-xs">Someone accepted your battle challenge</p>
               </div>
             </div>
-            
-            {/* Buttons */}
-            <div className="space-y-3">
-              <button
-                onClick={() => {
-                  setShowPushModal(false);
-                  togglePush();
-                }}
-                disabled={pushLoading}
-                className="w-full py-4 bg-[#E36B11] text-white font-bold text-lg rounded-xl hover:bg-[#c5e000] transition-colors flex items-center justify-center gap-2"
-              >
-                {pushLoading ? (
-                  <LogoLoader size="sm" />
-                ) : (
-                  <>
-                    <Bell className="w-5 h-5" />
-                    Enable Notifications
-                  </>
-                )}
-              </button>
-              
-              <button
-                onClick={() => setShowPushModal(false)}
-                className="w-full py-3 text-white/40 font-medium hover:text-white/60 transition-colors"
-              >
-                Maybe Later
-              </button>
+            <div className="flex items-center gap-3 bg-white border border-warm rounded-xl p-3">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#9333ea1a' }}>
+                <Trophy className="w-5 h-5" style={{ color: '#9333ea' }} />
+              </div>
+              <div>
+                <p className="text-gray-900 font-medium text-sm">Don't Miss Out</p>
+                <p className="text-gray-500 text-xs">Time-sensitive battles & bonus rewards</p>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+          <ModalActions
+            confirmText="ENABLE NOTIFICATIONS"
+            confirmIcon={Bell}
+            loading={pushLoading}
+            onConfirm={() => { setShowPushModal(false); togglePush(); }}
+            cancelText="Maybe later"
+            onCancel={() => setShowPushModal(false)}
+          />
+      </BrandedModal>
 
       <style jsx>{`
         @keyframes slideUp {

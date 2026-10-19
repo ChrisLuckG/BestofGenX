@@ -85,9 +85,10 @@ export async function POST(
         try {
           await sendPushNotification(otherPlayer.pushSubscription, {
             title: '⚠️ Battle Cancelled',
+            category: 'battleUpdates',
             body: `${canceller?.username || 'Opponent'} cancelled the battle. Your ${battle.wager} wager was refunded.`,
             tag: `battle-cancelled-${battle._id}`,
-            url: '/mobile?tab=arcade',
+            url: '/?tab=arcade',
             type: 'challenge'
           });
         } catch (pushError) {

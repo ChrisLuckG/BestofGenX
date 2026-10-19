@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { X, Bell, Swords, Trophy, TrendingUp } from 'lucide-react';
-import ModalPortal from "./ModalPortal";
+import { Bell, Swords, Trophy, TrendingUp } from 'lucide-react';
+import BrandedModal, { ModalActions } from "./BrandedModal";
+import BrandedConfirmModal from "./BrandedConfirmModal";
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
 
@@ -171,37 +172,16 @@ export default function PushNotifications({ showSettings = false, onClose }: { s
   // Settings Panel
   if (showSettings) {
     return (
-      <div className="fixed inset-0 z-[9999] bg-black/50 flex items-center justify-center p-4">
-        <div className="bg-cream border border-warm rounded-2xl w-full max-w-md shadow-xl">
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-warm">
-            <div className="flex items-center gap-2">
-              <Bell className="w-5 h-5 text-gray-900" />
-              <h2 className="font-display text-lg tracking-wider text-gray-900">NOTIFICATIONS</h2>
-            </div>
-            <button onClick={onClose} className="text-gray-600 hover:text-gray-900">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-          
-          {/* Info */}
-          <div className="p-4">
-            <p className="text-gray-500 text-sm text-center">
-              Manage all notification settings in the Notifications tab → Settings
-            </p>
-          </div>
-          
-          {/* Footer */}
-          <div className="p-4 border-t border-warm">
-            <button
-              onClick={onClose}
-              className="w-full py-3 bg-[#E36B11] text-white font-display text-sm tracking-widest rounded-xl"
-            >
-              DONE
-            </button>
-          </div>
-        </div>
-      </div>
+      <BrandedConfirmModal
+        isOpen
+        onClose={() => onClose?.()}
+        onConfirm={() => onClose?.()}
+        eyebrow="Settings"
+        title="Notifications"
+        icon={Bell}
+        message="Manage all notification settings in the Notifications tab → Settings."
+        confirmText="DONE"
+      />
     );
   }
 
@@ -209,44 +189,10 @@ export default function PushNotifications({ showSettings = false, onClose }: { s
   if (!showPrompt || !isLoggedIn) return null;
 
   return (
-    <ModalPortal>
-    <div 
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      onClick={dismiss}
-    >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      
-      {/* Bottom Sheet */}
-      <div 
-        className="relative w-full max-w-lg bg-cream rounded-t-3xl p-6 pb-10"
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          animation: 'slideUp 0.3s ease-out',
-        }}
-      >
-        {/* Handle */}
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1 bg-gray-300 rounded-full" />
-        
-        {/* Icon */}
-        <div className="flex justify-center mb-6 mt-4">
-          <div className="w-20 h-20 border border-warm bg-cream rounded-2xl flex items-center justify-center">
-            <Bell className="w-10 h-10 text-gray-900" />
-          </div>
-        </div>
-        
-        {/* Title */}
-        <h2 className="text-2xl font-bold text-gray-900 text-center mb-3">
-          Enable Notifications?
-        </h2>
-        
-        {/* Description */}
-        <p className="text-gray-500 text-center mb-6 leading-relaxed">
-          Stay in the game! Get notified when:
-        </p>
-        
+    <BrandedModal isOpen onClose={dismiss} eyebrow="Stay in the game" title="Enable notifications?" icon={Bell}>
+        <p className="text-gray-700 text-sm md:text-base mb-3">Get notified when:</p>
         {/* Benefits List */}
-        <div className="space-y-3 mb-8">
+        <div className="space-y-2">
           <div className="flex items-center gap-3 bg-cream border border-warm rounded-xl p-3">
             <div className="w-10 h-10 border border-warm bg-cream rounded-lg flex items-center justify-center flex-shrink-0">
               <Swords className="w-5 h-5 text-gray-700" />
@@ -278,38 +224,8 @@ export default function PushNotifications({ showSettings = false, onClose }: { s
           </div>
         </div>
         
-        {/* Buttons */}
-        <div className="space-y-3">
-          <button
-            onClick={subscribe}
-            className="w-full py-4 bg-[#E36B11] text-white font-bold text-lg rounded-xl hover:bg-[#c5e000] transition-colors flex items-center justify-center gap-2"
-          >
-            <Bell className="w-5 h-5" />
-            Enable Notifications
-          </button>
-          
-          <button
-            onClick={dismiss}
-            className="w-full py-3 text-gray-600 font-medium hover:text-gray-600 transition-colors border border-warm rounded-xl"
-          >
-            Maybe Later
-          </button>
-        </div>
-      </div>
-      
-      <style jsx>{`
-        @keyframes slideUp {
-          from {
-            transform: translateY(100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateY(0);
-            opacity: 1;
-          }
-        }
-      `}</style>
-    </div>
-    </ModalPortal>
+
+        <ModalActions confirmText="ENABLE NOTIFICATIONS" confirmIcon={Bell} onConfirm={subscribe} cancelText="Maybe later" onCancel={dismiss} />
+    </BrandedModal>
   );
 }

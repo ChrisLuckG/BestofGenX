@@ -1,7 +1,7 @@
 "use client";
 
-import type { ComponentType } from "react";
-import type { ReactNode } from "react";
+import { isValidElement } from "react";
+import type { ComponentType, ReactElement, ReactNode } from "react";
 import BackButton from "./BackButton";
 
 // Lucide icons and the app's own SVG components (Feed, Timeline) both fit this
@@ -17,7 +17,8 @@ export type IconType = ComponentType<{ className?: string }>;
 export default function PageHeader({
   icon: Icon, iconColor = "#E36B11", title, subtitle, onBack, right, sticky = false, className = "",
 }: {
-  icon: IconType;
+  /** An icon component (sized and coloured here) or a ready element (used as is) */
+  icon: IconType | ReactElement;
   iconColor?: string;
   title: string;
   subtitle?: string;
@@ -31,7 +32,7 @@ export default function PageHeader({
     <div className={`px-4 pt-4 pb-3 border-b border-warm bg-cream ${sticky ? "sticky top-0 z-10" : ""} ${className}`}>
       <div className="relative flex items-center gap-3 h-8">
         {onBack && <BackButton onClick={onBack} className="-ml-1" />}
-        <span className="flex-shrink-0 inline-flex" style={{ color: iconColor }}><Icon className="w-5 h-5" /></span>
+        <span className="flex-shrink-0 inline-flex" style={{ color: iconColor }}>{isValidElement(Icon) ? Icon : (() => { const C = Icon as IconType; return <C className="w-5 h-5" />; })()}</span>
         <div className="min-w-0">
           <span className="font-display text-lg tracking-wider text-gray-900 block leading-none truncate">{title}</span>
           {subtitle && <span className="text-[10px] text-gray-500 -mt-0.5 block truncate">{subtitle}</span>}

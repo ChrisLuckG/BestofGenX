@@ -100,9 +100,10 @@ export function slugify(input: string): string {
 }
 
 /**
- * Categories that NEVER auto-fill the Top Area. History and Arcade/Gaming articles
- * belong to their own date-based banner sections; they may only reach the Top Area
- * when an editor pins them manually (star / `featured`).
+ * Categories that do not auto-fill the Top Area: History and Arcade/Gaming belong to
+ * their own date-based banner sections. Exceptions: an editor-pinned (`featured`)
+ * article, and the History and Trivia Winner articles, which join the waterfall -
+ * see joinsTopWaterfall() in containerFill.ts.
  */
 export const TOP_AREA_EXCLUDED_SLUGS: string[] = ['history', 'gaming', 'tech'];
 

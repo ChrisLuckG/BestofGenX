@@ -2,7 +2,7 @@
 // Version: 2.2.0 - reliable notification-click deep linking (postMessage
 // instead of relying on WindowClient.navigate(), unsupported on iOS Safari)
 
-const SW_VERSION = '2.2.0';
+const SW_VERSION = '2.2.0-applinks';
 
 self.addEventListener('push', function(event) {
   console.log('[SW] Push received:', event);
@@ -41,7 +41,7 @@ self.addEventListener('push', function(event) {
     renotify: true,
     requireInteraction: false,
     data: {
-      url: data.url || '/mobile',
+      url: data.url || '/',
     }
   };
 
@@ -66,7 +66,7 @@ self.addEventListener('notificationclick', function(event) {
   console.log('[SW] Notification clicked:', event);
   event.notification.close();
 
-  const url = event.notification.data?.url || '/mobile';
+  const url = event.notification.data?.url || '/';
   
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {

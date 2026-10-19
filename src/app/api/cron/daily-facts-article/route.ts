@@ -125,6 +125,13 @@ export async function GET(request: NextRequest) {
 
     await dbConnect();
 
+    // ?draft=1 -> create unpublished. Daily Auto generates this article ahead of
+    // its slot and flips it to published at the slot's start time.
+    const asDraft = new URL(request.url).searchParams.get("draft") === "1";
+    // ?force=1 -> skip the "already exists for today" check (Daily Auto's Rerun creates
+    // the replacement first and only then deletes the old article)
+    const force = new URL(request.url).searchParams.get("force") === "1";
+
     const now = new Date();
     const dateKey = getDateKey(now);
     const humanDate = `${MONTHS[now.getMonth()]} ${now.getDate()}`;
@@ -135,7 +142,7 @@ export async function GET(request: NextRequest) {
       createdAt: { $gte: new Date(now.getFullYear(), now.getMonth(), now.getDate()) },
     });
 
-    if (existingArticle) {
+    if (existingArticle && !force) {
       return NextResponse.json({
         success: true,
         message: "Article already exists for today",
@@ -311,8 +318,8 @@ export async function GET(request: NextRequest) {
       thumbnailUrl: coverImage,
       category: "history",
       mainCategory: "articles",
-      status: "published",
-      publishedAt: now,
+      status: asDraft ? "draft" : "published",
+      publishedAt: asDraft ? undefined : now,
       author: authorId,
       authorName: "BOGX Team",
       views: 0,

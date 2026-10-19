@@ -56,10 +56,11 @@ export async function GET(request: Request) {
           
           await sendPushNotification(user.pushSubscription, {
             title: '🏆 Ergebnisse sind da!',
+            category: 'dailyResults',
             body: rankText,
             icon: '/images/genxlogo1.png',
             badge: '/images/genxlogo1.png',
-            url: '/mobile?tab=rankings',
+            url: '/?tab=rankings',
           });
           pushSent++;
         } catch (error) {

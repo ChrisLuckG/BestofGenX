@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { createPortal } from "react-dom";
-import { Camera, Edit2, Trophy, Coins, Target, LogOut, Lock, ChevronRight, User, Eye, EyeOff, X, FileText, Shield, HelpCircle, Phone, Check, Mail, Building, Share2, Upload, Swords } from "lucide-react";
+import { Globe, Camera, Edit2, Trophy, Coins, Target, LogOut, Lock, ChevronRight, User, Eye, EyeOff, X, FileText, Shield, HelpCircle, Phone, Check, Mail, Building, Share2, Upload, Swords } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
+import BrandedModal from "@/components/BrandedModal";
 import { useAuth } from "@/context/AuthContext";
 import InviteModal from "./InviteModal";
 import CountryFlag from "./CountryFlag";
@@ -72,7 +73,7 @@ function AccountRow({ icon, label, value, onClick, href, danger }: {
     <>
       <span className="flex items-center gap-3">
         <span className="w-8 h-8 rounded-lg bg-white/70 border border-warm/60 flex items-center justify-center">{icon}</span>
-        <span className={`text-xl font-display tracking-wide ${danger ? 'text-red-500' : 'text-gray-900'}`}>{label}</span>
+        <span className={`text-xl lg:text-base font-display tracking-wide ${danger ? 'text-red-500' : 'text-gray-900'}`}>{label}</span>
       </span>
       {!danger && (
         <span className="flex items-center gap-1 text-sm text-gray-600">
@@ -286,7 +287,9 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
 
   if (isLoading) {
     return (
-      <div className="h-full min-h-full bg-[#F5F0E8]">
+      <div className="h-full min-h-full flex flex-col bg-[#F5F0E8]">
+        {/* Same header while loading, or it would pop in when the data arrives */}
+        <PageHeader icon={User} title="Profile" subtitle="Your account, stats & earnings" />
         <ProfileSkeleton />
       </div>
     );
@@ -421,6 +424,9 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
 
   return (
     <div className="w-full h-full min-h-full flex flex-col bg-cream overflow-hidden">
+      {/* The same page header as every other section; outside the scroll area, so it stays put */}
+      <PageHeader icon={User} title="Profile" subtitle="Your account, stats & earnings" />
+
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
         
@@ -472,7 +478,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
                     <button onClick={() => setIsEditing(false)} className="px-2 py-0.5 bg-cream rounded text-gray-600 text-xs">Cancel</button>
                   </div>
                 ) : (
-                  <h2 className="text-xl lg:text-2xl font-display text-gray-900 truncate">{user.username}</h2>
+                  <h2 className="text-xl font-display text-gray-900 truncate">{user.username}</h2>
                 )}
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <CountryFlag flag={user.countryFlag || 'DE'} className="w-4 h-3 rounded-[2px]" />
@@ -486,7 +492,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
               <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/60 border border-warm/40">
                 <img src="/images/bogxcoin.png" alt="" className="w-7 h-7 lg:w-8 lg:h-8" />
                 <div className="text-right">
-                  <span className="text-2xl lg:text-3xl font-display text-[#E36B11] leading-none">{formatCurrency(animatedCoins)}</span>
+                  <span className="text-2xl lg:text-xl font-display text-[#E36B11] leading-none">{formatCurrency(animatedCoins)}</span>
                   <div className="text-[11px] font-display tracking-widest uppercase text-gray-600">BOGX</div>
                 </div>
               </div>
@@ -501,12 +507,12 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
                 ['Annually', annuallyRank, annuallyPoints],
               ] as const).map(([label, rank, points], i) => (
                 <div key={label} className={`text-center ${i === 1 ? 'border-x border-warm/50' : ''}`}>
-                  <div className="text-[13px] lg:text-sm font-display uppercase tracking-wider text-gray-600">{label}</div>
-                  <div className="text-3xl lg:text-4xl font-display text-gray-900 leading-tight">
+                  <div className="text-[13px] lg:text-[11px] font-display uppercase tracking-wider text-gray-600">{label}</div>
+                  <div className="text-3xl lg:text-xl font-display text-gray-900 leading-tight">
                     {rank ? `#${rank}` : '—'}
                   </div>
                   {points > 0 && (
-                    <div className="text-sm lg:text-base font-display text-green-600">+{formatCurrency(points)}</div>
+                    <div className="text-sm lg:text-xs font-display text-green-600">+{formatCurrency(points)}</div>
                   )}
                 </div>
               ))}
@@ -518,10 +524,10 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
                 <button onClick={() => setAuthorExpanded(v => !v)} className="w-full flex items-center justify-between text-left">
                   <span className="flex items-center gap-2">
                     <FileText className="w-5 h-5 text-gray-900" />
-                    <span className="text-xl font-display tracking-wide text-gray-900">Author earnings</span>
+                    <span className="text-xl lg:text-base font-display tracking-wide text-gray-900">Author earnings</span>
                   </span>
                   <span className="flex items-center gap-2">
-                    <span className="text-2xl font-display text-gray-900 leading-none">{formatCurrency(user.authorEarnings || 0)}</span>
+                    <span className="text-2xl lg:text-lg font-display text-gray-900 leading-none">{formatCurrency(user.authorEarnings || 0)}</span>
                     <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${authorExpanded ? 'rotate-90' : ''}`} />
                   </span>
                 </button>
@@ -574,7 +580,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
             onClick={() => setEarningsExpanded(prev => !prev)}
             className="w-full flex items-center justify-between text-left"
           >
-            <div className="text-xl font-display tracking-wide text-gray-900 flex items-center gap-2">
+            <div className="text-xl lg:text-base font-display tracking-wide text-gray-900 flex items-center gap-2">
               <img src="/images/bogxcoin.png" alt="BOGX" className="w-5 h-5" /> How You Earned Your BOGX
             </div>
             <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${earningsExpanded ? 'rotate-90' : ''}`} />
@@ -633,7 +639,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
             onClick={() => setCategoryStrengthsExpanded(prev => !prev)}
             className="w-full flex items-center justify-between text-left"
           >
-            <div className="text-xl font-display tracking-wide text-gray-900 flex items-center gap-2">
+            <div className="text-xl lg:text-base font-display tracking-wide text-gray-900 flex items-center gap-2">
               <Target className="w-5 h-5" /> Stats
             </div>
             <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${categoryStrengthsExpanded ? 'rotate-90' : ''}`} />
@@ -644,15 +650,15 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
               {/* Quick Stats Row */}
               <div className="grid grid-cols-3 gap-2 pb-3 mb-3 border-b border-warm/50">
                 <div className="text-center">
-                  <span className="font-display text-2xl lg:text-3xl text-gray-900 block leading-tight">{animatedWins}</span>
+                  <span className="font-display text-2xl lg:text-xl text-gray-900 block leading-tight">{animatedWins}</span>
                   <span className="text-[11px] font-display tracking-widest uppercase text-gray-600">Wins</span>
                 </div>
                 <div className="text-center border-x border-warm/50">
-                  <span className="font-display text-2xl lg:text-3xl text-gray-900 block leading-tight">{animatedWinRate}%</span>
+                  <span className="font-display text-2xl lg:text-xl text-gray-900 block leading-tight">{animatedWinRate}%</span>
                   <span className="text-[11px] font-display tracking-widest uppercase text-gray-600">Accuracy</span>
                 </div>
                 <div className="text-center">
-                  <span className="font-display text-2xl lg:text-3xl text-gray-900 block leading-tight">{animatedGames}</span>
+                  <span className="font-display text-2xl lg:text-xl text-gray-900 block leading-tight">{animatedGames}</span>
                   <span className="text-[11px] font-display tracking-widest uppercase text-gray-600">Games</span>
                 </div>
               </div>
@@ -713,7 +719,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
                         { label: 'Biggest win', value: battleStats.biggestWin > 0 ? `+${formatCurrency(battleStats.biggestWin)}` : '—', cls: battleStats.biggestWin > 0 ? 'text-green-600' : 'text-gray-900' },
                       ].map(s => (
                         <div key={s.label} className="bg-white/60 border border-warm/60 rounded-xl px-2 py-2.5 text-center">
-                          <div className={`font-display text-2xl leading-tight tabular-nums ${s.cls}`}>{s.value}</div>
+                          <div className={`font-display text-2xl lg:text-lg leading-tight tabular-nums ${s.cls}`}>{s.value}</div>
                           <div className="text-[11px] font-display tracking-widest uppercase text-gray-600">{s.label}</div>
                         </div>
                       ))}
@@ -784,7 +790,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
             behind it (the app is English-only, push settings were a dead end). */}
         <div className="mx-4 mt-3 bg-cream rounded-2xl shadow-sm border border-warm overflow-hidden">
           <div className="px-4 py-3 border-b border-warm/60">
-            <div className="text-xl font-display tracking-wide text-gray-900">Account</div>
+            <div className="text-xl lg:text-base font-display tracking-wide text-gray-900">Account</div>
           </div>
           <div className="divide-y divide-warm/60">
             <AccountRow
@@ -840,10 +846,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
       />
 
       {/* Avatar Picker Modal - rendered via portal to escape stacking contexts */}
-      {showAvatarPicker && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-md flex items-center justify-center z-[9999] p-4">
-          <div className="bg-gray-800 rounded-2xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-xl border border-gray-700">
-            <h2 className="text-xl font-bold text-white mb-4 text-center">Choose Avatar</h2>
+      <BrandedModal isOpen={showAvatarPicker} onClose={() => setShowAvatarPicker(false)} eyebrow="Your look" title="Choose avatar" icon={Camera} size="lg">
             
             {/* Upload your own */}
             <input
@@ -868,7 +871,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
               )}
             </button>
 
-            <p className="text-center text-gray-400 text-xs mb-3">Or choose from below</p>
+            <p className="text-center text-gray-500 text-xs mb-3">Or choose from below</p>
 
             <div className="grid grid-cols-5 gap-3 mb-4 justify-items-center">
               {avatarOptions.length === 0 && (
@@ -889,20 +892,14 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
 
             <button
               onClick={() => setShowAvatarPicker(false)}
-              className="w-full py-3 bg-gray-700 text-white font-bold rounded-xl hover:bg-gray-600 transition-colors"
+              className="w-full py-2.5 rounded-xl text-gray-500 hover:text-gray-800 hover:bg-black/5 font-display text-base tracking-wider transition-colors"
             >
               Cancel
             </button>
-          </div>
-        </div>,
-        document.body
-      )}
+      </BrandedModal>
 
       {/* Country Picker Modal - portal so it covers header/sidebars */}
-      {showCountryPicker && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
-          <div className="bg-cream rounded-2xl p-6 max-w-sm w-full shadow-xl">
-            <h2 className="text-xl font-bold text-gray-900 mb-4 text-center">Select Country</h2>
+      <BrandedModal isOpen={showCountryPicker} onClose={() => setShowCountryPicker(false)} eyebrow="Where you play from" title="Select country" icon={Globe}>
             
             <div className="space-y-2 mb-4 max-h-60 overflow-y-auto">
               {countries.map((country) => (
@@ -927,21 +924,10 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
             >
               Cancel
             </button>
-          </div>
-        </div>,
-        document.body
-      )}
+      </BrandedModal>
 
       {/* Password Change Modal - portal so it covers header/sidebars */}
-      {showPasswordModal && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start justify-center z-[9999] p-4 pt-16 overflow-y-auto">
-          <div className="bg-cream rounded-2xl p-6 max-w-sm w-full shadow-xl mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-900">Change Password</h2>
-              <button onClick={() => setShowPasswordModal(false)}>
-                <X className="w-5 h-5 text-gray-600 hover:text-gray-600" />
-              </button>
-            </div>
+      <BrandedModal isOpen={showPasswordModal} onClose={() => setShowPasswordModal(false)} eyebrow="Account" title="Change password" icon={Lock}>
             
             {passwordError && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl">
@@ -1005,24 +991,10 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
             >
               Update Password
             </button>
-          </div>
-        </div>,
-        document.body
-      )}
+      </BrandedModal>
       
       {/* Phone Number Modal - portal so it covers header/sidebars */}
-      {showPhoneModal && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-cream rounded-2xl shadow-xl p-5 w-full max-w-[340px]">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-900">Phone Number</h2>
-              <button onClick={() => {
-                setShowPhoneModal(false);
-                setPhoneSuccess(false);
-              }}>
-                <X className="w-5 h-5 text-gray-600 hover:text-gray-600" />
-              </button>
-            </div>
+      <BrandedModal isOpen={showPhoneModal} onClose={() => { setShowPhoneModal(false); setPhoneSuccess(false); }} eyebrow="Notifications" title="Phone number" icon={Phone}>
             
             <p className="text-gray-500 text-sm mb-4">
               Add your phone number to receive SMS notifications for new challenges.
@@ -1075,10 +1047,7 @@ export default function ProfilePage({ coins }: ProfilePageProps) {
             >
               {phoneSaving ? 'Saving...' : 'Save Phone Number'}
             </button>
-          </div>
-        </div>,
-        document.body
-      )}
+      </BrandedModal>
     </div>
   );
 }

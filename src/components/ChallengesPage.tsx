@@ -64,7 +64,7 @@ export default function ChallengesPage({ activeBets, onClearBet, onBack }: Chall
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-sport font-bold text-sm">March Challenge</span>
-                <span className="px-2 py-0.5 bg-sport/30 rounded-full text-[10px] font-bold text-sport">ACTIVE</span>
+                <span className="px-2 py-0.5 bg-sport/30 rounded-sm text-[10px] font-bold text-sport">ACTIVE</span>
               </div>
               <p className="text-white/70 text-xs mb-2">
                 Play daily challenges and collect as many coins as possible! Top 10 players win exclusive prizes.
@@ -187,7 +187,7 @@ export default function ChallengesPage({ activeBets, onClearBet, onBack }: Chall
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="text-sm px-3 py-1 bg-sport/20 text-sport rounded-full font-bold">
+                        <span className="text-sm px-3 py-1 bg-sport/20 text-sport rounded-sm font-bold">
                           {bet.type === "prediction" ? "PREDICTION" : bet.type === "guess" ? "GUESS" : "QUIZ"}
                         </span>
                         <span className="text-sm text-gray-600">

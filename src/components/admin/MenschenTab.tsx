@@ -11,6 +11,8 @@ import RankrollTab from "./RankrollTab";
 import { useConfirm } from "./ConfirmModal";
 import { AUTHOR_STYLES } from "@/config/authorStyles";
 import { countryNameToCode, getFlagUrl } from "@/lib/countryFlags";
+import { interestScore } from "@/lib/personScore";
+import { ARTICLE_DEFAULT_OPTIONS, articleTagsForPerson, rankrollTopicForPerson } from "@/lib/personContentDefaults";
 
 // Person interface
 interface Person {
@@ -91,24 +93,6 @@ function wikipediaSearchUrl(p: Person): string {
   return `https://en.wikipedia.org/w/index.php?search=${encodeURIComponent(`${p.firstname} ${p.lastname}`.trim())}`;
 }
 
-// Interest/completeness score (from bestofgenx)
-function interestScore(p: Person): number {
-  let score = 0;
-  if (p.knownfor) score += 25;
-  if (p.subcat) score += 10;
-  if (p.profession && p.profession !== 'Other') score += 10;
-  if (p.nationality && p.nationality !== p.countryBorn) score += 5;
-  if (p.image) score += 15;
-  if (p.born) score += 15;
-  if (p.cityBorn) score += 10;
-  if (p.died) {
-    if (p.causeOfDeath) score += 5;
-    if (p.countryDied) score += 5;
-    if (p.cityDied) score += 5;
-  }
-  return Math.min(100, score);
-}
-
 // Tooltip for person
 function buildPersonTooltip(p: Person): string {
   const lines: string[] = [];
@@ -145,6 +129,26 @@ function ageOf(born?: string): number | null {
   return Math.floor(diff / (365.25 * 24 * 3600 * 1000));
 }
 
+// Age at death, for the "Deceased" view (RIP is about the day they died, not the birthday)
+function ageAtDeath(born?: string, died?: string): number | null {
+  const b = parseBornDate(born);
+  const d = parseBornDate(died);
+  if (!b || !d) return null;
+  let age = d.getFullYear() - b.getFullYear();
+  if (d.getMonth() < b.getMonth() || (d.getMonth() === b.getMonth() && d.getDate() < b.getDate())) age--;
+  return age >= 0 ? age : null;
+}
+
+// Days from today to the next time this day of the year comes round (0 = today)
+function daysUntilNext(mmdd: string): number {
+  const [m, d] = mmdd.split('-').map(Number);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let next = new Date(now.getFullYear(), m - 1, d);
+  if (next < today) next = new Date(now.getFullYear() + 1, m - 1, d);
+  return Math.round((next.getTime() - today.getTime()) / 86400000);
+}
+
 // Format date for display
 function formatDate(born?: string): string {
   if (!born) return '—';
@@ -174,7 +178,9 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
   const [search, setSearch] = useState('');
   const [professionFilter, setProfessionFilter] = useState('');
   const [countryFilter, setCountryFilter] = useState('');
-  const [aliveFilter, setAliveFilter] = useState('');
+  // Default: the living. The day view groups by BIRTHDAY, and a deceased person does not belong among today's birthdays -
+  // they are listed (and remembered) by the day they died under 'Deceased'.
+  const [aliveFilter, setAliveFilter] = useState('alive');
   const [monthFilter, setMonthFilter] = useState<number>(new Date().getMonth() + 1);
   const [minScoreFilter, setMinScoreFilter] = useState(70);
   
@@ -217,7 +223,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
     subtitle: '',
     content: '',
     tags: [] as string[],
-    category: 'culture',
+    category: 'lifestyle',
     coverImage: '',
     thumbnailUrl: '',
     // The focal point picked in ImagePickerModal. Held here rather than applied
@@ -412,20 +418,11 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
 
     const today = new Date();
     const todayMMDD = `${today.getMonth() + 1}-${today.getDate()}`;
-    const todayDay = today.getDate();
 
     return Object.entries(grouped)
-      .sort(([a], [b]) => {
-        // Parse day numbers
-        const dayA = parseInt(a.split('-')[1]);
-        const dayB = parseInt(b.split('-')[1]);
-        
-        // Calculate distance from today (wrapping around month)
-        const distA = dayA >= todayDay ? dayA - todayDay : dayA + 31 - todayDay;
-        const distB = dayB >= todayDay ? dayB - todayDay : dayB + 31 - todayDay;
-        
-        return distA - distB;
-      })
+      // Next occurrence of the day, month included: the old day-number-only distance interleaved the
+      // months as soon as "All Months" was chosen (the 3rd of June came before the 20th of May)
+      .sort(([a], [b]) => daysUntilNext(a) - daysUntilNext(b))
       .map(([mmdd, dayPeople]) => {
         const [mm, dd] = mmdd.split('-');
         return {
@@ -525,20 +522,14 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
       title: '',
       subtitle: '',
       content: '',
-      tags: [person.profession, 'Gen X', person.countryBorn].filter((t): t is string => !!t),
-      category: 'culture',
+      tags: articleTagsForPerson(person),
+      category: 'lifestyle',
       coverImage: person.image || '',
       thumbnailUrl: person.image || '',
       imagePosX: 50,
       imagePosY: 50,
     });
-    setArticleOptions({
-      topic: '',
-      language: 'English',
-      length: 'long (~600 words)',
-      tone: 'informative',
-      extra: '',
-    });
+    setArticleOptions({ ...ARTICLE_DEFAULT_OPTIONS });
   };
 
   // Generate article with AI
@@ -563,7 +554,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
           subtitle: data.subtitle || `A look at the life and career of ${articleModal.firstname} ${articleModal.lastname}`,
           content: data.article || data.content || '',
           tags: data.tags || prev.tags,
-          category: data.category || 'culture',
+          category: data.category || 'lifestyle',
         }));
       } else {
         alert('Error: ' + data.error);
@@ -600,6 +591,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
           personRef: articleModal._id,
           autoGenerated: true,
           personCountry: articleModal.countryBorn || articleModal.nationality || '',
+          personCityBorn: articleModal.cityBorn || '',
           personName: `${articleModal.firstname} ${articleModal.lastname}`.trim(),
           personBirthday: articleModal.born,
         }),
@@ -625,14 +617,10 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
     }
   };
 
-  // Open rankroll editor with pre-filled topic.
-  // Deliberately WITHOUT a leading count ("Top 10 ..."): the generator decides how
-  // many entries a subject genuinely supports, and a hardcoded number produced
-  // titles that promised 10 while only 9 items were delivered.
+  // Open rankroll editor with pre-filled topic (recipe: lib/personContentDefaults.ts,
+  // shared with Daily Auto).
   const openRankrollEditor = (person: Person) => {
-    const name = `${person.firstname} ${person.lastname}`;
-    const topic = person.knownfor || person.profession || 'career highlights';
-    setRankrollEditorTopic(`Iconic ${topic} moments by ${name}`);
+    setRankrollEditorTopic(rankrollTopicForPerson(person));
     setRankrollEditorPerson(person._id);
   };
 
@@ -690,6 +678,8 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
           category: tvModal.profession === 'Music' ? 'Music Videos' : 'Documentaries',
           language: 'en',
           personRef: tvModal._id,
+          // the server puts it into 'Todays Bogxers' and later into the person's own category (lib/personTvVideo.ts)
+          today: true,
           featuredPosition: tvModalPosition,
         }),
       });
@@ -805,9 +795,9 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
             onChange={(e) => setAliveFilter(e.target.value)}
             className="admin-select"
           >
+            <option value="alive">Alive · birthdays</option>
+            <option value="deceased">Deceased · death days</option>
             <option value="">All</option>
-            <option value="alive">Alive</option>
-            <option value="deceased">Deceased</option>
           </select>
 
           {/* Month filter */}
@@ -995,8 +985,16 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                     const score = interestScore(person);
                     const subcat = getSubcat(person);
                     const flagUrl = getFlagUrl(undefined, person.countryBorn, '24x18');
+                    // How far along the person is, one neutral tone: white = nothing made yet,
+                    // light = one of article / rankroll, darker = both
+                    const made = (article ? 1 : 0) + (rankroll ? 1 : 0);
+                    const cardTone = [
+                      { background: '#fff', borderColor: '#E5E7EB' },
+                      { background: '#F3EEE4', borderColor: '#DDD3C0' },
+                      { background: '#E6DCC9', borderColor: '#C9BB9E' },
+                    ][made];
                     return (
-                      <div key={person._id} className="rounded-lg border border-gray-200 p-3 hover:border-gray-300 transition-colors" style={{ background: '#fff' }}>
+                      <div key={person._id} className="rounded-lg border p-3 transition-colors" style={cardTone}>
                         <div className="flex gap-3">
                           {/* Image */}
                           <button 
@@ -1027,7 +1025,10 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                             </div>
                             
                             <div className="text-xs text-gray-400 mt-0.5">
-                              {formatDate(person.born)} · {ageOf(person.born) ?? '—'}
+                              {aliveFilter === 'deceased'
+                                // Deceased view: the day that counts is the day they died
+                                ? <>† {formatDate(person.died)} · aged {ageAtDeath(person.born, person.died) ?? '—'}{(() => { const d = parseBornDate(person.died); return d ? ` · ${new Date().getFullYear() - d.getFullYear()} years ago` : ''; })()}</>
+                                : <>{formatDate(person.born)} · {ageOf(person.born) ?? '—'}</>}
                             </div>
                           </div>
                           
@@ -1041,20 +1042,20 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                         <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100">
                           <button 
                             onClick={() => openArticleModal(person)} 
-                            className={`flex-1 py-1.5 rounded text-xs font-medium border transition-colors ${
+                            className={`flex-1 py-1.5 rounded text-xs border transition-colors ${
                               article 
-                                ? 'border-gray-200 text-gray-400 bg-gray-50' 
-                                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                                ? 'border-green-300 text-green-700 font-semibold bg-green-50 hover:bg-green-100' 
+                                : 'border-gray-300 text-gray-700 font-medium hover:bg-gray-50'
                             }`}
                           >
                             {article ? '✓ Article' : 'Create Article'}
                           </button>
                           <button 
                             onClick={() => openRankrollEditor(person)} 
-                            className={`flex-1 py-1.5 rounded text-xs font-medium border transition-colors ${
+                            className={`flex-1 py-1.5 rounded text-xs border transition-colors ${
                               rankroll
-                                ? 'border-gray-200 text-gray-400 bg-gray-50'
-                                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                                ? 'border-green-300 text-green-700 font-semibold bg-green-50 hover:bg-green-100'
+                                : 'border-gray-300 text-gray-700 font-medium hover:bg-gray-50'
                             }`}
                           >
                             {rankroll ? '✓ Rankroll' : 'Create Rankroll'}
@@ -1064,7 +1065,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                             className={`relative p-1.5 rounded transition-colors ${
                               personTvVideos[person._id] 
                                 ? 'text-red-500 hover:bg-red-50' 
-                                : 'text-gray-300 hover:text-red-500 hover:bg-red-50'
+                                : 'text-gray-500 hover:text-red-500 hover:bg-red-50'
                             }`}
                             title={personTvVideos[person._id] ? `Edit TV: ${personTvVideos[person._id].title}` : 'Add to GenX TV'}
                           >
@@ -1077,7 +1078,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                           </button>
                           <button 
                             onClick={() => deletePerson(person._id)} 
-                            className="p-1.5 rounded text-gray-300 hover:text-gray-500 transition-colors"
+                            className="p-1.5 rounded text-gray-500 hover:text-red-500 hover:bg-red-50 transition-colors"
                             title="Delete"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -1253,14 +1254,6 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
                     </select>
                   </div>
                   <div>
-                    <label className="text-[10px] text-gray-500">Length</label>
-                    <select value={articleOptions.length} onChange={e => setArticleOptions({...articleOptions, length: e.target.value})} className="w-full px-2 py-1 bg-white border border-gray-300 rounded text-xs text-gray-900">
-                      <option value="short (~150 words)">Short</option>
-                      <option value="medium (~300 words)">Medium</option>
-                      <option value="long (~600 words)">Long</option>
-                    </select>
-                  </div>
-                  <div>
                     <label className="text-[10px] text-gray-500">Style</label>
                     <select value={articleOptions.tone} onChange={e => setArticleOptions({...articleOptions, tone: e.target.value})} className="w-full px-2 py-1 bg-white border border-gray-300 rounded text-xs text-gray-900">
                       {AUTHOR_STYLES.map(style => (
@@ -1396,6 +1389,7 @@ export default function MenschenTab({ userId }: MenschenTabProps) {
           hideListView={true}
           initialNewTitle={rankrollEditorTopic}
           initialPersonRef={rankrollEditorPerson}
+          initialNewImage={people.find(p => p._id === rankrollEditorPerson)?.image}
           onProposalHandled={() => {
             setRankrollEditorTopic(null);
             setRankrollEditorPerson(null);

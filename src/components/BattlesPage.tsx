@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
 import { 
   Plus, ChevronLeft, ChevronRight, ChevronDown, Swords, Check, X, Clock, HelpCircle, Trophy, Coins, Users,
   Dumbbell, Music, Film, Landmark, Shirt, Gamepad2, Tv, Palette, UtensilsCrossed, Play, Lock, LayoutGrid,
   Target, Zap, RefreshCcw, Shield, Loader2, Search, ArrowRight, ArrowLeft, Globe, BarChart3, Bell, Info, Shuffle
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import BrandedConfirmModal from "./BrandedConfirmModal";
+import BrandedModal, { ModalActions } from "./BrandedModal";
 import { useAuth } from "@/context/AuthContext";
 import LogoLoader from "@/components/LogoLoader";
 import BackButton from "@/components/BackButton";
@@ -1813,7 +1814,7 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
             <span className="text-[10px] text-white/80 uppercase">Online</span>
           </div>
           <div className="relative px-6 py-8">
-            <span className="inline-block px-3 py-1 bg-[#6B7280] text-white font-bold uppercase tracking-wider rounded-full mb-4 text-[10px]">
+            <span className="inline-block px-3 py-1 bg-[#6B7280] text-white font-bold uppercase tracking-wider rounded-sm mb-4 text-[10px]">
               Multiplayer
             </span>
             <h2 className="font-display text-white leading-tight mb-2 text-2xl md:text-3xl">
@@ -1865,7 +1866,15 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
   // POOL SCREEN
   // ═══════════════════════════════════════════════════════════════
   const renderPoolScreen = () => (
-    <div className="relative flex flex-col h-full min-h-full overflow-hidden" style={{ backgroundColor: '#F5F0E8' }}>
+    <div
+      className="relative flex flex-col h-full min-h-full overflow-hidden"
+      // The Create Battle view below is an absolute layer (inset-0), so it is exactly as tall as this
+      // box - and on desktop this box is only as tall as the list behind it. When that list got
+      // shorter a few seconds after opening (a refresh), the view shrank with it and its lower part
+      // (higher wagers, prize pool, Cancel / Open) was clipped behind a hidden scrollbar. While it is
+      // open the box keeps at least the height the view needs (~665px of content).
+      style={{ backgroundColor: '#F5F0E8', ...(isDesktop && showCreate ? { minHeight: 720 } : {}) }}
+    >
       {/* Header - same style as Solo Trivia */}
       <PageHeader
         icon={Swords}
@@ -4550,30 +4559,21 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         // first answer — otherwise players could burn their opponent's battle for
         // free and leave a pile of armed-but-unplayed games behind.
         const isFreeCancel = nobodyJoined || (!hasStartedBattle && myResults.length === 0);
-        return createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => setShowGiveUpConfirm(false)}
-          />
-          <div className="relative bg-cream border border-warm rounded-2xl w-full max-w-[340px] p-6 text-center shadow-xl">
-            <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center">
-              <X className="w-6 h-6 text-red-500" strokeWidth={2.5} />
-            </div>
-            <h3 className="font-display text-xl tracking-wider mb-2 text-gray-900">
-              {/* Only a real forfeit costs the wager - the refund cases are cancels,
-                  and leaving a battle you joined from the pool just releases it. */}
-              {!isFreeCancel
+        // Branded dialog like every other (colour band left, text right) - see BrandedModal
+        return (
+          <BrandedConfirmModal
+            isOpen
+            onClose={() => setShowGiveUpConfirm(false)}
+            onConfirm={handleGiveUp}
+            eyebrow={isFreeCancel ? 'Before you start' : 'Leaving mid-battle'}
+            title={!isFreeCancel
                 ? 'GIVE UP?'
                 : !iAmCreator && !(currentBattle as any).challengedUser
                   ? 'LEAVE BATTLE?'
                   : 'CANCEL BATTLE?'}
-            </h3>
-            {/* Mirrors /api/battles/[id]/forfeit exactly. Branching on `status` alone
-                was wrong: a battle you are already playing can still carry a stale
-                'open' status locally, which claimed "nobody has joined yet" while an
-                opponent was right there on screen. */}
-            <p className="text-gray-600 text-sm mb-6">
+            icon={Swords}
+            accent="red"
+            message={<>
               {nobodyJoined ? (
                 <>
                   Nobody has joined yet, so the battle is cancelled and your{' '}
@@ -4612,75 +4612,39 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                   <img src="/images/bogxcoin.png" alt="" className="w-4 h-4 inline align-text-bottom" />. This cannot be undone.
                 </>
               )}
-            </p>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowGiveUpConfirm(false)}
-                disabled={givingUp}
-                className="flex-1 py-3 border border-warm text-gray-600 font-display text-sm tracking-wider rounded-xl disabled:opacity-50"
-              >
-                KEEP PLAYING
-              </button>
-              <button
-                onClick={handleGiveUp}
-                disabled={givingUp}
-                className="flex-1 py-3 bg-red-500 text-white font-display text-sm tracking-wider rounded-xl hover:bg-red-600 transition-colors disabled:opacity-50"
-              >
-                {givingUp ? 'PLEASE WAIT…' : (isFreeCancel ? 'CANCEL' : 'GIVE UP')}
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
+            </>}
+            confirmText={isFreeCancel ? 'CANCEL' : 'GIVE UP'}
+            cancelText="KEEP PLAYING"
+            loading={givingUp}
+          />
         );
       })()}
 
       {/* Own Battle Cancel Modal */}
-      {selectedOwnBattle && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-          <div 
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => setSelectedOwnBattle(null)}
-          />
-          <div className="relative bg-cream border border-warm rounded-2xl w-full max-w-[340px] p-6 text-center shadow-xl">
-            <h3 className="font-display text-xl tracking-wider mb-2 text-gray-900">
-              YOUR BATTLE
-            </h3>
-            <p className="text-gray-500 text-sm mb-4">
-              {(() => { const T = getTopicConfig(selectedOwnBattle.topic); return <><T.icon className="w-4 h-4 inline" /> {T.label}</>; })()} · {selectedOwnBattle.rounds} rounds · {formatCurrency(toBOGX(selectedOwnBattle.wager))} <img src="/images/bogxcoin.png" alt="" className="w-4 h-4 inline" />
-            </p>
-            
-            {selectedOwnBattle.isPrivate && (
-              <div className="mb-4 py-2 px-3 bg-purple-50 border border-purple-200 rounded-lg text-purple-600 text-sm">
-                Private Challenge
-              </div>
-            )}
-            
-            <p className="text-gray-600 text-xs mb-6">
-              Waiting for opponent... Cancel to get your {formatCurrency(toBOGX(selectedOwnBattle.wager))} BOGX back.
-            </p>
-            
-            <div className="flex gap-3">
-              <button
-                onClick={() => setSelectedOwnBattle(null)}
-                className="flex-1 py-3 border border-warm text-gray-600 font-display text-sm tracking-wider rounded-xl"
-              >
-                CLOSE
-              </button>
-              <button
-                onClick={() => {
-                  handleCancelBattle(selectedOwnBattle._id);
-                  setSelectedOwnBattle(null);
-                }}
-                className="flex-1 py-3 bg-red-500 text-white font-display text-sm tracking-wider rounded-xl"
-              >
-                CANCEL BATTLE
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
+      {selectedOwnBattle && (
+        <BrandedConfirmModal
+          isOpen
+          onClose={() => setSelectedOwnBattle(null)}
+          onConfirm={() => { handleCancelBattle(selectedOwnBattle._id); setSelectedOwnBattle(null); }}
+          eyebrow="Waiting for an opponent"
+          title="Your battle"
+          icon={Swords}
+          bandColor={getTopicConfig(selectedOwnBattle.topic).color}
+          accent="red"
+          message={
+            <>
+              <p className="text-gray-500 text-sm mb-3">
+                {(() => { const T = getTopicConfig(selectedOwnBattle.topic); return <><T.icon className="w-4 h-4 inline" /> {T.label}</>; })()} · {selectedOwnBattle.rounds} rounds · {formatCurrency(toBOGX(selectedOwnBattle.wager))} <img src="/images/bogxcoin.png" alt="" className="w-4 h-4 inline" />
+              </p>
+              {selectedOwnBattle.isPrivate && (
+                <div className="mb-3 py-2 px-3 bg-purple-50 border border-purple-200 rounded-lg text-purple-600 text-sm">Private Challenge</div>
+              )}
+              <p className="text-gray-700 text-sm">Cancel to get your {formatCurrency(toBOGX(selectedOwnBattle.wager))} BOGX back.</p>
+            </>
+          }
+          confirmText="CANCEL BATTLE"
+          cancelText="CLOSE"
+        />
       )}
 
       {/* Open Battles Modal - purple for BattlesPage */}
@@ -4720,18 +4684,15 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
         const fullDate = createdDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         const fullTime = createdDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
         
-        return createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setQuickPreviewBattle(null)} />
-            <div className="relative bg-cream border-2 rounded-2xl w-full max-w-[360px] p-5 shadow-2xl" style={{ borderColor: topic.color }}>
-              {/* Close button */}
-              <button 
-                onClick={() => setQuickPreviewBattle(null)}
-                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
-              >
-                <X className="w-4 h-4 text-gray-500" />
-              </button>
-              
+        return (
+          <BrandedModal
+            isOpen
+            onClose={() => setQuickPreviewBattle(null)}
+            eyebrow={`${topic.label} battle`}
+            title="Open challenge"
+            icon={Swords}
+            bandColor={topic.color}
+          >
               {/* Avatar + Info */}
               <div className="flex items-center gap-4">
                 <div className="relative flex-shrink-0">
@@ -4781,9 +4742,13 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                 <span>{fullDate} • {fullTime}</span>
               </div>
               
-              {/* Action Button */}
-              <button
-                onClick={async () => {
+              
+            <ModalActions
+              confirmText="START BATTLE"
+              confirmIcon={Swords}
+              color={topic.color}
+              loading={isAccepting}
+              onConfirm={async () => {
                   if (isOnBreak) {
                     showAlert('info', 'Battles are disabled during the break (9:55-10:00).');
                     return;
@@ -4803,21 +4768,8 @@ export default function BattlePage({ coins, setCoins, onCoinAnimation, viewBattl
                   setCurrentBattle(battle);
                   await beginBattle(battle);
                 }}
-                disabled={isAccepting}
-                className="w-full mt-4 py-3 bg-[#6B7280] hover:bg-[#9333EA] text-white font-display text-sm tracking-wider rounded-xl flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
-              >
-                {isAccepting ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <>
-                    <Swords className="w-4 h-4" />
-                    START BATTLE
-                  </>
-                )}
-              </button>
-            </div>
-          </div>,
-          document.body
+            />
+          </BrandedModal>
         );
       })()}
 

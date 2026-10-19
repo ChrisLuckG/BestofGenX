@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ShoppingCart, Trash2, Plus, Minus, ShoppingBag, CreditCard, Check, Coins } from "lucide-react";
+import BrandedModal from "./BrandedModal";
 import PageTemplate from "@/components/PageTemplate";
 import LogoLoader from "@/components/LogoLoader";
 import { useCart } from "@/context/CartContext";
@@ -90,15 +91,10 @@ export default function CartPage({ onBack, onContinueShopping, userCoins = 0, on
       onBack={onBack}
     >
       {/* Processing Modal Overlay */}
-      {checkoutLoading && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-cream rounded-2xl p-8 mx-6 shadow-2xl border border-warm max-w-sm w-full text-center">
-            <LogoLoader size="md" />
-            <h3 className="font-display text-xl text-gray-900 mt-4 mb-2">Processing Order</h3>
-            <p className="text-gray-500 text-sm">Please wait while we redirect you to checkout...</p>
-          </div>
-        </div>
-      )}
+      <BrandedModal isOpen={checkoutLoading} onClose={() => {}} locked eyebrow="Checkout" title="Processing order" icon={ShoppingCart}>
+        <LogoLoader size="md" />
+        <p className="text-gray-700 text-sm md:text-base mt-4">Please wait while we redirect you to checkout...</p>
+      </BrandedModal>
 
       {items.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 px-4">

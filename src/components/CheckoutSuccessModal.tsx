@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Check, Package, Mail, X, Truck, Loader2, AlertCircle } from "lucide-react";
+import { Check, Package, Mail, Truck, Loader2, AlertCircle } from "lucide-react";
 import { useCart } from "@/context/CartContext";
-import ModalPortal from "./ModalPortal";
+import BrandedModal from "./BrandedModal";
 
 interface OrderData {
   oderId: string;
@@ -86,23 +86,15 @@ export default function CheckoutSuccessModal({ isOpen, onClose, sessionId }: Che
   if (!isOpen) return null;
 
   return (
-    <ModalPortal>
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-      {/* Blurry Background */}
-      <div 
-        className="absolute inset-0 bg-black/50 backdrop-blur-md"
-        onClick={onClose}
-      />
-      
-      {/* Content Card */}
-      <div className="relative bg-cream rounded-2xl shadow-xl max-w-sm w-full p-5 max-h-[85vh] overflow-y-auto">
-        {/* Close */}
-        <button 
-          onClick={onClose}
-          className="absolute top-3 right-3 p-1.5 text-gray-400 hover:text-gray-600"
-        >
-          <X className="w-5 h-5" />
-        </button>
+    <BrandedModal
+      isOpen
+      onClose={onClose}
+      eyebrow={loading ? 'Checkout' : paymentVerified === false ? 'Checkout' : 'Thanks for your purchase'}
+      title={loading ? 'Verifying payment' : paymentVerified === false ? 'Payment not completed' : 'Order confirmed!'}
+      icon={loading ? Loader2 : paymentVerified === false ? AlertCircle : Check}
+      accent={!loading && paymentVerified === false ? 'red' : 'orange'}
+      bandFooter={!loading && paymentVerified === true && order?.oderId ? <p className="text-white/90 text-sm font-bold">#{order.oderId}</p> : undefined}
+    >
 
         {/* Loading State */}
         {loading && (
@@ -116,10 +108,6 @@ export default function CheckoutSuccessModal({ isOpen, onClose, sessionId }: Che
         {/* Payment Failed State */}
         {!loading && paymentVerified === false && (
           <div className="text-center py-6">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
-              <AlertCircle className="w-8 h-8 text-red-500" />
-            </div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Payment Not Completed</h2>
             <p className="text-gray-500 text-sm mb-6">{verificationError}</p>
             <button
               onClick={onClose}
@@ -133,16 +121,6 @@ export default function CheckoutSuccessModal({ isOpen, onClose, sessionId }: Che
         {/* Success Header - only show when verified */}
         {!loading && paymentVerified === true && (
         <>
-        <div className="text-center mb-5">
-          <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-[#E36B11]/10 flex items-center justify-center">
-            <Check className="w-8 h-8 text-[#E36B11]" />
-          </div>
-          <h2 className="text-xl font-bold text-gray-900">Order Confirmed!</h2>
-          {order?.oderId && (
-            <p className="text-[#E36B11] text-sm font-medium mt-1">#{order.oderId}</p>
-          )}
-          <p className="text-gray-500 text-xs mt-1">Thanks for your purchase</p>
-        </div>
 
         {/* Order Items */}
         {order?.items && order.items.length > 0 && (
@@ -239,8 +217,6 @@ export default function CheckoutSuccessModal({ isOpen, onClose, sessionId }: Che
         </button>
         </>
         )}
-      </div>
-    </div>
-    </ModalPortal>
+    </BrandedModal>
   );
 }

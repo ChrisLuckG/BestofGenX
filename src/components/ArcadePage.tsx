@@ -108,7 +108,7 @@ export default function ArcadePage({ onSelectGame, onShowRankings, onShowBattles
       <div className="flex-1 flex flex-col px-2 py-4 gap-4">
         <PosterBanner
           color="#A855F7"
-          media={{ type: 'image', src: '/images/Hintergund/battle-bats.png', lineArt: true }}
+          media={{ type: 'image', src: '/images/categories/battle.png' }}
           badge={{ icon: Users, label: 'Multiplayer' }}
           topRight={
             <div className="flex items-center gap-1.5 bg-white/20 backdrop-blur-sm px-2 py-1 rounded-full">
@@ -130,9 +130,9 @@ export default function ArcadePage({ onSelectGame, onShowRankings, onShowBattles
 
         <PosterBanner
           color="#E36B11"
-          media={{ type: 'image', src: '/images/Hintergund/solo-hamster.png', lineArt: true }}
+          media={{ type: 'image', src: '/images/categories/solo.png' }}
           badge={{ icon: User, label: 'Single Player' }}
-          title="SOLO "
+          title="SOLO"
           accent="TRIVIA"
           tagline="Beat the clock. The faster you answer, the more you win."
           info={soloLive}

@@ -333,7 +333,7 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
             <div>
               <span className="font-bold text-gray-900 text-sm">My Open Battles</span>
               {totalCount > 0 && (
-                <span className={`ml-2 px-2 py-0.5 ${colors.bg} text-white text-[10px] font-bold rounded-full`}>{totalCount}</span>
+                <span className={`ml-2 px-2 py-0.5 ${colors.bg} text-white text-[10px] font-bold rounded-sm`}>{totalCount}</span>
               )}
             </div>
           </div>
@@ -607,11 +607,11 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
                                       {(battle as any).acceptedVia ? ` · joined via: ${(battle as any).acceptedVia}` : ''}
                                     </p>
                                     <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                      <span className={`px-2 py-0.5 ${colors.bgLight} ${colors.text} text-xs font-bold rounded-full flex items-center gap-1`}>
+                                      <span className={`px-2 py-0.5 ${colors.bgLight} ${colors.text} text-xs font-bold rounded-sm flex items-center gap-1`}>
                                         <img src="/images/bogxcoin.png" alt="" className="w-3 h-3" />
                                         {formatCurrency(battle.wager)}
                                       </span>
-                                      <span className="px-2 py-0.5 bg-gray-200 text-gray-600 text-xs font-medium rounded-full">{battle.topic || "Mixed"}</span>
+                                      <span className="px-2 py-0.5 bg-gray-200 text-gray-600 text-xs font-medium rounded-sm">{battle.topic || "Mixed"}</span>
                                       <span
                                         className="flex items-center gap-1 text-gray-400 text-xs"
                                         title={new Date(battle.createdAt).toLocaleString()}
@@ -690,11 +690,11 @@ export default function OpenBattlesModal({ isOpen, onClose, userId, onPlayBattle
                                   <div className="flex-1 min-w-0">
                                     <p className="text-gray-700 text-sm font-bold truncate">vs {otherPlayer?.username || "?"}</p>
                                     <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                      <span className={`px-2 py-0.5 ${colors.bgLight} ${colors.text} text-xs font-bold rounded-full flex items-center gap-1`}>
+                                      <span className={`px-2 py-0.5 ${colors.bgLight} ${colors.text} text-xs font-bold rounded-sm flex items-center gap-1`}>
                                         <img src="/images/bogxcoin.png" alt="" className="w-3 h-3" />
                                         {formatCurrency(battle.wager)}
                                       </span>
-                                      <span className="px-2 py-0.5 bg-gray-200 text-gray-600 text-xs font-medium rounded-full">{battle.topic || "Mixed"}</span>
+                                      <span className="px-2 py-0.5 bg-gray-200 text-gray-600 text-xs font-medium rounded-sm">{battle.topic || "Mixed"}</span>
                                     </div>
                                   </div>
                                   <button

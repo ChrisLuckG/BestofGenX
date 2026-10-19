@@ -56,6 +56,21 @@ export interface YouTubeSearchOptions {
    * related thumbnail than none (ranking tiles).
    */
   minRelevance?: number;
+  /**
+   * At most this many search.list calls (100 quota units EACH). Without it a miss costs tiers x variants =
+   * up to 10 calls = 1,000 units for ONE article section - that is what emptied the daily 10,000 after
+   * two or three articles (18./19.10.2026).
+   */
+  maxSearches?: number;
+  /** Throw YouTubeQuotaError on 403/429 instead of answering "nothing found" - so the caller can retry later. */
+  throwOnQuota?: boolean;
+  /** Use exactly these query variants (in order) instead of the built-in "documentary / archive footage / full" ones. */
+  queries?: string[];
+}
+
+/** YouTube refused for quota / rate reasons: "nothing found" would be wrong - it is "not now". */
+export class YouTubeQuotaError extends Error {
+  constructor(status: number) { super(`YouTube quota/rate limit (HTTP ${status})`); this.name = 'YouTubeQuotaError'; }
 }
 
 export interface YouTubeSearchResult {
@@ -202,7 +217,11 @@ export async function searchYouTubeVideo(
     extraQueries,
     context,
     minRelevance = DEFAULT_MIN_RELEVANCE,
+    maxSearches = Infinity,
+    throwOnQuota = false,
+    queries,
   } = options;
+  let searches = 0;
 
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) {
@@ -211,7 +230,7 @@ export async function searchYouTubeVideo(
   }
   if (!query?.trim()) return null;
 
-  const variants = buildQueryVariants(query, year, extraQueries);
+  const variants = queries?.length ? queries : buildQueryVariants(query, year, extraQueries);
   // Tokens come from the raw query, not from the padded variants: "documentary"
   // and "archive footage" are format words, not subject matter.
   const queryTokens = tokenize(year ? `${query} ${year}` : query);
@@ -221,6 +240,8 @@ export async function searchYouTubeVideo(
   // worth more here than a short video from the perfect query.
   for (const tier of tiers) {
     for (const q of variants) {
+      if (searches >= maxSearches) return null;
+      searches++;
       const durationParam = tier === 'any' ? '' : `&videoDuration=${tier}`;
       const url =
         `https://www.googleapis.com/youtube/v3/search?part=snippet` +
@@ -232,10 +253,16 @@ export async function searchYouTubeVideo(
         const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
         if (!res.ok) {
           console.error('[YouTube] API error', res.status, 'for', tier, q);
+          // quota / rate limit: every further call fails too - stop here
+          if (res.status === 403 || res.status === 429) {
+            if (throwOnQuota) throw new YouTubeQuotaError(res.status);
+            return null;
+          }
           continue;
         }
         data = await res.json();
       } catch (err) {
+        if (err instanceof YouTubeQuotaError) throw err;
         console.error('[YouTube] Request failed for', tier, q, err);
         continue;
       }

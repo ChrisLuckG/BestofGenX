@@ -1264,7 +1264,7 @@ export default function BogxInvadersGame({
               className="hidden xl:block bogx-float absolute top-[100px] left-2 w-56 h-56 pointer-events-none z-0 drop-shadow-[0_0_30px_rgba(139,92,246,0.55)]"
             />
             <div className="relative z-10 w-full max-w-xl flex flex-col items-center text-center">
-              <span className="inline-block px-3 py-1 bg-[#760b79] text-white font-bold uppercase tracking-wider rounded-full text-[10px]">
+              <span className="inline-block px-3 py-1 bg-[#760b79] text-white font-bold uppercase tracking-wider rounded-sm text-[10px]">
                 Single Player
               </span>
               <h2 className="font-display text-white leading-tight mt-4 text-3xl md:text-4xl">

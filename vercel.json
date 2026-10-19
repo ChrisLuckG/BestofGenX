@@ -5,14 +5,9 @@
       "schedule": "55 7 * * *"
     },
     {
-      "path": "/api/cron/daily-winners-article",
-      "schedule": "56 7 * * *"
-    },
-    {
       "path": "/api/cron/game-ending",
       "schedule": "55 7 * * *"
     },
-
     {
       "path": "/api/cron/bot-activity",
       "schedule": "59 7 * * *"
@@ -26,20 +21,12 @@
       "schedule": "0 8 * * *"
     },
     {
-      "path": "/api/cron/game-reminder",
-      "schedule": "5 8 * * *"
-    },
-    {
       "path": "/api/cron/auto-publish-products",
       "schedule": "0 10 * * *"
     },
     {
       "path": "/api/daily-facts",
       "schedule": "55 6 * * *"
-    },
-    {
-      "path": "/api/cron/daily-facts-article",
-      "schedule": "0 7 * * *"
     },
     {
       "path": "/api/cron/archive-old-articles",

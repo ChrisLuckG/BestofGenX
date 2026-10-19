@@ -4,9 +4,12 @@ import { useState, useEffect, useRef, memo } from "react";
 import { createPortal } from "react-dom";
 import { GENX_MOODS, DEFAULT_MOOD, getMoodById } from "@/config/moods";
 import { REACTION_REWARD } from "@/config/rewards";
+import CardVolumeBadge from "./CardVolumeBadge";
 
 interface CardMoodReactionsProps {
   articleId: string;
+  /** Set for an article about a person: the card shows the person's "Goes to 11" level instead of mood emojis */
+  personRef?: string | null;
   userId?: string;
   isLoggedIn: boolean;
   onShowLogin?: () => void;
@@ -364,4 +367,7 @@ const CardMoodReactions = memo(CardMoodReactionsInner, (prevProps, nextProps) =>
          prevProps.initialRewarded === nextProps.initialRewarded;
 });
 
-export default CardMoodReactions;
+// Person articles: readers rate the PERSON (Goes to 11), not the article - lib/personVolume.ts
+export default function CardReactionsOrVolume(props: CardMoodReactionsProps) {
+  return props.personRef ? <CardVolumeBadge personId={String(props.personRef)} size={props.size} /> : <CardMoodReactions {...props} />;
+}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { X, Mail, MessageCircle, QrCode, Copy, Check, Share2 } from "lucide-react";
-import ModalPortal from "./ModalPortal";
+import BrandedModal from "./BrandedModal";
 
 interface InviteModalProps {
   isOpen: boolean;
@@ -63,36 +63,15 @@ export default function InviteModal({ isOpen, onClose, userId, username, referra
   const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(inviteUrl)}`;
 
   return (
-    <ModalPortal>
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-5">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="h-24 bg-gradient-to-br from-[#E36B11]/15 via-[#E36B11]/5 to-transparent relative">
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/80 hover:bg-white border border-warm flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors shadow-sm"
-          >
-            <X className="w-4 h-4" />
-          </button>
-          <div className="absolute -bottom-7 left-1/2 -translate-x-1/2">
-            <div className="w-14 h-14 rounded-2xl bg-white border border-warm shadow-md flex items-center justify-center">
-              <Share2 className="w-7 h-7 text-[#E36B11]" />
-            </div>
-          </div>
-        </div>
-
-        <div className="px-7 pt-12 pb-6">
-          <h2 className="font-display text-[26px] tracking-wide text-gray-900 leading-tight text-center mb-1">
-            Invite friends
-          </h2>
-          <p className="text-gray-500 text-[14px] leading-relaxed text-center mb-1">
-            Share Best of GenX with your crew, {username}.
-          </p>
-          <p className="text-[13px] text-[#E36B11] font-bold text-center mb-5">
-            +5.00 BOGX for every friend who joins
-          </p>
+    <BrandedModal
+      isOpen
+      onClose={onClose}
+      eyebrow="Share Best of GenX"
+      title="Invite friends"
+      icon={Share2}
+      bandFooter={<p className="text-white/90 text-sm font-bold">+5.00 BOGX for every friend who joins</p>}
+    >
+          <p className="text-gray-700 text-sm md:text-base leading-relaxed mb-4">Share Best of GenX with your crew, {username}.</p>
 
           {referralCount > 0 && (
             <div className="text-center mb-4 text-[12px] text-gray-500">
@@ -163,9 +142,6 @@ export default function InviteModal({ isOpen, onClose, userId, username, referra
               More sharing options...
             </button>
           )}
-        </div>
-      </div>
-    </div>
-    </ModalPortal>
+    </BrandedModal>
   );
 }

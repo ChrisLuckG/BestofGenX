@@ -55,7 +55,7 @@ export default function BattleSetupScreen({
         >
           <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent" />
           <div className="relative px-6 py-8">
-            <span className="inline-block px-3 py-1 bg-[#A855F7] text-white font-bold uppercase tracking-wider rounded-full mb-4 text-[10px]">
+            <span className="inline-block px-3 py-1 bg-[#A855F7] text-white font-bold uppercase tracking-wider rounded-sm mb-4 text-[10px]">
               Multiplayer
             </span>
             <h2 className="font-display text-white leading-tight mb-2 text-2xl md:text-3xl">

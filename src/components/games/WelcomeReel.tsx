@@ -7,11 +7,13 @@ import CountryFilterMenu from "@/components/CountryFilterMenu";
 import PollCard from "@/components/PollCard";
 import QuizPollCard from "@/components/QuizPoll";
 import CardMoodReactions from "@/components/CardMoodReactions";
+import CardVolumeBadge, { usePersonVolumes, compareLoudness } from "@/components/CardVolumeBadge";
 import CategoryBadge from "@/components/CategoryBadge";
 import LazyImage from "@/components/LazyImage";
 import { useAuth } from "@/context/AuthContext";
 import { getAutoFillSlugs, getCategoryLabel as getSubCategoryLabel, getCategoryColor, TOP_AREA_EXCLUDED_SLUGS } from "@/lib/categories";
 import { getFlagUrl as resolveFlagUrl } from "@/lib/countryFlags";
+import { articleSortDate, joinsTopWaterfall } from "@/lib/containerFill";
 
 interface Article {
   _id: string;
@@ -37,7 +39,9 @@ interface Article {
   commentsCount?: number;
   status?: 'draft' | 'published' | 'archived';
   contentType?: string;
+  tags?: string[];
   createdAt?: string;
+  publishedAt?: string;
   scheduledAt?: string;
   order?: number;  // Manual sort order (lower = higher); drives the Top Area order
   closesAt?: string;  // For voting/poll articles - when the poll closes
@@ -55,15 +59,12 @@ interface Article {
 }
 
 // Feed order — must stay identical to the admin Post Manager sort:
-// manual drag order (`order`, lower = higher) wins, then newest first by
-// scheduledAt (falling back to createdAt).
-const articleDate = (a: Article): number =>
-  new Date(a.scheduledAt || a.createdAt || 0).getTime();
-
+// manual drag order (`order`, lower = higher) wins, then newest first by go-live
+// time (articleSortDate in containerFill.ts, shared with the admin layout editor).
 const compareArticles = (a: Article, b: Article): number => {
   const ao = a.order ?? 0, bo = b.order ?? 0;
   if (ao !== bo) return ao - bo;
-  return articleDate(b) - articleDate(a);
+  return articleSortDate(b) - articleSortDate(a);
 };
 
 // Main category labels for frontend display
@@ -199,7 +200,7 @@ const SliderCard = ({
         <h3 className={`font-display text-[20px] tracking-wide leading-tight line-clamp-2 transition-[color,transform] duration-300 ease-out origin-left group-hover:scale-[1.04] text-gray-900 ${hasColorTheme ? 'group-hover:text-[#F5F0E8]' : ''}`}>{article.title}</h3>
         {/* Likes & Comments */}
         <div className="flex items-center gap-2 mt-1 text-[8px] text-gray-500" onClick={(e) => e.stopPropagation()}>
-          <CardMoodReactions articleId={article._id} userId={userId} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="xs" useExternalData initialReactions={reactionData?.reactions} initialUserReaction={reactionData?.userReaction} initialRewarded={reactionData?.rewarded} onReactionChange={onReactionChange} />
+          <CardMoodReactions articleId={article._id} personRef={(article as any).personRef} userId={userId} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="xs" useExternalData initialReactions={reactionData?.reactions} initialUserReaction={reactionData?.userReaction} initialRewarded={reactionData?.rewarded} onReactionChange={onReactionChange} />
           <span className="flex items-center gap-0.5">
             <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -630,6 +631,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
       <div className="flex items-center gap-4 text-gray-500">
         <CardMoodReactions 
             articleId={article._id} 
+            personRef={(article as any).personRef} 
             userId={user?.id} 
             isLoggedIn={isLoggedIn} 
             onShowLogin={onShowLogin}
@@ -857,7 +859,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
           </div>
           {/* Mood Reactions & Comments inline */}
           <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-            <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="sm" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} initialRewarded={reactionsMap[article._id]?.rewarded} onReactionChange={handleReactionChange} />
+            <CardMoodReactions articleId={article._id} personRef={(article as any).personRef} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="sm" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} initialRewarded={reactionsMap[article._id]?.rewarded} onReactionChange={handleReactionChange} />
             <span className="flex items-center gap-1">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -1010,7 +1012,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         <div className="flex items-center justify-end gap-1 text-[10px] text-white/70">
           {/* Moods & Comments inline */}
           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-            <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="xs" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} initialRewarded={reactionsMap[article._id]?.rewarded} onReactionChange={handleReactionChange} />
+            <CardMoodReactions articleId={article._id} personRef={(article as any).personRef} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="xs" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} initialRewarded={reactionsMap[article._id]?.rewarded} onReactionChange={handleReactionChange} />
             <span className="flex items-center gap-0.5">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -1077,7 +1079,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                       </div>
           {/* Likes & Comments inline */}
           <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-            <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="xs" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} initialRewarded={reactionsMap[article._id]?.rewarded} onReactionChange={handleReactionChange} />
+            <CardMoodReactions articleId={article._id} personRef={(article as any).personRef} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="xs" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} initialRewarded={reactionsMap[article._id]?.rewarded} onReactionChange={handleReactionChange} />
             <span className="flex items-center gap-0.5">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -1278,7 +1280,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
         </div>
         <h3 className={`font-display tracking-wide text-gray-900 leading-tight line-clamp-1 origin-left transition-transform duration-300 ease-out group-hover:scale-[1.04] ${isDesktop ? 'text-[20px]' : 'text-[20px]'}`}>{article.title}</h3>
         <div className="flex items-center gap-3 text-[10px] text-gray-500 mt-0.5" onClick={(e) => e.stopPropagation()}>
-          <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="xs" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} initialRewarded={reactionsMap[article._id]?.rewarded} onReactionChange={handleReactionChange} />
+          <CardMoodReactions articleId={article._id} personRef={(article as any).personRef} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} onCoinAnimation={onCoinAnimation} size="xs" useExternalData initialReactions={reactionsMap[article._id]?.reactions} initialUserReaction={reactionsMap[article._id]?.userReaction} initialRewarded={reactionsMap[article._id]?.rewarded} onReactionChange={handleReactionChange} />
           <span className="flex items-center gap-0.5">
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -1323,6 +1325,8 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
   const [viewMode, setViewMode] = useState<'feed' | 'timeline'>('feed');
   const [timelineFilter, setTimelineFilter] = useState<'all' | 'alive' | 'rip'>('all');
   const [timelineCountries, setTimelineCountries] = useState<string[]>([]);
+  // Goes-to-11 levels of the Timeline's people: each year is ranked loudest first (one batched request)
+  const timelineVolumes = usePersonVolumes(viewMode === 'timeline' ? articles.map(a => (a as any).personRef) : []);
   
   // Map tab names to mainCategory values
   const categoryMap: Record<string, string | null> = {
@@ -1540,6 +1544,10 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
             if (!byYear[a.birthYear]) byYear[a.birthYear] = [];
             byYear[a.birthYear].push(a);
           });
+          // Each year from Top 1 down: the loudest GenXers (Goes to 11) first; ties and people without
+          // votes keep the order they had (stable sort)
+          const volOf = (a: Article) => ((a as any).personRef ? timelineVolumes.get(String((a as any).personRef)) : undefined);
+          for (const y of Object.keys(byYear)) byYear[Number(y)].sort((a, b) => compareLoudness(volOf(a), volOf(b)));
           
           const years = Object.keys(byYear).map(Number).sort((a, b) => a - b);
           
@@ -1554,7 +1562,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
               <div className="flex items-center gap-2 mb-3">
                 <button
                   onClick={() => setTimelineFilter('all')}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                  className={`px-3 py-1.5 rounded-sm text-xs font-medium transition-all ${
                     timelineFilter === 'all' ? 'bg-[#E36B11] text-white' : 'bg-warm text-gray-600 hover:bg-[#E36B11]/20'
                   }`}
                 >
@@ -1562,7 +1570,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                 </button>
                 <button
                   onClick={() => setTimelineFilter('alive')}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                  className={`px-3 py-1.5 rounded-sm text-xs font-medium transition-all ${
                     timelineFilter === 'alive' ? 'bg-green-600 text-white' : 'bg-warm text-gray-600 hover:bg-green-100'
                   }`}
                 >
@@ -1570,7 +1578,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                 </button>
                 <button
                   onClick={() => setTimelineFilter('rip')}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                  className={`px-3 py-1.5 rounded-sm text-xs font-medium transition-all ${
                     timelineFilter === 'rip' ? 'bg-gray-700 text-white' : 'bg-warm text-gray-600 hover:bg-gray-200'
                   }`}
                 >
@@ -1598,12 +1606,14 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                     </div>
                     {/* People in this year */}
                     <div className="space-y-1">
-                      {byYear[year].map(article => (
+                      {byYear[year].map((article, rank) => (
                         <button
                           key={article._id}
                           onClick={() => handleArticleClick(article._id)}
                           className="w-full flex items-center gap-3 p-2 border border-warm rounded hover:border-[#E36B11]/50 hover:bg-[#E36B11]/5 transition-all text-left group"
                         >
+                          {/* Rank in this year (loudest first) */}
+                          <span className={`w-6 text-right font-display text-sm flex-shrink-0 ${rank < 3 && volOf(article)?.count ? 'text-[#E36B11]' : 'text-gray-400'}`}>{rank + 1}</span>
                           {/* Thumbnail */}
                           <div className="w-12 h-12 rounded overflow-hidden flex-shrink-0 border border-warm">
                             {article.coverImage ? (
@@ -1624,6 +1634,10 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                               {article.personCountry && ` • ${article.personCountry}`}
                             </div>
                           </div>
+                          {/* Goes to 11 level of the person */}
+                          {(article as any).personRef && (
+                            <span className="flex-shrink-0"><CardVolumeBadge personId={String((article as any).personRef)} size="sm" /></span>
+                          )}
                           {/* Country Flag */}
                           {articleFlagUrl(article) && (
                             <img 
@@ -1668,7 +1682,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                   // NOTE: Do NOT filter by usedArticleIds here - that's done live in each block
                   // because usedArticleIds is mutated during rendering of earlier blocks
                   const containerPool = (isTop
-                    ? articles.filter(a => a.status === 'published' && a.contentType !== 'rankroll' && a.contentType !== 'music-community' && a.contentType !== 'banner-page' && (a.featured || (!bannerCategories.has(a.category?.toLowerCase() || '') && !bannerArticleIds.has(a._id))))
+                    ? articles.filter(a => a.status === 'published' && a.contentType !== 'rankroll' && a.contentType !== 'music-community' && a.contentType !== 'banner-page' && (a.featured || (!bannerArticleIds.has(a._id) && (joinsTopWaterfall(a) || !bannerCategories.has(a.category?.toLowerCase() || '')))))
                     : articles.filter(a => a.status === 'published' && a.contentType !== 'rankroll' && a.contentType !== 'music-community' && a.contentType !== 'banner-page' && containerCats.includes(a.category?.toLowerCase() || ''))
                   ).sort(compareArticles);
                   // Frontend theme styles - SAME as Admin (ContainerBlock.tsx)
@@ -1800,9 +1814,10 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                               || articles.filter(a => a.category === 'music' && a.status === 'published')
                                 .sort(compareArticles)[0];
                           } else if (DATE_BASED_AREAS.has(autoCategory)) {
-                            // Arcade / History: always the newest article of the category
+                            // Arcade / History: the newest article of the category that the Top
+                            // Area has not already taken (waterfall: one place per article)
                             fixedArticle = articles
-                              .filter(a => a.status === 'published' && cats.includes(a.category?.toLowerCase() || ''))
+                              .filter(a => a.status === 'published' && cats.includes(a.category?.toLowerCase() || '') && !usedArticleIds.has(a._id))
                               .sort(compareArticles)[0];
                           } else {
                             // Other banners (Eastercorn, Sport, TV/Cinema, Lifestyle, RIP): prefer the
@@ -1995,7 +2010,7 @@ function LandingPageInner({ onOpenArticle, readArticles = EMPTY_SET, isDesktop =
                           return (
                             <div key={blockIdx} className="relative rounded-xl overflow-hidden bg-black">
                               {/* Live indicator */}
-                              <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                              <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-sm">
                                 <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
                                 LIVE
                               </div>

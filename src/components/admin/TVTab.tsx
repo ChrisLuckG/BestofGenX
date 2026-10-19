@@ -268,7 +268,7 @@ export default function TVTab() {
             title: prev.title || data.metadata.title || '',
             description: prev.description || data.metadata.description || '',
             duration: data.metadata.duration || '',
-            language: data.metadata.language || 'en', // Auto-detected!
+            language: 'en', // GenX TV is English-only
           }));
         }
       } catch (error) {
@@ -710,25 +710,6 @@ export default function TVTab() {
                 className="w-full bg-paper border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E36B11]"
               />
             </div>
-            <div>
-              <label className="block text-gray-500 text-xs mb-1">Language</label>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setNewVideo(prev => ({ ...prev, language: 'en' }))}
-                  className={`flex items-center gap-1 px-3 py-2 rounded-lg text-sm ${newVideo.language === 'en' ? 'bg-blue-600' : 'bg-gray-100 hover:bg-gray-200'}`}
-                >
-                  🇬🇧 EN
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setNewVideo(prev => ({ ...prev, language: 'de' }))}
-                  className={`flex items-center gap-1 px-3 py-2 rounded-lg text-sm ${newVideo.language === 'de' ? 'bg-blue-600' : 'bg-gray-100 hover:bg-gray-200'}`}
-                >
-                  🇩🇪 DE
-                </button>
-              </div>
-            </div>
             <div className="col-span-2">
               <label className="block text-gray-500 text-xs mb-1">Description</label>
               <textarea
@@ -864,14 +845,6 @@ export default function TVTab() {
                     placeholder="Duration"
                     className="w-16 bg-paper border border-gray-200 rounded px-2 py-1 text-sm"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setEditingVideo(prev => ({ ...prev, language: prev?.language === 'de' ? 'en' : 'de' }))}
-                    className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm"
-                    title="Toggle language"
-                  >
-                    {editingVideo.language === 'de' ? '🇩🇪' : '🇬🇧'}
-                  </button>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={handleUpdate} className="flex-1 bg-green-600 hover:bg-green-700 py-1 rounded text-xs">
@@ -920,7 +893,7 @@ export default function TVTab() {
                 </div>
                 <div className="p-3">
                   <div className="flex items-center gap-1">
-                    <span className="text-xs">{video.language === 'de' ? '🇩🇪' : '🇬🇧'}</span>
+                    <span className="text-xs"></span>
                     <h4 className="font-medium text-sm truncate flex-1">{video.title}</h4>
                   </div>
                   <p className="text-gray-500 text-xs">{video.category}</p>
@@ -1020,7 +993,7 @@ export default function TVTab() {
               <div className="text-xs text-gray-500">{video.duration || '—'}</div>
               
               {/* Language */}
-              <div className="text-sm">{video.language === 'de' ? '🇩🇪' : '🇬🇧'}</div>
+              <div className="text-sm"></div>
               
               {/* Actions */}
               <div className="flex gap-1 justify-end">

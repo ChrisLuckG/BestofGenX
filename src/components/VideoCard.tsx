@@ -66,7 +66,7 @@ export default function VideoCard({ title, sport, youtubeId, thumbnailUrl }: Vid
         )}
 
         {/* Sport badge */}
-        <div className="absolute top-4 left-4 px-3 py-1 bg-sport/80 rounded-full text-xs font-bold z-10">
+        <div className="absolute top-4 left-4 px-3 py-1 bg-sport/80 rounded-sm text-xs font-bold z-10">
           {sport}
         </div>
       </div>

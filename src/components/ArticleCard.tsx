@@ -134,7 +134,7 @@ export default function ArticleCard({ article, onClick, onShowLogin, variant = '
           
           {/* Moods & Comments */}
           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-            <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" />
+            <CardMoodReactions articleId={article._id} personRef={(article as any).personRef} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" />
             {article.commentCount !== undefined && article.commentCount > 0 && (
               <div className="flex items-center gap-0.5">
                 <MessageCircle className="w-3 h-3" />

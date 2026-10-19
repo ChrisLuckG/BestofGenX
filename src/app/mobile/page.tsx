@@ -1,5 +1,7 @@
 "use client";
 import PageHeader, { HeaderChip } from "@/components/PageHeader";
+import BrandedConfirmModal from "@/components/BrandedConfirmModal";
+import { Clock as ClockIcon, Moon } from "lucide-react";
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Bell, Vote, X, Trophy, Swords, TrendingUp } from "lucide-react";
@@ -342,6 +344,14 @@ export default function MobilePage() {
     const tab = params.get('tab');
     const ref = params.get('ref');
     const battleParam = params.get('battle');
+    const articleParam = params.get('article');
+
+    // A push about an article (lib/appLinks.ts): open it IN the app
+    if (articleParam) {
+      setOpenRankrollData(null);
+      setOpenArticleId(articleParam);
+      return;
+    }
 
     // Deep-link from a battle-challenge push. This must NOT set pendingBattleId
     // directly - that path accepts the challenge (deducting the wager) and drops
@@ -375,6 +385,12 @@ export default function MobilePage() {
     } else if (tab === 'battles') {
       setArcadeGame('quizzbattle');
       setActiveTab('arcade');
+    } else if (tab === 'arcade') {
+      setActiveTab('arcade');
+    } else if (tab === 'notifications') {
+      setActiveTab('notifications');
+    } else if (tab === 'radio') {
+      setActiveTab('radio');
     }
   };
 
@@ -2369,36 +2385,18 @@ export default function MobilePage() {
       </div>
 
       {/* Wait Modal - shown when trying to swipe before game starts */}
-      {showWaitModal && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
-          onClick={() => setShowWaitModal(false)}
-        >
-          <div 
-            className="bg-gray-900 border border-[#E36B11]/50 rounded-2xl p-6 mx-4 max-w-sm text-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#E36B11]/20 flex items-center justify-center">
-              <span className="text-3xl">{isGameLive ? '⏳' : '😴'}</span>
-            </div>
-            <h2 className="text-xl font-bold text-white mb-2">
-              {isGameLive ? 'Hold On!' : 'Shhh... Nap Time!'}
-            </h2>
-            <p className="text-white/70 text-sm mb-4">
-              {isGameLive 
-                ? 'Start the game first by clicking the challenge box above. Complete the 3-2-1 countdown to unlock swiping!'
-                : 'Even Gen X legends need their beauty sleep! 💤 Daily challenges run from 10:00 to 21:00 CET. Set an alarm and come back refreshed!'
-              }
-            </p>
-            <button
-              onClick={() => setShowWaitModal(false)}
-              className="w-full py-3 bg-[#E36B11] hover:bg-[#c4e000] rounded-xl font-bold text-black transition-colors"
-            >
-              {isGameLive ? 'Got it!' : 'Sweet Dreams! 🌙'}
-            </button>
-          </div>
-        </div>
-      )}
+      <BrandedConfirmModal
+        isOpen={showWaitModal}
+        onClose={() => setShowWaitModal(false)}
+        onConfirm={() => setShowWaitModal(false)}
+        eyebrow={isGameLive ? 'Not yet' : 'Come back later'}
+        title={isGameLive ? 'Hold on!' : 'Shhh... nap time!'}
+        icon={isGameLive ? ClockIcon : Moon}
+        message={isGameLive
+          ? 'Start the game first by clicking the challenge box above. Complete the 3-2-1 countdown to unlock swiping!'
+          : 'Even Gen X legends need their beauty sleep! Daily challenges run from 10:00 to 21:00 CET. Set an alarm and come back refreshed!'}
+        confirmText={isGameLive ? 'GOT IT!' : 'SWEET DREAMS!'}
+      />
 
       {/* Just For Fun Modal */}
       <JustForFunModal 

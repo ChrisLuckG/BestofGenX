@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Search, FileText, Check, MessageCircle, Heart, Eye, Loader2 } from "lucide-react";
+import { Search, FileText, Check, MessageCircle, Heart, Eye, Loader2, Volume2 } from "lucide-react";
+import { usePersonVolumes, compareLoudness } from "./CardVolumeBadge";
 import PageHeader, { HeaderButton } from "@/components/PageHeader";
 import { useAuth } from "@/context/AuthContext";
 import CardMoodReactions from "@/components/CardMoodReactions";
@@ -21,6 +22,7 @@ interface Article {
   trending?: boolean;
   views?: number;
   likes?: number;
+  personRef?: string;
   comments?: number;
   createdAt?: string;
 }
@@ -191,9 +193,12 @@ export default function ArticlesListPage({ onOpenArticle, onShowLogin, initialCa
   });
 
   // Sort based on filter
+  // Goes-to-11 levels of the people in the list (one batched request), for the "Loudest" sort
+  const volumes = usePersonVolumes(articles.map(x => x.personRef));
   const sortedArticles = [...filteredArticles].sort((a, b) => {
     if (filter === 'commented') return (b.comments || 0) - (a.comments || 0);
-    if (filter === 'liked') return (b.likes || 0) - (a.likes || 0);
+    // "Loudest": person articles by the person's Goes-to-11 level, then everything else by likes
+    if (filter === 'liked') return compareLoudness(a.personRef ? volumes.get(String(a.personRef)) : undefined, b.personRef ? volumes.get(String(b.personRef)) : undefined) || (b.likes || 0) - (a.likes || 0);
     if (filter === 'read') return (b.views || 0) - (a.views || 0);
     if (filter === 'newest') return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
     if (filter === 'oldest') return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
@@ -251,7 +256,7 @@ export default function ArticlesListPage({ onOpenArticle, onShowLogin, initialCa
             { key: 'oldest' as const, label: 'Oldest', icon: null },
             { key: 'unread' as const, label: 'Unread', icon: null },
             { key: 'commented' as const, label: 'Top Commented', icon: MessageCircle },
-            { key: 'liked' as const, label: 'Most Liked', icon: Heart },
+            { key: 'liked' as const, label: 'Loudest', icon: Volume2 },
           ].map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -354,7 +359,7 @@ export default function ArticlesListPage({ onOpenArticle, onShowLogin, initialCa
                   </div>
                   {/* Reactions on separate line */}
                   <div className="mt-1" onClick={(e) => e.stopPropagation()}>
-                    <CardMoodReactions articleId={article._id} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" />
+                    <CardMoodReactions articleId={article._id} personRef={(article as any).personRef} userId={user?.id} isLoggedIn={isLoggedIn} onShowLogin={onShowLogin} size="xs" />
                   </div>
                 </div>
 

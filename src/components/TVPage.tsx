@@ -2,9 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Play, Tv, Search, Clock, Globe, Film, ChevronLeft, ChevronRight, X, ExternalLink } from "lucide-react";
+import { Play, Tv, Search, Clock, Film, ChevronLeft, ChevronRight, X, ExternalLink } from "lucide-react";
 import PageHeader, { HeaderButton } from "@/components/PageHeader";
-import CountryFlag from "@/components/CountryFlag";
 import BackButton from "@/components/BackButton";
 import { TVSkeleton } from "@/components/desktop/DesktopSkeletons";
 
@@ -20,6 +19,9 @@ interface TVVideo {
   language: 'de' | 'en';
   featured: boolean;
   featuredPosition?: number;
+  todayAt?: string | null;
+  categoryAt?: string | null;
+  createdAt?: string;
 }
 
 // Category Row with horizontal scroll and arrows
@@ -132,10 +134,6 @@ function CategoryRow({ category, videos, showSeparator, onVideoClick }: {
                   {video.duration}
                 </span>
               )}
-              {/* Language flag */}
-              <span className="absolute top-1 right-1">
-                <CountryFlag flag={video.language === 'de' ? 'DE' : 'GB'} className="w-5 h-4 rounded-sm shadow-sm" />
-              </span>
             </div>
             {/* Title OUTSIDE/below the video */}
             <h4 className="mt-1.5 font-display text-gray-900 text-sm uppercase tracking-wide line-clamp-2 leading-tight origin-left transition-transform duration-300 ease-out group-hover:scale-[1.04]">
@@ -216,8 +214,7 @@ export default function TVPage({ onBack, initialVideoId }: TVPageProps = {}) {
 
   const filteredVideos = videos.filter(v => {
     const matchesSearch = !searchQuery || v.title.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesLanguage = languageFilter === 'all' || v.language === languageFilter;
-    return matchesSearch && matchesLanguage;
+    return matchesSearch;
   });
   
   // Get categories in order from DB, only show categories that have videos
@@ -229,8 +226,12 @@ export default function TVPage({ onBack, initialVideoId }: TVPageProps = {}) {
     .filter(cat => !categoryOrder.includes(cat));
   const categories = [...categoriesWithVideos, ...extraCategories];
   
-  const getVideosByCategory = (category: string) => 
-    filteredVideos.filter(v => v.category === category);
+  // Every row: the newest arrival first - a video coming over from "Todays Bogxers" (lib/personTvVideo.ts)
+  // starts at the front of its own row. (The API's order put the hero's videos at the END of their rows.)
+  const getVideosByCategory = (category: string) => {
+    const t = (v: TVVideo) => new Date((/today/i.test(category) ? v.todayAt : v.categoryAt) || v.createdAt || 0).getTime();
+    return filteredVideos.filter(v => v.category === category).sort((a, b) => t(b) - t(a));
+  };
 
   return (
     <div className="h-full min-h-full bg-cream overflow-y-auto">
@@ -244,11 +245,13 @@ export default function TVPage({ onBack, initialVideoId }: TVPageProps = {}) {
         </div>
       ) : (
       <div className="px-2 py-4 space-y-6">
-        {/* Featured Videos - Hero Carousel (Position 1, 2, 3) */}
+        {/* The showcase video: ONE main feature (the lowest featured position the admin set). No thumbnail
+            strip on it any more - everything else, "Todays Bogxers" first, is a row below like the other categories. */}
         {(() => {
           const featuredVideos = videos
             .filter(v => v.featuredPosition && v.featuredPosition >= 1 && v.featuredPosition <= 3)
-            .sort((a, b) => (a.featuredPosition || 0) - (b.featuredPosition || 0));
+            .sort((a, b) => (a.featuredPosition || 0) - (b.featuredPosition || 0))
+            .slice(0, 1);
           if (featuredVideos.length === 0) return null;
           
           const currentVideo = featuredVideos[heroIndex % featuredVideos.length];
@@ -280,13 +283,13 @@ export default function TVPage({ onBack, initialVideoId }: TVPageProps = {}) {
               <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent pointer-events-none" />
 
               {/* Content */}
-              <div className="absolute bottom-0 left-0 right-0 p-5 pr-5 md:pr-52">
+              <div className="absolute bottom-0 left-0 right-0 p-5">
                 {/* Badges row */}
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="bg-[#E36B11] text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
+                  <span className="bg-[#E36B11] text-white text-[10px] font-bold px-2.5 py-1 rounded-sm uppercase tracking-wider">
                     Main Feature
                   </span>
-                  <span className="bg-white/20 backdrop-blur-sm text-white text-[10px] font-medium px-2.5 py-1 rounded-full flex items-center gap-1">
+                  <span className="bg-white/20 backdrop-blur-sm text-white text-[10px] font-medium px-2.5 py-1 rounded-sm flex items-center gap-1">
                     <Film className="w-3 h-3" />
                     {currentVideo.category}
                   </span>
@@ -312,10 +315,6 @@ export default function TVPage({ onBack, initialVideoId }: TVPageProps = {}) {
                       {currentVideo.duration}
                     </span>
                   )}
-                  <span className="flex items-center gap-1.5">
-                    <Globe className="w-3.5 h-3.5" />
-                    {currentVideo.language === 'de' ? 'German' : 'English'}
-                  </span>
                 </div>
               </div>
 
@@ -448,10 +447,6 @@ export default function TVPage({ onBack, initialVideoId }: TVPageProps = {}) {
                         {playingVideo.duration}
                       </span>
                     )}
-                    <span className="text-gray-500 text-xs flex items-center gap-1">
-                      <Globe className="w-3 h-3" />
-                      {playingVideo.language === 'de' ? 'German' : 'English'}
-                    </span>
                   </div>
                 </div>
                 <a
