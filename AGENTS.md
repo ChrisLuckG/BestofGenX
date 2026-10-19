@@ -1185,3 +1185,50 @@ quota was gone after 2-3 articles and every later article (and its GenX TV video
 - `scripts/backfill-article-videos.ts --days=N --apply` marks person articles that have NO videos (search = person +
   the section's <strong> work, else the heading). Applied 19.10.2026 to 9 articles.
 - `scripts/check-article-videos.ts` asserts markers, the search cap and the wiring.
+
+## Crawlable content + AdSense (19.10.2026 - refused for "ads on screens without publisher content")
+
+As Googlebot (no JavaScript) the whole site was empty: robots.txt blocked every crawler, every page carried
+noindex/nofollow, the app pages render only "Loading...", even /article/[id] had no text, the AdSense script ran on
+every screen (games, login, loading), no ads.txt, no sitemap. Now:
+- `public/robots.txt`: everything allowed except /admin and /api/; points at the sitemap. `public/ads.txt` exists.
+- Root layout: `robots: { index: false, follow: true }` = the app screens are not search results. CONTENT pages set
+  `index: true`: /article/[id], /magazine, and the info pages (about, impressum, datenschutz, agb, kontakt - each has a
+  small layout.tsx with the metadata). `<html lang="en">`.
+- /article/[id] (server) loads the published article and passes it as `initialArticle` -> ArticlePage's first render,
+  and so the server HTML, contains the full text and videos. The text is set with a memoised
+  `dangerouslySetInnerHTML` (React rewrites it only when the string changes - no iframe flicker), not in an effect.
+- Hydration: anything browser-only must be decided after mount (ShareButtons' `navigator.share` -> `canNativeShare`
+  state). A mismatch makes React throw away the server HTML. The install-prompt `<script>` in <head> carries
+  `suppressHydrationWarning` - its harmless mismatch warning hid the real ones.
+- /magazine: server-rendered list of all published articles (24 per page, category filter, plain links, footer with
+  the info pages). /sitemap.xml (app/sitemap.ts): magazine, categories, info pages, every published article.
+- AdSense: ONLY via `components/AdSenseScript.tsx` (a plain <script>; next/script's data-nscript makes AdSense warn)
+  on /article/[id] and /magazine. Never back into the root layout.
+- Check as Googlebot: `curl -A "Googlebot" <url>` and look at the visible words / <meta name="robots">.
+
+## Writing style: stored, and really applied in the editor's Generate (19.10.2026)
+
+- `Article.aiTone` stores the style an article was generated with (POST /api/articles takes `aiTone`; Daily Auto sends
+  `ARTICLE_DEFAULT_OPTIONS.tone` = informative, the Menschen "Create Article" sends its chosen style). The editor's Style
+  field shows it; older articles have none and show "Informative".
+- The editor's "Generate" (ArticlesTab -> /api/generate-article) was a FIFTH drifted style definition: a local map
+  ('nostalgic', 'humorous' ...) that knew none of the voices, so every pick became "nostalgic Gen X style", and
+  `src/prompts/article-prompt.txt` brings its own old author list + "check your reporter profile". Now ArticlesTab sends
+  `styleId`; the route puts `styleInstructionFor(styleId)` into the system prompt, strips the old author section with
+  `promptForStyle()` (lib/articlePromptStyle.ts; "informative" also loses the "must be funny" lines), repeats the voice
+  demand in the user message, temperature 0.95 for a voice / 0.7 informative.
+- `scripts/check-author-styles.ts` covers all of it.
+- **Daily Auto writes WITH voices** (the user's rules, 19.10.2026; `lib/personVoice.ts`): sport men -> Irvine Welsh; sport
+  women -> Nora Ephron or Slavenka Drakulic (stable split per person); politics -> Drakulic; other women: showbiz ->
+  Ephron, writers/artists/lawyers... split; other men: crude/anarchic comedy, punk, rap, metal (Trey Parker) -> Welsh,
+  the rest - film, TV, pop, tech (Jon Favreau) -> Stuckrad-Barre. RIP stays informative. The gender comes from Wikidata
+  P21 (by `wikidataId`, else name + exact birthday), stored on the Person as `gender` (`lib/personGender.ts`); the
+  description ("actress", "she") is the fallback. The chosen voice is the generator's `tone` and the article's `aiTone`.
+  `scripts/check-person-voice.ts` asserts the rules with the people they were named for.
+- **Readable article URLs** (lib/articleUrl.ts): `/article/<id>/<title-slug>` is the canonical (sitemap, magazine, feed,
+  related links); `/article/<id>` still works (`[id]/[slug]/page.tsx` re-exports `[id]/page.tsx`). The id finds the
+  article, the slug is only for people and search engines - a changed title never breaks a link.
+- Article pages carry JSON-LD `NewsArticle` (author, about = the person, dates, image, publisher) + `BreadcrumbList`
+  and a server-rendered "More from Best of GenX" block (6 links, same category). The magazine carries `WebSite`,
+  `Organization` and an `ItemList`. `/feed.xml` = RSS of the newest 50 (linked as rel=alternate).

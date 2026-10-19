@@ -50,7 +50,7 @@ const art = (id: string, category: string, when: string, extra: Partial<FillArti
   ({ _id: id, title: id, category, status: 'published', coverImage: 'x', createdAt: when, publishedAt: when, order: 0, ...extra, ...(n++ ? {} : {}) });
 
 // --- the rule itself ---
-eq('history joins the waterfall', joinsTopWaterfall({ category: 'history' }), true);
+eq('history does NOT join the waterfall (own section; twice so close looked duplicated)', joinsTopWaterfall({ category: 'history' }), false);
 eq('Daily Champions (gaming + daily-winners tag) joins it', joinsTopWaterfall({ category: 'gaming', tags: ['daily-winners', 'rankings'] }), true);
 eq('an ordinary gaming article does NOT', joinsTopWaterfall({ category: 'gaming', tags: ['reviews'] }), false);
 eq('tech does NOT', joinsTopWaterfall({ category: 'tech' }), false);
@@ -65,18 +65,10 @@ const base = [
 ];
 const withNewHistory = [...base, art('hist-new', 'history', at(11))];
 let w = place(withNewHistory);
-eq('newest article (History, 11:00) takes Top place 1', w['hist-new'], 'BOGXERS');
-eq('it is NOT also shown in the History section', w['hist-new']?.includes('History'), false);
-eq('History section shows the next older history article instead', w['hist-old1']?.includes('History'), true);
-eq('places 2 and 3 are the next newest', [w['movies-1'], w['sports-1']], ['BOGXERS', 'BOGXERS']);
-
-// two more arrive -> hist-new is now place 3, one more -> place 4: falls into History
-const after2 = [...withNewHistory, art('n1', 'music', at(12)), art('n2', 'culture', at(13))];
-eq('still on top at place 3', place(after2)['hist-new'], 'BOGXERS');
-const after3 = [...after2, art('n3', 'sports', at(14))];
-w = place(after3);
-eq('at place 4 it falls into its History section', w['hist-new']?.startsWith('History'), true);
-eq('and is not on top any more', w['hist-new']?.includes('BOGXERS'), false);
+// History does NOT join the Top waterfall: right below the Top it looked duplicated. It loads in its own section.
+eq('the newest article being History does NOT take a Top place', w['hist-new']?.includes('BOGXERS'), false);
+eq('it shows in its History section instead', w['hist-new']?.startsWith('History'), true);
+eq('places 1 to 3 are the newest NON-history articles', [w['movies-1'], w['sports-1']], ['BOGXERS', 'BOGXERS']);
 
 // --- Trivia Winner ---
 const winners = art('winners', 'gaming', at(10), { tags: ['daily-winners', 'rankings'] });
@@ -89,7 +81,7 @@ const w4 = place([winners, art('a', 'music', at(11)), art('b', 'culture', at(12)
 eq('Daily Champions falls to Arcade from place 4', w4['winners'], 'Arcade');
 
 // --- every article has exactly one place ---
-const all = [...after3, winners, plainGaming];
+const all = [...withNewHistory, winners, plainGaming];
 const placed = place(all);
 eq('no article appears twice', Object.values(placed).filter(v => v.includes('+')).length, 0);
 

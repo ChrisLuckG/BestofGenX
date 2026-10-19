@@ -328,6 +328,8 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray;
 }
 
+const SHOW_RECENT_PUSH = false;
+
 export default function NotificationPage({ isOpen = true, onClose, onGoToProfile, onGoToBattle, onShowBattleResult, onRematch, onOpenArticle, onShowChallenge, autoEnable, onNewNotification, onPointsAwarded, autoOpenSettings, onSettingsClosed, onChallengeDeclined, compact = false, onViewAll, onOpenSettings, settingsOpen = false, onCloseSettings, onSettingsOpened, initialChallengeId, onInitialChallengeHandled, onShowSignup, onShowBogxers, onShowArcade, onShowRankroll, onShowWelcome, onCoinAnimation }: NotificationPageProps & { onNewNotification?: () => void }) {
   const { user, isLoggedIn } = useAuth();
   const [showSettings, setShowSettings] = useState(false);
@@ -1532,8 +1534,9 @@ export default function NotificationPage({ isOpen = true, onClose, onGoToProfile
         </div>
       </div>
 
-      {/* What was actually sent to you - including what your switches stopped */}
-      {isLoggedIn && (
+      {/* "Recent messages" (what was sent to you, incl. what your switches stopped) is hidden for now - it gets too long.
+          The log is still written and loaded in the background; set SHOW_RECENT_PUSH to show it again. */}
+      {SHOW_RECENT_PUSH && isLoggedIn && (
         <div className="px-4 pb-6">
           <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-2">Recent messages</p>
           {recentPush.length === 0 ? (

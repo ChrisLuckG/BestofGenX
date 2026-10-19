@@ -103,7 +103,9 @@ export default function DesktopArcadePage({ onSelectGame, userId, battleAlertCou
         <div className="flex-1 flex flex-col gap-4">
           {/* QuizzBattle Banner */}
           <PosterBanner
-            color="#A855F7"
+            color="#1F1F1F"
+            transparent
+            accentColor="#A855F7"
             media={{ type: 'image', src: '/images/categories/battle.png' }}
             badge={{ icon: Users, label: 'Multiplayer' }}
             title="QUIZZ"
@@ -112,9 +114,9 @@ export default function DesktopArcadePage({ onSelectGame, userId, battleAlertCou
             info={liveBattleCount > 0 ? `${liveBattleCount} battles waiting for you` : `Wager 0.25 – 5.00 BOGX · tie = money back`}
             cta="PLAY"
             onClick={() => onSelectGame('quizzbattle')}
-            minHeight={280}
+            minHeight="clamp(180px, calc((100vh - 300px) / 2), 280px)"
             topRight={
-              <div className="flex items-center gap-1.5 bg-black/30 backdrop-blur-sm px-2.5 py-1 rounded-full">
+              <div className="flex items-center gap-1.5 bg-[#1F1F1F] px-2.5 py-1 rounded-full">
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
                 {onlineLoading ? (
                   <div className="w-4 h-3 bg-white/30 rounded animate-pulse" />
@@ -128,7 +130,8 @@ export default function DesktopArcadePage({ onSelectGame, userId, battleAlertCou
 
           {/* Solo Trivia Banner */}
           <PosterBanner
-            color="#E36B11"
+            color="#1F1F1F"
+            transparent
             media={{ type: 'image', src: '/images/categories/solo.png' }}
             badge={{ icon: User, label: 'Single Player' }}
             title="SOLO"
@@ -143,7 +146,7 @@ export default function DesktopArcadePage({ onSelectGame, userId, battleAlertCou
             }
             cta="PLAY"
             onClick={() => onSelectGame('trivia')}
-            minHeight={280}
+            minHeight="clamp(180px, calc((100vh - 300px) / 2), 280px)"
           />
         </div>
       </div>

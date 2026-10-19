@@ -139,7 +139,7 @@ export async function buildWhileAwayEvents(opts: {
     events.push({
       type: 'newPlayers', avatar: (newHumans[0] as any).avatar,
       text: `${(newHumans as any[]).map(u => u.username).join(', ')} joined`,
-      highlight: 'new humans',
+      highlight: 'Best of GenX',
     });
   }
 

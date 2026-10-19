@@ -1,18 +1,9 @@
-# Soft Launch - Allow Google Ads but no indexing
-# Google Ads bot needs access to verify the site
-
-User-agent: Googlebot
-Disallow: /
-
-User-agent: Bingbot
-Disallow: /
+# Best of GenX - the articles, the magazine and the info pages are public.
+# The app screens (games, login, admin) carry their own noindex; the API and the admin are off limits.
 
 User-agent: *
-Disallow: /
-
-# Allow Google Ads verification
-User-agent: AdsBot-Google
 Allow: /
+Disallow: /admin
+Disallow: /api/
 
-User-agent: Mediapartners-Google
-Allow: /
+Sitemap: https://www.bestofgenx.com/sitemap.xml

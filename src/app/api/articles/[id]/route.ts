@@ -7,6 +7,7 @@ import ArticleView from '@/models/ArticleView';
 import { awardBogx } from '@/lib/awardBogx';
 import { getAutoFillSlugs } from '@/lib/categories';
 import crypto from 'crypto';
+import { showArticleTvVideo } from '@/lib/personTvVideo';
 
 // For a dedicated banner-page / Community-Sound page without its own coverImage, inherit the
 // banner image set on the template's FIXED block of its category. The page shows that image
@@ -275,6 +276,9 @@ export async function PUT(
     if (!article) {
       return NextResponse.json({ success: false, error: 'Article not found' }, { status: 404 });
     }
+    
+    // The article just went live: its GenX TV video comes onto the banner now (kept hidden while it was a draft)
+    if (updates.status === 'published') await showArticleTvVideo(id).catch(e => console.error('[GenX TV] show failed', e));
     
     return NextResponse.json({ success: true, article });
   } catch (error: unknown) {

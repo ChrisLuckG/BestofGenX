@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
 import { tickDailyAuto } from '@/lib/dailyAuto';
 import { cronAuthError } from '@/lib/cronAuth';
-import { retryPendingTvVideos, expireToday } from '@/lib/personTvVideo';
+import { retryPendingTvVideos, expireToday, showLiveTvVideos } from '@/lib/personTvVideo';
 import { runArticlePush } from '@/lib/articlePush';
 import { fillPendingArticleVideos } from '@/lib/articleVideos';
 
@@ -26,6 +26,8 @@ export async function GET(request: NextRequest) {
     const embeds = await fillPendingArticleVideos().catch(e => ({ error: e instanceof Error ? e.message : 'failed' }));
     // GenX TV: person articles whose video search hit the used-up YouTube quota get it now (lib/personTvVideo.ts)
     const tv = await retryPendingTvVideos().catch(e => ({ error: e instanceof Error ? e.message : 'failed' }));
+    // The videos of articles that just went live come onto the banner WITH the article
+    await showLiveTvVideos().catch(e => console.error('[GenX TV] showLiveTvVideos failed', e));
     // ...and yesterday's leave "Todays Bogxers" for their own category
     await expireToday().catch(e => console.error('[GenX TV] expireToday failed', e));
     // The new-article push right here, after publishing - not only in the separate article-push call. GitHub starts

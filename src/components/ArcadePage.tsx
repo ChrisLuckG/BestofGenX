@@ -107,11 +107,13 @@ export default function ArcadePage({ onSelectGame, onShowRankings, onShowBattles
       {/* Two poster banners - like the Media page, no scrolling needed */}
       <div className="flex-1 flex flex-col px-2 py-4 gap-4">
         <PosterBanner
-          color="#A855F7"
+          color="#1F1F1F"
+          transparent
+          accentColor="#A855F7"
           media={{ type: 'image', src: '/images/categories/battle.png' }}
           badge={{ icon: Users, label: 'Multiplayer' }}
           topRight={
-            <div className="flex items-center gap-1.5 bg-white/20 backdrop-blur-sm px-2 py-1 rounded-full">
+            <div className="flex items-center gap-1.5 bg-[#1F1F1F] px-2 py-1 rounded-full">
               <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
               {onlineLoading ? (
                 <div className="w-4 h-3 bg-white/20 rounded animate-pulse" />
@@ -129,7 +131,8 @@ export default function ArcadePage({ onSelectGame, onShowRankings, onShowBattles
         />
 
         <PosterBanner
-          color="#E36B11"
+          color="#1F1F1F"
+          transparent
           media={{ type: 'image', src: '/images/categories/solo.png' }}
           badge={{ icon: User, label: 'Single Player' }}
           title="SOLO"

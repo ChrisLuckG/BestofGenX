@@ -228,7 +228,9 @@ export async function placePersonVideoInToday(tvVideoId: string): Promise<void> 
 
 export type TvResult = { added: boolean; reused?: boolean; tvVideoId?: string; youtubeId?: string; title?: string; kind?: VideoKind; duration?: string; reason?: string;
   /** true = try again later (YouTube quota used up, network) - the article is marked 'pending' */
-  retry?: boolean };
+  retry?: boolean;
+  /** false = found, but kept hidden until the article is published */
+  shown?: boolean };
 
 /**
  * Make sure the person has a GenX TV video and put it on top of the banner. A person who already has
@@ -236,7 +238,11 @@ export type TvResult = { added: boolean; reused?: boolean; tvVideoId?: string; y
  * Never throws: the article is the main thing, the video an extra.
  */
 /** `articleDate`: the day of the article - a video fetched late for an older article does not count as today's. */
-export async function ensurePersonTvVideo(personId: string, articleDate: Date = new Date()): Promise<TvResult> {
+/**
+ * `show` false = the article is still a draft (Daily Auto prepares it up to an hour ahead): the video is looked up and
+ * kept hidden (active: false); showArticleTvVideo() puts it on the banner when the ARTICLE goes live.
+ */
+export async function ensurePersonTvVideo(personId: string, articleDate: Date = new Date(), show = true): Promise<TvResult> {
   try {
     await dbConnect();
     const person = await Person.findById(personId).select('firstname lastname profession subcategory died').lean<{ firstname: string; lastname?: string; profession?: string; subcategory?: string; died?: string }>();
@@ -245,6 +251,7 @@ export async function ensurePersonTvVideo(personId: string, articleDate: Date = 
 
     const existing = await TVVideo.findOne({ personRef: personId }).sort({ createdAt: -1 }).lean<{ _id: any; youtubeId: string; title: string }>();
     if (existing) {
+      if (!show) return { added: true, reused: true, shown: false, tvVideoId: String(existing._id), youtubeId: existing.youtubeId, title: existing.title };
       await putOnTop(String(existing._id));
       const cur = await TVVideo.findById(existing._id).select('category homeCategory').lean<{ category?: string; homeCategory?: string }>();
       const today = await todayCategory();
@@ -259,7 +266,7 @@ export async function ensurePersonTvVideo(personId: string, articleDate: Date = 
 
     const already = await TVVideo.findOne({ youtubeId: best.videoId }).lean<{ _id: any }>();
     const doc = already
-      ? await TVVideo.findByIdAndUpdate(already._id, { $set: { personRef: personId, active: true } }, { new: true })
+      ? await TVVideo.findByIdAndUpdate(already._id, { $set: { personRef: personId, ...(show ? { active: true } : {}) } }, { new: true })
       : await TVVideo.create({
           title: name,
           description: best.title,
@@ -270,9 +277,10 @@ export async function ensurePersonTvVideo(personId: string, articleDate: Date = 
           duration: formatSeconds(best.seconds),
           language: 'en',
           featured: true,
-          active: true,
+          active: show, // a draft's video stays hidden until the article is live
           personRef: personId,
         });
+    if (!show) return { added: true, shown: false, tvVideoId: String(doc!._id), youtubeId: best.videoId, title: best.title, kind: best.kind, duration: formatSeconds(best.seconds) };
     await putOnTop(String(doc!._id));
     // newest first in 'Todays Bogxers'; the 9th newest moves on to its own category
     const docCat = (await TVVideo.findById(doc!._id).select('category homeCategory').lean<{ category?: string; homeCategory?: string }>());
@@ -295,7 +303,7 @@ export async function markArticleTv(articleId: string, r: TvResult): Promise<voi
   const mongoose = (await import('mongoose')).default;
   await mongoose.connection.db!.collection('articles').updateOne(
     { _id: new mongoose.Types.ObjectId(articleId) },
-    { $set: { tvVideoStatus: tvStatusOf(r), tvVideoCheckedAt: new Date(), ...(r.youtubeId ? { tvYoutubeId: r.youtubeId } : {}) } },
+    { $set: { tvVideoStatus: tvStatusOf(r), tvVideoCheckedAt: new Date(), ...(r.youtubeId ? { tvYoutubeId: r.youtubeId } : {}), ...(r.tvVideoId ? { tvVideoId: r.tvVideoId, tvShown: r.shown !== false } : {}) } },
   );
 }
 
@@ -304,16 +312,48 @@ export async function markArticleTv(articleId: string, r: TvResult): Promise<voi
  * tick (every 5 minutes), oldest first - so the newest article still ends up on top of the banner.
  * Stops as soon as YouTube refuses again.
  */
+/**
+ * The video of an article that is NOW live goes on the banner (widget waterfall + "Todays Bogxers"). Until then it was
+ * kept hidden - it must come WITH the article, not an hour before it (Daily Auto prepares a draft ahead of its slot).
+ */
+export async function showArticleTvVideo(articleId: string): Promise<boolean> {
+  await dbConnect();
+  const mongoose = (await import('mongoose')).default;
+  const col = mongoose.connection.db!.collection('articles');
+  const a: any = await col.findOne({ _id: new mongoose.Types.ObjectId(articleId), status: 'published', tvShown: false, tvVideoId: { $exists: true } }, { projection: { personRef: 1, tvVideoId: 1, publishedAt: 1 } });
+  if (!a) return false;
+  // claim it first: two callers (publish + the tick) must not both move the banner
+  const claim = await col.updateOne({ _id: a._id, tvShown: false }, { $set: { tvShown: true } });
+  if (!claim.modifiedCount) return false;
+  const person = a.personRef ? await Person.findById(a.personRef).select('profession subcategory died').lean() : null;
+  const v = await TVVideo.findById(a.tvVideoId).select('category homeCategory').lean<{ category?: string; homeCategory?: string }>();
+  if (!v) return false;
+  const today = await todayCategory();
+  await putOnTop(String(a.tvVideoId));
+  await enterToday(String(a.tvVideoId), v.homeCategory || (v.category && v.category !== today ? v.category : await homeCategoryFor(person || {})), new Date(a.publishedAt || Date.now()));
+  return true;
+}
+
+/** Every tick: videos of articles that went live (by any route) and are still hidden. */
+export async function showLiveTvVideos(): Promise<number> {
+  await dbConnect();
+  const mongoose = (await import('mongoose')).default;
+  const ids = await mongoose.connection.db!.collection('articles').find({ status: 'published', tvShown: false }).sort({ publishedAt: 1 }).limit(10).project({ _id: 1 }).toArray();
+  let n = 0;
+  for (const a of ids) if (await showArticleTvVideo(String(a._id))) n++;
+  return n;
+}
+
 export async function retryPendingTvVideos(limit = 3): Promise<{ tried: number; added: number }> {
   await dbConnect();
   const mongoose = (await import('mongoose')).default;
   const pending = await mongoose.connection.db!.collection('articles')
     .find({ tvVideoStatus: 'pending', personRef: { $exists: true, $ne: null } })
-    .sort({ createdAt: 1 }).limit(limit).project({ personRef: 1, publishedAt: 1, createdAt: 1 }).toArray();
+    .sort({ createdAt: 1 }).limit(limit).project({ personRef: 1, publishedAt: 1, createdAt: 1, status: 1 }).toArray();
   let added = 0, tried = 0;
   for (const a of pending) {
     tried++;
-    const r = await ensurePersonTvVideo(String(a.personRef), new Date(a.publishedAt || a.createdAt || Date.now()));
+    const r = await ensurePersonTvVideo(String(a.personRef), new Date(a.publishedAt || a.createdAt || Date.now()), a.status === 'published');
     await markArticleTv(String(a._id), r);
     if (r.added) added++;
     if (r.retry) break; // quota still gone - the next tick tries again

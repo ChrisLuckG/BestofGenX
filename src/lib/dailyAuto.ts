@@ -16,6 +16,8 @@ import { DailyAutoConfig, DailyAutoRun, type IDailyAutoRun } from '@/models/Dail
 import { interestScore } from '@/lib/personScore';
 import { dayMatchers, isGenXBirth } from '@/lib/dateShapes';
 import { houseAuthor } from '@/lib/houseAuthor';
+import { voiceForPerson, type VoiceId } from '@/lib/personVoice';
+import { resolvePersonGender } from '@/lib/personGender';
 import { buildRankrollCta } from '@/lib/rankrollCta';
 import { RADIO_TAG, buildRadioPrompt, planRadio, radioSpotifyLinks, type RadioSong } from '@/lib/radioArticle';
 import { ARTICLE_DEFAULT_OPTIONS, articleTagsForPerson, personFullName, rankrollTopicForPerson } from '@/lib/personContentDefaults';
@@ -224,7 +226,7 @@ export async function generateBogx(origin: string, withRankroll: boolean, dayKey
   // `exclude` (Rerun: the person being replaced) counts as already tried.
   const tried = new Set<string>(exclude);
   const tooShort: string[] = [];
-  let person!: PersonDoc, name = '', gen: any, content = '';
+  let person!: PersonDoc, name = '', gen: any, content = '', voice: VoiceId = 'informative';
   for (let attempt = 1; attempt <= MAX_PERSON_ATTEMPTS; attempt++) {
     try { person = mode === 'rip' ? await pickDeceased(dayKey, tried) : await pickPerson(dayKey, tried); }
     catch (e) {
@@ -234,7 +236,10 @@ export async function generateBogx(origin: string, withRankroll: boolean, dayKey
     }
     tried.add(String(person._id));
     name = personFullName(person);
-    const options = mode === 'rip' ? { ...ARTICLE_DEFAULT_OPTIONS, extra: RIP_BRIEF } : ARTICLE_DEFAULT_OPTIONS;
+    // The author voice by person (lib/personVoice.ts): sport men Irvine Welsh, sport women Ephron/Drakulic, the rest by
+    // kind; RIP stays informative. The gender comes from Wikidata once and is stored on the person.
+    voice = voiceForPerson(person as any, await resolvePersonGender(person), mode === 'rip' ? 'rip' : 'birthday');
+    const options = { ...ARTICLE_DEFAULT_OPTIONS, tone: voice, ...(mode === 'rip' ? { extra: RIP_BRIEF } : {}) };
     gen = await post(origin, '/api/almanac/article', { person: { ...person, _id: String(person._id) }, options });
     content = gen.content || gen.article || '';
     const words = wordCount(content);
@@ -279,6 +284,7 @@ export async function generateBogx(origin: string, withRankroll: boolean, dayKey
       personRef: String(person._id),
       personCountry: person.countryBorn || person.nationality || '',
       personCityBorn: person.cityBorn || '',
+      aiTone: voice, // the voice it was written in (lib/personVoice.ts) - the editor shows it
       personName: name, personBirthday: person.born,
     });
     const articleId = String(saved.article._id);

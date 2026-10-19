@@ -2,13 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import ArticlePage from "@/components/ArticlePage";
+import ArticlePage, { type Article } from "@/components/ArticlePage";
 
 interface ArticlePageClientProps {
   articleId: string;
+  /** Loaded on the server, so the page arrives with its text (crawlers, AdSense review) */
+  initialArticle?: Article | null;
 }
 
-export default function ArticlePageClient({ articleId }: ArticlePageClientProps) {
+export default function ArticlePageClient({ articleId, initialArticle = null }: ArticlePageClientProps) {
   const router = useRouter();
   const [isMobile, setIsMobile] = useState(false);
 
@@ -31,6 +33,7 @@ export default function ArticlePageClient({ articleId }: ArticlePageClientProps)
     <div className="min-h-screen bg-cream">
       <ArticlePage 
         articleId={articleId} 
+        initialArticle={initialArticle}
         onBack={handleBack}
         onShowLogin={() => router.push(isMobile ? '/mobile?login=true' : '/desktop?login=true')}
         onOpenAuthor={(authorName) => router.push(`/author/${encodeURIComponent(authorName)}`)}

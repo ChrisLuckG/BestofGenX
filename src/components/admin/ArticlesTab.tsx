@@ -5,6 +5,7 @@ import { Plus, Edit2, Trash2, Save, X, Eye, EyeOff, Loader2, Sparkles, Upload, R
 import { getCategoryLabel, getCategoryDef } from "@/lib/categories";
 import { useConfirm } from "./ConfirmModal";
 import { computeContainerExcludes, computeBannerCategories, articleSortDate } from "@/lib/containerFill";
+import { berlinDateAt } from "@/lib/berlinTime";
 import { useCategories } from "@/hooks/useCategories";
 import { AUTHOR_STYLES } from "@/config/authorStyles";
 import BlockEditor from "./BlockEditor";
@@ -109,6 +110,23 @@ export default function ArticlesTab({ userId, onGoToMenschen }: ArticlesTabProps
   // shows up in these dropdowns without a reload.
   const categories = useCategories();
   const [articles, setArticles] = useState<ArticleData[]>([]);
+  // Daily Auto drafts that are waiting for their slot: article id -> when it goes live. The list sorts and dates
+  // them by that moment - the History draft prepared at 09:04 for 11:00 used to sit BELOW the 10:00 article.
+  const [plannedAt, setPlannedAt] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!userId) return;
+    fetch(`/api/admin/daily-auto?userId=${userId}`).then(r => r.json()).then(d => {
+      const map: Record<string, number> = {};
+      for (const s of d?.slots || []) {
+        if (!s.articleId || s.status === 'live') continue;
+        const hour = parseInt(String(s.start || '').split(':')[0], 10);
+        if (Number.isFinite(hour)) map[s.articleId] = berlinDateAt(0, hour).getTime();
+      }
+      setPlannedAt(map);
+    }).catch(() => {});
+  }, [userId, articles.length]);
+  /** The moment the list orders by: a planned Daily Auto draft by its go-live time, everything else as before */
+  const listDate = (a: any): number => (a.status !== 'published' && plannedAt[a._id]) || articleSortDate(a);
   const [articlesLoading, setArticlesLoading] = useState(false);
   const [editingArticle, setEditingArticle] = useState<Partial<ArticleData> | null>(null);
   const [isCreatingArticle, setIsCreatingArticle] = useState(false);
@@ -593,21 +611,14 @@ export default function ArticlesTab({ userId, onGoToMenschen }: ArticlesTabProps
     setIsGeneratingArticleText(true);
     try {
       const category = categories.find(c => c.slug === editingArticle?.category)?.label || 'Culture';
-      const tone = editingArticle?.aiTone || 'nostalgic';
+      // The Style dropdown offers config/authorStyles ids ('informative' + four voices). They go to the server as
+      // styleId, which puts the voice's brief into the system prompt (lib/authorStylePrompts.ts). This used to
+      // look the id up in an old local map ('nostalgic', 'humorous' ...) that knew none of the voices, so every
+      // pick fell back to "nostalgic Gen X style" - the voice was never applied.
+      const styleId = editingArticle?.aiTone || 'informative';
       const instructions = editingArticle?.aiInstructions || '';
-      
-      // Build style string based on options
-      const toneMap: Record<string, string> = {
-        'nostalgic': 'nostalgic Gen X style, 80s 90s references, engaging and fun',
-        'informative': 'informative and educational, clear explanations',
-        'humorous': 'humorous and witty, playful tone with jokes',
-        'serious': 'serious and thoughtful, in-depth analysis',
-        'listicle': 'listicle format with numbered items, scannable'
-      };
       // Articles are always long - there is no shorter option any more
-      const lengthStyle = 'Detailed and comprehensive, around 800 words';
-      
-      const style = `${toneMap[tone] || toneMap['nostalgic']}. ${lengthStyle}. ${instructions}`;
+      const style = `Detailed and comprehensive, around 800 words. ${instructions}`.trim();
       
       const res = await fetch('/api/generate-article', {
         method: 'POST',
@@ -615,7 +626,8 @@ export default function ArticlesTab({ userId, onGoToMenschen }: ArticlesTabProps
         body: JSON.stringify({ 
           topic, 
           category,
-          style
+          style,
+          styleId,
         }),
       });
       const data = await res.json();
@@ -1116,8 +1128,8 @@ export default function ArticlesTab({ userId, onGoToMenschen }: ArticlesTabProps
               filteredArticles = [...filteredArticles].sort((a: any, b: any) => {
                 const ao = a.order ?? 0, bo = b.order ?? 0;
                 if (ao !== bo) return ao - bo;
-                const da = articleSortDate(a);
-                const db = articleSortDate(b);
+                const da = listDate(a);
+                const db = listDate(b);
                 return dateSort === 'desc' ? db - da : da - db;
               });
               
@@ -1222,10 +1234,14 @@ export default function ArticlesTab({ userId, onGoToMenschen }: ArticlesTabProps
                     {/* Date - with time */}
                     <div className="text-gray-500 whitespace-nowrap">
                       {(() => {
-                        // Same moment the feed orders by (go-live, not creation)
-                        const when = articleSortDate(article as any);
+                        // Same moment the feed orders by (go-live, not creation); a planned Daily Auto draft shows its slot time
+                        const planned = (article as any).status !== 'published' && plannedAt[(article as any)._id];
+                        const when = listDate(article as any);
                         return when
-                          ? new Date(when).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) + ' ' + new Date(when).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+                          ? <span title={planned ? 'Daily Auto: goes live at this time' : undefined}>
+                              {new Date(when).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) + ' ' + new Date(when).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                              {planned && <span className="ml-1 text-[10px] font-semibold text-purple-600">planned</span>}
+                            </span>
                           : '-';
                       })()}
                     </div>

@@ -19,7 +19,7 @@ import MusicSongList from './games/MusicSongList';
 import { getFlagUrl } from "@/lib/countryFlags";
 import { VIDEO_REWARD } from "@/config/rewards";
 
-interface Article {
+export interface Article {
   _id: string;
   title: string;
   subtitle?: string;
@@ -65,6 +65,12 @@ interface ArticlePageProps {
   onOpenRadio?: () => void;
   isDesktop?: boolean;
   readArticles?: Set<string>;
+  /**
+   * The article as the server already loaded it (/article/[id]). Then the first render - and so the HTML the
+   * server sends - already contains the text instead of a loading skeleton: search engines and the AdSense
+   * review saw an empty "Loading" screen. The browser still fetches as before (view count, read reward).
+   */
+  initialArticle?: Article | null;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -159,7 +165,7 @@ function processArticleHtml(raw: string): string {
     // The onclick handler: hide badge, show watched label, then swap to iframe
     const onClickHandler = `(function(el){var card=el.closest('.article-video-card');var badge=card.querySelector('.video-reward-badge');var watched=card.querySelector('.video-watched-overlay');if(badge)badge.style.display='none';if(watched)watched.style.display='block';setTimeout(function(){el.outerHTML='<iframe src=\\'${embedSrc}\\' style=\\'width:380px;height:214px;border:0;display:block;\\' frameborder=\\'0\\' allow=\\'autoplay; encrypted-media\\' allowfullscreen></iframe>';},150);})(this)`;
 
-    return `<div class="article-video-card" data-video-id="${videoId}" style="width:380px;max-width:380px;border-radius:6px;overflow:hidden;margin-top:-10px;"><div style="position:relative;width:380px;height:214px;cursor:pointer;" onclick="${onClickHandler}"><img src="${thumbnailUrl}" data-keep-size alt="" style="width:380px;height:214px;object-fit:cover;display:block;" />${rewardBadge}${watchedOverlay}<div class="video-coin-container" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;"><img src="/images/bogxcoin.png" data-keep-size alt="Play" class="video-play-coin" style="width:64px;height:64px;max-width:64px;clip-path:circle(42%);background:black;transition:transform 0.2s ease;"/></div><div class="video-play-button" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;pointer-events:none;"><div style="width:52px;height:52px;border-radius:50%;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;"><span style="color:white;font-size:20px;margin-left:3px;">▶</span></div></div></div></div>`;
+    return `<div class="article-video-card" data-video-id="${videoId}" style="width:380px;max-width:380px;border-radius:6px;overflow:hidden;margin-top:-10px;"><div style="position:relative;width:380px;height:214px;cursor:pointer;" onclick="${onClickHandler}"><img src="${thumbnailUrl}" data-keep-size alt="" style="width:380px;height:214px;object-fit:cover;display:block;" />${rewardBadge}${watchedOverlay}<div class="video-coin-container" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;"><div class="video-play-coin" role="img" aria-label="Play" style="width:56px;height:56px;border-radius:50%;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;transition:transform 0.2s ease;"><span style="color:white;font-size:22px;margin-left:3px;">▶</span></div></div><div class="video-play-button" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;pointer-events:none;"><div style="width:52px;height:52px;border-radius:50%;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;"><span style="color:white;font-size:20px;margin-left:3px;">▶</span></div></div></div></div>`;
   };
 
   const floatVideo = (card: string, index: number): string => {
@@ -297,12 +303,12 @@ function processArticleHtml(raw: string): string {
   return html;
 }
 
-export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuthor, onOpenArticle, onCoinAnimation, onOpenRadio, isDesktop = false, readArticles = new Set() }: ArticlePageProps) {
+export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuthor, onOpenArticle, onCoinAnimation, onOpenRadio, isDesktop = false, readArticles = new Set(), initialArticle = null }: ArticlePageProps) {
   const { user, isLoggedIn } = useAuth();
-  const [article, setArticle] = useState<Article | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [article, setArticle] = useState<Article | null>(initialArticle);
+  const [loading, setLoading] = useState(!initialArticle);
   const [liked, setLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(0);
+  const [likeCount, setLikeCount] = useState(initialArticle?.likes || 0);
   const [linkedPoll, setLinkedPoll] = useState<any | null>(null);
   const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
   const [countdown, setCountdown] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(null);
@@ -526,14 +532,11 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
 
   const processedHtml = useMemo(() => processArticleHtml(article?.content || ''), [article?.content]);
 
-  // Use ref-based innerHTML injection to prevent iframe flickering on re-renders.
-  // dangerouslySetInnerHTML destroys/recreates the DOM (and iframes) on every render;
-  // this only updates when processedHtml actually changes.
-  useEffect(() => {
-    if (proseRef.current && proseRef.current.innerHTML !== processedHtml) {
-      proseRef.current.innerHTML = processedHtml;
-    }
-  }, [processedHtml]);
+  // The article text is set in the FIRST render (so the server's HTML carries it - crawlers and the AdSense
+  // review saw an empty page when it was injected in an effect). No flicker: React rewrites the inner HTML only
+  // when the __html STRING changes, and the object is memoised on processedHtml - the same rule the old
+  // ref-based injection had. The effects below (video cards, watched badges) still work on this DOM.
+  const proseHtml = useMemo(() => ({ __html: processedHtml }), [processedHtml]);
 
   // Mark already-watched videos on load: hide the reward badge, show "Watched" label.
   useEffect(() => {
@@ -1034,6 +1037,7 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
             fontFamily: 'var(--font-sans-lv), "DM Sans", system-ui, sans-serif',
           } as React.CSSProperties}
           ref={proseRef}
+          dangerouslySetInnerHTML={proseHtml}
         />
 
         {/* Music Community Song List - only for music-community articles */}
@@ -1174,10 +1178,13 @@ export default function ArticlePage({ articleId, onBack, onShowLogin, onOpenAuth
 function ShareButtons({ title }: { title: string }) {
   const [copied, setCopied] = useState(false);
   const [url, setUrl] = useState('');
+  // Known only in the browser - decided after mount, so the server's HTML and the first browser render match
+  const [canNativeShare, setCanNativeShare] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       setUrl(window.location.href);
+      setCanNativeShare(typeof navigator.share === 'function');
     }
   }, []);
 
@@ -1259,7 +1266,7 @@ function ShareButtons({ title }: { title: string }) {
           </button>
           
           {/* Native share (mobile) */}
-          {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
+          {canNativeShare && (
             <button
               type="button"
               onClick={handleNativeShare}

@@ -65,7 +65,7 @@ export const byFeedOrder = (a: FillArticle, b: FillArticle) => {
  * the Top Area, so this exempts just these two kinds rather than all of gaming/tech.
  */
 export const joinsTopWaterfall = (a: { category?: string; tags?: string[] }) =>
-  (a.category || '').toLowerCase() === 'history' || (a.tags || []).includes('daily-winners');
+  (a.tags || []).includes('daily-winners'); // History is NOT in here: it loads in its own History section (right below the top it looked duplicated)
 
 // Date-based banner areas whose WHOLE category belongs to their FIXED banner box and is
 // therefore excluded from the global Top Area (mirrors WelcomeReel).

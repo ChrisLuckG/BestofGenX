@@ -74,5 +74,27 @@ else pass('retired style ids fall back to informative');
 if (styleInstructionFor(undefined) !== AUTHOR_STYLE_PROMPTS.informative) fail('undefined must fall back to informative');
 if (isAuthorVoice('murakami')) fail('a retired id must not count as an author voice');
 
+// 9. The article editor's "Generate" (/api/generate-article). It looked the Style id up in an old local map that
+//    knew none of the voices (always "nostalgic"), and the house prompt carried its own old author list plus
+//    "check your reporter profile" - the chosen voice was never applied (19.10.2026).
+{
+  const fs = require('fs') as typeof import('fs');
+  const tab = fs.readFileSync('src/components/admin/ArticlesTab.tsx', 'utf8');
+  const gen = fs.readFileSync('src/app/api/generate-article/route.ts', 'utf8');
+  if (/toneMap\[tone\]/.test(tab) || !/styleId,/.test(tab)) fail('ArticlesTab must send the Style id as styleId (no local tone map)');
+  else pass('the editor sends the chosen Style as styleId');
+  if (!/styleInstructionFor\(styleId/.test(gen) || !/hasVoice \? 0\.95 : 0\.7/.test(gen)) fail('/api/generate-article must put the brief in the system prompt (0.95 for a voice)');
+  else pass('/api/generate-article uses the brief and the voice temperature');
+  const { promptForStyle } = require('../src/lib/articlePromptStyle') as typeof import('../src/lib/articlePromptStyle');
+  const raw = fs.readFileSync('src/prompts/article-prompt.txt', 'utf8');
+  const voiced = promptForStyle(raw, true), plain = promptForStyle(raw, false);
+  if (/DAVID SEDARIS|reporter profile/i.test(voiced) || !/OUTPUT FORMAT/.test(voiced)) fail('the house prompt must lose its old author list, keep its output format');
+  else pass('the house prompt keeps its format but not its old author list');
+  if (/LAUGH or at least SMIRK/.test(plain)) fail('"informative" must not carry the house prompt\'s "must be funny" rules');
+  else pass('"informative" is not told to be funny');
+  if (!/aiTone:\s*\{/.test(fs.readFileSync('src/models/Article.ts', 'utf8'))) fail('the Article model must store aiTone (the editor shows it)');
+  else pass('the article stores the style it was written in (aiTone)');
+}
+
 console.log(failed ? `\n${failed} check(s) failed` : '\nall author-style checks passed');
 process.exit(failed ? 1 : 0);

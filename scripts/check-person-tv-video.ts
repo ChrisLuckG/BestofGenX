@@ -43,7 +43,9 @@ const eq = (n: string, got: unknown, want: unknown) => { const ok = JSON.stringi
 
   // ---------------------------------------------------------------- wiring
   const route = fs.readFileSync('src/app/api/articles/route.ts', 'utf8');
-  eq('POST /api/articles calls ensurePersonTvVideo for a person article', /if \(body\.personRef && \(article\.contentType \|\| 'article'\) === 'article'\)[\s\S]{0,120}ensurePersonTvVideo/.test(route), true);
+  eq('POST /api/articles calls ensurePersonTvVideo for a person article', /if \(body\.personRef && \(article\.contentType \|\| 'article'\) === 'article'\)[\s\S]{0,300}ensurePersonTvVideo/.test(route), true);
+  eq('a draft video stays hidden: the save passes show = (status === published)', route.includes("(status || 'draft') === 'published'"), true);
+  eq('it joins the banner when the article goes live: PUT publish + every tick', fs.readFileSync('src/app/api/articles/[id]/route.ts', 'utf8').includes('showArticleTvVideo(id)') && fs.readFileSync('src/app/api/cron/daily-auto/route.ts', 'utf8').includes('showLiveTvVideos()'), true);
   eq('...and returns what happened (tvVideo) in the answer', route.includes('menschCreated, tvVideo }'), true);
   eq('...and stores the outcome on the article (pending ones are retried)', route.includes('markArticleTv(String(article._id), tvVideo)'), true);
   eq('every Daily Auto tick retries the pending videos', fs.readFileSync('src/app/api/cron/daily-auto/route.ts', 'utf8').includes('retryPendingTvVideos()'), true);

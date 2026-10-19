@@ -365,7 +365,7 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
                     key={`day-${dailyRank}-${dailyRoll ?? 'idle'}`}
                     onClick={dailyRank > 0 ? undefined : (e) => { e.stopPropagation(); setTipFor(prev => prev === 'day' ? null : 'day'); }}
                     style={dailyJustPlaced ? { animation: 'rankFadeIn 0.5s ease-out' } : dailyRoll ? { animation: `rankRoll${dailyRoll === 'up' ? 'Up' : 'Down'} 0.5s cubic-bezier(0.22, 1, 0.36, 1)` } : undefined}
-                    className={`font-display font-bold tabular-nums leading-none ${rankingsOpen ? 'text-white text-[22px]' : dailyRank > 0 ? 'text-gray-800 text-[22px]' : 'text-[#E36B11] text-[13px] cursor-pointer active:scale-110'}`}
+                    className={`font-display font-bold tabular-nums leading-none ${rankingsOpen ? 'text-white text-[22px]' : dailyRank > 0 ? 'text-gray-800 text-[22px]' : 'text-[#E36B11] text-[17px] cursor-pointer active:scale-110'}`}
                   >
                     {dailyRank > 0 ? showRank(dailyRank, introDailyRank) : formatUnranked(dailyPoints, animDaily)}
                   </span>
@@ -415,7 +415,7 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
                   {/* No arrow when unranked - neutral state */}
                   <span
                     onClick={monthlyRank > 0 ? undefined : (e) => { e.stopPropagation(); setTipFor(prev => prev === 'month' ? null : 'month'); }}
-                    className={`font-display font-bold tabular-nums leading-none ${rankingsOpen ? 'text-white text-[22px]' : monthlyRank > 0 ? 'text-gray-800 text-[22px]' : 'text-[#E36B11] text-[13px] cursor-pointer active:scale-110'}`}
+                    className={`font-display font-bold tabular-nums leading-none ${rankingsOpen ? 'text-white text-[22px]' : monthlyRank > 0 ? 'text-gray-800 text-[22px]' : 'text-[#E36B11] text-[17px] cursor-pointer active:scale-110'}`}
                   >
                     {monthlyRank > 0 ? showRank(monthlyRank, introMonthlyRank) : formatUnranked(monthlyPoints, animMonthly)}
                   </span>
@@ -440,7 +440,7 @@ export default function Header({ coins, userAvatar, userRank, hasPendingWager = 
                   {/* No arrow when unranked - neutral state */}
                   <span
                     onClick={yearlyRank > 0 ? undefined : (e) => { e.stopPropagation(); setTipFor(prev => prev === 'year' ? null : 'year'); }}
-                    className={`font-display font-bold tabular-nums leading-none ${rankingsOpen ? 'text-white text-[22px]' : yearlyRank > 0 ? 'text-gray-800 text-[22px]' : 'text-[#E36B11] text-[13px] cursor-pointer active:scale-110'}`}
+                    className={`font-display font-bold tabular-nums leading-none ${rankingsOpen ? 'text-white text-[22px]' : yearlyRank > 0 ? 'text-gray-800 text-[22px]' : 'text-[#E36B11] text-[17px] cursor-pointer active:scale-110'}`}
                   >
                     {yearlyRank > 0 ? showRank(yearlyRank, introYearlyRank) : formatUnranked(yearlyPoints, animYearly)}
                   </span>

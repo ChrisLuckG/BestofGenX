@@ -23,14 +23,12 @@ export const metadata: Metadata = {
   title: "BOGX - Best of GenX",
   description: "Test your retro knowledge - 80s, 90s, Early 2000s!",
   manifest: "/manifest.json",
-  // SOFT LAUNCH: No indexing, but Google Ads can verify
+  // The app screens (games, login, feed shells) are not search results: noindex. The CONTENT pages - articles,
+  // the magazine, the info pages - override this with index: true in their own metadata. (Until 19.10.2026 every
+  // page was noindex/nofollow and robots.txt blocked all crawlers - AdSense saw a site without content.)
   robots: {
     index: false,
-    follow: false,
-    googleBot: {
-      index: false,
-      follow: false,
-    },
+    follow: true,
   },
   appleWebApp: {
     capable: true,
@@ -53,7 +51,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="de" className={`${inter.variable} ${bebasNeue.variable}`}>
+    <html lang="en" className={`${inter.variable} ${bebasNeue.variable}`}>
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black" />
@@ -73,7 +71,10 @@ export default function RootLayout({
           some devices but not others (pure timing luck).
           Stashing the event here makes it available whenever the banner mounts.
         */}
+        {/* suppressHydrationWarning: the browser hands this inline script back to React empty, so React reported a
+            mismatch on every page - and that first (harmless) warning hid the real ones. */}
         <script
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{
             __html: `
               window.__bogxInstallPrompt = null;
@@ -89,12 +90,9 @@ export default function RootLayout({
             `,
           }}
         />
-        {/* Google AdSense */}
-        <script 
-          async 
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7466879486070831"
-          crossOrigin="anonymous"
-        />
+        {/* Google AdSense is NOT loaded here: ads only on content pages (components/AdSenseScript.tsx on the
+            article page and the magazine). Auto ads on game, login, loading and notification screens are exactly
+            "ads on screens without publisher content". */}
       </head>
       <body className={inter.className}>
         <Providers>
